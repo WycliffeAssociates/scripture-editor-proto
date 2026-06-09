@@ -52,7 +52,7 @@ function throwPathIoUnsupported(): never {
 
 // scope is required by the library and gates the document-level rules. The
 // editor doesn't thread chapter-grain scope yet, so we lint the whole book —
-// preserving today's behavior. See usfm_onion plans/plan-lint-scope.md §11.
+// preserving today's behavior.
 const WHOLE_BOOK_SCOPE: onion.LintScope = "book";
 
 function toWebTokenLintOptions(

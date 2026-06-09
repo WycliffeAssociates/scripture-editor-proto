@@ -13,8 +13,7 @@ import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 // backspace handlers — and a single local edit can invalidate arbitrarily
 // many downstream nodes' sids (document-order-global derived state). The
 // pass is zero-byte and zero-caret (historyMerge + structuralFixup tags),
-// so running it at frame rate fights nobody; the old 75ms caution existed
-// for the byte-moving repair half, which is gone.
+// so running it at frame rate is safe — it moves neither bytes nor the caret.
 const DEFAULT_STRUCTURE_DEBOUNCE_MS = 16;
 
 /**

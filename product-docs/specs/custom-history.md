@@ -40,7 +40,7 @@
 ## Replay path
 
 Replay is the only path in the codebase outside the bridge that commits a
-`bulk` patch with project scope. The shape is:
+`bulk` patch scoped to exactly the chapters the entry touches. The shape is:
 
 ```
 HistoryManager.undo() / redo()
@@ -52,7 +52,7 @@ applyEntry(action, direction, …)
   │       markChapterDirty                                      // re-derives dirty flag
   ├── workingFilesStore.commit({ kind: "bulk", files: draft },
   │                            { kind: "undo" | "redo",
-  │                              scope: { project: true },
+  │                              scope: { chapters: dedupeChapterRefs(touched) },
   │                              dirtyTextContent: true })
   ├── (if visible chapter touched) refreshVisibleEditorIfTouched
   │       setEditorContent(editor, …, tag = programaticIgnore)
@@ -110,27 +110,18 @@ default cursor.
 - If a mutator is not wrapped, undo/redo will not represent that
   operation.
 
-## Post undo/redo hook
-- `useCustomHistory` exposes `registerPostUndoRedoAction(listener)`.
-- Listener receives:
-  - `action`: `"undo" | "redo"`
-  - `label`: the history entry label
-  - `touchedChapters`: deduped chapter refs `{ bookCode, chapterNumber }`
-- Return value is an unsubscribe function; register inside `useEffect`
-  and return cleanup.
-- This is the supported way for dependent UI to react after stack
-  replay. Two consumers in-tree today:
-  - `WorkspaceContext` re-lints just the touched books (the main lint
-    pipeline filters `undo`/`redo` out, so this is how lint stays in
-    sync after replay).
-  - Search panel re-runs the query so the result list / highlights
-    aren't stale after undo/redo.
+## Post undo/redo reactions
 
-### Example usage pattern
-- In a consumer hook/component:
-  - `useEffect(() => history.registerPostUndoRedoAction((event) => { ... }), [history])`
-  - Gate work with local UI state (`isPanelOpen`, `searchTerm`, etc.) before
-    re-running expensive logic.
+Undo/redo commits carry `kind: "undo"` or `kind: "redo"` in their
+`CommitEvent.meta`. Dependent pipelines subscribe to
+`WorkingFilesStore.changes` and react in the normal way:
+
+- **Lint** (`lintScopeFor` in `commitFilters.ts`) does **not** exclude
+  `undo`/`redo` — replay commits carry precise chapter scope so the lint
+  pipeline re-lints exactly the touched books automatically.
+- **Search** (`searchRerunPipeline`) includes `undo`/`redo` in its
+  `isSearchRerunRelevant` check, so the search panel re-runs the current
+  query whenever replay restores prior content.
 
 ## Performance notes
 - Replay cost is dominated by `canonicalSnapshotToChapterState`

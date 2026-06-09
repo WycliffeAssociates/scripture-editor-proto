@@ -2,7 +2,9 @@
 
 ## What this feature does
 - Provides five editor modes for different editing needs:
-  - `Regular`: reader-friendly editing with markers hidden and protected
+  - `Regular`: reader-friendly WYSIWYG editing. Chapter (`\c`) and verse (`\v`)
+    markers are structured nodes (`USFMNumberedMarkerNode`) whose number is
+    directly editable; all other marker bytes are hidden but non-editable.
   - `Form`: structured per-block UI for paragraph/poetry/list rows with verse chips, indent controls, and inline insert/combine/delete affordances
   - `View`: read-only regular layout
   - `Plain`: underlying markup view with fewer editor helpers
@@ -74,9 +76,12 @@ intentionally).
 ## Current limits and non-goals
 - `Plain` mode intentionally reduces structure helpers; lint/update behaviors differ from regular/usfm flows.
 - Mode switching changes editor presentation/projection and interaction rules; it does not auto-save changes.
-- Mode-flip losslessness rests on a slice-and-rejoin invariant
-  (`flatten(build(tokens)) === tokens`); reconstruction-based flips
-  are not supported.
+- Mode-flip losslessness: every flip reduces to flat tokens first, then rebuilds
+  for the target shape (`transformToShape` in `modeTransforms.ts`). For
+  `USFMNumberedMarkerNode`, one node unfolds to 2–3 tokens and refolds with
+  stable ids. A dev-only I2 fixpoint pipeline (`tokenFixpointPipeline.ts`,
+  gated on `import.meta.env.DEV`) continuously re-lexes committed bytes and
+  `console.error`s on divergence.
 - Milestone-kind round-trip through the Lexical adapter is a known
   pending issue (the adapter currently collapses `kind: "milestone"`
   → `"marker"`); locked-in divergences are pinned via `it.fails` in
@@ -84,13 +89,16 @@ intentionally).
 - This mode system is not a substitute for full USFM semantic validation.
 
 ## Key modules (for agents)
-- `src/app/data/editor.ts` — `EditorModeSetting`, `EditorShape`, `editorModeToShape`
+- `src/app/data/editor.ts` — `EditorModeSetting`, `EditorShape`, `editorModeToShape`, `UsfmTokenTypes`
 - `src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx`
 - `src/app/ui/hooks/useModeSwitching.tsx`
 - `src/app/domain/editor/utils/modeTransforms.ts`
 - `src/app/domain/editor/serialization/fromSerializedToLexical.ts`
 - `src/app/domain/editor/listeners/manageUsfmMarkers.ts`
-- `src/app/domain/editor/hooks/useEditorLinter.ts`
+- `src/app/domain/editor/nodes/USFMNumberedMarkerNode.ts` — structured c/v node; `registerNumberedMarkerBehaviors`
+- `src/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts` — tree→flat waist
+- `src/app/domain/editor/pipelines/structureMaintenancePipeline.ts` — metadata pass (sid/inPara/structural-empty) at frame cadence (~16 ms); char-open/close repair (residual until char-element nodes ship)
+- `src/app/domain/editor/pipelines/tokenFixpointPipeline.ts` — dev-only I2 re-lex alarm
 - Form-mode specific:
   - `src/app/domain/editor/nodes/FormBlockNode.tsx` — decorator node, sets `data-block-category`
   - `src/app/ui/components/blocks/FormBlockCard.tsx` — row grid, chrome, indent cycle, insert/combine/split slots

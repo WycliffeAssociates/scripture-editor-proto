@@ -447,7 +447,7 @@ graph TD
           <tr><td class="mono">WorkingFilesStore</td><td>The live <code>ScriptureBookState[]</code> — the canonical truth</td><td>Editor bridge, the seam, incoming sync, loaders (<code>reset</code>)</td><td>Everything (React + Effect channels)</td></tr>
           <tr><td class="mono">WorkspaceInteractionGate</td><td><code>open</code> · <code>saving</code> · <code>recovery-decision-pending</code></td><td>Save command, recovery UI</td><td>Every mutation entry point; disables UI</td></tr>
           <tr><td class="mono">SaveStatusStore</td><td>Save status union (dirty/saving/saved/failed)</td><td>save-status pipeline + save flow</td><td>Save button / status UI</td></tr>
-          <tr><td class="mono">LintStore</td><td>Lint results by chapter</td><td>lint pipeline; post-undo relint</td><td>Lint UI, the DOM annotator</td></tr>
+          <tr><td class="mono">FindingsStore</td><td>Findings by chapter from both producers — onion lint + sous content analysis (namespaced slices; sous slice carries a vref segment-map sidecar)</td><td>lint &amp; sous pipelines</td><td>Findings overlay + panel, the decoration path</td></tr>
           <tr><td class="mono">WorkspaceBaselineStore</td><td>Per-book disk MD5 baselines</td><td>Save (after persist), recovery loader</td><td>dirty-buffer pipeline (is it really dirty vs disk?)</td></tr>
           <tr><td class="mono">DirtyBufferStore</td><td>Per-book USFM crash backups in managed fs</td><td>dirty-buffer pipeline only</td><td>Recovery loader at reopen</td></tr>
           <tr><td class="mono">RecoveredConflictTracker</td><td><code>Set</code> of <code>book:chapter</code> needing review</td><td>Recovery loader; conflict-clearer pipeline</td><td>Recovery banners; gates incoming/compare</td></tr>
@@ -464,11 +464,14 @@ graph TD
       <table>
         <thead><tr><th>Pipeline</th><th>Reacts to</th><th>Effect</th><th>Backpressure</th></tr></thead>
         <tbody>
-          <tr><td class="mono">lintPipeline</td><td>Content commits (excludes metadataOnly / structuralFixup / load / undo / redo)</td><td>Re-lint touched books → <code>lintStore</code></td><td><code>switchMap</code> (cancel in-flight) + <code>debounce 100ms</code></td></tr>
+          <tr><td class="mono">lintPipeline</td><td>Content commits by chapter scope (undo/redo carry chapter scope, so they re-lint too)</td><td>Re-lint touched books → <code>findingsStore</code> (onion slice)</td><td>folded scope (accumulate in a <code>Ref</code>, drain-and-restore on interrupt) + <code>debounce 100ms</code></td></tr>
+          <tr><td class="mono">sousPipeline</td><td>Content commits by <code>sousScopeFor</code> (book grain)</td><td>Content analysis (scripture-sous-chef) → <code>findingsStore</code> sous slice + segment-map sidecar</td><td>folded scope + <code>debounce 200ms</code></td></tr>
           <tr><td class="mono">dirtyBufferPipeline</td><td>Content commits (excludes load / selectionOnly)</td><td>Write/clear per-book USFM crash backup</td><td><code>groupByKey</code> per book · debounce 500ms · staleness ceiling 10s · retry w/ backoff</td></tr>
           <tr><td class="mono">saveStatusPipeline</td><td>Content commits (excludes metadataOnly / structuralFixup / load)</td><td>Derive dirty ↔ clean → <code>saveStatusStore</code></td><td>None (pure observation)</td></tr>
-          <tr><td class="mono">structureMaintenancePipeline</td><td>Only <code>userEdit</code> with <code>dirtyTextContent</code></td><td>Run document-structure + metadata repairs on the editor</td><td>debounce 75ms · awaits <code>mainEditorDeferred</code></td></tr>
+          <tr><td class="mono">structureMaintenancePipeline</td><td>Only <code>userEdit</code> with <code>dirtyTextContent</code></td><td>Metadata pass (sids / inPara / structural-empty) + residual char-marker repair — the byte-moving repair sweep is gone</td><td>debounce 16ms (frame cadence) · awaits <code>mainEditorDeferred</code></td></tr>
           <tr><td class="mono">overlayTickPipeline</td><td>All but <code>metadataOnly</code></td><td>Bump <code>layoutTickStore</code> (overlays re-measure)</td><td>debounce 16ms (one tick / frame)</td></tr>
+          <tr><td class="mono">editorSyncPipeline</td><td>Programmatic commits (incoming sync / fixes) touching the open chapter</td><td>Push store changes back into the live editor</td><td>None (immediate)</td></tr>
+          <tr><td class="mono">tokenFixpointPipeline <span class="tag tag-dim">dev only</span></td><td>Content commits (lint scope)</td><td>Re-lex the structured tree; <code>console.error</code> if <code>tokens ≢ lex(join(sources))</code></td><td><code>debounce 250ms</code></td></tr>
           <tr><td class="mono">recoveredConflictTrackerSubscriber</td><td>All commits</td><td>Clear conflict entries as their chapters go clean</td><td>None (idempotent post-state check)</td></tr>
         </tbody>
       </table>
@@ -490,6 +493,7 @@ graph TD
         <tbody>
           <tr><td class="mono">USFMParagraphNode</td><td>ElementNode</td><td>Paragraph-class container (<code>\p</code>, <code>\q1</code>, <code>\s1</code>…); carries id/marker/sid metadata via NodeState so structure survives editing.</td></tr>
           <tr><td class="mono">USFMTextNode</td><td>TextNode</td><td>The leaf for every visible token — text runs, marker openers/closers, verse numbers. Carries tokenType/marker/sid/attributes.</td></tr>
+          <tr><td class="mono">USFMNumberedMarkerNode</td><td>USFMTextNode</td><td>Structured chapter/verse markers (<code>\c</code>, <code>\v</code>). Token emission derives from node shape (openBytes / number text / closeBytes) — no hidden editable marker bytes; the number is the only editable content.</td></tr>
           <tr><td class="mono">USFMNestedEditorNode</td><td>DecoratorNode</td><td>Footnotes / cross-refs (<code>\f</code>, <code>\x</code>) as a <em>nested Lexical editor</em> rendered inline — atomic to the outer doc, fully editable inside.</td></tr>
           <tr><td class="mono">FormBlockNode</td><td>DecoratorNode</td><td>Form-mode card: a paragraph block rendered as a structured React card (<code>FormBlockCard</code>).</td></tr>
           <tr><td class="mono">BookFrontmatterFormNode</td><td>DecoratorNode</td><td>Form-mode card for chapter 0 (book metadata) — frontmatter fields, not verses.</td></tr>
@@ -500,11 +504,11 @@ graph TD
     <h3 style="font-size:14px;margin:24px 0 10px;color:var(--text-dim);font-family:var(--font-mono);letter-spacing:.5px">KEY PLUGINS</h3>
     <div class="grid g3">
       <div class="ve-card ve-card--hero animate"><h3>WorkingFilesBridgePlugin</h3><p>The <strong>only</strong> path from editor → store. On each update it classifies the commit kind (userEdit / undo / structuralFixup / programmaticFix), skips programmatic round-trips, and calls <code>workingFilesStore.commit</code>. Selection-only updates publish as <code>metadataOnly</code>.</p></div>
-      <div class="ve-card animate"><h3>LintDomAnnotatorPlugin</h3><p>Anchors lint highlights to rendered tokens by id/sid; falls back to badges when a token isn't visible. Suppressed in form mode (form has its own affordance).</p></div>
+      <div class="ve-card animate"><h3>FindingsOverlayPlugin</h3><p>Renders findings from both producers: token-anchored (lint) highlights resolve to their token element, or a badge when off-screen; content-anchored (sous) findings resolve <code>(sid, UTF-16 span)</code> to DOM rects via the vref segment map. Suppressed for form-shape findings (form has its own affordance).</p></div>
       <div class="ve-card animate"><h3>ContextMenuPlugin</h3><p>Right-click / Cmd-K → the action palette, positioned at the cursor, carrying the current <code>EditorContext</code>.</p></div>
       <div class="ve-card animate"><h3>VerseMarkerSuggestPlugin</h3><p>Detects a leading number that should be a <code>\v</code> and offers an inline "promote to verse" affordance.</p></div>
       <div class="ve-card animate"><h3>USFMPlugin</h3><p>Composition root — wires input/view listeners and mounts the sub-plugins.</p></div>
-      <div class="ve-card animate"><h3>Listeners</h3><p><code>maintainDocumentStructure</code> + <code>manageUsfmMarkers</code> + <code>maintainMetadata</code> run micro-repairs on input (split malformed markers, keep SIDs in sync), tagged so the bridge marks them <code>structuralFixup</code>.</p></div>
+      <div class="ve-card animate"><h3>Listeners</h3><p><code>manageUsfmMarkers</code> + <code>maintainMetadata</code> keep derived metadata in sync on input (sids, inPara, structural-empty), tagged so the bridge marks them <code>structuralFixup</code>. The old full-document repair sweep is gone — structured nodes make the corruptible states unrepresentable.</p></div>
     </div>
 
     <h3 style="font-size:14px;margin:24px 0 10px;color:var(--text-dim);font-family:var(--font-mono);letter-spacing:.5px">THE THREE-REPRESENTATION BRIDGE</h3>
@@ -531,13 +535,13 @@ graph LR
       </script>
     </section>
     <div class="grid g3" style="margin-top:6px">
-      <div class="ve-card animate"><h3>regular <span class="tag tag-blue">shape: regular</span></h3><p>WYSIWYG: <code>USFMParagraphNode</code> containers, markers hidden, notes as inline badges. (<code>view</code> is the read-only twin.)</p></div>
+      <div class="ve-card animate"><h3>regular <span class="tag tag-blue">shape: regular</span></h3><p>WYSIWYG: <code>USFMParagraphNode</code> containers; chapter/verse markers are structured <code>USFMNumberedMarkerNode</code>s (shape-derived bytes, editable number); char markers hidden; notes as inline badges. (<code>view</code> is the read-only twin.)</p></div>
       <div class="ve-card animate"><h3>usfm / plain <span class="tag tag-teal">shape: flat</span></h3><p>One paragraph wrapping the flat token stream. <code>usfm</code> shows marker markup; <code>plain</code> is pure text.</p></div>
       <div class="ve-card animate"><h3>form <span class="tag tag-amber">shape: form</span></h3><p>Card-based structured editor: each paragraph block is a <code>FormBlockNode</code> card; chapter 0 is a frontmatter form.</p></div>
     </div>
     <div class="callout tip animate">
       <span class="lbl">Marker taxonomy (single source)</span>
-      Form-mode block categories (heading / poetry / list / paragraph) and the section test now <strong>derive from the usfm-onion catalog's <code>paragraphCategory</code></strong> (v0.0.5+) via <code>markerTaxonomy.ts</code> — not hand-maintained sets. Only two small local maps remain, both labeled: the app's <code>rule</code> grouping (<code>\b</code>/<code>\pb</code>) and a handful of legacy markers the catalog doesn't enumerate.
+      Form-mode block categories (heading / poetry / list / paragraph) and the section test now <strong>derive from the usfm-onion catalog's <code>paragraphCategory</code></strong> (v0.0.5+) via <code>markerTaxonomy.ts</code> — not hand-maintained sets. Only two small local maps remain, both labeled: the app's <code>rule</code> grouping (<code>\b</code>/<code>\pb</code>) and a handful of legacy markers the catalog doesn't enumerate. Regular-mode <em>node shape</em> likewise derives from catalog <code>payload</code> / <code>closingBehavior</code> (v0.0.7+), never marker-name lists.
     </div>
 
     <!-- ============ 9 MUTATION SEAM ============ -->
@@ -621,6 +625,7 @@ flowchart TD
       </div>
       <div class="ve-card animate"><h3>The honest baseline rebase</h3><p>After bytes land, in-memory chapters still read dirty. The pipeline advances each persisted book's baseline to the <em>captured</em> tokens (frozen up front, not live <code>currentTokens</code>) so a keystroke mid-save isn't silently swallowed, then re-derives <code>dirty</code>. Books that failed to persist keep their dirty state.</p></div>
     </div>
+    <div class="callout tip animate"><span class="lbl">Line endings preserved</span> Each chapter remembers its disk line ending (<code>eol</code>); the serializer (<code>tokensToUsfm(tokens, eol)</code>) re-applies it, so a CRLF file round-trips without a whole-file phantom diff. The editor model is LF-internal.</div>
     <div class="callout invariant animate"><span class="lbl">Cross-cutting decision</span> <strong>"Saved to disk" ≠ "versioned" ≠ "published."</strong> A checkpoint or publish failure is a <em>warning</em>, not a save failure — the bytes are safe on disk and the books are marked clean regardless.</div>
 
     <!-- ============ 11 RECOVERY ============ -->
@@ -722,7 +727,7 @@ flowchart TD
       <table>
         <thead><tr><th>Method</th><th>Does</th></tr></thead>
         <tbody>
-          <tr><td class="mono">getMarkerCatalog()</td><td>Per-marker metadata (category, family, <code>paragraphCategory</code>, block behavior) — the taxonomy source.</td></tr>
+          <tr><td class="mono">getMarkerCatalog()</td><td>Per-marker metadata (category, family, <code>paragraphCategory</code>, <code>payload</code>, <code>closingBehavior</code>, block behavior) — the taxonomy source.</td></tr>
           <tr><td class="mono">parseUsfm / parseUsfmBatch*</td><td>USFM text → tokens (+ optional lint). Batch-from-paths is desktop-only (Rust parallel).</td></tr>
           <tr><td class="mono">lintExisting / lintScope</td><td>Lint already-parsed tokens, one or many chapters.</td></tr>
           <tr><td class="mono">formatScope</td><td>Normalize/prettify per-chapter token scopes.</td></tr>
@@ -732,6 +737,7 @@ flowchart TD
       </table>
     </div>
     <div class="callout animate"><span class="lbl">Two implementations</span> <code>WebUsfmOnionService</code> (in-process WASM, <code>supportsPathIo=false</code>) and <code>TauriUsfmOnionService</code> (native Rust via <code>invoke</code>, <code>supportsPathIo=true</code>, parallel parse/lint/diff). Both satisfy <code>IUsfmOnionService</code>; the app neither knows nor cares which.</div>
+    <div class="callout animate"><span class="lbl">Sibling boundary — content analysis</span> <code>ISousService.analyze(tokens)</code> (scripture-sous-chef) is the parallel content-analysis seam: it builds onion's per-verse vref projection and runs hygiene/consistency rules over the text, returning findings + a segment map. <code>TauriSousService</code> (Rust <code>sous_analyze</code>) and <code>WebSousService</code> (in-process WASM: <code>vrefIndexTokens</code> + <code>analyze_vref</code>). Both libs are git-tag deps with wasm committed at the tag.</div>
 
     <!-- ============ 16 PERSISTENCE ============ -->
     <div class="sec-head animate" id="s16"><span class="dot" style="background:var(--teal)"></span><span class="snum">15</span><h2>Persistence &amp; platform interfaces</h2></div>
@@ -746,6 +752,7 @@ flowchart TD
           <tr><td class="mono">AuthSessionProvider</td><td>App-global cloud session (login / token)</td><td class="mono">FsBackedAuthSessionProvider</td><td class="mono">FsBackedAuthSessionProvider <small>(shared)</small></td></tr>
           <tr><td class="mono">ScriptureWorkspace / Project</td><td>The editable project noun: listBooks, saveBook, versions</td><td colspan="2" class="mono">UsfmScriptureItem (library type; git/fs differ underneath)</td></tr>
           <tr><td class="mono">IUsfmOnionService</td><td>USFM parse/lint/format/diff + marker catalog</td><td class="mono">WebUsfmOnionService</td><td class="mono">TauriUsfmOnionService</td></tr>
+          <tr><td class="mono">ISousService</td><td>Content analysis — vref projection + sous findings</td><td class="mono">WebSousService</td><td class="mono">TauriSousService</td></tr>
         </tbody>
       </table>
     </div>
@@ -791,6 +798,9 @@ flowchart TD
       <div class="ve-card animate"><h3><span class="tag tag-rose">6</span> Single-source marker taxonomy</h3><p>Form-mode categories derive from the usfm-onion catalog, not hand-maintained sets; only the <code>rule</code> grouping + uncatalogued legacy markers stay local, and they're labeled.</p></div>
       <div class="ve-card animate"><h3><span class="tag tag-rose">7</span> Two recovery surfaces</h3><p>The coarse gate blocks all mutation; the fine recovered-conflict tracker forces review and blocks incoming sync until resolved.</p></div>
       <div class="ve-card animate"><h3><span class="tag tag-rose">8</span> Lossless modes</h3><p>regular / flat / form all round-trip through the same token stream; mode is a Lexical shape, never a content change.</p></div>
+      <div class="ve-card animate"><h3><span class="tag tag-rose">9</span> Structure, not repair</h3><p>Chapter/verse markers carry their bytes in node shape, not hidden editable text — the byte-corruption class is unrepresentable, not swept. Bad states are surfaced as findings, never silently fixed; a dev-only fixpoint assert guards <code>tokens ≡ lex(join(sources))</code>.</p></div>
+      <div class="ve-card animate"><h3><span class="tag tag-rose">10</span> Line endings preserved</h3><p>The model is LF-internal; each chapter's disk <code>eol</code> is re-applied at serialize, and chapters never reorder — so CRLF files and stored chapter order round-trip without phantom diffs.</p></div>
+      <div class="ve-card animate"><h3><span class="tag tag-rose">11</span> One findings store, two producers</h3><p>onion lint and sous content analysis land in one namespaced <code>FindingsStore</code> through one presentation policy and one decoration path; findings anchor by token id or <code>(sid, UTF-16 span)</code>.</p></div>
     </div>
 
     <!-- ============ 19 GLOSSARY ============ -->

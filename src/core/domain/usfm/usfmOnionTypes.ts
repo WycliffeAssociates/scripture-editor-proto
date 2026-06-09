@@ -108,7 +108,6 @@ export type TokenLintOptions = {
  * What slice of a book is being linted. The library requires it to gate the
  * document-level rules (missing/duplicate `\id`, content-before-first-chapter):
  * those run only for `"front"` and `"book"`, never a bare `{ chapter }` slice.
- * See usfm_onion `plans/plan-lint-scope.md`.
  */
 export type LintScope = OnionLintScope;
 
@@ -117,7 +116,7 @@ export type LintOptions = Omit<OnionLintOptions, "scope"> & {
      * Optional at the editor boundary, required by the library. The editor does
      * not yet thread chapter-grain scope, so the service layer defaults this to
      * whole-book (`"book"`) — preserving today's lint behavior. Chapter-level
-     * keying/caching (plan-lint-scope §11) is the eventual upgrade path.
+     * keying/caching is the eventual upgrade path.
      */
     scope?: LintScope;
     includeParseRecoveries?: boolean;

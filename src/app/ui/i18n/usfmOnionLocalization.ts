@@ -153,8 +153,8 @@ export function formatLintIssueMessage(issue: LintIssue): string {
             return t`Chapter ${chapter} appears more than once.`;
         // chapter-expected-increase-by-one, inconsistent-chapter-label, and
         // verse-expected-increase-by-one were dropped from the library: they
-        // are consistency heuristics, not USFM validity, and now live as a
-        // consumer-side token-space reduce. See usfm_onion plans/plan-lint-scope.md §2.
+        // are consistency heuristics, not USFM validity, and live as a
+        // consumer-side token-space reduce.
         case "duplicate-verse-number":
             return t`Verse ${verse} appears more than once in chapter ${chapter}.`;
         case "invalid-number-range":

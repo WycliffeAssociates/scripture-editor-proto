@@ -147,7 +147,7 @@ successful book write so the dirty-buffer pipeline's next backup wrapper
 records the freshly-saved disk content as the new baseline.
 
 ## Current limits and non-goals
-- Saving writes changed books as full USFM book content assembled from chapter state.
+- Saving writes changed books as full USFM book content assembled from chapter state. `serializeChaptersToUsfm` emits chapters in their stored order (no sorting) and re-applies each chapter's original `eol` (`\n` or `\r\n`) so CRLF files round-trip as CRLF rather than producing phantom whitespace-only diffs.
 - The project file itself is never autosaved; explicit save is the only thing that changes disk. Background dirty-buffer backups are a separate safety-net file (`crash-recovery-autosave.md`).
 - Diff UI only shows chapters currently marked dirty.
 - Chapter view is read-only review UI; edits still happen in the editor surface.

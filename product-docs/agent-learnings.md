@@ -145,3 +145,26 @@ post-state observation is sufficient.
   - save-time publish outcome in `gitRemotePublishCoordinator.ts`
   - replay planning/application in the Git provider adapters
 - If a future cloud bug is hard to diagnose, add logs at those orchestration seams before adding UI-level logging.
+
+# First-Party WASM/Rust Dependencies (usfm-onion + scripture-sous-chef)
+Both libs are first-party WycliffeAssociates GitHub repos, consumed as remote
+git-tag deps — never local `file:`/`path`. JS: `github:WycliffeAssociates/<repo>#<tag>`
+(repo-root packages `usfm-onion-web` / `scripture-sous-chef-web`, wasm committed
+at the tag). Cargo: `{ git, tag }` for `usfm_onion` / `ssc-core`.
+
+Two install gotchas that recur on every tag bump — they cost real time, so
+check them first:
+- **pnpm `minimumReleaseAge` (in `pnpm-workspace.yaml`) silently blocks
+  just-pushed tags.** Symptom: `pnpm install` says "Already up to date" and
+  ignores a changed specifier — no error. The 7200-min guard refuses refs
+  younger than ~5 days. Fix: add the package to `minimumReleaseAgeExclude`. Any
+  NEW first-party git dep must be added there.
+- **cargo `net.git-fetch-with-cli = true`** (`src/tauri/rust/.cargo/config.toml`)
+  is required — libgit2 fails anonymous auth on these public repos; the git CLI
+  succeeds.
+
+Why git deps, not `file:`: pnpm `file:` directory deps cache by version, so a
+rebuilt-but-same-version wasm (e.g. debug→release) goes stale and won't refresh
+without nuking the virtual store. Git deps are content-addressed by commit, so
+a moved/bumped tag just refetches. Vitest must list both packages in
+`server.deps.inline` so `vite-plugin-wasm` transforms them.

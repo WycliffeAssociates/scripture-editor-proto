@@ -203,8 +203,7 @@ globalStyle(poetryContainer, {
 });
 
 // Only hang verse numbers when the verse node starts a new visual line.
-// (Simpler than the old three-element chain — the numbered node is one
-// element, so the hang is just `br + node`.)
+// The numbered node is a single element, so the hang is just `br + node`.
 globalStyle(`${poetryContainer} br + ${numberedMarker}[data-marker="v"]`, {
     display: "inline-block",
     textAlign: "end",
