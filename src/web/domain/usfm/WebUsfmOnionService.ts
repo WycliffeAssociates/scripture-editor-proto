@@ -55,6 +55,11 @@ function throwPathIoUnsupported(): never {
 // preserving today's behavior.
 const WHOLE_BOOK_SCOPE: onion.LintScope = "book";
 
+// Best-effort book ref from a token stream's first sid ("GEN 1:1" → "GEN"),
+// for dev-timer labels only — the call site already holds these tokens.
+const bookOf = (tokens?: readonly Token[]): string =>
+    tokens?.find((t) => t.sid)?.sid?.split(" ")[0] ?? "?";
+
 function toWebTokenLintOptions(
     options?: TokenLintOptions | null,
 ): onion.LintOptions {
@@ -220,7 +225,7 @@ export class WebUsfmOnionService implements IUsfmOnionService {
             lintOptions: null,
         },
     ): Promise<ProjectedUsfmDocument> {
-        using _timer = devTimer("web:parseUsfm");
+        using _timer = devTimer(`web:parseUsfm (${source.length} chars)`);
         const parsed = onion.parse(source);
         return parsedToProjectedDocument(parsed, options);
     }
@@ -242,7 +247,9 @@ export class WebUsfmOnionService implements IUsfmOnionService {
             lintOptions: null,
         },
     ): Promise<ProjectedUsfmDocument[]> {
-        using _timer = devTimer("web:parseUsfmBatchFromContents");
+        using _timer = devTimer(
+            `web:parseUsfmBatchFromContents (${sources.length} files)`,
+        );
         return Promise.all(
             sources.map(async (source) => {
                 const doc = parsedToProjectedDocument(
@@ -263,7 +270,7 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         tokens: Token[],
         options: TokenLintOptions = {},
     ): Promise<LintIssue[]> {
-        using _timer = devTimer("web:lintExisting");
+        using _timer = devTimer(`web:lintExisting ${bookOf(tokens)}`);
         const result = onion.lintTokens(tokens, toWebTokenLintOptions(options));
         return result.issues;
     }
@@ -276,7 +283,9 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         if (scope.some((item) => item.tokens === undefined)) {
             return throwPathIoUnsupported();
         }
-        using _timer = devTimer("web:lintScope");
+        using _timer = devTimer(
+            `web:lintScope ${bookOf(scope[0]?.tokens)} (${scope.length} ch)`,
+        );
         const lintOptions =
             options.lintOptions?.tokenRules ?? options.tokenOptions ?? {};
         const webLintOptions = toWebTokenLintOptions(lintOptions);
@@ -296,7 +305,9 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         if (scope.some((item) => item.tokens === undefined)) {
             return throwPathIoUnsupported();
         }
-        using _timer = devTimer("web:formatScope");
+        using _timer = devTimer(
+            `web:formatScope ${bookOf(scope[0]?.tokens)} (${scope.length} ch)`,
+        );
         return Promise.all(
             scope.map(async (item) => {
                 const tokens = item.tokens ?? [];
@@ -312,7 +323,9 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         tokens: Token[],
         fixes: TokenFix[],
     ): Promise<TokenTransformResult> {
-        using _timer = devTimer("web:applyTokenFixes");
+        using _timer = devTimer(
+            `web:applyTokenFixes ${bookOf(tokens)} (${fixes.length} fix)`,
+        );
         if (!fixes.length) {
             return {
                 tokens,
@@ -363,7 +376,7 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         currentTokens: Token[],
         buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
     ): Promise<Diff[]> {
-        using _timer = devTimer("web:diffTokens");
+        using _timer = devTimer(`web:diffTokens ${bookOf(currentTokens)}`);
         return onion
             .diffTokens(baselineTokens, currentTokens, buildOptions)
             .map(fromRawDiff);
@@ -375,7 +388,9 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         blockId: string,
         buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
     ): Promise<Token[]> {
-        using _timer = devTimer("web:revertDiffBlock");
+        using _timer = devTimer(
+            `web:revertDiffBlock ${bookOf(currentTokens)} ${blockId}`,
+        );
         return onion.revertDiffBlock(
             baselineTokens,
             currentTokens,

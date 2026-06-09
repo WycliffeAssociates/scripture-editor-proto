@@ -10,6 +10,11 @@ import type {
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { SegmentsBySid } from "@/core/domain/usfm/vrefTypes.ts";
 
+// Best-effort book ref from the tokens' first sid ("GEN 1:1" → "GEN"), for the
+// dev-timer label only — the call site already holds these tokens.
+const bookOf = (tokens: readonly Token[]): string =>
+    tokens.find((t) => t.sid)?.sid?.split(" ")[0] ?? "?";
+
 /**
  * Web/wasm sous service — the browser twin of {@link TauriSousService}, against
  * the same one-shot `analyze(tokens)` contract.
@@ -28,7 +33,7 @@ import type { SegmentsBySid } from "@/core/domain/usfm/vrefTypes.ts";
  */
 export class WebSousService implements ISousService {
     async analyze(tokens: Token[]): Promise<SousAnalyzeResult> {
-        using _timer = devTimer("web:sousAnalyze");
+        using _timer = devTimer(`web:sousAnalyze ${bookOf(tokens)}`);
         const index = onion.vrefIndexTokens(tokens);
 
         const segments: SegmentsBySid = {};
