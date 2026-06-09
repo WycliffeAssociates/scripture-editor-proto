@@ -1,4 +1,4 @@
-import type { EditorModeSetting } from "@/app/data/editor.ts";
+import type { EditorShape } from "@/app/data/editor.ts";
 import { scriptureProjectToParsedFiles } from "@/app/domain/api/scriptureProjectToParsedFiles.ts";
 import type { LibraryService } from "@/app/library/LibraryService.ts";
 import { openEditableScripture } from "@/app/scripture/openEditableScripture.ts";
@@ -31,7 +31,8 @@ export async function projectParamToParsedScripture(args: {
     project: string | undefined;
     fileSystem: FileSystem;
     gitProvider: GitProvider;
-    editorMode: EditorModeSetting;
+    /** Surface-resolved shape for `lexicalState` (see `shapeForSurface`). */
+    shape: EditorShape;
     usfmOnionService: IUsfmOnionService;
     /**
      * Request per-book source md5s (`diskMd5ByBook`) for crash-recovery
@@ -77,7 +78,7 @@ export async function projectParamToParsedScripture(args: {
     const { parsedFiles, initialLintErrorsByBook, diskMd5ByBook } =
         await scriptureProjectToParsedFiles({
             loadedProject,
-            editorMode: args.editorMode,
+            shape: args.shape,
             usfmOnionService: args.usfmOnionService,
             includeSourceMd5: args.includeSourceMd5,
         });

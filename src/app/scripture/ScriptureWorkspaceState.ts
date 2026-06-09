@@ -1,4 +1,5 @@
 import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
+import type { LineEnding } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 /**
@@ -27,6 +28,12 @@ export type ScriptureChapterState = {
     currentTokens: Token[];
     dirty: boolean;
     chapterNumber: number;
+    /**
+     * The file's line-ending convention, detected from `sourceTokens` at load
+     * and re-applied at the `tokensToUsfm` waist on every serialize. Keeps a
+     * CRLF file round-tripping as CRLF instead of silently normalizing to LF.
+     */
+    eol: LineEnding;
 };
 
 /**

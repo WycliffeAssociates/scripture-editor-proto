@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import type { LexicalEditor } from "lexical";
 import { useState } from "react";
-import type { EditorModeSetting } from "@/app/data/editor.ts";
+import { type EditorModeSetting, shapeForSurface } from "@/app/data/editor.ts";
 import { applyVersionSnapshotToWorkingFiles } from "@/app/domain/project/versionNavigationService.ts";
 import type {
     ScriptureBookState,
@@ -19,7 +19,6 @@ import type {
     VersionEntry,
 } from "@/core/persistence/GitProvider.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
-import { syncEditorToPickedChapter } from "./shared.ts";
 import { fetchVersionPreview } from "./versionQueries.ts";
 
 const VERSIONS_PAGE_SIZE = 50;
@@ -78,7 +77,6 @@ export function useVersionHistory(args: {
                 commitHash: hash,
                 loadedProject: args.loadedProject,
                 gitProvider: args.gitProvider,
-                editorMode: args.editorMode,
                 usfmOnionService: args.usfmOnionService,
             });
             // Mutation-boundary recheck: the entry gate-check passed, but the
@@ -105,20 +103,19 @@ export function useVersionHistory(args: {
                     applyVersionSnapshotToWorkingFiles({
                         workingFiles: draft,
                         sourceFiles: preview.parsedFiles,
+                        shape: shapeForSurface(
+                            "workingRebuild",
+                            args.editorMode,
+                        ),
                     });
-                    args.workingFilesStore.commit(
-                        { kind: "bulk", files: draft },
-                        {
+                    args.workingFilesStore.commit({
+                        patch: { kind: "bulk", files: draft },
+                        meta: {
                             kind: "import",
+                            action: "versionRevert",
                             scope: { project: true },
                             dirtyTextContent: true,
                         },
-                    );
-                    syncEditorToPickedChapter({
-                        editorRef: args.editorRef,
-                        workingFiles: draft,
-                        pickedFile: args.pickedFile,
-                        pickedChapter: args.pickedChapter,
                     });
                     args.bumpDirtyVersion();
                 },

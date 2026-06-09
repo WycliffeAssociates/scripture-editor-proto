@@ -1,6 +1,6 @@
 [package]
 name = "zephyr"
-version = "0.4.0" # x-release-please-version
+version = "0.5.0" # x-release-please-version
 description = "A scripture editor"
 authors = ["you"]
 edition = "2021"
@@ -28,7 +28,10 @@ git2 = { version = "0.20.2", features = ["https", "ssh"] }
 tauri-plugin-os = "2"
 md-5 = "0.10.0"
 tauri-plugin-dialog = "2"
-usfm_onion = { git = "https://github.com/WycliffeAssociates/usfm-onion", tag = "v0.0.4" }
+# Content findings: onion's `vref` module projects per-verse text; ssc-core
+# analyzes it (see src/sous.rs). Both pinned to git tags.
+usfm_onion = { git = "https://github.com/WycliffeAssociates/usfm-onion.git", tag = "v0.0.7" }
+ssc-core = { git = "https://github.com/WycliffeAssociates/scripture-sous-chef.git", tag = "v0.0.1" }
 rayon = "1.10.0"
 zip = "2.4.2"
 reqwest = { version = "0.12.23", default-features = false, features = ["blocking", "rustls-tls"] }

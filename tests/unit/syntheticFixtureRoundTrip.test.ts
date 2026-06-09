@@ -25,7 +25,7 @@
 //      every token.
 //   2. MODE-FLIP round-trip: load into shape A, transform to shape
 //      B, transform back to shape A, serialize. Confirms
-//      `transformToMode` preserves bytes across the user's mode-
+//      `transformToShape` preserves bytes across the user's mode-
 //      switch action.
 //
 // CURRENT DIVERGENCES (locked in as `it.fails` so the suite stays
@@ -53,30 +53,24 @@
 //     variant and round-trip it. Once that lands these kitchen-sink
 //     entries unlock automatically.
 //
-//   - common-errors × regular shape: regular-mode load auto-closes
-//     the unclosed `\f` footnote (appends `\f*` on serialize). Form
-//     and flat shapes preserve the unclosed marker as-is.
-//     **INTENTIONAL**: leaving the footnote unclosed in regular mode
-//     would let the WYSIWYG renderer swallow the rest of the chapter
-//     into the footnote body. Auto-close at load + lint notification
-//     is the safe default the editor opts into. The `it.fails` here
-//     is *not* a bug-tracker; it's a guard that the auto-close
-//     behavior doesn't accidentally regress to "preserve verbatim".
-//   - Any flip THROUGH regular shape inherits the auto-close above,
-//     for the same reason.
+//   - common-errors × regular shape: USED to diverge — regular-mode
+//     load auto-closed the unclosed `\f` footnote (appended `\f*`) so
+//     the WYSIWYG renderer wouldn't swallow the rest of the chapter
+//     into the footnote body. That is RESOLVED: the note rewrap now
+//     bounds an unclosed note to its structural scope (the next
+//     linebreak / container marker) rather than synthesizing a close,
+//     so regular mode preserves the unclosed marker byte-for-byte like
+//     form and flat. The renderer no longer swallows; lint still flags
+//     the unclosed marker as a separate concern.
 
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { SerializedEditorState } from "lexical";
-import { describe, expect, it } from "vitest";
-import {
-  type ContentEditorModeSetting,
-  EDITOR_MODES,
-  type EditorShape,
-  EDITOR_SHAPES,
-} from "@/app/data/editor.ts";
-import { transformToMode } from "@/app/domain/editor/utils/modeTransforms.ts";
+import { beforeAll, describe, expect, it } from "vitest";
+import { type EditorShape, EDITOR_SHAPES } from "@/app/data/editor.ts";
+import { transformToShape } from "@/app/domain/editor/utils/modeTransforms.ts";
+import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
 import {
   lexicalToTokens,
   tokensToLexical,
@@ -101,16 +95,6 @@ const FIXTURES: Array<{ name: FixtureName; file: string }> = [
 
 const SHAPES: EditorShape[] = [EDITOR_SHAPES.regular, EDITOR_SHAPES.form, EDITOR_SHAPES.flat];
 
-// `transformToMode` works in mode-space (regular / usfm / plain /
-// form), not shape-space. Map each shape to a representative mode
-// for the mode-flip tests below — "usfm" is the canonical mode that
-// loads with the flat shape.
-const REPRESENTATIVE_MODE: Record<EditorShape, ContentEditorModeSetting> = {
-  regular: EDITOR_MODES.regular,
-  form: EDITOR_MODES.form,
-  flat: EDITOR_MODES.usfm,
-};
-
 // Lock in the divergences we know exist as of 2026-05-14 so the
 // suite stays green and any future improvement lights up as a
 // "fix landed" signal. Each entry is a (fixture, scenario) tuple;
@@ -129,14 +113,13 @@ const KNOWN_DIVERGENT: Set<string> = new Set([
   "kitchen-sink flip form→flat",
   "kitchen-sink flip flat→regular",
   "kitchen-sink flip flat→form",
-  // Common-errors: regular-mode load auto-closes the unclosed `\f`
-  // footnote; any flip THROUGH regular inherits the close.
-  // **Intentional** auto-format behavior — see header comment.
-  "common-errors load regular",
-  "common-errors flip regular→form",
-  "common-errors flip regular→flat",
-  "common-errors flip form→regular",
-  "common-errors flip flat→regular",
+  // Common-errors regular-shape scenarios used to live here: regular
+  // mode auto-closed the unclosed `\f` footnote (appended `\f*`) to
+  // stop the WYSIWYG renderer from swallowing the rest of the chapter.
+  // That workaround is gone — the note rewrap now bounds an unclosed
+  // note to its structural scope (next linebreak / container marker)
+  // instead of synthesizing a close, so regular mode round-trips the
+  // unclosed footnote byte-for-byte like form and flat already did.
 ]);
 
 async function loadFixture(fileName: string): Promise<{
@@ -177,6 +160,13 @@ function maybeFails(scenario: string): typeof it | typeof it.fails {
   return KNOWN_DIVERGENT.has(scenario) ? it.fails : it;
 }
 
+// The regular-shape rebuild pairs marker+number tokens into numbered nodes
+// via the catalog registry (isEnabledNumberedMarker); without initialization
+// the pairing no-ops and the suite would silently exercise the legacy path.
+beforeAll(async () => {
+  initializeUsfmMarkerCatalog(await webUsfmOnionService.getMarkerCatalog());
+});
+
 describe("synthetic fixture round-trip", () => {
   for (const fixture of FIXTURES) {
     describe(fixture.name, () => {
@@ -200,13 +190,13 @@ describe("synthetic fixture round-trip", () => {
             async () => {
               const { usfm, initialState } = await loadFixture(fixture.file);
               const source = initialState(sourceShape);
-              const intermediate = transformToMode(
+              const intermediate = transformToShape(
                 structuredClone(source),
-                REPRESENTATIVE_MODE[targetShape],
+                targetShape,
               );
-              const back = transformToMode(
+              const back = transformToShape(
                 structuredClone(intermediate),
-                REPRESENTATIVE_MODE[sourceShape],
+                sourceShape,
               );
               expect(serializeState(back)).toBe(usfm);
             },

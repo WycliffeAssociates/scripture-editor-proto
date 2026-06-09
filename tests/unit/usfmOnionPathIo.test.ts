@@ -55,6 +55,7 @@ describe("TauriUsfmOnionService path I/O", () => {
         expect(invokeMock).toHaveBeenNthCalledWith(2, "usfm_onion_lint_paths", {
             paths: ["/tmp/a.usfm"],
             options: {
+                scope: "book",
                 allowImplicitChapterContentVerse: false,
                 disabledCodes: undefined,
                 enabledCodes: undefined,

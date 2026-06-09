@@ -15,6 +15,7 @@ import { NotificationViewport } from "@/app/ui/components/primitives/Notificatio
 import { ThemeQueryProvider } from "@/app/ui/contexts/MediaQuery.tsx";
 import { I18nEntry } from "@/app/ui/i18n/i18nEntry.tsx";
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
+import type { ISousService } from "@/core/domain/sous/ISousService.ts";
 import type { IUpdaterService } from "@/core/domain/updater/IUpdaterService.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { ImportService } from "@/core/library/ImportService.ts";
@@ -43,6 +44,7 @@ type EntryPointProps = {
     libraryService: LibraryService;
     importService: ImportService;
     usfmOnionService: IUsfmOnionService;
+    sousService: ISousService;
     gitProvider: GitProvider;
     opener: IOpener;
     platform: PlatformAndWeb;
@@ -71,6 +73,7 @@ export interface RouterContext {
     libraryService: LibraryService;
     importService: ImportService;
     usfmOnionService: IUsfmOnionService;
+    sousService: ISousService;
     gitProvider: GitProvider;
     opener: IOpener;
     platform: PlatformAndWeb;
@@ -88,6 +91,7 @@ const wrapCreateRouter = (
     libraryService: LibraryService,
     importService: ImportService,
     usfmOnionService: IUsfmOnionService,
+    sousService: ISousService,
     gitProvider: GitProvider,
     opener: IOpener,
     platform: PlatformAndWeb,
@@ -107,6 +111,7 @@ const wrapCreateRouter = (
             libraryService,
             importService,
             usfmOnionService,
+            sousService,
             gitProvider,
             opener,
             platform,
@@ -140,6 +145,7 @@ export function App({
     libraryService,
     importService,
     usfmOnionService,
+    sousService,
     gitProvider,
     opener,
     platform,
@@ -156,6 +162,7 @@ export function App({
         libraryService,
         importService,
         usfmOnionService,
+        sousService,
         gitProvider,
         opener,
         platform,

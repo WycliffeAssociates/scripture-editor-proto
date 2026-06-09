@@ -5,6 +5,7 @@ import {
 } from "lexical";
 import type { BookFrontmatterFormNodeJSON } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
 import type { USFMNestedEditorNodeJSON } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import type { SerializedUSFMNumberedMarkerNode } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import type { USFMParagraphNodeJSON } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 
@@ -62,6 +63,90 @@ export function editorModeToShape(mode: EditorModeSetting): EditorShape {
 }
 
 /**
+ * Where a chapter's serialized Lexical state is being materialized.
+ *
+ * The same token stream takes different tree shapes depending on the surface
+ * that will consume it, and this is the single place that mapping lives:
+ *
+ * - `mainEditor` — the visible editing surface; follows the user's mode.
+ * - `workingRebuild` — token→lexical rebuilds of live working chapters
+ *   (revert, accept-incoming, format, lint fix, version restore). Follows the
+ *   user's mode so a rebuild never changes what the user is looking at.
+ * - `referencePane` — the read-only reference scripture pane; follows the
+ *   user's mode (view collapses to the regular shape via `editorModeToShape`).
+ * - `savedBaseline` — `loadedLexicalState`, the canonical saved-baseline
+ *   snapshot. Always flat: it is compared and rebased, never displayed.
+ * - `compareSource` — compare/version-preview source files. Always flat:
+ *   diffing is token-based and the source lexical state is never rendered.
+ *
+ * Shape decisions answer from this function (or `editorModeToShape` when the
+ * surface is implied), never from inline ternaries and never by inferring the
+ * mode back out of an existing tree — the tree is an output of mode, not a
+ * source of it.
+ */
+export type MaterializeSurface =
+    | "mainEditor"
+    | "workingRebuild"
+    | "referencePane"
+    | "savedBaseline"
+    | "compareSource";
+
+export function shapeForSurface(
+    surface: "savedBaseline" | "compareSource",
+): EditorShape;
+export function shapeForSurface(
+    surface: "mainEditor" | "workingRebuild" | "referencePane",
+    userMode: EditorModeSetting,
+): EditorShape;
+export function shapeForSurface(
+    surface: MaterializeSurface,
+    userMode?: EditorModeSetting,
+): EditorShape {
+    if (surface === "savedBaseline" || surface === "compareSource") {
+        return EDITOR_SHAPES.flat;
+    }
+    return editorModeToShape(userMode ?? EDITOR_MODES.regular);
+}
+
+/**
+ * View mode is the one read-only presentation; every other mode edits.
+ */
+export function isEditableEditorMode(mode: EditorModeSetting): boolean {
+    return mode !== EDITOR_MODES.view;
+}
+
+/**
+ * True for the regular (WYSIWYG) shape — `regular` and its read-only twin
+ * `view`. The intent-named predicate for sites that ask "is this the regular
+ * presentation?"; prefer it over `=== EDITOR_MODES.regular`, which silently
+ * excludes view.
+ */
+export function isRegularShape(mode: EditorModeSetting | undefined): boolean {
+    return (
+        mode !== undefined && editorModeToShape(mode) === EDITOR_SHAPES.regular
+    );
+}
+
+/**
+ * Regular-shape presentations hide raw USFM marker bytes behind WYSIWYG
+ * styling; every other mode shows them.
+ */
+export function markersHiddenInMode(mode: EditorModeSetting): boolean {
+    return isRegularShape(mode);
+}
+
+/**
+ * Mode value mirrored onto DOM `data-mode` / `data-editor-mode` attributes for
+ * CSS selectors. View renders with regular's selectors; its read-only
+ * difference is carried separately (`data-editor-read-only` / `setEditable`).
+ */
+export function domPresentationMode(
+    mode: EditorModeSetting,
+): ContentEditorModeSetting {
+    return mode === EDITOR_MODES.view ? EDITOR_MODES.regular : mode;
+}
+
+/**
  * Token categories surfaced by the USFM parsing pipeline.
  */
 export const UsfmTokenTypes = {
@@ -71,6 +156,13 @@ export const UsfmTokenTypes = {
     numberRange: "numberRange",
     verticalWhitespace: "nl",
     error: "error",
+    /**
+     * A whole marker+number unit held by one USFMNumberedMarkerNode (\c, \v;
+     * later cp/ca/va/vp). Deliberately NOT "numberRange": the node IS the
+     * marker-and-number pair, not a number token beside a hidden marker, and
+     * no adjacency logic should treat it as one.
+     */
+    numberedMarker: "numberedMarker",
 } as const;
 
 /**
@@ -99,5 +191,6 @@ export type USFMNodeJSON =
     | BookFrontmatterFormNodeJSON
     | USFMParagraphNodeJSON
     | SerializedUSFMTextNode
+    | SerializedUSFMNumberedMarkerNode
     | SerializedLineBreakNode
     | USFMNestedEditorNodeJSON;

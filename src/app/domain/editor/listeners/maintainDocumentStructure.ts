@@ -1,32 +1,19 @@
 import { $dfsIterator, type DFSNode } from "@lexical/utils";
 import {
-    $getNodeByKey,
     $getRoot,
     $isLineBreakNode,
     type EditorState,
     type LexicalEditor,
-    type LexicalNode,
 } from "lexical";
-import {
-    EDITOR_MODES,
-    EDITOR_TAGS_USED,
-    UsfmTokenTypes,
-} from "@/app/data/editor.ts";
+import { EDITOR_TAGS_USED, UsfmTokenTypes } from "@/app/data/editor.ts";
 import type { Settings } from "@/app/data/settings.ts";
 import { $isUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
-import { $isUSFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
-    $createUSFMTextNode,
     $isUSFMTextNode,
-    $isVerseRangeTextNode,
     type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { guidGenerator } from "@/core/data/utils/generic.ts";
-import { markerRegex, markerTrimNoSlash } from "@/core/domain/usfm/lex.ts";
-import {
-    ALL_CHAR_MARKERS,
-    CHAPTER_VERSE_MARKERS,
-} from "@/core/domain/usfm/onionMarkers.ts";
+import { markerTrimNoSlash } from "@/core/domain/usfm/lex.ts";
+import { ALL_CHAR_MARKERS } from "@/core/domain/usfm/onionMarkers.ts";
 
 export type DocStructureFxnArgs = {
     node: USFMTextNode;
@@ -41,23 +28,22 @@ export type DocStructureFxnArgs = {
 export type MainDocumentStrutureFxn = (args: DocStructureFxnArgs) => void;
 
 /**
- * Sweep the current editor state for structural invariants that should hold
- * after user edits.
+ * Residual repair sweep for hidden CHARACTER markers only.
  *
- * The interactive listeners handle fast, local fixes while the user types.
- * This function is the broader repair pass that keeps the document from
- * drifting into impossible USFM states such as detached markers, malformed
- * number ranges, or token boundaries that no longer make sense after edits.
+ * The chapter/verse repair family (split/malformed/orphan-number/
+ * reparenting/ensure-adjacency) is gone: marker bytes for the numbered
+ * family live in USFMNumberedMarkerNode state, so those failure states are
+ * unrepresentable rather than repaired (lint surfaces the representable bad
+ * states). What remains is the one repair for char markers (\add, \nd, …),
+ * whose open/close bytes are still hidden editable text nodes — it dies
+ * with the char-element node (plan §5.5).
  */
 export function maintainDocumentStructure(
     editorState: EditorState,
     editor: LexicalEditor,
     appSettings: Settings,
 ) {
-    const editorModeSetting = appSettings.editorMode ?? EDITOR_MODES.regular;
-    const tierBEnabled = editorModeSetting !== EDITOR_MODES.plain;
     const allNodes = editorState.read(() => [...$dfsIterator()]);
-    let totalUpdates = 0;
 
     for (const dfsNode of allNodes) {
         const nodeUpdates: Array<{
@@ -67,43 +53,16 @@ export function maintainDocumentStructure(
 
         editorState.read(() => {
             const node = dfsNode.node;
-            //   can check other node types above if we need
             if (!$isUSFMTextNode(node) || !node.isAttached()) return;
-            const tokenType = node.getTokenType();
-            const args = {
+            editCharOpenAndCloseTogether({
                 node,
-                tokenType,
+                tokenType: node.getTokenType(),
                 appSettings,
                 updates: nodeUpdates,
-            };
-            const structureFixes: MainDocumentStrutureFxn[] = [
-                editCharOpenAndCloseTogether,
-                fixMalformedMarkerWithNumber,
-                splitCombinedMarkerAndNumberRange,
-            ];
-            if (tierBEnabled) {
-                structureFixes.push(
-                    ensureNumberRangeAlwaysFollowsMarkerExpectingNum,
-                );
-            }
-            structureFixes.push(
-                ensurePlainTextNodeAlwaysFollowsNumberRange,
-                // ensureCharOpensHaveEditableNextSibling,
-                // ensureCharCloseHasEditableNextSibling,
-                trySplitOutMarkersFromKnownErrorTokens,
-                //   ensureNodesSandwichedBetweenSameSidHasThatSid,
-                fixNumberRangeReparenting,
-                removeEmptyNumberRangeNotPrecededByMarker,
-            );
-
-            for (const fixFn of structureFixes) {
-                fixFn(args);
-                if (nodeUpdates.length) break;
-            }
+            });
         });
 
         if (nodeUpdates.length) {
-            totalUpdates += nodeUpdates.length;
             editor.update(
                 () => {
                     nodeUpdates.forEach((u) => {
@@ -118,8 +77,6 @@ export function maintainDocumentStructure(
                 },
             );
         }
-    }
-    if (totalUpdates > 0) {
     }
 }
 
@@ -288,480 +245,6 @@ export function maintainDocumentStructureDebounced(
     // console.timeEnd("maintainDocumentStructure");
 }
 
-const fixMalformedMarkerWithNumber: MainDocumentStrutureFxn = ({
-    node,
-    tokenType,
-    updates,
-}) => {
-    if (tokenType !== UsfmTokenTypes.marker) return;
-
-    const text = node.getTextContent();
-    // Regex matches: \marker + space + number
-    const match = text.match(/^(\\[A-Za-z0-9]+)[\s\u00A0]+(\d+.*)$/);
-    if (!match) return;
-
-    const [_, markerText, numberText] = match;
-    const cleanMarker = markerTrimNoSlash(markerText);
-
-    // Only apply if it's a marker that expects a number
-    if (!CHAPTER_VERSE_MARKERS.has(cleanMarker)) return;
-
-    updates.push({
-        dbgLabel: "fixMalformedMarkerWithNumber",
-        run: () => {
-            // Fix the marker node
-            node.setTextContent(markerText);
-            node.setMarker(cleanMarker);
-            // Handle the number
-            const nextSibling = node.getNextSibling();
-            if (
-                $isUSFMTextNode(nextSibling) &&
-                nextSibling.getTokenType() === UsfmTokenTypes.numberRange
-            ) {
-                // Update existing number node
-                nextSibling.setTextContent(` ${numberText}`);
-            } else {
-                // Create new number node
-                const newNumberNode = $createUSFMTextNode(` ${numberText}`, {
-                    id: guidGenerator(),
-                    sid: node.getSid().trim(),
-                    inPara: node.getInPara(),
-                    tokenType: UsfmTokenTypes.numberRange,
-                });
-                node.insertAfter(newNumberNode);
-            }
-        },
-    });
-};
-
-const removeEmptyNumberRangeNotPrecededByMarker: MainDocumentStrutureFxn = ({
-    node,
-    tokenType,
-    updates,
-}) => {
-    // Only process numberRange nodes, not markers
-    const isNumberRange = tokenType === UsfmTokenTypes.numberRange;
-    if (!isNumberRange) return;
-
-    const isWhitespaceOnlyTextNode = (n: LexicalNode) =>
-        $isUSFMTextNode(n) &&
-        n.getTokenType() === UsfmTokenTypes.text &&
-        n.getTextContent().trim().length === 0;
-
-    const findPrevSignificantSibling = (start: LexicalNode | null) => {
-        let cur = start;
-        while (cur) {
-            if ($isLineBreakNode(cur) || isWhitespaceOnlyTextNode(cur)) {
-                cur = cur.getPreviousSibling();
-                continue;
-            }
-            return cur;
-        }
-        return null;
-    };
-
-    // Look at the previous meaningful sibling to see if it's a marker expecting a number.
-    // We intentionally skip linebreaks + whitespace-only placeholders, because in regular mode
-    // certain edits can temporarily separate `\\v` and its numberRange.
-    const previousSibling = findPrevSignificantSibling(
-        node.getPreviousSibling(),
-    );
-    let isValidPredecessor = false;
-    if ($isUSFMTextNode(previousSibling)) {
-        const prevMarker = previousSibling.getMarker();
-        if (
-            previousSibling.getTokenType() === UsfmTokenTypes.marker &&
-            prevMarker &&
-            CHAPTER_VERSE_MARKERS.has(prevMarker)
-        ) {
-            isValidPredecessor = true;
-        }
-
-        // Repairable split case: `\\v` + empty numberRange + <br> + populated numberRange.
-        // In this situation, the populated numberRange should not be converted to text.
-        if (
-            !isValidPredecessor &&
-            previousSibling.getTokenType() === UsfmTokenTypes.numberRange &&
-            previousSibling.getTextContent().trim().length === 0
-        ) {
-            const maybeMarker = findPrevSignificantSibling(
-                previousSibling.getPreviousSibling(),
-            );
-            if ($isUSFMTextNode(maybeMarker)) {
-                const m = maybeMarker.getMarker();
-                if (
-                    maybeMarker.getTokenType() === UsfmTokenTypes.marker &&
-                    m &&
-                    CHAPTER_VERSE_MARKERS.has(m)
-                ) {
-                    isValidPredecessor = true;
-                }
-            }
-        }
-    }
-
-    //   See if it's parent is a valid marker as well
-    const parent = node.getParent();
-    if ($isUSFMParagraphNode(parent)) {
-        const parentMarker = parent.getMarker();
-        if (
-            parent.getTokenType() === UsfmTokenTypes.marker &&
-            parentMarker &&
-            CHAPTER_VERSE_MARKERS.has(parentMarker)
-        ) {
-            isValidPredecessor = true;
-        }
-    }
-
-    if (!isValidPredecessor) {
-        // If it's an orphaned numberRange (not preceded by a valid marker)
-        if (!node.getTextContent().trim().length) {
-            const nodeKey = node.getKey();
-            // If empty, remove it
-            updates.push({
-                dbgLabel: "removeOrphanedEmptyNumberRange",
-                run: () => {
-                    const n = $getNodeByKey(nodeKey);
-                    if (n?.isAttached()) n.remove();
-                },
-            });
-        } else {
-            const nodeKey = node.getKey();
-            // If it has content, convert it to plain text so it's not lost but doesn't break structure
-            updates.push({
-                dbgLabel: "convertOrphanedNumberRangeToText",
-                run: () => {
-                    const n = $getNodeByKey(nodeKey);
-                    if (!n?.isAttached()) return;
-                    if (!$isUSFMTextNode(n)) return;
-                    n.setTokenType(UsfmTokenTypes.text);
-                },
-            });
-        }
-    }
-};
-
-const fixNumberRangeReparenting: MainDocumentStrutureFxn = ({
-    node,
-    tokenType,
-    updates,
-}) => {
-    // Only process numberRange nodes
-    const isNumberRange = tokenType === UsfmTokenTypes.numberRange;
-    if (!isNumberRange) return;
-
-    // Check if numberRange is empty
-    if (!node.getTextContent().trim().length) {
-        // Look at previous sibling to see if it's a chapter/verse marker
-        const previousSibling = node.getPreviousSibling();
-        if (!$isUSFMTextNode(previousSibling)) return;
-
-        const isPrevMarker =
-            previousSibling.getTokenType() === UsfmTokenTypes.marker;
-        if (!isPrevMarker) return;
-
-        const prevMarker = previousSibling.getMarker();
-        if (!prevMarker) return;
-
-        // Only fix if preceded by chapter/verse marker
-        if (CHAPTER_VERSE_MARKERS.has(prevMarker)) {
-            // Look at next sibling to see if it starts with a number
-            const nextSibling = node.getNextSibling();
-            if (!$isUSFMTextNode(nextSibling)) return;
-
-            const nextText = nextSibling.getTextContent().trim();
-            const startsWithNumber = /^\d/.test(nextText);
-
-            if (startsWithNumber) {
-                updates.push({
-                    dbgLabel: "fixNumberRangeReparenting",
-                    run: () => {
-                        // Extract just the number from next sibling
-                        const numberMatch = nextText.match(/^(\d+)/);
-                        if (!numberMatch) return;
-
-                        // Move only the number to the empty numberRange
-                        node.setTextContent(` ${numberMatch[1]}`);
-                        node.selectEnd();
-
-                        // Clear the next sibling (now empty)
-                        const nextContentSansNumber = nextText.slice(
-                            numberMatch[0].length,
-                        );
-                        nextSibling.setTextContent(nextContentSansNumber);
-                    },
-                });
-            }
-        }
-    }
-};
-
-export const ensureNumberRangeAlwaysFollowsMarkerExpectingNum: MainDocumentStrutureFxn =
-    ({ node, tokenType, updates, appSettings }) => {
-        const editorModeSetting =
-            appSettings.editorMode ?? EDITOR_MODES.regular;
-        const tierBEnabled = editorModeSetting !== EDITOR_MODES.plain;
-        if (!tierBEnabled) return;
-
-        const nextSibling = node.getNextSibling();
-
-        const isMarker = tokenType === UsfmTokenTypes.marker;
-        if (!isMarker) return;
-        const marker = node.getMarker();
-        if (!marker) return;
-        if (!CHAPTER_VERSE_MARKERS.has(marker)) return;
-
-        const isRegularMode = editorModeSetting === EDITOR_MODES.regular;
-
-        // Regular mode only: if a chapter/verse marker is separated from its numberRange by
-        // one or more linebreaks (e.g. "\\v" then Enter, resulting in "\\v\n13"), treat that as accidental.
-        // Move the linebreak(s) before the marker so the marker stays attached to its number.
-        // NOTE: don't capture sibling references across updates; re-read from the marker node at run-time.
-
-        if (isRegularMode && $isLineBreakNode(nextSibling)) {
-            const markerKey = node.getKey();
-            updates.push({
-                dbgLabel:
-                    "ensureNumberRangeAlwaysFollowsMarkerExpectingNum:moveLineBreakBeforeMarker",
-                run: () => {
-                    const markerNode = $getNodeByKey(markerKey);
-                    if (!markerNode?.isAttached()) return;
-                    if (!$isUSFMTextNode(markerNode)) return;
-
-                    const breaks: LexicalNode[] = [];
-                    let cursor: LexicalNode | null =
-                        markerNode.getNextSibling();
-                    while (cursor && $isLineBreakNode(cursor)) {
-                        breaks.push(cursor);
-                        cursor = cursor.getNextSibling();
-                    }
-
-                    if (
-                        cursor &&
-                        $isUSFMTextNode(cursor) &&
-                        cursor.getTokenType() === UsfmTokenTypes.numberRange
-                    ) {
-                        for (const br of breaks) {
-                            markerNode.insertBefore(br);
-                        }
-                        return;
-                    }
-
-                    // Still no numberRange after the marker; remove the orphaned marker.
-                    markerNode.remove();
-                },
-            });
-            return;
-        }
-
-        if (
-            $isUSFMTextNode(nextSibling) &&
-            nextSibling.getTokenType() === UsfmTokenTypes.numberRange
-        ) {
-            // If the number range is empty and we are in regular mode, we should delete both
-            if (isRegularMode && !nextSibling.getTextContent().trim().length) {
-                const markerKey = node.getKey();
-                updates.push({
-                    dbgLabel:
-                        "ensureNumberRangeAlwaysFollowsMarkerExpectingNum:removeOrphanedMarker",
-                    run: () => {
-                        const markerNode = $getNodeByKey(markerKey);
-                        if (!markerNode?.isAttached()) return;
-                        if (!$isUSFMTextNode(markerNode)) return;
-
-                        const nr1 = markerNode.getNextSibling();
-                        if (!$isUSFMTextNode(nr1)) return;
-                        if (nr1.getTokenType() !== UsfmTokenTypes.numberRange)
-                            return;
-
-                        // Special-case recovery: `\\v` + empty numberRange + linebreak(s) + populated numberRange.
-                        // This happens via certain edits in regular mode, and we should repair rather than delete.
-                        if (!nr1.getTextContent().trim().length) {
-                            const breaks: LexicalNode[] = [];
-                            const whitespaceTextNodes: USFMTextNode[] = [];
-                            let cursor: LexicalNode | null =
-                                nr1.getNextSibling();
-
-                            while (cursor) {
-                                if ($isLineBreakNode(cursor)) {
-                                    breaks.push(cursor);
-                                    cursor = cursor.getNextSibling();
-                                    continue;
-                                }
-
-                                if ($isUSFMTextNode(cursor)) {
-                                    const tt = cursor.getTokenType();
-                                    const trimmed = cursor
-                                        .getTextContent()
-                                        .trim();
-
-                                    if (
-                                        tt === UsfmTokenTypes.text &&
-                                        trimmed.length === 0
-                                    ) {
-                                        whitespaceTextNodes.push(cursor);
-                                        cursor = cursor.getNextSibling();
-                                        continue;
-                                    }
-
-                                    if (
-                                        tt === UsfmTokenTypes.numberRange &&
-                                        trimmed.length > 0
-                                    ) {
-                                        nr1.remove();
-                                        for (const t of whitespaceTextNodes) {
-                                            t.remove();
-                                        }
-                                        for (const br of breaks) {
-                                            markerNode.insertBefore(br);
-                                        }
-                                        return;
-                                    }
-                                }
-
-                                break;
-                            }
-
-                            // True orphaned case: remove empty numberRange + marker.
-                            nr1.remove();
-                            markerNode.remove();
-                        }
-                    },
-                });
-            }
-            return;
-        }
-
-        // If we reach here, there is no numberRange following the marker.
-        // In regular mode, if the number is gone, the marker should be gone too.
-        if (isRegularMode) {
-            const markerKey = node.getKey();
-            updates.push({
-                dbgLabel:
-                    "ensureNumberRangeAlwaysFollowsMarkerExpectingNum:removeOrphanedMarker(noNumberRange)",
-                run: () => {
-                    const markerNode = $getNodeByKey(markerKey);
-                    if (markerNode?.isAttached()) markerNode.remove();
-                },
-            });
-            return;
-        }
-
-        const markerKey = node.getKey();
-        const sid = node.getSid().trim();
-        const inPara = node.getInPara();
-        updates.push({
-            dbgLabel: "ensureNumberRangeAlwaysFollowsMarkerExpectingNum",
-            run: () => {
-                const markerNode = $getNodeByKey(markerKey);
-                if (!markerNode || !markerNode.isAttached()) return;
-                if (!$isUSFMTextNode(markerNode)) return;
-
-                const emptySibling = $createUSFMTextNode(" ", {
-                    id: guidGenerator(),
-                    sid,
-                    inPara,
-                    tokenType: UsfmTokenTypes.numberRange,
-                });
-                markerNode.insertAfter(emptySibling);
-                emptySibling.selectEnd();
-            },
-        });
-    };
-const ensurePlainTextNodeAlwaysFollowsNumberRange: MainDocumentStrutureFxn = ({
-    node,
-    updates,
-}) => {
-    if (!$isVerseRangeTextNode(node)) return;
-    const next = node.getNextSibling();
-    const prev = node.getPreviousSibling();
-    const parent = node.getParent();
-    if (
-        prev &&
-        $isUSFMTextNode(prev) &&
-        prev.getTokenType() === UsfmTokenTypes.marker &&
-        prev.getMarker() === "c"
-    ) {
-        // chapters numbers ranges don't need the plain text node following
-        return;
-    }
-    //   same check for chapter above, but for reuglar mode if the parent is a chapter
-    if (parent && $isUSFMParagraphNode(parent) && parent.getMarker() === "c") {
-        return;
-    }
-    if (
-        !next ||
-        !$isUSFMTextNode(next) ||
-        next.getTokenType() !== UsfmTokenTypes.text
-    ) {
-        const nrKey = node.getKey();
-        const sid = node.getSid().trim();
-        const inPara = node.getInPara();
-        updates.push({
-            dbgLabel: "ensurePlainTextNodeAlwaysFollowsNumberRange",
-            run: () => {
-                const nrNode = $getNodeByKey(nrKey);
-                if (!nrNode?.isAttached()) return;
-                if (!$isUSFMTextNode(nrNode)) return;
-
-                const nextNow = nrNode.getNextSibling();
-                if (
-                    $isUSFMTextNode(nextNow) &&
-                    nextNow.getTokenType() === UsfmTokenTypes.text
-                ) {
-                    return;
-                }
-                const emptySibling = $createUSFMTextNode(" ", {
-                    id: guidGenerator(),
-                    sid,
-                    inPara,
-                    tokenType: UsfmTokenTypes.text,
-                });
-                nrNode.insertAfter(emptySibling);
-            },
-        });
-    }
-    if (next && $isUSFMTextNode(next) && !next.getTextContent().length) {
-        const nextKey = next.getKey();
-        updates.push({
-            dbgLabel: "ensurePlainTextNodeAlwaysFollowsNumberRange",
-            run: () => {
-                const nextNode = $getNodeByKey(nextKey);
-                if (!nextNode?.isAttached()) return;
-                if (!$isUSFMTextNode(nextNode)) return;
-                nextNode.setTextContent(" ");
-            },
-        });
-    }
-};
-
-const trySplitOutMarkersFromKnownErrorTokens: MainDocumentStrutureFxn = ({
-    node,
-    tokenType,
-    updates,
-}) => {
-    if (tokenType !== UsfmTokenTypes.error) return;
-    const textContent = node.getTextContent();
-    //   if the textContent matches a markerRegex at start, we should split it there into a marker + text:
-    const match = textContent.match(markerRegex);
-    if (match) {
-        // call node.splitText(match.index)
-        updates.push({
-            dbgLabel: "trySplitOutMarkersFromKnownErrorTokens",
-            run: () => {
-                const [left, right] = node.splitText(match[0].length);
-                if ($isUSFMTextNode(left)) {
-                    left.setTokenType(UsfmTokenTypes.marker);
-                    left.setMarker(markerTrimNoSlash(match[0]));
-                }
-                if ($isUSFMTextNode(right)) {
-                    right.setTokenType(UsfmTokenTypes.text);
-                }
-            },
-        });
-    }
-};
-
 type DebouncedStructuralUpdatesArgs = {
     allNodes: Array<DFSNode>;
     appSettings: Settings;
@@ -882,61 +365,4 @@ const editCharOpenAndCloseTogether: MainDocumentStrutureFxn = ({
             });
         }
     }
-};
-const splitCombinedMarkerAndNumberRange: MainDocumentStrutureFxn = ({
-    node,
-    tokenType,
-    updates,
-}) => {
-    // Only process marker nodes
-    if (tokenType !== UsfmTokenTypes.marker) return;
-
-    const text = node.getTextContent();
-
-    // Regex matches: \marker + space + number (e.g., "\v 5", "\c 1", "\v 1-3")
-    const match = text.match(
-        /^(\\[a-zA-Z0-9]+)[\s\u00A0]+(\d+(?:-\d+)?[a-zA-Z0-9]*)$/,
-    );
-    if (!match) return;
-
-    const [, markerText, numberText] = match;
-    const cleanMarker = markerTrimNoSlash(markerText);
-
-    // Only apply if it's a chapter/verse marker that expects a number
-    if (!CHAPTER_VERSE_MARKERS.has(cleanMarker)) return;
-
-    updates.push({
-        dbgLabel: "splitCombinedMarkerAndNumberRange",
-        run: () => {
-            // Update the current node to be just the marker
-            node.setTextContent(markerText);
-            node.setMarker(cleanMarker);
-
-            // Create a new numberRange node for the number
-            const numberRangeNode = $createUSFMTextNode(` ${numberText}`, {
-                id: guidGenerator(),
-                sid: node.getSid().trim(),
-                inPara: node.getInPara(),
-                tokenType: UsfmTokenTypes.numberRange,
-            });
-
-            // Insert the number range after the marker
-            node.insertAfter(numberRangeNode);
-
-            // Ensure there's a text node after the number range
-            const nextSibling = numberRangeNode.getNextSibling();
-            if (
-                !$isUSFMTextNode(nextSibling) ||
-                nextSibling.getTokenType() !== UsfmTokenTypes.text
-            ) {
-                const textNode = $createUSFMTextNode(" ", {
-                    id: guidGenerator(),
-                    sid: node.getSid().trim(),
-                    inPara: node.getInPara(),
-                    tokenType: UsfmTokenTypes.text,
-                });
-                numberRangeNode.insertAfter(textNode);
-            }
-        },
-    });
 };

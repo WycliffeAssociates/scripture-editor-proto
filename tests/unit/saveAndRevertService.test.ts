@@ -66,6 +66,7 @@ describe("buildBooksSavePayload", () => {
                     {
                         chapterNumber: 1,
                         dirty: false,
+                        eol: "\n",
                         sourceTokens: makeTokens(
                             "\\c 1\n\\p\nChapter one.\n",
                             "MRK 1:1",
@@ -90,6 +91,7 @@ describe("buildBooksSavePayload", () => {
                     {
                         chapterNumber: 15,
                         dirty: true,
+                        eol: "\n",
                         sourceTokens: makeTokens(
                             "\\c 15\n\\p\nOld text.\n",
                             "MRK 15:1",

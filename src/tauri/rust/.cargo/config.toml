@@ -1,0 +1,5 @@
+# Fetch git dependencies (usfm_onion, ssc-core — see Cargo.toml) through the
+# git CLI rather than cargo's built-in libgit2 client. libgit2 fails anonymous
+# auth against these public GitHub repos; the git CLI succeeds.
+[net]
+git-fetch-with-cli = true

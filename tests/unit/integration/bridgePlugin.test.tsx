@@ -59,10 +59,11 @@ import { makeBook } from "@tests/helpers/workspaceFixtures.ts";
 
 // We provide only the WorkspaceContext fields the bridge actually
 // uses (`workingFilesStore`, `project`, `mainEditorDeferred`,
-// `interactionGate`); the rest of the 30+ field interface stays
-// `undefined`. Cast through `unknown` and document the choice rather
-// than fabricate stubs for every collaborator — that's exactly the
-// "test the mock harness" anti-pattern the audit flagged.
+// `interactionGate`, `history.captureEditorUpdate`); the rest of the
+// 30+ field interface stays `undefined`. Cast through `unknown` and
+// document the choice rather than fabricate stubs for every
+// collaborator — fabricated stubs make the suite test its own mock
+// harness instead of the bridge.
 function makeWorkspaceContextValue(args: {
     workingFilesStore: WorkingFilesStore;
     mainEditorDeferred: Deferred.Deferred<LexicalEditor>;
@@ -77,6 +78,9 @@ function makeWorkspaceContextValue(args: {
             pickedChapter: { chapterNumber: 1 },
             currentChapter: 1,
         },
+        // The bridge feeds history capture before publishing; commit
+        // classification (this suite's subject) is independent of it.
+        history: { captureEditorUpdate: () => {} },
     } as unknown as WorkSpaceContextType;
 }
 

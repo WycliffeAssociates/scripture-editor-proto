@@ -33,13 +33,15 @@ const RETRY_BASE = Duration.seconds(2);
 const RETRY_TIMES = 2;
 
 /**
- * The books a commit could have changed. Chapter-scope commits touch one book;
- * project-scope commits (bulk import, version switch, save clean-mark) fan out
- * to every book in the post-commit snapshot.
+ * The books a commit could have changed. Chapter-scope commits touch their
+ * chapters' books; project-scope commits (bulk import, version switch, save
+ * clean-mark) fan out to every book in the post-commit snapshot.
  */
 function booksForEvent(event: CommitEvent): string[] {
     const scope = event.meta.scope;
-    if ("bookCode" in scope) return [scope.bookCode];
+    if ("chapters" in scope) {
+        return Array.from(new Set(scope.chapters.map((ref) => ref.bookCode)));
+    }
     return event.snapshot.map((file) => file.bookCode);
 }
 

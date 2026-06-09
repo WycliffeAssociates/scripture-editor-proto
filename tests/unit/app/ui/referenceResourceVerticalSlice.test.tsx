@@ -70,6 +70,7 @@ function VerticalSliceHarness(props: {
     fileSystem: props.fileSystem,
     pickedFileIdentifier: "LUK",
     pickedChapterNumber: 22,
+    editorMode: "regular",
     gitProvider: {} as never,
   });
 

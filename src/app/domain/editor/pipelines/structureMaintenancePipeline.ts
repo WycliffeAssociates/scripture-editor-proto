@@ -7,10 +7,22 @@ import { maintainDocumentMetaData } from "@/app/domain/editor/listeners/maintain
 import { isStructureMaintenanceRelevant } from "@/app/state/commitFilters.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 
-const DEFAULT_STRUCTURE_DEBOUNCE_MS = 75;
+// Frame cadence. The stamped attributes (sid, inPara, structural-empty) are
+// interactive UI inputs — the reference pane queries `[data-sid]` on
+// selection change, structural-empty drives CSS and the container Enter/
+// backspace handlers — and a single local edit can invalidate arbitrarily
+// many downstream nodes' sids (document-order-global derived state). The
+// pass is zero-byte and zero-caret (historyMerge + structuralFixup tags),
+// so running it at frame rate is safe — it moves neither bytes nor the caret.
+const DEFAULT_STRUCTURE_DEBOUNCE_MS = 16;
 
 /**
- * Stream pipeline that runs structural + metadata maintenance after user edits.
+ * Stream pipeline that runs metadata maintenance after user edits — the
+ * sweep host repurposed: the repair half is deleted (numbered-marker nodes
+ * made its failure states unrepresentable); what runs here is
+ * `maintainDocumentMetaData` (sid/inPara/structural-empty stamping, a
+ * full-document walk by necessity — the values are document-order-global)
+ * plus the one residual char-marker repair (see maintainDocumentStructure).
  *
  * Subscribes to `workingFilesStore.changes` and uses the commit only as a
  * signal — the maintenance passes themselves operate on the editor's current

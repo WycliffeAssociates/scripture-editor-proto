@@ -6,7 +6,6 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { withWorkingFilesDraft } from "@/app/domain/project/workingFileCommand.ts";
-import type { ChapterRef } from "@/app/domain/project/workingFileMutations.ts";
 import type {
     ScriptureBookState,
     ScriptureChapterState,
@@ -72,14 +71,12 @@ function rewriteGen1(to: string) {
 }
 
 describe("withWorkingFilesDraft", () => {
-    it("commits once, overlays only affected chapters, then invalidates", async () => {
+    it("commits once, overlays only affected chapters, and returns the committed result", async () => {
         const store = new WorkingFilesStore([
             book("GEN", chapter(1, "gen1"), chapter(2, "gen2")),
         ]);
         const gate = new WorkspaceGateStore();
         const commitSpy = vi.spyOn(store, "commit");
-        const invalidated: ChapterRef[] = [];
-        let invalidatedValue: string | undefined;
 
         const result = await withWorkingFilesDraft({
             workingFilesStore: store,
@@ -87,12 +84,10 @@ describe("withWorkingFilesDraft", () => {
             draftRefs: [{ bookCode: "GEN", chapterNum: 1 }],
             commitMeta,
             mutate: rewriteGen1("gen1-formatted"),
-            invalidate: ({ committedChapters, value }) => {
-                invalidated.push(...committedChapters);
-                invalidatedValue = value;
-            },
         });
 
+        // The typed result carries the committed chapters + value — the
+        // caller's follow-through (toast, report) sequences on this.
         expect(result).toEqual({
             kind: "committed",
             value: "gen1-formatted",
@@ -102,9 +97,6 @@ describe("withWorkingFilesDraft", () => {
         expect(contentOf(store, "GEN", 1)).toBe("gen1-formatted");
         // Untouched chapter aliased through.
         expect(contentOf(store, "GEN", 2)).toBe("gen2");
-        // Invalidate runs after the commit, with the committed chapters + value.
-        expect(invalidated).toEqual([{ bookCode: "GEN", chapterNum: 1 }]);
-        expect(invalidatedValue).toBe("gen1-formatted");
     });
 
     it("preserves a concurrent commit to a DIFFERENT chapter (overlay, not clobber)", async () => {
@@ -128,7 +120,7 @@ describe("withWorkingFilesDraft", () => {
                     ch2.currentTokens = [
                         { kind: "text", source: "gen2-edited", id: "c2e" },
                     ] as never;
-                store.commit({ kind: "bulk", files: draft }, commitMeta);
+                store.commit({ patch: { kind: "bulk", files: draft }, meta: commitMeta });
                 return (await rewriteGen1("gen1-formatted")(scratch)) as never;
             },
         });
@@ -158,7 +150,7 @@ describe("withWorkingFilesDraft", () => {
                 ch.currentTokens = [
                     { kind: "text", source: "gen1-user", id: "cu" },
                 ] as never;
-                store.commit({ kind: "bulk", files: draft }, commitMeta);
+                store.commit({ patch: { kind: "bulk", files: draft }, meta: commitMeta });
                 return (await rewriteGen1("gen1-formatted")(scratch)) as never;
             },
         });
@@ -169,11 +161,10 @@ describe("withWorkingFilesDraft", () => {
         expect(contentOf(store, "GEN", 1)).toBe("gen1-user");
     });
 
-    it("aborts (gate-closed) without committing OR invalidating", async () => {
+    it("aborts (gate-closed) without committing", async () => {
         const store = new WorkingFilesStore([book("GEN", chapter(1, "gen1"))]);
         const gate = new WorkspaceGateStore({ kind: "saving" });
         const commitSpy = vi.spyOn(store, "commit");
-        const invalidate = vi.fn();
 
         const result = await withWorkingFilesDraft({
             workingFilesStore: store,
@@ -181,14 +172,12 @@ describe("withWorkingFilesDraft", () => {
             draftRefs: [{ bookCode: "GEN", chapterNum: 1 }],
             commitMeta,
             mutate: rewriteGen1("gen1-formatted"),
-            invalidate,
         });
 
+        // The contract: callers branch on `kind` before any follow-through,
+        // so a write that never landed publishes no side effect.
         expect(result).toEqual({ kind: "aborted", reason: "gate-closed" });
         expect(commitSpy).not.toHaveBeenCalled();
-        // The contract: no post-commit side effect for a write that never
-        // landed. Callers move all UI/lint/editor sync into `invalidate`.
-        expect(invalidate).not.toHaveBeenCalled();
     });
 
     describe('scope: "workspace" (whole-state rebuild)', () => {
@@ -253,7 +242,7 @@ describe("withWorkingFilesDraft", () => {
                         exo.chapters[0].currentTokens = [
                             { kind: "text", source: "exo-edited", id: "e" },
                         ] as never;
-                    store.commit({ kind: "bulk", files: draft }, commitMeta);
+                    store.commit({ patch: { kind: "bulk", files: draft }, meta: commitMeta });
                     const gen = scratch.find((b) => b.bookCode === "GEN");
                     if (gen) gen.chapters = [chapter(1, "gen1-rebuilt")];
                     return {
@@ -271,11 +260,10 @@ describe("withWorkingFilesDraft", () => {
         });
     });
 
-    it("returns unchanged (no commit, no invalidate) when nothing was affected", async () => {
+    it("returns unchanged (no commit) when nothing was affected", async () => {
         const store = new WorkingFilesStore([book("GEN", chapter(1, "gen1"))]);
         const gate = new WorkspaceGateStore();
         const commitSpy = vi.spyOn(store, "commit");
-        const invalidate = vi.fn();
 
         const result = await withWorkingFilesDraft({
             workingFilesStore: store,
@@ -283,11 +271,9 @@ describe("withWorkingFilesDraft", () => {
             draftRefs: [{ bookCode: "GEN", chapterNum: 1 }],
             commitMeta,
             mutate: async () => ({ affected: [], value: "noop" }),
-            invalidate,
         });
 
         expect(result).toEqual({ kind: "unchanged", value: "noop" });
         expect(commitSpy).not.toHaveBeenCalled();
-        expect(invalidate).not.toHaveBeenCalled();
     });
 });

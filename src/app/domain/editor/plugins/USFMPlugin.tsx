@@ -2,7 +2,7 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { useEffect } from "react";
 import { useEditorInput } from "@/app/domain/editor/hooks/useEditorInput.ts";
 import { useEditorView } from "@/app/domain/editor/hooks/useEditorView.ts";
-import { LintDomAnnotatorPlugin } from "@/app/domain/editor/plugins/LintDomAnnotatorPlugin.tsx";
+import { FindingsOverlayPlugin } from "@/app/domain/editor/plugins/FindingsOverlayPlugin.tsx";
 import { SearchReplaceSuggestPlugin } from "@/app/domain/editor/plugins/SearchReplaceSuggestPlugin.tsx";
 import { VerseMarkerSuggestPlugin } from "@/app/domain/editor/plugins/VerseMarkerSuggestPlugin.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
@@ -30,7 +30,7 @@ export function USFMPlugin() {
 
     return (
         <>
-            <LintDomAnnotatorPlugin editor={editor} />
+            <FindingsOverlayPlugin editor={editor} />
             <VerseMarkerSuggestPlugin />
             <SearchReplaceSuggestPlugin />
         </>

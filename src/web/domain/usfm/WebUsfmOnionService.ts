@@ -1,6 +1,5 @@
 import * as onion from "usfm-onion-web";
-import { timeInDevAsync } from "@/app/ui/hooks/utils/domUtils.ts";
-import { shouldKeepLintIssue } from "@/app/utils/sharedPlatformLogic.ts";
+import { devTimer } from "@/app/ui/hooks/utils/domUtils.ts";
 import { webMd5Service } from "@/core/domain/md5/webMd5.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import { defaultBuildSidBlocksOptions } from "@/core/domain/usfm/usfmOnionAdapters.ts";
@@ -51,13 +50,23 @@ function throwPathIoUnsupported(): never {
     throw new UnsupportedError("Path I/O is desktop-only");
 }
 
+// scope is required by the library and gates the document-level rules. The
+// editor doesn't thread chapter-grain scope yet, so we lint the whole book —
+// preserving today's behavior.
+const WHOLE_BOOK_SCOPE: onion.LintScope = "book";
+
+// Best-effort book ref from a token stream's first sid ("GEN 1:1" → "GEN"),
+// for dev-timer labels only — the call site already holds these tokens.
+const bookOf = (tokens?: readonly Token[]): string =>
+    tokens?.find((t) => t.sid)?.sid?.split(" ")[0] ?? "?";
+
 function toWebTokenLintOptions(
     options?: TokenLintOptions | null,
-): onion.LintOptions | undefined {
-    if (!options) return undefined;
+): onion.LintOptions {
     return {
-        disabledCodes: (options.disabledRules ?? []) as onion.LintCode[],
-        suppressed: (options.suppressions ?? []).map((suppression) => ({
+        scope: WHOLE_BOOK_SCOPE,
+        disabledCodes: (options?.disabledRules ?? []) as onion.LintCode[],
+        suppressed: (options?.suppressions ?? []).map((suppression) => ({
             code: suppression.code as onion.LintCode,
             sid: suppression.sid,
         })),
@@ -70,6 +79,7 @@ function toWebProjectLintOptions(
 ): onion.LintOptions | undefined {
     if (!options) return undefined;
     return {
+        scope: options.scope ?? WHOLE_BOOK_SCOPE,
         enabledCodes: options.enabledCodes,
         disabledCodes: options.disabledCodes ?? [],
         suppressed: options.suppressed ?? [],
@@ -125,9 +135,11 @@ function parsedToProjectedDocument(
     options: ProjectUsfmOptions,
 ): ProjectedUsfmDocument {
     const lintIssues = options.lintOptions
-        ? parsed
-              .lint(toWebProjectLintOptions(options.lintOptions))
-              .issues.filter(shouldKeepLintIssue)
+        ? parsed.lint(
+              toWebProjectLintOptions(options.lintOptions) ?? {
+                  scope: WHOLE_BOOK_SCOPE,
+              },
+          ).issues
         : null;
     return {
         tokens: parsed.tokens(),
@@ -213,10 +225,9 @@ export class WebUsfmOnionService implements IUsfmOnionService {
             lintOptions: null,
         },
     ): Promise<ProjectedUsfmDocument> {
-        return timeInDevAsync(async () => {
-            const parsed = onion.parse(source);
-            return parsedToProjectedDocument(parsed, options);
-        }, "web:parseUsfm");
+        using _timer = devTimer(`web:parseUsfm (${source.length} chars)`);
+        const parsed = onion.parse(source);
+        return parsedToProjectedDocument(parsed, options);
     }
 
     async parseUsfmBatchFromPaths(
@@ -236,36 +247,32 @@ export class WebUsfmOnionService implements IUsfmOnionService {
             lintOptions: null,
         },
     ): Promise<ProjectedUsfmDocument[]> {
-        return timeInDevAsync(async () => {
-            return Promise.all(
-                sources.map(async (source) => {
-                    const doc = parsedToProjectedDocument(
-                        onion.parse(source),
-                        options,
-                    );
-                    // Hash the source string we already hold in JS — the single
-                    // read happened upstream (loadForWeb), so no extra IO.
-                    if (options.includeSourceMd5) {
-                        doc.sourceMd5 =
-                            await webMd5Service.calculateMd5(source);
-                    }
-                    return doc;
-                }),
-            );
-        }, "web:parseUsfmBatchFromContents");
+        using _timer = devTimer(
+            `web:parseUsfmBatchFromContents (${sources.length} files)`,
+        );
+        return Promise.all(
+            sources.map(async (source) => {
+                const doc = parsedToProjectedDocument(
+                    onion.parse(source),
+                    options,
+                );
+                // Hash the source string we already hold in JS — the single
+                // read happened upstream (loadForWeb), so no extra IO.
+                if (options.includeSourceMd5) {
+                    doc.sourceMd5 = await webMd5Service.calculateMd5(source);
+                }
+                return doc;
+            }),
+        );
     }
 
     async lintExisting(
         tokens: Token[],
         options: TokenLintOptions = {},
     ): Promise<LintIssue[]> {
-        return timeInDevAsync(async () => {
-            const result = onion.lintTokens(
-                tokens,
-                toWebTokenLintOptions(options),
-            );
-            return result.issues.filter(shouldKeepLintIssue);
-        }, "web:lintExisting");
+        using _timer = devTimer(`web:lintExisting ${bookOf(tokens)}`);
+        const result = onion.lintTokens(tokens, toWebTokenLintOptions(options));
+        return result.issues;
     }
 
     async lintScope(
@@ -276,18 +283,18 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         if (scope.some((item) => item.tokens === undefined)) {
             return throwPathIoUnsupported();
         }
-        return timeInDevAsync(async () => {
-            const lintOptions =
-                options.lintOptions?.tokenRules ?? options.tokenOptions ?? {};
-            const webLintOptions = toWebTokenLintOptions(lintOptions);
-            return Promise.all(
-                scope.map(async (item) =>
-                    onion
-                        .lintTokens(item.tokens ?? [], webLintOptions)
-                        .issues.filter(shouldKeepLintIssue),
-                ),
-            );
-        }, "web:lintScope");
+        using _timer = devTimer(
+            `web:lintScope ${bookOf(scope[0]?.tokens)} (${scope.length} ch)`,
+        );
+        const lintOptions =
+            options.lintOptions?.tokenRules ?? options.tokenOptions ?? {};
+        const webLintOptions = toWebTokenLintOptions(lintOptions);
+        return Promise.all(
+            scope.map(
+                async (item) =>
+                    onion.lintTokens(item.tokens ?? [], webLintOptions).issues,
+            ),
+        );
     }
 
     async formatScope(
@@ -298,49 +305,51 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         if (scope.some((item) => item.tokens === undefined)) {
             return throwPathIoUnsupported();
         }
-        return timeInDevAsync(async () => {
-            return Promise.all(
-                scope.map(async (item) => {
-                    const tokens = item.tokens ?? [];
-                    return formatTokensToTransformResult(
-                        tokens,
-                        onion.formatTokens(tokens, WYSIWYG_FORMAT_OPTIONS),
-                    );
-                }),
-            );
-        }, "web:formatScope");
+        using _timer = devTimer(
+            `web:formatScope ${bookOf(scope[0]?.tokens)} (${scope.length} ch)`,
+        );
+        return Promise.all(
+            scope.map(async (item) => {
+                const tokens = item.tokens ?? [];
+                return formatTokensToTransformResult(
+                    tokens,
+                    onion.formatTokens(tokens, WYSIWYG_FORMAT_OPTIONS),
+                );
+            }),
+        );
     }
 
     async applyTokenFixes(
         tokens: Token[],
         fixes: TokenFix[],
     ): Promise<TokenTransformResult> {
-        return timeInDevAsync(async () => {
-            if (!fixes.length) {
-                return {
-                    tokens,
-                    appliedChanges: [],
-                    skippedChanges: [],
-                };
-            }
-            let nextTokens = tokens;
-            const appliedChanges: TokenTransformResult["appliedChanges"] = [];
-            for (const fix of fixes) {
-                nextTokens = onion.applyTokenFix(nextTokens, fix);
-                appliedChanges.push({
-                    kind: "applyTokenFix",
-                    code: fix.code,
-                    label: fix.label,
-                    labelParams: fix.labelParams,
-                    targetTokenId: fix.targetTokenId ?? null,
-                });
-            }
+        using _timer = devTimer(
+            `web:applyTokenFixes ${bookOf(tokens)} (${fixes.length} fix)`,
+        );
+        if (!fixes.length) {
             return {
-                tokens: nextTokens,
-                appliedChanges,
+                tokens,
+                appliedChanges: [],
                 skippedChanges: [],
             };
-        }, "web:applyTokenFixes");
+        }
+        let nextTokens = tokens;
+        const appliedChanges: TokenTransformResult["appliedChanges"] = [];
+        for (const fix of fixes) {
+            nextTokens = onion.applyTokenFix(nextTokens, fix);
+            appliedChanges.push({
+                kind: "applyTokenFix",
+                code: fix.code,
+                label: fix.label,
+                labelParams: fix.labelParams,
+                targetTokenId: fix.targetTokenId ?? null,
+            });
+        }
+        return {
+            tokens: nextTokens,
+            appliedChanges,
+            skippedChanges: [],
+        };
     }
 
     async diffScope(
@@ -367,11 +376,10 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         currentTokens: Token[],
         buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
     ): Promise<Diff[]> {
-        return timeInDevAsync(async () => {
-            return onion
-                .diffTokens(baselineTokens, currentTokens, buildOptions)
-                .map(fromRawDiff);
-        }, "web:diffTokens");
+        using _timer = devTimer(`web:diffTokens ${bookOf(currentTokens)}`);
+        return onion
+            .diffTokens(baselineTokens, currentTokens, buildOptions)
+            .map(fromRawDiff);
     }
 
     async revertDiffBlock(
@@ -380,14 +388,15 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         blockId: string,
         buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
     ): Promise<Token[]> {
-        return timeInDevAsync(async () => {
-            return onion.revertDiffBlock(
-                baselineTokens,
-                currentTokens,
-                blockId,
-                buildOptions,
-            );
-        }, "web:revertDiffBlock");
+        using _timer = devTimer(
+            `web:revertDiffBlock ${bookOf(currentTokens)} ${blockId}`,
+        );
+        return onion.revertDiffBlock(
+            baselineTokens,
+            currentTokens,
+            blockId,
+            buildOptions,
+        );
     }
 }
 

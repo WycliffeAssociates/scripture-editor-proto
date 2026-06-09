@@ -57,11 +57,12 @@ direction to grow into, not a closed door.
               React subscribe            Effect changes: Stream<CommitEvent>
                           │              │
                           ▼              ▼
-                 useSyncExternalStore   pipelines (lint, saveStatus,
-                                        structureMaintenance, overlayTick)
+                 useSyncExternalStore   pipelines (lint, sous, editorSync,
+                                        saveStatus, structureMaintenance,
+                                        overlayTick, searchRerun, …)
                                                      │
                                                      ▼
-                                       satellite stores (LintStore,
+                                       satellite stores (FindingsStore,
                                        SaveStatusStore, LayoutTickStore,
                                        SearchHighlightStore)
 ```
@@ -72,7 +73,9 @@ direction to grow into, not a closed door.
   patch, the post-commit snapshot, and metadata (`kind`, `scope`,
   `dirtyTextContent`, `generation`).
 - **Pipelines** subscribe to the commit stream, filter, debounce, and write
-  into **satellite stores**.
+  into **satellite stores**. Lint and sous are parallel subscribers — each
+  rides `makeFoldedScopePipeline`, which accumulates book scopes across the
+  debounce window so no book touched during a burst is silently dropped.
 - **Satellite stores** are tiny, single-purpose, and React-readable via
   `useSyncExternalStore`. They never call back into `WorkingFilesStore`.
 
@@ -227,51 +230,118 @@ optimistic-concurrency check.
 
 File: `src/app/state/commitFilters.ts`
 
-Three named predicates encode the per-subscriber policy. **Do not inline
-filter shapes at pipeline call sites** — three near-identical copies were the
-review finding that produced this module.
+Two shapes of policy live here. **Do not inline filter logic at pipeline call
+sites.**
 
-- `isLintRelevant` — every text change a user could care about. Excludes
-  `metadataOnly`, `structuralFixup`, `load`, `undo`, `redo` (the last two are
-  re-linted targeted by the post-undo/redo effect; without this exclusion the
-  pipeline would re-lint the entire project because undo commits use project
-  scope).
-- `isSaveStatusRelevant` — same as lint except `undo` / `redo` **do** count;
-  replay restores prior dirty state and the save status should reflect it.
-- `isStructureMaintenanceRelevant` — narrowest: `userEdit` only. The
-  pipeline's own writebacks are tagged `structuralFixup` and re-entering
-  would feedback-loop; programmatic / load / undo / redo arrive structurally
-  consistent already.
+**Scope policies** (`lintScopeFor`, `sousScopeFor`, `editorSyncScopeFor`,
+`diffScopeFor`) fuse "is this commit relevant?" and "at what scope do I
+react?" into one return value — a `ConsumerBookScope` (or chapter scope).
+An empty set means skip; the `"all"` sentinel means react against the full
+snapshot. This is the right shape for `makeFoldedScopePipeline`'s scope
+accumulator: scopes fold cleanly across a debounce window and `"all"` absorbs
+any set.
 
-`isSearchRerunRelevant` lives in `searchRerunPipeline.ts` rather than
-`commitFilters.ts` — only one consumer and one direct test
-(`searchRerunPipeline.test.ts` predicate matrix); will promote alongside
-its siblings on the third consumer (rule of three).
+- `lintScopeFor` — every text change a user could care about: excludes
+  `metadataOnly`, `structuralFixup`, `load`. `undo`/`redo` are **included**
+  — replay commits carry precise chapter scope, so the pipeline re-lints
+  exactly the touched books. (The old post-undo/redo targeted relint hook
+  that bypassed the main pipeline no longer exists.)
+- `sousScopeFor` — same relevance class as lint today. Action-keyed widening
+  belongs here when a sous rule actually needs corpus-level state (e.g. cross-
+  book statistics → map `action` to `"all"`).
+- `editorSyncScopeFor` — only `programmaticFix` / `import`; `userEdit`
+  originates from the editor (writing back would clobber selection/IME), and
+  `undo`/`redo` handle their own content restoration.
+- `diffScopeFor` — chapter granularity, same exclusions as lint.
+
+**Boolean predicates** (`isSaveStatusRelevant`, `isStructureMaintenanceRelevant`,
+`isDirtyBufferRelevant`) cover subscribers whose reaction has no meaningful
+scope axis.
+
+- `isSaveStatusRelevant` — all dirty-text events including `undo`/`redo`
+  (replay restores prior dirty state).
+- `isStructureMaintenanceRelevant` — `userEdit` only; pipeline's own
+  writebacks (`structuralFixup`) and all programmatic / load / undo / redo
+  commits arrive structurally consistent.
+- `isDirtyBufferRelevant` — widest: excludes `load` and `selectionOnly`
+  patches only; the save flow's clean-marking commit is `metadataOnly` with
+  `dirtyTextContent: false` and must still clear the backup.
+
+`isSearchRerunRelevant` lives in `searchRerunPipeline.ts` — one consumer,
+one direct test; promote to `commitFilters.ts` on the third consumer (rule
+of three).
 
 ## Pipelines
 
 All pipelines live under `src/app/domain/editor/pipelines/`. Each is a
-factory returning `Effect.Effect<void>` that `WorkspaceContext` forks once
-via `Effect.runFork(pipeline)` and interrupts on unmount. Five drive the
-in-session editor; two drive crash-recovery
+factory returning `Effect.Effect<void>` that `WorkspaceContext` forks via
+`useForkedPipeline` and interrupts on unmount or deps change. Seven drive the
+in-session editor (lint, sous, editorSync, saveStatus, structureMaintenance,
+overlayTick, searchRerun); two drive crash-recovery
 (`dirtyBufferPipeline` + `recoveredConflictTrackerSubscriber`, documented
-in `crash-recovery-autosave.md`).
+in `crash-recovery-autosave.md`). A dev-only `tokenFixpointPipeline` runs
+only in `import.meta.env.DEV`.
 
 ### `makeLintPipeline`
 
 ```
-changes ─► filter(isLintRelevant) ─► debounce(100ms) ─► switchMap(lintBooks)
+changes ─► lintScopeFor ─► fold into Ref<FoldedBookScope>
+        ─► debounce(100ms) ─► switchMap(drain Ref → lintPass)
 ```
 
-- `switchMap` is the cancellation primitive. A newer commit interrupts the
-  in-flight lint fiber and starts a fresh one. Only the newest pass writes
-  to `LintStore`.
-- One book per pass: project-scope commits collect every book in the
-  snapshot; chapter-scope commits collect just the touched book. (Linter's
-  structure checks span chapters within a book, so chapter granularity
-  isn't useful here.)
+Built on `makeFoldedScopePipeline`. Scopes accumulate in a `Ref` as
+events arrive; the debounce paces the trigger; each pass drains the
+accumulated union atomically (`getAndSet`). If `switchMap` interrupts a
+pass, the pass restores its taken scope before yielding, so the next
+trigger covers `old ∪ new` — no book touched during a burst is silently
+dropped.
+
+- One lint IPC call per pass: the folded scope supplies the book list;
+  `relintBookFiles` batches all books in one round-trip. (Linter structure
+  checks span chapters within a book, so chapter granularity isn't useful here.)
+- Each book's result commits into `FindingsStore`'s `"onion"` slice via
+  `commitBookFindings`. A clean book commits `{}` (no merge, clean slate).
 - `Effect.catch` swallows lint errors to a `console.error` — a hung
   remote linter must not take the pipeline fiber down.
+
+### `makeSousPipeline`
+
+```
+changes ─► sousScopeFor ─► fold into Ref<FoldedBookScope>
+        ─► debounce(200ms) ─► switchMap(drain Ref → sousPass)
+```
+
+A parallel subscriber to the same `WorkingFilesStore.changes` stream as
+`makeLintPipeline` — not a tee off lint IPC. Uses the same
+`makeFoldedScopePipeline` substrate with a calmer 200 ms debounce, so
+sous traffic doesn't compound lint's 100 ms cadence.
+
+Each pass iterates the folded book set, calls `ISousService.analyze(tokens)`
+once per book, and commits the result into `FindingsStore`'s `"sous-chef"`
+slice via `commitSousBookFindings`. The sous commit carries both the finding
+list and the vref segment sidecar in one atomic call — findings and the
+projection they resolve against are never observed out of step.
+
+`ISousService.analyze` accepts a flat token array and hides the vref build:
+`TauriSousService` hands the tokens to the `sous_analyze` Rust command;
+`WebSousService` runs `onion.vrefIndexTokens` in-process then calls the wasm
+`ssc.analyze_vref`. Both return `SousAnalyzeResult: { segments, findings }`.
+
+### `makeEditorSyncPipeline`
+
+```
+changes ─► editorSyncScopeFor ─► (no debounce) ─► mapEffect(awaitEditor + setEditorContent)
+```
+
+Keeps the visible editor DOM in sync with programmatic working-files
+commits (`programmaticFix`, `import`). No debounce — these events are rare
+and any delay widens the window where the user types into pre-fix content.
+
+`userEdit` commits (originate from the editor) and `undo`/`redo` commits
+(replay restores its own content + selection) are excluded by
+`editorSyncScopeFor`. The pipeline awaits `Deferred<LexicalEditor>` and calls
+`setEditorContent`, tagging the write with `programaticIgnore` so the bridge
+does not republish the writeback as a fresh commit.
 
 ### `makeSaveStatusPipeline`
 
@@ -309,7 +379,7 @@ changes ─► filter(kind !== "metadataOnly") ─► debounce(16ms) ─► tap(
 ```
 
 Coalesces a burst of commits into one tick per animation frame. The tick is
-data-free; `LintDomAnnotatorPlugin`, `HighlightSink`, and any other overlay
+data-free; `FindingsOverlayPlugin`, `HighlightSink`, and any other overlay
 subscribe to `LayoutTickStore` and re-measure in `useLayoutEffect`. Scroll /
 resize / font-load signals bump the store directly (not via this pipeline).
 
@@ -345,26 +415,34 @@ documented inline), and exposes `subscribe` + `getSnapshot` for
 
 | Store                          | Writers                                                                                            | Readers                                                            |
 | ------------------------------ | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `LintStore`                    | `makeLintPipeline`, post-undo/redo relint effect                                                   | `useLint` + lint UI                                                |
+| `FindingsStore`                | `makeLintPipeline` (`"onion"` slice), `makeSousPipeline` (`"sous-chef"` slice), route loader (initial lint seed) | `useFindings`, `FindingsOverlayPlugin`, `FindingsPopover`         |
 | `SaveStatusStore`              | `makeSaveStatusPipeline`, save command                                                             | `useSave`, toolbar                                                 |
-| `LayoutTickStore`              | `makeOverlayTickPipeline`, workspace `ResizeObserver`                                              | `LintDomAnnotatorPlugin`, `HighlightSink`                          |
+| `LayoutTickStore`              | `makeOverlayTickPipeline`, workspace resize/scroll listeners                                       | `FindingsOverlayPlugin`, `HighlightSink`                          |
 | `SearchHighlightStore`         | Search hooks (execution / navigation / replace)                                                    | `HighlightSink` (paints in `useLayoutEffect`)                      |
 | `WorkspaceInteractionGate`     | Save command (`open`↔`saving`), recovery decision (`recovery-decision-pending`↔`open`)             | Editor `GateEditablePlugin`, every mutation hook, button surfaces  |
 | `RecoveredConflictTracker`     | Route loader (seed on baseline mismatch), `recoveredConflictTrackerSubscriber` (clear on observed clean), Discard banner (`clearAll`) | `useSave` (modal routing), external-compare entry control, save command (`reviewedRecoveredWork` check) |
 | `WorkspaceBaselineStore`       | Route loader (initial seed from `diskMd5ByBook`), save command (`setPresent` after each successful book write) | `dirtyBufferPipeline` (wrapper's `diskBaseline`), recovery classifier |
 | `DirtyBufferStore`             | `dirtyBufferPipeline` (`put` / `clear`)                                                            | Route loader at reopen (`list` + classify against current disk)    |
+| `WorkspaceModalStore`          | `useDecorateFindings` context (`openModal` / `closeModal` passed to decorator context)             | `WorkspaceModalOutlet` (renders the active modal slot)            |
 
-Two design points worth calling out:
+Three design points worth calling out:
 
+- **`FindingsStore` is namespace-partitioned by producer.** `"onion"` and
+  `"sous-chef"` are closed keys; adding a producer is a deliberate type edit.
+  Writes are path-copy at book granularity, so `useSyncExternalStore`
+  consumers' reference-keyed memos skip untouched books. The sous slice
+  carries a `segmentsByBook` sidecar (the vref projection) in the same atomic
+  commit — findings and their DOM-resolution substrate can never be observed
+  out of step.
 - **`SearchHighlightStore` exists to fix drift.** The legacy path painted
   highlights imperatively at each call site. When the structure pipeline or
   a chapter swap moved nodes between paints, highlights drifted. `HighlightSink`
   now subscribes to the store **and** the layout tick and repaints both when
-  matches change and when the editor DOM reflows. The store is just the
-  bridge.
-- **`LintStore.commitBookLintResults` wipes prior results per book.** Pipeline
-  cancellation upstream guarantees only the newest pass writes, so there's no
-  in-store staleness check; `requestCounter` exists for downstream UI ordering.
+  matches change and when the editor DOM reflows. The store is just the bridge.
+- **`FindingsStore` has no staleness counter.** Pipeline cancellation via
+  `switchMap` inside `makeFoldedScopePipeline` guarantees only the newest pass
+  commits; the book-wholesale supersession (`commitBookFindings` replaces the
+  whole book node) means there is no merge rule to forget.
 
 ### Crash-recovery state primitives
 
@@ -399,23 +477,27 @@ unsaved work; full contract in `crash-recovery-autosave.md`.
 
 File: `src/app/ui/contexts/WorkspaceContext.tsx`
 
-- All five stores (`workingFilesStore`, `lintStore`, `saveStatusStore`,
-  `layoutTickStore`, `searchHighlightStore`) are constructed once via
-  `useStableInstance` in the provider. They live for the lifetime of the
-  workspace, not per-render.
+- Stores (`workingFilesStore`, `findingsStore`, `saveStatusStore`,
+  `layoutTickStore`, `searchHighlightStore`, `workspaceModalStore`) are
+  constructed once via `useStableInstance` in the provider. They live for
+  the lifetime of the workspace, not per-render. `FindingsStore` is seeded
+  from the route loader's initial lint pass in the same `useStableInstance`
+  callback so the store is never transiently empty on first render.
 - `mainEditorDeferred` is created with `Effect.runSync(Deferred.make())` and
   resolved by `WorkingFilesBridgePlugin` on editor mount. Pipelines and
   effects that need the editor `yield* Deferred.await(mainEditorDeferred)`.
-- Each pipeline is forked in its own `useEffect`: build the `Effect`, call
-  `Effect.runFork`, return cleanup that interrupts the fiber. Getter callbacks
-  (`getAppSettings`, `getVisibleBookCode`) are kept in sync via refs so the
-  forked fiber always sees current values.
-- The post-undo/redo relint effect lives here too: it registers with
-  `useCustomHistory.registerPostUndoRedoAction`, collects touched books, and
-  writes targeted lint results to `LintStore.commitBookLintResults`. It
-  bypasses the main lint pipeline (which excludes `undo` / `redo`) because
-  history replay should re-lint exactly what it touched, immediately, without
-  the 100ms debounce.
+- Each pipeline is forked via `useForkedPipeline(factory, deps)` — a thin
+  hook that calls `Effect.runFork` on mount and interrupts the fiber on
+  unmount or deps change. Getter callbacks (`getAppSettings`,
+  `getVisibleBookCode`) are kept in sync via refs so forked fibers always see
+  current values.
+- `sousService` is obtained from `useRouter().options.context` alongside
+  `usfmOnionService`. It is injected into `makeSousPipeline` and has no
+  React hooks — it is a plain async service object.
+- `editorSyncPipeline` wires the programmatic-commit→editor sync chokepoint
+  that previously lived as an imperative call in each action hook. The
+  pipeline observes `programmaticFix`/`import` commits and calls
+  `setEditorContent` for the currently visible chapter.
 
 ## Mutability discipline (the rules in one place)
 
@@ -454,15 +536,28 @@ File: `src/app/ui/contexts/WorkspaceContext.tsx`
   the validated active-mutation seam.
 - `src/app/domain/project/compare/applyIncomingToStore.ts` —
   `runIncomingMutation` + the shared identity-CAS primitives the seam composes.
-- `src/app/state/commitFilters.ts` — `isLintRelevant`, `isSaveStatusRelevant`,
-  `isStructureMaintenanceRelevant`. The search-rerun predicate
-  (`isSearchRerunRelevant`) lives co-located with its pipeline in
+- `src/app/state/commitFilters.ts` — `lintScopeFor`, `sousScopeFor`,
+  `editorSyncScopeFor`, `diffScopeFor`, `isSaveStatusRelevant`,
+  `isStructureMaintenanceRelevant`, `isDirtyBufferRelevant`. The search-rerun
+  predicate (`isSearchRerunRelevant`) lives co-located with its pipeline in
   `searchRerunPipeline.ts`.
-- `src/app/state/LintStore.ts`, `SaveStatusStore.ts`, `LayoutTickStore.ts`,
-  `SearchHighlightStore.ts` — satellite stores.
-- `src/app/domain/editor/pipelines/lintPipeline.ts`, `saveStatusPipeline.ts`,
+- `src/app/state/FindingsStore.ts` — unified findings store; `FindingsState`,
+  `FindingSource`, `commitBookFindings`, `commitSousBookFindings`.
+- `src/app/state/findingsSelectors.ts` — `flattenFindings`,
+  `chapterFindingsAcrossSources`, `sousSegmentsForBook`.
+- `src/app/state/SaveStatusStore.ts`, `LayoutTickStore.ts`,
+  `SearchHighlightStore.ts`, `WorkspaceModalStore.ts` — other satellite stores.
+- `src/app/domain/editor/pipelines/lintPipeline.ts`, `sousPipeline.ts`,
+  `editorSyncPipeline.ts`, `foldedScopePipeline.ts`, `saveStatusPipeline.ts`,
   `structureMaintenancePipeline.ts`, `overlayTickPipeline.ts`,
-  `searchRerunPipeline.ts` — pipelines.
+  `searchRerunPipeline.ts` — pipelines. `foldedScopePipeline.ts` is the shared
+  debounce-and-accumulate substrate for lint and sous.
+- `src/core/domain/sous/ISousService.ts`, `sousTypes.ts` — sous service
+  contract and `SousAnalyzeResult` shape.
+- `src/tauri/domain/sous/TauriSousService.ts`,
+  `src/web/domain/sous/WebSousService.ts` — platform implementations.
+- `src/core/domain/usfm/vrefTypes.ts` — `Utf16Span`, `Segment`,
+  `SegmentsBySid` — the vref projection substrate.
 - `src/app/domain/editor/plugins/WorkingFilesBridgePlugin.tsx` — editor →
   store bridge.
 - `src/app/domain/editor/plugins/HighlightSink.tsx` — search highlight paint.

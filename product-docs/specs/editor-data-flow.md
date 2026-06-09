@@ -57,13 +57,16 @@ Stream<CommitEvent>
   │
   ├── lintPipeline           filter(isLintRelevant)            → debounce(100) → switchMap → LintStore
   ├── saveStatusPipeline     filter(isSaveStatusRelevant)      → tap → SaveStatusStore
-  ├── structurePipeline      filter(userEdit)                  → debounce(75)  → mapEffect → editor writeback
+  ├── structureMaintenancePipeline  filter(userEdit && dirtyTextContent) → debounce(16) → mapEffect → editor writeback (metadata: sid/inPara/structural-empty + residual char repair)
   ├── overlayTickPipeline    filter(kind ≠ metadataOnly)       → debounce(16)  → LayoutTickStore.bump
   ├── searchRerunPipeline    filter(isSearchRerunRelevant)     → debounce(250) → tap → rerunSearch(currentTerm)
   │                          // undo/redo/programmaticFix/import only — userEdit excluded
   │                          // (replace already re-runs synchronously)
+  ├── sousPipeline           filter(sousScopeFor — dirty text, not structuralFixup/load) → debounce(200) → mapEffect → FindingsStore (sous slice)
   ├── dirtyBufferPipeline    filter(isDirtyBufferRelevant)     → groupByKey(book) → debounce(2000)/ceiling(30000)
   │                          → atomicWriteText|clear (DirtyBufferStore) — crash-recovery; see crash-recovery-autosave.md
+  ├── tokenFixpointPipeline  filter(lintScopeFor) → debounce(250) → re-lex bytes → console.error on I2 divergence
+  │                          // DEV only (import.meta.env.DEV); never mutates state
   └── recoveredConflictTrackerSubscriber
                              → for each tracked chapter still in tracker, clear if post-commit `dirty === false`
 ```
@@ -313,6 +316,9 @@ and is the smell we explicitly avoid.
 - `src/app/domain/project/compare/applyIncomingToStore.ts` —
   `runIncomingMutation` (the incoming-content boundary)
 - `src/app/domain/editor/pipelines/*.ts`
+  - `structureMaintenancePipeline.ts` — metadata pass (sid/inPara/structural-empty) + residual char repair, 16 ms
+  - `sousPipeline.ts` — content findings via sous-chef, 200 ms
+  - `tokenFixpointPipeline.ts` — dev-only I2 re-lex alarm, 250 ms
 - `src/app/ui/contexts/WorkspaceContext.tsx` — pipeline forks +
   post-undo/redo relint
 - `src/app/ui/hooks/useCustomHistory.ts` — replay path

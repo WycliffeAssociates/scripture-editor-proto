@@ -4,8 +4,6 @@ import type {
     SerializedLexicalNode,
 } from "lexical";
 import {
-    type ContentEditorModeSetting,
-    EDITOR_MODES,
     EDITOR_SHAPES,
     type EditorShape,
     UsfmTokenTypes,
@@ -24,8 +22,8 @@ import {
     USFM_NESTED_DECORATOR_TYPE,
     type USFMNestedEditorNodeJSON,
 } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import { createSerializedUSFMNumberedMarkerNode } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import {
-    createSerializedUSFMTextNode,
     isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
@@ -36,7 +34,9 @@ import { parseSid } from "@/core/data/bible/bible.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 import { LanguageDirection } from "@/core/domain/project/project.ts";
 import {
+    getClosingBehavior,
     isDocumentMarker,
+    isEnabledNumberedMarker,
     isValidParaMarker,
 } from "@/core/domain/usfm/onionMarkers.ts";
 
@@ -139,9 +139,35 @@ function rewrapNestedEditorNodesFromFlatTokens(
             continue;
         }
 
-        // Find the matching `\\marker*` end marker. If not found, leave as-is.
-        let endIndex = -1;
+        // A note is inline content: it cannot legally cross a paragraph/line
+        // boundary, so its scope ends no later than the next linebreak or
+        // container-start marker. Compute that ceiling first, then only look
+        // for the matching `\\marker*` *within* it. Without the ceiling the
+        // search would greedily pair an unclosed `\\f` with the next `\\f*`
+        // many verses downstream, swallowing every verse in between.
+        //
+        // TODO: once usfm-onion's resolved nesting drives Regular mode (walk
+        // `ParsedUsfm.cst()` roots/children, or honor `Token.nested`), this
+        // hand-rolled boundary becomes redundant — the close site comes from
+        // the parser instead of being re-derived here from marker text.
+        let boundaryStop = flatTokens.length;
         for (let j = i + 1; j < flatTokens.length; j++) {
+            const t = flatTokens[j];
+            if (t?.type === "linebreak") {
+                boundaryStop = j;
+                break;
+            }
+            if (!isSerializedMarkerToken(t)) continue;
+            const m = t.marker ?? markerFromUsfmTokenText(t.text);
+            if (m && isContainerStartMarker(m)) {
+                boundaryStop = j;
+                break;
+            }
+        }
+
+        // Find the matching `\\marker*` end marker within the note's scope.
+        let endIndex = -1;
+        for (let j = i + 1; j < boundaryStop; j++) {
             const maybeEnd = flatTokens[j];
             if (!isSerializedEndMarkerToken(maybeEnd)) continue;
 
@@ -157,40 +183,15 @@ function rewrapNestedEditorNodesFromFlatTokens(
             }
         }
 
-        // If end marker is missing, infer closure at the next paragraph boundary.
-        // This mirrors the parser lint autofix behavior which inserts `\\marker*`
-        // at the next paragraph marker or newline.
-        const boundaryIndex =
-            endIndex !== -1
-                ? endIndex + 1
-                : (() => {
-                      for (let j = i + 1; j < flatTokens.length; j++) {
-                          const t = flatTokens[j];
-                          if (t?.type === "linebreak") return j;
-                          if (!isSerializedMarkerToken(t)) continue;
-                          const m = t.marker ?? markerFromUsfmTokenText(t.text);
-                          if (m && isContainerStartMarker(m)) return j;
-                      }
-                      return flatTokens.length;
-                  })();
+        // When the close is missing, the note ends at the boundary ceiling.
+        // The decorator's extent (the children we slice below) is what defines
+        // where the note ends in the editor — we deliberately do NOT synthesize
+        // a `\\marker*` token here. Injecting one would round-trip back out as a
+        // byte the source never had, corrupting save/diff against an unclosed
+        // (malformed-but-real) note. Byte-faithful: render closed, emit nothing.
+        const boundaryIndex = endIndex !== -1 ? endIndex + 1 : boundaryStop;
 
-        const nestedChildren = flatTokens.slice(
-            i + 1,
-            endIndex !== -1 ? endIndex + 1 : boundaryIndex,
-        );
-        if (endIndex === -1) {
-            nestedChildren.push(
-                createSerializedUSFMTextNode({
-                    text: `\\${marker}*`,
-                    id: guidGenerator(),
-                    sid: node.sid ?? "",
-                    tokenType: UsfmTokenTypes.endMarker,
-                    marker,
-                    inPara: node.inPara,
-                    inChars: node.inChars,
-                }),
-            );
-        }
+        const nestedChildren = flatTokens.slice(i + 1, boundaryIndex);
 
         const paragraph: SerializedElementNode = {
             type: "paragraph",
@@ -238,22 +239,101 @@ function rewrapNestedEditorNodesFromFlatTokens(
 }
 
 /**
- * Rematerialize one serialized chapter state for a different editor mode.
+ * Pair flat marker + number tokens into numbered-marker nodes for the
+ * regular shape (the flat→tree twin of the numbered branch in
+ * `materializeFlatTokensFromSerialized`). Runs at load, mode-switch-in, and
+ * paste — every regular rebuild flows through here.
  *
- * Mode switches do not reparse scripture from disk. They reinterpret the
- * already-loaded token/serialized structure into the presentation needed by the
- * next mode, including rebuilding nested note nodes when moving back toward
- * regular mode.
+ * The rule is total over the enabled family (catalog payload fact + the
+ * c/v rollout gate in `isEnabledNumberedMarker`):
+ * - adjacent `marker · number` → one node carrying both token ids;
+ * - an unpaired marker (e.g. `\v\n13` — the newline token breaks adjacency)
+ *   → a node with EMPTY content. The load-time bad state is the same
+ *   representation as the edit-time bad state; lint owns surfacing it. The
+ *   orphaned number token stays a flat numberRange text node — its `number`
+ *   kind survives a re-lex (the lexer's pending payload crosses the
+ *   newline), so leaving it flat preserves the I2 fixpoint.
+ * - when the catalog says the marker closes (`requiredExplicit` — ca/va/vp,
+ *   none of which are enabled yet), an immediately following `\marker*`
+ *   endMarker is absorbed as closeBytes.
  */
-export function transformToMode(
+function pairNumberedMarkerNodesFromFlatTokens(
+    flatTokens: SerializedLexicalNode[],
+): SerializedLexicalNode[] {
+    const out: SerializedLexicalNode[] = [];
+    for (let i = 0; i < flatTokens.length; i++) {
+        const node = flatTokens[i];
+        if (!isSerializedMarkerToken(node)) {
+            out.push(node);
+            continue;
+        }
+        const marker = node.marker ?? markerFromUsfmTokenText(node.text);
+        if (!marker || !isEnabledNumberedMarker(marker)) {
+            out.push(node);
+            continue;
+        }
+
+        const next = flatTokens[i + 1];
+        const isNumber =
+            next !== undefined &&
+            isSerializedUSFMTextNode(next) &&
+            next.tokenType === UsfmTokenTypes.numberRange;
+
+        let closeBytes: string | null = null;
+        let closeId: string | null = null;
+        if (isNumber && getClosingBehavior(marker) === "requiredExplicit") {
+            const maybeClose = flatTokens[i + 2];
+            if (
+                maybeClose !== undefined &&
+                isSerializedEndMarkerToken(maybeClose) &&
+                (maybeClose.marker ??
+                    markerFromUsfmTokenText(
+                        (maybeClose.text ?? "").replace("*", ""),
+                    )) === marker
+            ) {
+                closeBytes = maybeClose.text ?? `\\${marker}*`;
+                closeId = maybeClose.id ?? null;
+            }
+        }
+
+        out.push(
+            createSerializedUSFMNumberedMarkerNode(
+                isNumber ? (next.text ?? "") : "",
+                {
+                    numberId: isNumber
+                        ? (next.id ?? guidGenerator())
+                        : guidGenerator(),
+                    openId: node.id ?? guidGenerator(),
+                    closeId,
+                    openBytes: node.text ?? `\\${marker} `,
+                    closeBytes,
+                    marker,
+                    sid: (isNumber ? next.sid : undefined) || node.sid || "",
+                    inPara: node.inPara,
+                },
+            ),
+        );
+        if (isNumber) i += closeBytes != null ? 2 : 1;
+    }
+    return out;
+}
+
+/**
+ * Rematerialize one serialized chapter state into a different tree shape.
+ *
+ * Shape changes do not reparse scripture from disk. They reinterpret the
+ * already-loaded token/serialized structure into the presentation needed by the
+ * target shape, including rebuilding nested note nodes when moving back toward
+ * the regular shape.
+ */
+export function transformToShape(
     state: SerializedEditorState,
-    targetMode: ContentEditorModeSetting,
+    targetShape: EditorShape,
 ): SerializedEditorState {
     const direction = state.root.direction ?? LanguageDirection.LTR;
     const rootChildren = state.root.children as SerializedLexicalNode[];
 
     const currentShape = detectCurrentShape(rootChildren);
-    const targetShape = targetShapeForMode(targetMode);
 
     // Chapter 0 (book frontmatter) renders the same dedicated form on
     // both Regular and Form modes — we never want to break out the
@@ -279,6 +359,14 @@ export function transformToMode(
 
     // Always reduce to a flat token list first, then rebuild for the target shape.
     const flatTokens = flattenToTokens(rootChildren);
+
+    // Empty content has no meaningful shape. Keep whatever valid state the
+    // chapter already has rather than emitting a childless root (the form and
+    // regular rebuilds below would produce zero root children, which is not a
+    // usable Lexical document).
+    if (flatTokens.length === 0) {
+        return state;
+    }
 
     // Frontmatter detection runs before the form/regular split so
     // both paths produce the BookFrontmatterFormNode shape.
@@ -324,16 +412,20 @@ export function transformToMode(
     }
 
     if (targetShape === "regular") {
+        // Order matters: note rewrap first (its unclosed-note boundary
+        // inference reads flat \c marker tokens), then numbered pairing,
+        // then container grouping.
         const withNested = rewrapNestedEditorNodesFromFlatTokens(
             flatTokens,
             direction,
         );
+        const withNumbered = pairNumberedMarkerNodesFromFlatTokens(withNested);
         return {
             ...state,
             root: {
                 ...state.root,
                 children: groupFlatNodesIntoParagraphContainers(
-                    withNested,
+                    withNumbered,
                     direction,
                 ),
             },
@@ -355,12 +447,6 @@ function detectCurrentShape(
 ): EditorShape {
     if (isFormModeRootChildren(rootChildren)) return "form";
     if (isRegularModeRootChildren(rootChildren)) return "regular";
-    return "flat";
-}
-
-function targetShapeForMode(mode: ContentEditorModeSetting): EditorShape {
-    if (mode === EDITOR_MODES.form) return "form";
-    if (mode === EDITOR_MODES.regular) return "regular";
     return "flat";
 }
 

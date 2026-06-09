@@ -23,6 +23,7 @@ import {
     UsfmTokenTypes,
 } from "@/app/data/editor.ts";
 import { $isUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import { $isUSFMNumberedMarkerNode } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import { $isUSFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     $isUSFMTextNode,
@@ -461,12 +462,20 @@ const REMOVE_EMPTY_VERSES_ACTION: EditorAction = {
         for (let i = 0; i < all.length; i++) {
             const node = all[i];
             if (!$isUSFMTextNode(node)) continue;
-            if (node.getTokenType() !== UsfmTokenTypes.marker) continue;
-            if (node.getMarker() !== "v") continue;
+
+            // Regular shape: the verse is one numbered-marker node. Flat
+            // shapes: legacy marker token (+ optional numberRange sibling).
+            const isNumberedVerse =
+                $isUSFMNumberedMarkerNode(node) && node.getMarker() === "v";
+            const isLegacyVerseMarker =
+                node.getTokenType() === UsfmTokenTypes.marker &&
+                node.getMarker() === "v";
+            if (!isNumberedVerse && !isLegacyVerseMarker) continue;
             if (!isInCurrentChapter(node.getSid())) continue;
 
             const next = all[i + 1];
             const numberNode =
+                !isNumberedVerse &&
                 next &&
                 $isUSFMTextNode(next) &&
                 next.getTokenType() === UsfmTokenTypes.numberRange
@@ -491,6 +500,9 @@ const REMOVE_EMPTY_VERSES_ACTION: EditorAction = {
                 if ($isUSFMTextNode(curr)) {
                     // If we crossed out of the current chapter, stop.
                     if (!isInCurrentChapter(curr.getSid())) break;
+
+                    // The next verse/chapter node is a boundary, not content.
+                    if ($isUSFMNumberedMarkerNode(curr)) break;
 
                     const tokenType = curr.getTokenType();
 

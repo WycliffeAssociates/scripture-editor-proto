@@ -1,4 +1,4 @@
-import type { EditorModeSetting } from "@/app/data/editor.ts";
+import { shapeForSurface } from "@/app/data/editor.ts";
 import { scriptureProjectToParsedFiles } from "@/app/domain/api/scriptureProjectToParsedFiles.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
@@ -76,7 +76,6 @@ function createSnapshotProject(args: {
 export async function snapshotToScriptureBookStates(args: {
     loadedProject: Project;
     snapshot: Map<string, string>;
-    editorMode: EditorModeSetting;
     usfmOnionService: IUsfmOnionService;
 }): Promise<ScriptureBookState[]> {
     const virtualProject = createSnapshotProject({
@@ -109,9 +108,11 @@ export async function snapshotToScriptureBookStates(args: {
             args.usfmOnionService.diffScope(...serviceArgs),
     };
 
+    // Snapshot states feed token-based diffing and apply flows only — their
+    // lexical state is never rendered, so they materialize as compare sources.
     const parsed = await scriptureProjectToParsedFiles({
         loadedProject: virtualProject,
-        editorMode: args.editorMode,
+        shape: shapeForSurface("compareSource"),
         usfmOnionService: contentOnlyUsfmOnionService,
     });
 

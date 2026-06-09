@@ -52,14 +52,14 @@ describe("saveStatusPipeline (integration)", () => {
                 // Bulk-commit a dirty snapshot. Using bulk (not a chapter
                 // patch) makes the dirty flag a fixture-controlled value
                 // rather than a function of `lexicalToTokens` output.
-                wf.commit(
-                    { kind: "bulk", files: [dirtyBookSeed()] },
-                    makeCommitMeta({
+                wf.commit({
+                    patch: { kind: "bulk", files: [dirtyBookSeed()] },
+                    meta: makeCommitMeta({
                         kind: "userEdit",
                         bookCode: "GEN",
                         chapter: 1,
                     }),
-                );
+                });
                 yield* drainYields();
                 expect(store.read().kind).toBe("dirty");
             }),
@@ -80,14 +80,14 @@ describe("saveStatusPipeline (integration)", () => {
                 );
                 yield* drainYields();
 
-                wf.commit(
-                    { kind: "bulk", files: [cleanBookSeed()] },
-                    makeCommitMeta({
+                wf.commit({
+                    patch: { kind: "bulk", files: [cleanBookSeed()] },
+                    meta: makeCommitMeta({
                         kind: "userEdit",
                         bookCode: "GEN",
                         chapter: 1,
                     }),
-                );
+                });
                 yield* drainYields();
                 expect(store.read().kind).toBe("clean");
             }),
@@ -111,14 +111,14 @@ describe("saveStatusPipeline (integration)", () => {
                 );
                 yield* drainYields();
 
-                wf.commit(
-                    { kind: "bulk", files: [cleanBookSeed()] },
-                    makeCommitMeta({
+                wf.commit({
+                    patch: { kind: "bulk", files: [cleanBookSeed()] },
+                    meta: makeCommitMeta({
                         kind: "userEdit",
                         bookCode: "GEN",
                         chapter: 1,
                     }),
-                );
+                });
                 yield* drainYields();
                 expect(store.read().kind).toBe("saving");
             }),
@@ -141,15 +141,15 @@ describe("saveStatusPipeline (integration)", () => {
                 );
                 yield* drainYields();
 
-                wf.commit(
-                    { kind: "selectionOnly", bookCode: "GEN", chapter: 1 },
-                    makeCommitMeta({
+                wf.commit({
+                    patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1, selection: null },
+                    meta: makeCommitMeta({
                         kind: "metadataOnly",
                         bookCode: "GEN",
                         chapter: 1,
                         dirtyTextContent: false,
                     }),
-                );
+                });
                 yield* drainYields();
                 expect(setDirtySpy).not.toHaveBeenCalled();
                 expect(setCleanSpy).not.toHaveBeenCalled();

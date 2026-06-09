@@ -1,6 +1,6 @@
 import type { SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
-import { transformToMode } from "@/app/domain/editor/utils/modeTransforms.ts";
+import { transformToShape } from "@/app/domain/editor/utils/modeTransforms.ts";
 import {
     canonicalSnapshotToChapterState,
     chapterSnapshotsAreEqual,
@@ -16,9 +16,9 @@ describe("history canonical snapshot integration", () => {
             { needsParagraphs: true },
         );
         const regularState = editor.getEditorState().toJSON();
-        const usfmState = transformToMode(
+        const usfmState = transformToShape(
             structuredClone(regularState),
-            "usfm",
+            "flat",
         );
 
         const regularSnapshot = chapterStateToCanonicalSnapshot(regularState);
@@ -41,7 +41,7 @@ describe("history canonical snapshot integration", () => {
         const snapshot = chapterStateToCanonicalSnapshot(startState);
         const restored = canonicalSnapshotToChapterState({
             snapshot,
-            targetMode: "regular",
+            targetShape: "regular",
         });
         const restoredUsfm = serializeToUsfmString(
             restored.root.children as SerializedLexicalNode[],

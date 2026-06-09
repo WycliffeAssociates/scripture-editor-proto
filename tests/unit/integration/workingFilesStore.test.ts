@@ -23,7 +23,11 @@ import { Effect, Fiber, Stream } from "effect";
 import { describe, expect, it } from "vitest";
 import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type { ScriptureChapterState } from "@/app/scripture/ScriptureWorkspaceState.ts";
-import type { CommitEvent } from "@/app/state/types.ts";
+import type {
+    CapturedSelection,
+    CommitEvent,
+    WorkingFilesPatch,
+} from "@/app/state/types.ts";
 import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import {
     makeBook,
@@ -47,6 +51,7 @@ function makeChapterPinnedToSource(text: string): ScriptureChapterState {
     return {
         chapterNumber: 1,
         dirty: false,
+        eol: "\n",
         sourceTokens: tokens,
         currentTokens: tokens,
         loadedLexicalState: lexicalState,
@@ -61,14 +66,14 @@ describe("WorkingFilesStore — applyPatch (chapter)", () => {
             makeBook({ bookCode: "GEN", chapters: [seed] }),
         ]);
 
-        wf.commit(
-            makeChapterPatch({
+        wf.commit({
+            patch: makeChapterPatch({
                 bookCode: "GEN",
                 chapter: 1,
                 text: "Hello world.",
             }),
-            makeCommitMeta({ kind: "userEdit", bookCode: "GEN", chapter: 1 }),
-        );
+            meta: makeCommitMeta({ kind: "userEdit", bookCode: "GEN", chapter: 1 }),
+        });
 
         const chapter = wf.read()[0].chapters[0];
         expect(chapter.dirty).toBe(true);
@@ -88,21 +93,21 @@ describe("WorkingFilesStore — applyPatch (chapter)", () => {
         ]);
 
         // Edit away from source...
-        wf.commit(
-            makeChapterPatch({
+        wf.commit({
+            patch: makeChapterPatch({
                 bookCode: "GEN",
                 chapter: 1,
                 text: "Hello world.",
             }),
-            makeCommitMeta({ kind: "userEdit", bookCode: "GEN", chapter: 1 }),
-        );
+            meta: makeCommitMeta({ kind: "userEdit", bookCode: "GEN", chapter: 1 }),
+        });
         expect(wf.read()[0].chapters[0].dirty).toBe(true);
 
         // ...then back to source (e.g. undo).
-        wf.commit(
-            makeChapterPatch({ bookCode: "GEN", chapter: 1, text: "Hello." }),
-            makeCommitMeta({ kind: "undo", bookCode: "GEN", chapter: 1 }),
-        );
+        wf.commit({
+            patch: makeChapterPatch({ bookCode: "GEN", chapter: 1, text: "Hello." }),
+            meta: makeCommitMeta({ kind: "undo", bookCode: "GEN", chapter: 1 }),
+        });
         expect(wf.read()[0].chapters[0].dirty).toBe(false);
     });
 });
@@ -166,14 +171,14 @@ describe("WorkingFilesStore — commit / selectionOnly", () => {
         await new Promise<void>((r) => setImmediate(r));
 
         for (const text of ["a", "ab", "abc"]) {
-            wf.commit(
-                makeChapterPatch({ bookCode: "GEN", chapter: 1, text }),
-                makeCommitMeta({
+            wf.commit({
+                patch: makeChapterPatch({ bookCode: "GEN", chapter: 1, text }),
+                meta: makeCommitMeta({
                     kind: "userEdit",
                     bookCode: "GEN",
                     chapter: 1,
                 }),
-            );
+            });
         }
 
         await Effect.runPromise(Fiber.join(fiber));
@@ -184,16 +189,162 @@ describe("WorkingFilesStore — commit / selectionOnly", () => {
         const wf = new WorkingFilesStore([makeBook({ bookCode: "GEN" })]);
         const before = wf.read();
 
-        wf.commit(
-            { kind: "selectionOnly", bookCode: "GEN", chapter: 1 },
-            makeCommitMeta({
+        wf.commit({
+            patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1, selection: null },
+            meta: makeCommitMeta({
                 kind: "metadataOnly",
                 bookCode: "GEN",
                 chapter: 1,
                 dirtyTextContent: false,
             }),
-        );
+        });
 
         expect(wf.read()).toBe(before);
+    });
+});
+
+describe("WorkingFilesStore — selection facts", () => {
+    const cursorAt = (id: string, offset: number): CapturedSelection => ({
+        anchorId: id,
+        anchorOffset: offset,
+        focusId: id,
+        focusOffset: offset,
+    });
+
+    const selectionOnlyMeta = (bookCode: string, chapter: number) =>
+        makeCommitMeta({
+            kind: "metadataOnly",
+            bookCode,
+            chapter,
+            dirtyTextContent: false,
+        });
+
+    it("keeps the latest fact per chapter, stamped with the commit generation", () => {
+        const wf = new WorkingFilesStore([makeBook({ bookCode: "GEN" })]);
+
+        wf.commit({
+            patch: {
+                kind: "selectionOnly",
+                bookCode: "GEN",
+                chapter: 1,
+                selection: cursorAt("t1", 3),
+            },
+            meta: selectionOnlyMeta("GEN", 1),
+        });
+        wf.commit({
+            patch: {
+                kind: "selectionOnly",
+                bookCode: "GEN",
+                chapter: 1,
+                selection: cursorAt("t2", 0),
+            },
+            meta: selectionOnlyMeta("GEN", 1),
+        });
+
+        expect(wf.readSelectionFact("GEN", 1)).toEqual({
+            generation: 2,
+            selection: cursorAt("t2", 0),
+        });
+    });
+
+    it("records a null riding selection as an honest fact (not skipped)", () => {
+        const wf = new WorkingFilesStore([makeBook({ bookCode: "GEN" })]);
+
+        wf.commit({
+            patch: {
+                kind: "selectionOnly",
+                bookCode: "GEN",
+                chapter: 1,
+                selection: cursorAt("t1", 3),
+            },
+            meta: selectionOnlyMeta("GEN", 1),
+        });
+        wf.commit({
+            patch: {
+                kind: "selectionOnly",
+                bookCode: "GEN",
+                chapter: 1,
+                selection: null,
+            },
+            meta: selectionOnlyMeta("GEN", 1),
+        });
+
+        expect(wf.readSelectionFact("GEN", 1)?.selection).toBeNull();
+    });
+
+    it("chapter patch WITH selection records; WITHOUT selection leaves facts untouched", () => {
+        const seed = makeChapterPinnedToSource("Hello.");
+        const wf = new WorkingFilesStore([
+            makeBook({ bookCode: "GEN", chapters: [seed] }),
+        ]);
+
+        wf.commit({
+            patch: {
+                ...makeChapterPatch({ bookCode: "GEN", chapter: 1, text: "Hi." }),
+                selection: cursorAt("t1", 1),
+            } as WorkingFilesPatch,
+            meta: makeCommitMeta({ kind: "userEdit", bookCode: "GEN", chapter: 1 }),
+        });
+        const afterRiding = wf.readSelectionFact("GEN", 1);
+        expect(afterRiding).toEqual({
+            generation: 1,
+            selection: cursorAt("t1", 1),
+        });
+
+        // Programmatic writer that doesn't know the cursor: no selection
+        // field. Absence means "unknown", not "no cursor" — facts unchanged.
+        wf.commit({
+            patch: makeChapterPatch({ bookCode: "GEN", chapter: 1, text: "Yo." }),
+            meta: makeCommitMeta({ kind: "import", bookCode: "GEN", chapter: 1 }),
+        });
+        expect(wf.readSelectionFact("GEN", 1)).toEqual(afterRiding);
+    });
+
+    it("bulk patch records per-chapter selections (undo/redo replay)", () => {
+        const wf = new WorkingFilesStore([makeBook({ bookCode: "GEN" })]);
+
+        wf.commit({
+            patch: {
+                kind: "bulk",
+                files: wf.read(),
+                selections: [
+                    { bookCode: "GEN", chapter: 1, selection: cursorAt("t9", 4) },
+                    { bookCode: "GEN", chapter: 2, selection: null },
+                ],
+            },
+            meta: makeCommitMeta({ kind: "undo", bookCode: "GEN", chapter: 1 }),
+        });
+
+        expect(wf.readSelectionFact("GEN", 1)?.selection).toEqual(
+            cursorAt("t9", 4),
+        );
+        expect(wf.readSelectionFact("GEN", 2)?.selection).toBeNull();
+        // Plain bulk (no selections field) leaves facts untouched.
+        const before = wf.readSelectionFact("GEN", 1);
+        wf.commit({
+            patch: { kind: "bulk", files: wf.read() },
+            meta: makeCommitMeta({ kind: "import", bookCode: "GEN", chapter: 1 }),
+        });
+        expect(wf.readSelectionFact("GEN", 1)).toEqual(before);
+    });
+
+    it("facts are isolated per chapter and cleared by reset()", () => {
+        const wf = new WorkingFilesStore([makeBook({ bookCode: "GEN" })]);
+
+        wf.commit({
+            patch: {
+                kind: "selectionOnly",
+                bookCode: "GEN",
+                chapter: 1,
+                selection: cursorAt("t1", 0),
+            },
+            meta: selectionOnlyMeta("GEN", 1),
+        });
+
+        expect(wf.readSelectionFact("GEN", 2)).toBeNull();
+        expect(wf.readSelectionFact("EXO", 1)).toBeNull();
+
+        wf.reset(wf.read());
+        expect(wf.readSelectionFact("GEN", 1)).toBeNull();
     });
 });

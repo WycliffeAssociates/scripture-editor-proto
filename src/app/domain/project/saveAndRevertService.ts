@@ -1,7 +1,5 @@
-import type { SerializedLexicalNode } from "lexical";
-import { EDITOR_MODES } from "@/app/data/editor.ts";
+import { type EditorShape, shapeForSurface } from "@/app/data/editor.ts";
 import {
-    inferContentEditorModeFromRootChildren,
     serializeChaptersToUsfm,
     tokensToLexical,
     tokensToUsfm,
@@ -25,8 +23,8 @@ export function isChapterDirtyUsfm(chapter: ScriptureChapterState): boolean {
     // TODO(usfm-onion): this token-based dirty check is pure USFM logic and
     // belongs behind the crate boundary.
     return (
-        tokensToUsfm(chapter.currentTokens) !==
-        tokensToUsfm(chapter.sourceTokens)
+        tokensToUsfm(chapter.currentTokens, chapter.eol) !==
+        tokensToUsfm(chapter.sourceTokens, chapter.eol)
     );
 }
 
@@ -34,20 +32,21 @@ export function isChapterDirtyUsfm(chapter: ScriptureChapterState): boolean {
 // (`loadedLexicalState`), and it stays current — every save rebases it — so you
 // might expect `lexicalState = loadedLexicalState`. We can't: that snapshot is
 // always stored in "flat" mode, while the editor may be in regular/form. So we
-// rebuild lexical state from `sourceTokens` (same content) in the CURRENT view
-// mode, which preserves what the user is looking at. ("Loaded" here means the
-// saved baseline — `sourceTokens` advances on every save, not just at file open.)
-export function revertChapterToLoadedState(chapter: ScriptureChapterState) {
-    const currentMode = inferContentEditorModeFromRootChildren(
-        chapter.lexicalState.root.children as SerializedLexicalNode[],
-    );
+// rebuild lexical state from `sourceTokens` (same content) in the caller's
+// `shape` (the `workingRebuild` surface — the shape the user is looking at).
+// ("Loaded" here means the saved baseline — `sourceTokens` advances on every
+// save, not just at file open.)
+export function revertChapterToLoadedState(
+    chapter: ScriptureChapterState,
+    shape: EditorShape,
+) {
     chapter.lexicalState = tokensToLexical({
         tokens: chapter.sourceTokens,
         direction:
             (chapter.lexicalState.root.direction ?? "ltr") === "rtl"
                 ? "rtl"
                 : "ltr",
-        mode: currentMode === EDITOR_MODES.regular ? "regular" : "flat",
+        mode: shape,
     });
     chapter.currentTokens = structuredClone(chapter.sourceTokens);
     chapter.dirty = false;
@@ -57,6 +56,7 @@ export async function revertChapterDiffByBlockId(args: {
     chapter: ScriptureChapterState;
     diffBlockId: string;
     usfmOnionService: IUsfmOnionService;
+    shape: EditorShape;
 }) {
     const baselineTokens = args.chapter.sourceTokens;
     const currentTokens = args.chapter.currentTokens;
@@ -71,14 +71,11 @@ export async function revertChapterDiffByBlockId(args: {
         (args.chapter.lexicalState.root.direction ?? "ltr") === "rtl"
             ? "rtl"
             : "ltr";
-    const currentMode = inferContentEditorModeFromRootChildren(
-        args.chapter.lexicalState.root.children as SerializedLexicalNode[],
-    );
 
     args.chapter.lexicalState = tokensToLexical({
         tokens: nextTokens,
         direction,
-        mode: currentMode === EDITOR_MODES.regular ? "regular" : "flat",
+        mode: args.shape,
     });
     args.chapter.currentTokens = nextTokens;
     args.chapter.dirty = isChapterDirtyUsfm(args.chapter);
@@ -175,7 +172,7 @@ export function rebaseChapterToCapturedSave(
         loadedLexicalState: tokensToLexical({
             tokens: captured.tokens,
             direction,
-            mode: "flat",
+            mode: shapeForSurface("savedBaseline"),
         }),
     };
     return { ...rebased, dirty: isChapterDirtyUsfm(rebased) };
@@ -194,7 +191,7 @@ export function markFilesAsSaved(files: ScriptureBookState[]) {
             chapter.loadedLexicalState = tokensToLexical({
                 tokens: chapter.sourceTokens,
                 direction,
-                mode: "flat",
+                mode: shapeForSurface("savedBaseline"),
             });
             chapter.dirty = false;
         }

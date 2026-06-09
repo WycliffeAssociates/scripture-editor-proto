@@ -125,12 +125,12 @@ export const TESTING_IDS = {
         searchInput: "context-menu-search-input",
         searchAction: "context-menu-search-action",
     },
-    lintPopover: {
-        triggerButton: "lint-popover-trigger-button",
-        container: "lint-popover-container",
-        errorItem: "lint-popover-error-item",
-        errorSid: "lint-popover-error-sid",
-        errorMessage: "lint-popover-error-message",
+    findingsPopover: {
+        triggerButton: "findings-popover-trigger-button",
+        container: "findings-popover-container",
+        errorItem: "findings-popover-error-item",
+        errorSid: "findings-popover-error-sid",
+        errorMessage: "findings-popover-error-message",
     },
     mobile: {
         mainEditorTab: "mobile-main-editor-tab",

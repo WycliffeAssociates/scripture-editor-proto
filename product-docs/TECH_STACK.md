@@ -59,9 +59,9 @@ Current model (with planned rework): editor modes operate over flat token stream
 - Mode transforms:
   - `src/app/domain/editor/utils/modeTransforms.ts`
   - `src/app/ui/hooks/useModeSwitching.tsx`
-- Regular/View modes project flat tokens into paragraph containers for UX behaviors (including poetry indentation display).
+- Regular/View modes project flat tokens into paragraph containers for UX behaviors (including poetry indentation display). Chapter/verse markers project into **structured `USFMNumberedMarkerNode`s** whose token emission derives from node shape (no hidden editable bytes); char markers still use hidden flat text nodes pending char-element nodes. See `product-docs/specs/regular-mode-structured-nodes.md`.
 - USFM/Plain modes operate on flattened streams.
-- Shared invariant across modes: linting, parsing, maintenance, and token-linked metadata operate against flattened token order.
+- Shared invariant across modes: linting, parsing, maintenance, and token-linked metadata operate against flattened token order. A dev-only fixpoint check (`tokenFixpointPipeline.ts`) asserts the structured tree re-lexes to the same token stream.
 
 ### Module Boundary Map
 - `src/core/domain/usfm/*`:
@@ -75,17 +75,19 @@ Current model (with planned rework): editor modes operate over flat token stream
   - Must consume abstractions above rather than redefining parsing semantics.
 
 ### 5) Workspace State: Push-Based Store + Effect Pipelines
-Live workspace state (loaded chapters, dirty flags, lint, save status, layout
-ticks, search highlights) is held in a small set of stores under
-`src/app/state/`. Mutations flow through a single seam — every Lexical
+Live workspace state (loaded chapters, dirty flags, findings, save status,
+layout ticks, search highlights) is held in a small set of stores under
+`src/app/state/`. Findings from both producers — onion lint and
+scripture-sous-chef content analysis — land in one `FindingsStore`; see
+`product-docs/specs/findings-and-content-analysis.md`. Mutations flow through a single seam — every Lexical
 update and every programmatic edit results in one `CommitEvent` published
 by `WorkingFilesStore`. Subscribers react on two channels:
 
 - React reads via `useSyncExternalStore(store.subscribe, store.getSnapshot)`
   for components that just need the current value (e.g. `hasUnsavedChanges`).
 - Effect-side `Stream<CommitEvent>` for pipelines that need debouncing,
-  cancellation, or async work (lint, save-status, structure-maintenance,
-  overlay-tick).
+  cancellation, or async work (lint, sous content analysis, save-status,
+  structure-maintenance, editor-sync, overlay-tick).
 
 Programmatic mutations use Copy-on-Write drafting via
 `workingFilesStore.draftWithChapters(refs)` — touched chapters become
@@ -109,6 +111,9 @@ See `product-docs/specs/state-architecture.md` and
 - Custom Lexical nodes:
   - `USFMElementNode`
   - `USFMTextNode`
+  - `USFMParagraphNode` — paragraph-class container (marker bytes in node state)
+  - `USFMNumberedMarkerNode` — structured chapter/verse markers (shape-derived emission)
+  - `USFMNestedEditorNode` — notes (`\f`, `\x`) as nested-editor decorators
 - Parser bridge: `src/core/domain/usfm` transforms between raw USFM string and Lexical editor state.
 
 ### Editor Constraints

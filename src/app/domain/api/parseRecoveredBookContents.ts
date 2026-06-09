@@ -11,11 +11,7 @@
 // the whole reopen.
 
 import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
-import {
-    type EditorModeSetting,
-    type EditorShape,
-    editorModeToShape,
-} from "@/app/data/editor.ts";
+import type { EditorShape } from "@/app/data/editor.ts";
 import { groupFlatTokensByChapter } from "@/app/domain/editor/serialization/flatTokensByChapter.ts";
 import { tokensToLexical } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type { LanguageDirection } from "@/core/domain/project/project.ts";
@@ -35,7 +31,8 @@ export async function parseRecoveredBookContents(args: {
     bookCode: string;
     content: string;
     direction: LanguageDirection;
-    editorMode: EditorModeSetting;
+    /** The `mainEditor` shape (see `shapeForSurface`). */
+    shape: EditorShape;
     usfmOnionService: IUsfmOnionService;
 }): Promise<Map<number, RecoveredChapterContent>> {
     const projectionOptions: ProjectUsfmOptions = {
@@ -58,7 +55,6 @@ export async function parseRecoveredBookContents(args: {
         args.bookCode,
     );
     const sourceTokensByChapter = groupFlatTokensByChapter(normalizedTokens);
-    const loadMode: EditorShape = editorModeToShape(args.editorMode);
 
     const result = new Map<number, RecoveredChapterContent>();
     for (const [chapter, tokens] of Object.entries(sourceTokensByChapter)) {
@@ -68,7 +64,7 @@ export async function parseRecoveredBookContents(args: {
             lexicalState: tokensToLexical({
                 tokens,
                 direction: args.direction,
-                mode: loadMode,
+                mode: args.shape,
             }),
         });
     }

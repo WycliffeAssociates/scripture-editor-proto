@@ -3,39 +3,53 @@ export type HistoryChapterRef = {
     chapterNum: number;
 };
 
-export type HistorySnapshotChange<TSnapshot> = {
+export type HistorySnapshotChange<TSnapshot, TSelection> = {
     chapter: HistoryChapterRef;
     before: TSnapshot;
     after: TSnapshot;
-    selectionBefore?: unknown;
-    selectionAfter?: unknown;
+    selectionBefore?: TSelection;
+    selectionAfter?: TSelection;
 };
 
 type HistoryEntrySource = "typing" | "transaction";
 
-export type HistoryEntry<TSnapshot> = {
+export type HistoryEntry<TSnapshot, TSelection> = {
     id: string;
     label: string;
     source: HistoryEntrySource;
     timestamp: number;
-    changes: HistorySnapshotChange<TSnapshot>[];
+    changes: HistorySnapshotChange<TSnapshot, TSelection>[];
 };
 
-type HistoryManagerOptions = {
+type HistoryManagerOptions<TSelection> = {
     maxEntries: number;
     coalesceWindowMs: number;
     now?: () => number;
+    /**
+     * Decides whether an incoming typing change continues the latest entry's
+     * run: given the entry's `selectionAfter` and the incoming change's
+     * `selectionBefore`/`selectionAfter`, return false to seal the entry and
+     * start a new one. Contiguous keystrokes match by construction (each
+     * keystroke's before-cursor is the previous one's after-cursor), so this
+     * breaks runs exactly when the user repositioned between edits. Omitted =
+     * the time window alone decides (selections stay opaque to this class).
+     */
+    selectionsContiguous?: (
+        latestSelectionAfter: TSelection | undefined,
+        nextSelectionBefore: TSelection | undefined,
+        nextSelectionAfter: TSelection | undefined,
+    ) => boolean;
 };
 
-type RecordTypingChangeArgs<TSnapshot> = {
+type RecordTypingChangeArgs<TSnapshot, TSelection> = {
     label: string;
-    change: HistorySnapshotChange<TSnapshot>;
+    change: HistorySnapshotChange<TSnapshot, TSelection>;
     forceNewEntry?: boolean;
 };
 
-type PushTransactionArgs<TSnapshot> = {
+type PushTransactionArgs<TSnapshot, TSelection> = {
     label: string;
-    changes: HistorySnapshotChange<TSnapshot>[];
+    changes: HistorySnapshotChange<TSnapshot, TSelection>[];
 };
 
 /**
@@ -46,18 +60,24 @@ type PushTransactionArgs<TSnapshot> = {
  * coalescing, redo-branch truncation, and label bookkeeping without depending on
  * any one snapshot format.
  */
-export class HistoryManager<TSnapshot> {
+export class HistoryManager<TSnapshot, TSelection> {
     private readonly maxEntries: number;
     private readonly coalesceWindowMs: number;
     private readonly now: () => number;
-    private entries: HistoryEntry<TSnapshot>[] = [];
+    private readonly selectionsContiguous?: (
+        latestSelectionAfter: TSelection | undefined,
+        nextSelectionBefore: TSelection | undefined,
+        nextSelectionAfter: TSelection | undefined,
+    ) => boolean;
+    private entries: HistoryEntry<TSnapshot, TSelection>[] = [];
     private cursor = 0;
     private idCounter = 0;
 
-    constructor(options: HistoryManagerOptions) {
+    constructor(options: HistoryManagerOptions<TSelection>) {
         this.maxEntries = options.maxEntries;
         this.coalesceWindowMs = options.coalesceWindowMs;
         this.now = options.now ?? Date.now;
+        this.selectionsContiguous = options.selectionsContiguous;
     }
 
     canUndo() {
@@ -78,7 +98,7 @@ export class HistoryManager<TSnapshot> {
         return this.entries[this.cursor]?.label ?? null;
     }
 
-    recordTypingChange(args: RecordTypingChangeArgs<TSnapshot>) {
+    recordTypingChange(args: RecordTypingChangeArgs<TSnapshot, TSelection>) {
         this.truncateRedoBranch();
         const timestamp = this.now();
         const latest = this.entries[this.cursor - 1];
@@ -92,7 +112,13 @@ export class HistoryManager<TSnapshot> {
             latest.changes[0]?.chapter.bookCode ===
                 args.change.chapter.bookCode &&
             latest.changes[0]?.chapter.chapterNum ===
-                args.change.chapter.chapterNum;
+                args.change.chapter.chapterNum &&
+            (this.selectionsContiguous?.(
+                latest.changes[0]?.selectionAfter,
+                args.change.selectionBefore,
+                args.change.selectionAfter,
+            ) ??
+                true);
 
         if (canMerge && latest) {
             latest.timestamp = timestamp;
@@ -115,7 +141,7 @@ export class HistoryManager<TSnapshot> {
     mergeLatestChapterAfter(
         chapter: HistoryChapterRef,
         after: TSnapshot,
-        selectionAfter?: unknown,
+        selectionAfter?: TSelection,
     ): boolean {
         if (!this.canUndo()) return false;
         const latest = this.entries[this.cursor - 1];
@@ -132,7 +158,7 @@ export class HistoryManager<TSnapshot> {
         return true;
     }
 
-    pushTransaction(args: PushTransactionArgs<TSnapshot>) {
+    pushTransaction(args: PushTransactionArgs<TSnapshot, TSelection>) {
         if (!args.changes.length) return null;
         this.truncateRedoBranch();
         return this.pushEntry({
@@ -143,13 +169,13 @@ export class HistoryManager<TSnapshot> {
         });
     }
 
-    undo(): HistoryEntry<TSnapshot> | null {
+    undo(): HistoryEntry<TSnapshot, TSelection> | null {
         if (!this.canUndo()) return null;
         this.cursor -= 1;
         return this.entries[this.cursor] ?? null;
     }
 
-    redo(): HistoryEntry<TSnapshot> | null {
+    redo(): HistoryEntry<TSnapshot, TSelection> | null {
         if (!this.canRedo()) return null;
         const entry = this.entries[this.cursor] ?? null;
         if (entry) {
@@ -172,9 +198,9 @@ export class HistoryManager<TSnapshot> {
         label: string;
         source: HistoryEntrySource;
         timestamp: number;
-        changes: HistorySnapshotChange<TSnapshot>[];
-    }): HistoryEntry<TSnapshot> {
-        const entry: HistoryEntry<TSnapshot> = {
+        changes: HistorySnapshotChange<TSnapshot, TSelection>[];
+    }): HistoryEntry<TSnapshot, TSelection> {
+        const entry: HistoryEntry<TSnapshot, TSelection> = {
             id: `history-entry-${this.idCounter++}`,
             label: args.label,
             source: args.source,

@@ -149,21 +149,24 @@ describe("tokensToLexical chapter 0 frontmatter form", () => {
             sid: token.sid ?? "",
             marker: token.marker ?? "",
         }));
+        // Delimiter parking (onion delimiter-trivia): the marker absorbs its
+        // required delimiter; the bookCode absorbs its own terminator; text
+        // arrives content-pure. Byte total across the slice is unchanged.
         expect(idSlice).toEqual([
             {
-                source: "\\id",
+                source: "\\id ",
                 kind: "marker",
                 sid: "",
                 marker: "id",
             },
             {
-                source: " GEN",
+                source: "GEN ",
                 kind: "bookCode",
                 sid: "GEN 0:0",
                 marker: "",
             },
             {
-                source: " Unlocked Literal Bible",
+                source: "Unlocked Literal Bible",
                 kind: "text",
                 sid: "GEN 0:0",
                 marker: "",

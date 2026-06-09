@@ -23,6 +23,7 @@ import {
 import { type ReactNode, useState } from "react";
 import { createPortal } from "react-dom";
 import { TESTING_IDS } from "@/app/data/constants.ts";
+import { editorModeToShape } from "@/app/data/editor.ts";
 import { insertUsfmMarkerAtCursor } from "@/app/domain/editor/utils/insertUsfmMarkerAtCursor.ts";
 import {
     isUsfmLikePaste,
@@ -30,7 +31,7 @@ import {
     parsedUsfmTokensToInsertableNodes,
 } from "@/app/domain/editor/utils/usfmPaste.ts";
 import { CloudStatusPopover } from "@/app/ui/components/blocks/CloudStatusPopover.tsx";
-import { LintIssuesPopover } from "@/app/ui/components/blocks/LintIssuesPopover.tsx";
+import { FindingsPopover } from "@/app/ui/components/blocks/FindingsPopover.tsx";
 import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker.tsx";
 import { VersionsPopover } from "@/app/ui/components/blocks/VersionsPopover.tsx";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
@@ -147,7 +148,12 @@ export function EditorToolbar(props: EditorToolbarProps) {
                         const selection = $getSelection();
                         if (!$isRangeSelection(selection)) return;
                         selection.insertNodes(
-                            parsedUsfmTokensToInsertableNodes(parsed.tokens),
+                            parsedUsfmTokensToInsertableNodes(
+                                parsed.tokens,
+                                editorModeToShape(
+                                    project.appSettings.editorMode,
+                                ),
+                            ),
                         );
                     },
                     { discrete: true },
@@ -367,7 +373,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
                             active={props.isReferencePaneOpen}
                             icon={<BookCopy size={16} />}
                         />
-                        <LintIssuesPopover />
+                        <FindingsPopover />
                         <ToolbarTooltipButton
                             label={
                                 props.isSearchPaneOpen
@@ -380,7 +386,11 @@ export function EditorToolbar(props: EditorToolbarProps) {
                         />
                         <VersionsPopover />
                         <ToolbarOverflowMenu
-                            onCopyEditorJson={() => void handleCopyEditorJson()}
+                            onCopyEditorJson={
+                                import.meta.env.DEV
+                                    ? () => void handleCopyEditorJson()
+                                    : undefined
+                            }
                             onMatchFormattingToSource={
                                 handleMatchFormattingToSource
                             }

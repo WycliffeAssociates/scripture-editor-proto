@@ -18,12 +18,13 @@ import {
     canonicalSnapshotToChapterState,
     chapterSnapshotsAreEqual,
     chapterStateToCanonicalSnapshot,
-    inferChapterModeFromState,
+    inferChapterShapeFromState,
 } from "@/app/domain/history/canonicalChapterState.ts";
 import { classifyEditorContentUpdate } from "@/app/domain/history/classifyEditorUpdate.ts";
 import {
     type HistoryChapterRef,
     HistoryManager,
+    type HistorySnapshotChange,
 } from "@/app/domain/history/HistoryManager.ts";
 import {
     chapterKey,
@@ -34,10 +35,12 @@ import {
 import {
     $captureCurrentSelection,
     $restoreSelectionById,
-    type CapturedSelection,
+    $restoreSelectionNearId,
     type ChapterCursor,
-    cloneCursor,
+    debugRestoreGaveUp,
     findScrollAncestor,
+    orderedTextIdsFromSnapshot,
+    typingRunContiguous,
 } from "@/app/domain/history/historySelection.ts";
 import { getUndoRedoNotificationTarget } from "@/app/domain/history/historyUndoRedoNotifications.ts";
 import type { ScriptureChapterState } from "@/app/scripture/ScriptureWorkspaceState.ts";
@@ -55,18 +58,18 @@ type CaptureEditorUpdateArgs = {
     dirtyElements: Map<NodeKey, boolean>;
     dirtyLeaves: Set<NodeKey>;
     tags: Set<string>;
+    /**
+     * The update's selection, captured once by the single lexical→app
+     * listener (`WorkingFilesBridgePlugin`) and shared between this capture
+     * and the commit it publishes afterwards.
+     */
+    nextSelection: ChapterCursor;
 };
 
 type TransactionArgs<T> = {
     label: string;
     candidates: HistoryChapterRef[];
     run: () => Promise<T> | T;
-};
-
-export type UndoRedoEvent = {
-    action: "undo" | "redo";
-    label: string;
-    touchedChapters: HistoryChapterRef[];
 };
 
 type UseCustomHistoryArgs = {
@@ -112,9 +115,10 @@ export function useCustomHistory({
 }: UseCustomHistoryArgs) {
     const { t } = useLingui();
     const managerRef = useRef(
-        new HistoryManager<CanonicalChapterSnapshot>({
+        new HistoryManager<CanonicalChapterSnapshot, ChapterCursor>({
             maxEntries,
             coalesceWindowMs,
+            selectionsContiguous: typingRunContiguous,
         }),
     );
 
@@ -150,16 +154,10 @@ export function useCustomHistory({
     const baselineByChapterRef = useRef(
         new Map<string, CanonicalChapterSnapshot>(),
     );
-    const baselineSelectionByChapterRef = useRef(
-        new Map<string, CapturedSelection>(),
-    );
     const nextTypingLabelRef = useRef<{
         label: string;
         forceNewEntry: boolean;
     } | null>(null);
-    const undoRedoListenersRef = useRef(
-        new Set<(event: UndoRedoEvent) => void>(),
-    );
     const [version, setVersion] = useState(0);
 
     const bumpVersion = useCallback(() => {
@@ -199,25 +197,23 @@ export function useCustomHistory({
         [readSnapshotFromChapter],
     );
 
-    const setBaselineSelection = useCallback(
-        (chapterRef: HistoryChapterRef, cursor: ChapterCursor) => {
-            const key = chapterKey(chapterRef);
-            if (cursor === null) {
-                baselineSelectionByChapterRef.current.delete(key);
-                return;
-            }
-            baselineSelectionByChapterRef.current.set(key, { ...cursor });
-        },
-        [],
-    );
-
-    const getBaselineSelection = useCallback(
+    // The store is the selection-fact holder (selection rides every bridge
+    // patch; see `CapturedSelection` in state/types.ts). History COPIES
+    // facts into entries at record time, so entries stay self-contained and
+    // HistoryManager stays decoupled from the store. Read during capture,
+    // the fact always describes the world BEFORE the in-flight commit — the
+    // single lexical→app listener captures before it publishes
+    // (`WorkingFilesBridgePlugin`).
+    const readStoreLatestSelection = useCallback(
         (chapterRef: HistoryChapterRef): ChapterCursor => {
-            const key = chapterKey(chapterRef);
-            const existing = baselineSelectionByChapterRef.current.get(key);
-            return existing ? cloneCursor(existing) : null;
+            const fact = workingFilesStore.readSelectionFact(
+                chapterRef.bookCode,
+                chapterRef.chapterNum,
+            );
+            const selection = fact?.selection;
+            return selection ? { ...selection } : null;
         },
-        [],
+        [workingFilesStore],
     );
 
     const markChapterDirty = useCallback(
@@ -226,8 +222,8 @@ export function useCustomHistory({
                 bookCode: currentFileBibleIdentifier,
             });
             chapter.dirty =
-                tokensToUsfm(chapter.currentTokens) !==
-                tokensToUsfm(chapter.sourceTokens);
+                tokensToUsfm(chapter.currentTokens, chapter.eol) !==
+                tokensToUsfm(chapter.sourceTokens, chapter.eol);
         },
         [currentFileBibleIdentifier],
     );
@@ -239,9 +235,17 @@ export function useCustomHistory({
     // `setEditorContent` — running focus/selection synchronously fights
     // reconcile and loses the contenteditable. Historical cursor wins;
     // current cursor in the old tree is a fallback when the historical
-    // anchor's data-id no longer exists.
+    // anchor's data-id no longer exists. When NO cursor's id survives the
+    // replay (the change deleted the node the cursor sat on), the last
+    // resort is the nearest surviving neighbor in document order — ordered
+    // by `leavingSnapshot`, the entry snapshot of the tree being replaced,
+    // which still contains the dead id.
     const refreshVisibleEditorIfTouched = useCallback(
-        (touched: Set<string>, historicalCursor: ChapterCursor) => {
+        (
+            touched: Set<string>,
+            historicalCursor: ChapterCursor,
+            leavingSnapshot: CanonicalChapterSnapshot | null,
+        ) => {
             const currentRef = {
                 bookCode: currentFileBibleIdentifier,
                 chapterNum: currentChapter,
@@ -320,6 +324,27 @@ export function useCustomHistory({
                                     return;
                                 }
                             }
+                            // Every target's id is dead in the replayed
+                            // tree — caret to the nearest surviving
+                            // neighbor instead of silently landing at
+                            // chapter start. Only the LIVE cursor can be
+                            // located in the leaving ordering (it was
+                            // captured from that tree); the historical
+                            // cursor is a target-tree position the leaving
+                            // snapshot can't place.
+                            if (
+                                leavingSnapshot &&
+                                liveCursor &&
+                                $restoreSelectionNearId(
+                                    liveCursor.anchorId,
+                                    orderedTextIdsFromSnapshot(leavingSnapshot),
+                                )
+                            ) {
+                                return;
+                            }
+                            debugRestoreGaveUp(
+                                "no target id survived the replay and no neighbor was found",
+                            );
                         },
                         { tag: EDITOR_TAGS_USED.programaticIgnore },
                     );
@@ -352,48 +377,14 @@ export function useCustomHistory({
         return editor.getEditorState().read($captureCurrentSelection);
     }, [editorRef]);
 
-    const captureEditorSelection = useCallback(
-        (editorState: EditorState) => {
-            const chapterRef: HistoryChapterRef = {
-                bookCode: currentFileBibleIdentifier,
-                chapterNum: currentChapter,
-            };
-            setBaselineSelection(
-                chapterRef,
-                editorState.read($captureCurrentSelection),
-            );
-        },
-        [currentFileBibleIdentifier, currentChapter, setBaselineSelection],
-    );
-
-    const emitUndoRedoEvent = useCallback((event: UndoRedoEvent) => {
-        for (const listener of undoRedoListenersRef.current) {
-            listener(event);
-        }
-    }, []);
-
-    const registerPostUndoRedoAction = useCallback(
-        (listener: (event: UndoRedoEvent) => void) => {
-            undoRedoListenersRef.current.add(listener);
-            return () => {
-                undoRedoListenersRef.current.delete(listener);
-            };
-        },
-        [],
-    );
-
     const applyEntry = useCallback(
         (
-            action: UndoRedoEvent["action"],
+            action: "undo" | "redo",
             direction: "before" | "after",
             labelPrefix: "Undid" | "Redid",
-            chapterChanges: Array<{
-                chapter: HistoryChapterRef;
-                before: CanonicalChapterSnapshot;
-                after: CanonicalChapterSnapshot;
-                selectionBefore?: unknown;
-                selectionAfter?: unknown;
-            }>,
+            chapterChanges: Array<
+                HistorySnapshotChange<CanonicalChapterSnapshot, ChapterCursor>
+            >,
             label: string,
         ) => {
             const touchedChapters = new Set<string>();
@@ -408,6 +399,20 @@ export function useCustomHistory({
             // the cursor at the moment typing started (undo) or ended
             // (redo), matching what the user expects.
             let historicalCursorForVisible: ChapterCursor = null;
+            // Snapshot of the visible chapter's tree being REPLACED by this
+            // replay — the nearest-neighbor restore fallback derives its
+            // document ordering from it (it still contains ids the target
+            // tree may have dropped).
+            let leavingSnapshotForVisible: CanonicalChapterSnapshot | null =
+                null;
+            // Selection facts riding the replay commit: the restore that
+            // follows is a `programaticIgnore` update the bridge skips, so
+            // this commit is where the store learns the replayed cursor.
+            const selections: Array<{
+                bookCode: string;
+                chapter: number;
+                selection: ChapterCursor;
+            }> = [];
 
             const draft = workingFilesStore.draftWithChapters(
                 chapterChanges.map((c) => c.chapter),
@@ -419,28 +424,32 @@ export function useCustomHistory({
                 if (!record) continue;
                 const targetSnapshot =
                     direction === "before" ? change.before : change.after;
-                const targetSelection = (
+                const targetSelection =
                     direction === "before"
                         ? change.selectionBefore
-                        : change.selectionAfter
-                ) as ChapterCursor | undefined;
-                const targetMode = inferChapterModeFromState(
+                        : change.selectionAfter;
+                const targetShape = inferChapterShapeFromState(
                     record.chapter.lexicalState,
                 );
 
                 record.chapter.lexicalState = canonicalSnapshotToChapterState({
                     snapshot: targetSnapshot,
-                    targetMode,
+                    targetShape,
                 });
                 markChapterDirty(record.chapter);
 
                 setBaselineSnapshot(change.chapter, targetSnapshot);
-                setBaselineSelection(change.chapter, targetSelection ?? null);
-                if (
-                    chapterKey(change.chapter) === chapterKey(currentRef) &&
-                    targetSelection
-                ) {
-                    historicalCursorForVisible = targetSelection;
+                selections.push({
+                    bookCode: change.chapter.bookCode,
+                    chapter: change.chapter.chapterNum,
+                    selection: targetSelection ?? null,
+                });
+                if (chapterKey(change.chapter) === chapterKey(currentRef)) {
+                    if (targetSelection) {
+                        historicalCursorForVisible = targetSelection;
+                    }
+                    leavingSnapshotForVisible =
+                        direction === "before" ? change.after : change.before;
                 }
                 touchedChapters.add(chapterKey(change.chapter));
                 touchedChapterRefs.push(change.chapter);
@@ -448,20 +457,23 @@ export function useCustomHistory({
             }
 
             if (draftMutated) {
-                workingFilesStore.commit(
-                    { kind: "bulk", files: draft },
-                    {
+                workingFilesStore.commit({
+                    patch: { kind: "bulk", files: draft, selections },
+                    meta: {
                         kind: action,
-                        scope: { project: true },
+                        scope: {
+                            chapters: dedupeChapterRefs(touchedChapterRefs),
+                        },
                         dirtyTextContent: true,
                     },
-                );
+                });
             }
 
             if (touchedChapters.size) {
                 refreshVisibleEditorIfTouched(
                     touchedChapters,
                     historicalCursorForVisible,
+                    leavingSnapshotForVisible,
                 );
                 const notificationTarget = getUndoRedoNotificationTarget({
                     currentChapter: currentRef,
@@ -494,12 +506,6 @@ export function useCustomHistory({
                         },
                     });
                 }
-
-                emitUndoRedoEvent({
-                    action,
-                    label,
-                    touchedChapters: dedupeChapterRefs(touchedChapterRefs),
-                });
             }
             bumpVersion();
         },
@@ -510,10 +516,8 @@ export function useCustomHistory({
             findChapterRecord,
             markChapterDirty,
             setBaselineSnapshot,
-            setBaselineSelection,
             refreshVisibleEditorIfTouched,
             bumpVersion,
-            emitUndoRedoEvent,
             t,
         ],
     );
@@ -525,33 +529,26 @@ export function useCustomHistory({
             dirtyElements,
             dirtyLeaves,
             tags,
+            nextSelection,
         }: CaptureEditorUpdateArgs) => {
             const chapterRef: HistoryChapterRef = {
                 bookCode: currentFileBibleIdentifier,
                 chapterNum: currentChapter,
             };
 
-            // Selection-only commit: cheap path. Fires on every cursor
-            // move (arrow keys, clicks, focus changes), so the cost has
-            // to be O(selection-size), not O(tree-size). $captureCurrentSelection
-            // reads the live $getSelection and returns a data-id-keyed
-            // snapshot — no full toJSON walk.
+            // Selection-only update: nothing to record — the bridge
+            // publishes these as selectionOnly commits and the store keeps
+            // the selection fact; history only cares about content changes.
             if (dirtyElements.size === 0 && dirtyLeaves.size === 0) {
-                setBaselineSelection(
-                    chapterRef,
-                    editorState.read($captureCurrentSelection),
-                );
                 return;
             }
 
-            // Content-changing commit. Capture the data-id-keyed cursor
-            // BEFORE and AFTER the change: nextSelection from the new
-            // state is "where the cursor is now," prevSelection from the
-            // prior state is "where the cursor was right before this
-            // edit." prevSelection is what undo wants — landing at the
-            // start of the just-undone change instead of clamping the
-            // post-change offset into the now-shorter text.
-            const nextSelection = editorState.read($captureCurrentSelection);
+            // Content-changing commit. `nextSelection` (cursor after the
+            // edit) arrives pre-captured; prevSelection from the prior
+            // state is "where the cursor was right before this edit" —
+            // what undo wants: landing at the start of the just-undone
+            // change instead of clamping the post-change offset into the
+            // now-shorter text.
             const prevSelection = prevEditorState.read(
                 $captureCurrentSelection,
             );
@@ -561,7 +558,6 @@ export function useCustomHistory({
                 chapterStateToCanonicalSnapshot(serializedState);
 
             const beforeSnapshot = getBaselineSnapshot(chapterRef);
-            const beforeSelection = getBaselineSelection(chapterRef);
 
             const action = classifyEditorContentUpdate({
                 hasBeforeSnapshot: beforeSnapshot !== null,
@@ -575,41 +571,43 @@ export function useCustomHistory({
             });
 
             // First snapshot for this chapter / no real content change: adopt
-            // baseline (and selection) without recording an entry.
+            // baseline without recording an entry.
             if (action.kind === "first-snapshot" || action.kind === "no-op") {
                 if (action.kind === "first-snapshot") {
                     setBaselineSnapshot(chapterRef, nextSnapshot);
                 }
-                setBaselineSelection(chapterRef, nextSelection);
                 return;
             }
 
             if (action.kind === "history-merge") {
+                // Guardrail write-back: ride the latest entry for this
+                // chapter if one exists (undo shouldn't discard guardrail
+                // work); with no entry to ride, stay out of undo — the
+                // fixup re-derives from content, so replay doesn't need it.
                 const merged = managerRef.current.mergeLatestChapterAfter(
                     chapterRef,
                     nextSnapshot,
                     nextSelection,
                 );
                 setBaselineSnapshot(chapterRef, nextSnapshot);
-                setBaselineSelection(chapterRef, nextSelection);
                 if (merged) {
                     bumpVersion();
                 }
-                // historyMerge + programaticIgnore stops here; a plain
-                // historyMerge falls through to ALSO record a typing change.
-                if (!action.alsoRecordTyping) {
-                    return;
-                }
-            } else if (action.kind === "programmatic-ignore") {
+                return;
+            }
+            if (action.kind === "programmatic-ignore") {
                 setBaselineSnapshot(chapterRef, nextSnapshot);
-                setBaselineSelection(chapterRef, nextSelection);
                 return;
             }
 
-            // action.kind === "record-typing" (or history-merge fall-through).
-            // The classifier only reaches here with a baseline present (it
-            // returns "first-snapshot" otherwise); this narrows it for TS.
+            // action.kind === "record-typing". The classifier only reaches
+            // here with a baseline present (it returns "first-snapshot"
+            // otherwise); this narrows it for TS.
             if (!beforeSnapshot) return;
+            // The user is editing again: a still-pending post-replay restore
+            // would yank the caret to the historical position MID-typing,
+            // splicing the input across two locations. The new edit wins.
+            cancelPendingRestore();
             const queuedTypingLabel = nextTypingLabelRef.current;
             const label = queuedTypingLabel?.label ?? t`Edit`;
             nextTypingLabelRef.current = null;
@@ -619,8 +617,8 @@ export function useCustomHistory({
             // HistoryManager keeps the original selectionBefore and only
             // updates selectionAfter — so the entry's selectionBefore
             // stays pinned to "where the user started typing this run."
-            // Fall back to the baseline (last known cursor) if prev wasn't
-            // readable.
+            // Fall back to the store's selection fact (the cursor riding
+            // the last commit before this one) if prev wasn't readable.
             managerRef.current.recordTypingChange({
                 label,
                 forceNewEntry: queuedTypingLabel?.forceNewEntry,
@@ -628,21 +626,21 @@ export function useCustomHistory({
                     chapter: chapterRef,
                     before: beforeSnapshot,
                     after: nextSnapshot,
-                    selectionBefore: prevSelection ?? beforeSelection,
+                    selectionBefore:
+                        prevSelection ?? readStoreLatestSelection(chapterRef),
                     selectionAfter: nextSelection,
                 },
             });
             setBaselineSnapshot(chapterRef, nextSnapshot);
-            setBaselineSelection(chapterRef, nextSelection);
             bumpVersion();
         },
         [
             currentFileBibleIdentifier,
             currentChapter,
             getBaselineSnapshot,
-            getBaselineSelection,
+            readStoreLatestSelection,
             setBaselineSnapshot,
-            setBaselineSelection,
+            cancelPendingRestore,
             bumpVersion,
             t,
         ],
@@ -671,7 +669,7 @@ export function useCustomHistory({
                     beforeSelectionByChapter.set(
                         key,
                         getCurrentEditorSelection() ??
-                            getBaselineSelection(chapterRef),
+                            readStoreLatestSelection(chapterRef),
                     );
                 }
             }
@@ -690,9 +688,6 @@ export function useCustomHistory({
                         key === chapterKey(currentRef)
                             ? getCurrentEditorSelection()
                             : null;
-                    if (key === chapterKey(currentRef)) {
-                        setBaselineSelection(chapterRef, selectionAfter);
-                    }
                     return {
                         chapter: chapterRef,
                         before,
@@ -722,9 +717,8 @@ export function useCustomHistory({
             currentChapter,
             readSnapshotFromChapter,
             setBaselineSnapshot,
-            setBaselineSelection,
             getCurrentEditorSelection,
-            getBaselineSelection,
+            readStoreLatestSelection,
             bumpVersion,
         ],
     );
@@ -756,7 +750,6 @@ export function useCustomHistory({
     const clearHistory = useCallback(() => {
         managerRef.current.reset();
         baselineByChapterRef.current.clear();
-        baselineSelectionByChapterRef.current.clear();
         nextTypingLabelRef.current = null;
         bumpVersion();
     }, [bumpVersion]);
@@ -769,10 +762,8 @@ export function useCustomHistory({
             peekUndoLabel: () => managerRef.current.peekUndoLabel(),
             peekRedoLabel: () => managerRef.current.peekRedoLabel(),
             captureEditorUpdate,
-            captureEditorSelection,
             runTransaction,
             setNextTypingLabel,
-            registerPostUndoRedoAction,
             undo,
             redo,
             clearHistory,
@@ -780,10 +771,8 @@ export function useCustomHistory({
         [
             version,
             captureEditorUpdate,
-            captureEditorSelection,
             runTransaction,
             setNextTypingLabel,
-            registerPostUndoRedoAction,
             undo,
             redo,
             clearHistory,

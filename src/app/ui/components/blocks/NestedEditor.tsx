@@ -22,7 +22,11 @@ import {
     useSyncExternalStore,
 } from "react";
 import { DATA_JS } from "@/app/data/constants.ts";
-import { EDITOR_MODES } from "@/app/data/editor.ts";
+import {
+    domPresentationMode,
+    EDITOR_MODES,
+    isEditableEditorMode,
+} from "@/app/data/editor.ts";
 import {
     inverseTextNodeTransform,
     textNodeTransform,
@@ -130,11 +134,8 @@ function NestedEditorContent({
         interactionGate.getSnapshot.bind(interactionGate),
     );
     const isEditableMode =
-        editorModeSetting !== EDITOR_MODES.view && requireGateOpen(gate);
-    const resolvedDataMode =
-        editorModeSetting === EDITOR_MODES.view
-            ? EDITOR_MODES.regular
-            : editorModeSetting;
+        isEditableEditorMode(editorModeSetting) && requireGateOpen(gate);
+    const resolvedDataMode = domPresentationMode(editorModeSetting);
     const [hasOpened, setHasOpened] = useState(false);
 
     const nestedConfig = {
@@ -277,9 +278,11 @@ function NestedEditorContent({
                 }}
             >
                 <Button size="xs" variant="tertiary" onClick={handleClose}>
+                    {/* TODO: LOCALIZE */}
                     Close
                 </Button>
                 <Button size="xs" variant="primary" onClick={handleSave}>
+                    {/* TODO: LOCALIZE */}
                     Save
                 </Button>
             </div>

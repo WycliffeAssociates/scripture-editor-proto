@@ -2,10 +2,16 @@ import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
-import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import {
+    isSerializedUSFMTextNode,
+    type SerializedUSFMTextNode,
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
-import { transformToMode } from "@/app/domain/editor/utils/modeTransforms.ts";
-import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { transformToShape } from "@/app/domain/editor/utils/modeTransforms.ts";
+import {
+    lexicalToTokens,
+    tokensToLexical,
+} from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { serializeToUsfmString } from "@tests/helpers/serializeToUsfmString.ts";
 import { createTestEditor } from "@tests/helpers/testEditor.ts";
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
@@ -70,8 +76,8 @@ describe("modeTransforms form-mode round-trip", () => {
                 start.root.children as SerializedLexicalNode[],
             );
 
-            const toForm = transformToMode(structuredClone(start), "form");
-            const backToRegular = transformToMode(
+            const toForm = transformToShape(structuredClone(start), "form");
+            const backToRegular = transformToShape(
                 structuredClone(toForm),
                 "regular",
             );
@@ -102,8 +108,8 @@ describe("modeTransforms nested editor round-trip", () => {
             start.root.children as SerializedLexicalNode[],
         );
 
-        const toUsfmMode = transformToMode(structuredClone(start), "usfm");
-        const backToRegular = transformToMode(
+        const toUsfmMode = transformToShape(structuredClone(start), "flat");
+        const backToRegular = transformToShape(
             structuredClone(toUsfmMode),
             "regular",
         );
@@ -144,7 +150,7 @@ describe("modeTransforms nested editor round-trip", () => {
         const start = editor
             .getEditorState()
             .toJSON() as SerializedEditorState<SerializedLexicalNode>;
-        const toRegular = transformToMode(structuredClone(start), "regular");
+        const toRegular = transformToShape(structuredClone(start), "regular");
         const usfm = serializeToUsfmString(toRegular.root.children);
 
         expect(usfm).toContain("\\f*");
@@ -158,6 +164,80 @@ describe("modeTransforms nested editor round-trip", () => {
         ).toBe(true);
     });
 
+    it("does not swallow intervening verses when an unclosed note precedes a later closed note", async () => {
+        // An unclosed `\f` followed — across an `\s5` boundary — by a later
+        // footnote that *does* carry `\f*`. Onion's flat token stream keeps the
+        // first `\f` unclosed (it models the boundary close via nesting, not a
+        // synthetic end token), so the Regular-mode rewrap must close the note
+        // at the structural boundary rather than greedily pair it with the
+        // downstream `\f*` and swallow every verse in between.
+        //
+        // Built through `tokensToLexical({ mode: "regular" })` — the exact seam
+        // the chapter-load path (`parseRecoveredBookContents`) uses — so the
+        // rewrap sees the unclosed `\f` the way production does.
+        const sourceUsfm =
+            "\\c 1\n" +
+            "\\p\n" +
+            "\\v 9 First verse with an unclosed note." +
+            "\\f + \\ft Unclosed footnote text.\n" +
+            "\\s5\n" +
+            "\\p\n" +
+            "\\v 10 Intervening verse that must not be swallowed.\n" +
+            "\\v 11 Another verse," +
+            "\\f + \\ft This note is properly closed.\\f* tail text.";
+        const projected = await webUsfmOnionService.parseUsfmBatchFromContents(
+            [sourceUsfm],
+            {
+                tokenOptions: { mergeHorizontalWhitespace: false },
+                lintOptions: null,
+            },
+        );
+
+        const regular = tokensToLexical({
+            tokens: projected[0].tokens,
+            direction: "ltr",
+            mode: "regular",
+        });
+
+        const tokensPreservingNested = materializeFlatTokensArray(
+            regular.root.children as SerializedLexicalNode[],
+            { nested: "preserve" },
+        );
+
+        // Both footnotes wrap into their own nested node — the unclosed one
+        // closing at the boundary, the closed one pairing with its own `\f*`.
+        const nestedCount = tokensPreservingNested.filter(
+            isSerializedUSFMNestedEditorNode,
+        ).length;
+        expect(nestedCount).toBe(2);
+
+        // The intervening verse text survives at the top level rather than
+        // being buried inside the first note's editor state.
+        const topLevelText = tokensPreservingNested
+            .filter(isSerializedUSFMTextNode)
+            .map((n) => n.text ?? "")
+            .join(" ");
+        expect(topLevelText).toContain("Intervening verse");
+
+        // Byte-faithful: closing the unclosed note's *rendering* must not inject
+        // a `\f*` the source never had. Flatten back through the production save
+        // path (`materializeFlatTokensFromSerialized`, nested → "flatten") and
+        // confirm the bytes round-trip exactly — no phantom close at v9, no
+        // doubled close at v11. This is the regression that broke save/diff.
+        const flattened = materializeFlatTokensArray(
+            regular.root.children as SerializedLexicalNode[],
+            { nested: "flatten" },
+        );
+        const roundTripUsfm = flattened
+            .map((n) =>
+                n.type === "linebreak"
+                    ? "\n"
+                    : ((n as SerializedUSFMTextNode).text ?? ""),
+            )
+            .join("");
+        expect(roundTripUsfm).toBe(sourceUsfm);
+    });
+
     it("preserves inline char separator spaces when flattening notes to usfm mode", async () => {
         const editor = await createTestEditor(
             "\\c 5\n" +
@@ -169,7 +249,7 @@ describe("modeTransforms nested editor round-trip", () => {
         const start = editor
             .getEditorState()
             .toJSON() as SerializedEditorState<SerializedLexicalNode>;
-        const toUsfmMode = transformToMode(structuredClone(start), "usfm");
+        const toUsfmMode = transformToShape(structuredClone(start), "flat");
         const usfm = serializeToUsfmString(
             toUsfmMode.root.children as SerializedLexicalNode[],
         );

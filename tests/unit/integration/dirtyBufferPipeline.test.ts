@@ -61,10 +61,10 @@ function setup(
 }
 
 function edit(bookCode: string, chapter: number, text: string) {
-    return [
-        makeChapterPatch({ bookCode, chapter, text }),
-        makeCommitMeta({ kind: "userEdit", bookCode, chapter }),
-    ] as const;
+    return {
+        patch: makeChapterPatch({ bookCode, chapter, text }),
+        meta: makeCommitMeta({ kind: "userEdit", bookCode, chapter }),
+    };
 }
 
 describe("dirtyBufferPipeline (integration)", () => {
@@ -75,9 +75,9 @@ describe("dirtyBufferPipeline (integration)", () => {
                 yield* Effect.forkChild(pipeline);
                 yield* drainYields();
 
-                wf.commit(...edit("GEN", 1, "a"));
-                wf.commit(...edit("GEN", 1, "ab"));
-                wf.commit(...edit("GEN", 1, "abc"));
+                wf.commit(edit("GEN", 1, "a"));
+                wf.commit(edit("GEN", 1, "ab"));
+                wf.commit(edit("GEN", 1, "abc"));
 
                 yield* passTime(IDLE_MS - 10);
                 expect(put).not.toHaveBeenCalled();
@@ -100,20 +100,20 @@ describe("dirtyBufferPipeline (integration)", () => {
                 yield* Effect.forkChild(pipeline);
                 yield* drainYields();
 
-                wf.commit(...edit("GEN", 1, "dirty edit"));
+                wf.commit(edit("GEN", 1, "dirty edit"));
                 yield* passTime(IDLE_MS + 30);
                 expect(put).toHaveBeenCalledTimes(1);
 
                 // Mark the chapter clean (save-style metadata commit).
-                wf.commit(
-                    { kind: "metadata", bookCode: "GEN", chapter: 1, dirty: false },
-                    makeCommitMeta({
+                wf.commit({
+                    patch: { kind: "metadata", bookCode: "GEN", chapter: 1, dirty: false },
+                    meta: makeCommitMeta({
                         kind: "metadataOnly",
                         bookCode: "GEN",
                         chapter: 1,
                         dirtyTextContent: false,
                     }),
-                );
+                });
                 yield* passTime(IDLE_MS + 30);
                 expect(clear).toHaveBeenCalledWith(WS, "GEN");
             }),
@@ -127,21 +127,21 @@ describe("dirtyBufferPipeline (integration)", () => {
                 yield* Effect.forkChild(pipeline);
                 yield* drainYields();
 
-                wf.commit(...edit("GEN", 1, "an edit"));
+                wf.commit(edit("GEN", 1, "an edit"));
                 yield* passTime(IDLE_MS + 30);
                 expect(put).toHaveBeenCalledTimes(1);
 
                 // revertAll / discardAllChanges commit the clean (reverted)
                 // project as a bulk patch tagged `undo` — going back to disk
                 // must drop the backup.
-                wf.commit(
-                    { kind: "bulk", files: [makeBook({ bookCode: "GEN" })] },
-                    {
+                wf.commit({
+                    patch: { kind: "bulk", files: [makeBook({ bookCode: "GEN" })] },
+                    meta: {
                         kind: "undo",
                         scope: { project: true },
                         dirtyTextContent: true,
                     },
-                );
+                });
                 yield* passTime(IDLE_MS + 30);
                 expect(clear).toHaveBeenCalledWith(WS, "GEN");
             }),
@@ -174,7 +174,7 @@ describe("dirtyBufferPipeline (integration)", () => {
                 yield* drainYields();
 
                 // Trigger the initial whole-book backup (both chapters dirty).
-                wf.commit(...edit("GEN", 2, "c2edit"));
+                wf.commit(edit("GEN", 2, "c2edit"));
                 yield* passTime(IDLE_MS + 30);
                 expect(put).toHaveBeenCalledTimes(1);
 
@@ -182,14 +182,14 @@ describe("dirtyBufferPipeline (integration)", () => {
                 // content patch tagged `undo` that returns it to its source
                 // text. Content-derived dirty flips chapter 1 clean while
                 // chapter 2 stays dirty.
-                wf.commit(
-                    makeChapterPatch({
+                wf.commit({
+                    patch: makeChapterPatch({
                         bookCode: "GEN",
                         chapter: 1,
                         text: "c1src",
                     }),
-                    makeCommitMeta({ kind: "undo", bookCode: "GEN", chapter: 1 }),
-                );
+                    meta: makeCommitMeta({ kind: "undo", bookCode: "GEN", chapter: 1 }),
+                });
                 const gen = wf.read().find((b) => b.bookCode === "GEN");
                 expect(
                     gen?.chapters.find((c) => c.chapterNumber === 1)?.dirty,
@@ -221,8 +221,8 @@ describe("dirtyBufferPipeline (integration)", () => {
                 yield* Effect.forkChild(pipeline);
                 yield* drainYields();
 
-                wf.commit(...edit("GEN", 1, "gen edit"));
-                wf.commit(...edit("EXO", 1, "exo edit"));
+                wf.commit(edit("GEN", 1, "gen edit"));
+                wf.commit(edit("EXO", 1, "exo edit"));
                 yield* passTime(IDLE_MS + 30);
 
                 const books = put.mock.calls.map((call) => call[1]).sort();
@@ -240,12 +240,12 @@ describe("dirtyBufferPipeline (integration)", () => {
                 yield* Effect.forkChild(pipeline);
                 yield* drainYields();
 
-                wf.commit(...edit("GEN", 1, "burst-0"));
+                wf.commit(edit("GEN", 1, "burst-0"));
                 // 20 commits at 60ms gaps (< IDLE_MS=100, so debounce never
                 // settles) = ~1200ms > CEILING_MS=1000, so the ceiling must fire.
                 for (let i = 1; i <= 20; i++) {
                     yield* passTime(60);
-                    wf.commit(...edit("GEN", 1, `burst-${i}`));
+                    wf.commit(edit("GEN", 1, `burst-${i}`));
                 }
                 expect(put).toHaveBeenCalled();
             }),
@@ -263,8 +263,8 @@ describe("dirtyBufferPipeline (integration)", () => {
                 yield* drainYields();
 
                 // Bulk import touching both books (e.g. a version revert).
-                wf.commit(
-                    {
+                wf.commit({
+                    patch: {
                         kind: "bulk",
                         files: [
                             makeBook({
@@ -289,12 +289,12 @@ describe("dirtyBufferPipeline (integration)", () => {
                             }),
                         ],
                     },
-                    {
+                    meta: {
                         kind: "import",
                         scope: { project: true },
                         dirtyTextContent: true,
                     },
-                );
+                });
                 yield* passTime(IDLE_MS + 30);
 
                 const books = put.mock.calls.map((call) => call[1]).sort();
@@ -316,7 +316,7 @@ describe("dirtyBufferPipeline (integration)", () => {
                 yield* Effect.forkChild(pipeline);
                 yield* drainYields();
 
-                wf.commit(...edit("GEN", 1, "edit"));
+                wf.commit(edit("GEN", 1, "edit"));
                 yield* passTime(IDLE_MS + 30);
                 expect(put).toHaveBeenCalledTimes(1); // first attempt (rejected)
 

@@ -1,4 +1,6 @@
 import type {
+    ClosingBehavior,
+    MarkerPayload,
     ParagraphCategory,
     UsfmMarkerCatalog,
 } from "@/core/domain/usfm/usfmOnionTypes.ts";
@@ -13,8 +15,8 @@ import type {
 // Markers we accept at the editor boundary that the upstream catalog does not
 // enumerate. `s5` is USFM 2.x legacy: a chunk-delimiter used heavily in WA
 // source data. USFM 3.x caps `s#` at level 4, so upstream will not add it. We
-// accept it here and suppress its `unknown-marker` lint via
-// `shouldKeepLintIssue` (see src/app/utils/sharedPlatformLogic.ts).
+// accept it here; its `unknown-marker` finding flows into the findings store
+// unfiltered and is hidden by the app-default policy row in `presentFinding`.
 const LOCAL_ONLY_MARKERS = ["s5"] as const;
 
 const LOCAL_ONLY_PARAGRAPH_MARKERS = ["s5"] as const;
@@ -35,6 +37,9 @@ type MarkerRegistry = {
     chapterVerseMarkers: Set<string>;
     documentMarkers: Set<string>;
     paragraphCategoryByMarker: Map<string, ParagraphCategory>;
+    payloadByMarker: Map<string, MarkerPayload>;
+    closingBehaviorByMarker: Map<string, ClosingBehavior>;
+    chapterMarkers: Set<string>;
 };
 
 let registry: MarkerRegistry | null = null;
@@ -96,9 +101,21 @@ function buildRegistry(catalog: UsfmMarkerCatalog): MarkerRegistry {
     ]);
 
     const paragraphCategoryByMarker = new Map<string, ParagraphCategory>();
+    const payloadByMarker = new Map<string, MarkerPayload>();
+    const closingBehaviorByMarker = new Map<string, ClosingBehavior>();
+    const chapterMarkers = new Set<string>();
     for (const [marker, info] of Object.entries(catalog.infoByMarker)) {
         if (info.paragraphCategory) {
             paragraphCategoryByMarker.set(marker, info.paragraphCategory);
+        }
+        if (info.payload) {
+            payloadByMarker.set(marker, info.payload);
+        }
+        if (info.closingBehavior) {
+            closingBehaviorByMarker.set(marker, info.closingBehavior);
+        }
+        if (info.category === "chapter") {
+            chapterMarkers.add(marker);
         }
     }
 
@@ -111,6 +128,9 @@ function buildRegistry(catalog: UsfmMarkerCatalog): MarkerRegistry {
         chapterVerseMarkers: new Set(catalog.chapterVerseMarkers),
         documentMarkers: new Set(catalog.documentMarkers),
         paragraphCategoryByMarker,
+        payloadByMarker,
+        closingBehaviorByMarker,
+        chapterMarkers,
     };
 }
 
@@ -162,4 +182,49 @@ export function getParagraphCategory(
 
 export function isValidParaMarker(marker: string) {
     return VALID_PARA_MARKERS.has(marker);
+}
+
+/**
+ * The marker's tag-argument payload (`"numberRange"` / `"bookCode"`), or
+ * `undefined` for markers without one OR before the catalog is initialized.
+ * Graceful like `getParagraphCategory` — read on load/serialize paths where
+ * falling back to flat-token behavior is safer than a throw.
+ */
+function getMarkerPayload(marker: string): MarkerPayload | undefined {
+    return registry?.payloadByMarker.get(marker);
+}
+
+/**
+ * The marker's close expectation from the catalog, or `undefined` when the
+ * catalog doesn't enumerate it / isn't initialized. Expectation only — the
+ * bytes a close actually arrived with live on tokens/nodes.
+ */
+export function getClosingBehavior(
+    marker: string,
+): ClosingBehavior | undefined {
+    return registry?.closingBehaviorByMarker.get(marker);
+}
+
+/**
+ * Membership in the marker+number-payload family that materializes as a
+ * numbered-marker node TODAY: payload says "numberRange" (the catalog fact
+ * that defines the family — c, cp, ca, v, vp, va) AND the marker is in the
+ * catalog's chapter/verse set (the shipped subset — c, v). The second
+ * condition is the rollout gate: cp/ca/va/vp share the node shape and join
+ * by widening this to the payload check alone.
+ */
+export function isEnabledNumberedMarker(marker: string): boolean {
+    return (
+        getMarkerPayload(marker) === "numberRange" &&
+        (registry?.chapterVerseMarkers.has(marker) ?? false)
+    );
+}
+
+/**
+ * Catalog `category === "chapter"` membership. The regular-shape grouping
+ * pass uses this to give a chapter's numbered node its own (byte-less)
+ * line container.
+ */
+export function isChapterMarker(marker: string): boolean {
+    return registry?.chapterMarkers.has(marker) ?? false;
 }

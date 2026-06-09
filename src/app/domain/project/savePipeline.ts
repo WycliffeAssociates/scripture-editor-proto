@@ -395,14 +395,15 @@ export async function runSavePipeline(
                 }),
             };
         });
-        args.workingFilesStore.commit(
-            { kind: "bulk", files: rebasedDraft },
-            {
+        args.workingFilesStore.commit({
+            patch: { kind: "bulk", files: rebasedDraft },
+            meta: {
                 kind: "metadataOnly",
+                action: "saveCleanMark",
                 scope: { project: true },
                 dirtyTextContent: false,
             },
-        );
+        });
         args.clearUnsavedDiffs();
         args.bumpDirtyVersion();
         if (!saveError) {

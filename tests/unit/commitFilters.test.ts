@@ -1,11 +1,12 @@
 // commitFilters.test.ts
 //
-// Single source of truth for `CommitFilter` policy. Each of the three
-// pipeline subscribers (lint, save status, structure maintenance) wires
-// `Stream.filter` to one predicate in `src/app/state/commitFilters.ts`;
-// the pipeline integration tests in `tests/unit/integration/` assert
-// the wiring (one representative kind per pipeline) but lean on this
-// file for the exhaustive per-kind matrix.
+// Single source of truth for per-subscriber commit policy. Each pipeline
+// wires its policy from `src/app/state/commitFilters.ts` — scope policies
+// (`lintScopeFor` / `sousScopeFor`, returning the consumer's work-unit set
+// where empty = skip) and boolean predicates (save status, structure
+// maintenance, dirty buffer). The pipeline integration tests in
+// `tests/unit/integration/` assert the wiring (one representative kind per
+// pipeline) but lean on this file for the exhaustive per-kind matrix.
 //
 // Flip a polarity in `commitFilters.ts` and one row of the table below
 // will fail with a readable mismatch — that's the contract.
@@ -13,9 +14,10 @@
 import { describe, expect, it } from "vitest";
 import {
     isDirtyBufferRelevant,
-    isLintRelevant,
     isSaveStatusRelevant,
     isStructureMaintenanceRelevant,
+    lintScopeFor,
+    sousScopeFor,
 } from "@/app/state/commitFilters.ts";
 import type {
     CommitEvent,
@@ -38,11 +40,11 @@ function makeEvent(kind: CommitKind, dirtyTextContent: boolean): CommitEvent {
     return {
         meta: {
             kind,
-            scope: { bookCode: "GEN", chapter: 1 },
+            scope: { chapters: [{ bookCode: "GEN", chapterNum: 1 }] },
             dirtyTextContent,
             generation: 1,
         },
-        patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1 },
+        patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1, selection: null },
         snapshot: [],
     };
 }
@@ -56,10 +58,11 @@ type Row = {
 };
 
 // Policy matrix. Rows match the prose in `commitFilters.ts`:
-//  - lint: dirty text + not in { metadataOnly, structuralFixup, load,
-//    undo, redo }.
+//  - lint / sous (scope policies; `lint: true` = non-empty scope): dirty
+//    text + not in { metadataOnly, structuralFixup, load }. Undo/redo ARE
+//    relevant — replay commits carry precise chapter scope.
 //  - saveStatus: dirty text + not in { metadataOnly, structuralFixup,
-//    load }. Undo/redo *do* drive dirty/clean transitions.
+//    load }.
 //  - structureMaintenance: userEdit + dirty text only.
 const POLICY: ReadonlyArray<Row> = [
     { kind: "userEdit", dirty: true, lint: true, saveStatus: true, structure: true },
@@ -68,9 +71,9 @@ const POLICY: ReadonlyArray<Row> = [
     { kind: "programmaticFix", dirty: false, lint: false, saveStatus: false, structure: false },
     { kind: "import", dirty: true, lint: true, saveStatus: true, structure: false },
     { kind: "import", dirty: false, lint: false, saveStatus: false, structure: false },
-    { kind: "undo", dirty: true, lint: false, saveStatus: true, structure: false },
+    { kind: "undo", dirty: true, lint: true, saveStatus: true, structure: false },
     { kind: "undo", dirty: false, lint: false, saveStatus: false, structure: false },
-    { kind: "redo", dirty: true, lint: false, saveStatus: true, structure: false },
+    { kind: "redo", dirty: true, lint: true, saveStatus: true, structure: false },
     { kind: "redo", dirty: false, lint: false, saveStatus: false, structure: false },
     { kind: "load", dirty: true, lint: false, saveStatus: false, structure: false },
     { kind: "load", dirty: false, lint: false, saveStatus: false, structure: false },
@@ -91,9 +94,18 @@ describe("commitFilters policy matrix", () => {
     });
 
     it.each(POLICY)(
-        "isLintRelevant($kind, dirty=$dirty) → $lint",
+        "lintScopeFor($kind, dirty=$dirty) non-empty → $lint",
         ({ kind, dirty, lint }) => {
-            expect(isLintRelevant(makeEvent(kind, dirty))).toBe(lint);
+            const scope = lintScopeFor(makeEvent(kind, dirty));
+            expect(scope !== "all" && scope.size === 0).toBe(!lint);
+        },
+    );
+
+    it.each(POLICY)(
+        "sousScopeFor($kind, dirty=$dirty) non-empty → $lint",
+        ({ kind, dirty, lint }) => {
+            const scope = sousScopeFor(makeEvent(kind, dirty));
+            expect(scope !== "all" && scope.size === 0).toBe(!lint);
         },
     );
 
@@ -114,6 +126,46 @@ describe("commitFilters policy matrix", () => {
     );
 });
 
+describe("scope policies — expansion shape", () => {
+    function makeScopedEvent(
+        scope: CommitEvent["meta"]["scope"],
+    ): CommitEvent {
+        return {
+            meta: {
+                kind: "userEdit",
+                scope,
+                dirtyTextContent: true,
+                generation: 1,
+            },
+            patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1, selection: null },
+            snapshot: [],
+        };
+    }
+
+    it("widens chapter refs to their books, deduped", () => {
+        const scope = lintScopeFor(
+            makeScopedEvent({
+                chapters: [
+                    { bookCode: "GEN", chapterNum: 1 },
+                    { bookCode: "GEN", chapterNum: 2 },
+                    { bookCode: "EXO", chapterNum: 5 },
+                ],
+            }),
+        );
+        expect(scope).toEqual(new Set(["GEN", "EXO"]));
+    });
+
+    it("maps project scope to the all sentinel", () => {
+        expect(lintScopeFor(makeScopedEvent({ project: true }))).toBe("all");
+        expect(sousScopeFor(makeScopedEvent({ project: true }))).toBe("all");
+    });
+
+    it("returns an empty set for an empty chapter list", () => {
+        const scope = lintScopeFor(makeScopedEvent({ chapters: [] }));
+        expect(scope !== "all" && scope.size === 0).toBe(true);
+    });
+});
+
 // isDirtyBufferRelevant keys off BOTH meta.kind (drop `load`) and patch.kind
 // (drop pure `selectionOnly`) — unlike the others it cannot use the shared
 // matrix, whose events all carry a `selectionOnly` patch.
@@ -126,7 +178,7 @@ describe("isDirtyBufferRelevant", () => {
         return {
             meta: {
                 kind,
-                scope: { bookCode: "GEN", chapter: 1 },
+                scope: { chapters: [{ bookCode: "GEN", chapterNum: 1 }] },
                 dirtyTextContent,
                 generation: 1,
             },
@@ -146,6 +198,7 @@ describe("isDirtyBufferRelevant", () => {
         kind: "selectionOnly",
         bookCode: "GEN",
         chapter: 1,
+        selection: null,
     };
 
     it("reacts to a user edit (could make a book dirty)", () => {

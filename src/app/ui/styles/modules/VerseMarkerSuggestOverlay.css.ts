@@ -36,7 +36,7 @@ export const annotation = style({
     },
 });
 
-// Padding for the custom content rendered inside the shared LintFixPopover
+// Padding for the custom content rendered inside the shared AnnotationPopover
 // shell (which is padding-less by default).
 export const popoverContent = style({
     padding: vars.spacing.xs,

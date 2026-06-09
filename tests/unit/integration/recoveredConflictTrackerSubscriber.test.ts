@@ -47,15 +47,15 @@ describe("recoveredConflictTrackerSubscriber (integration)", () => {
                 );
                 yield* drainYields();
 
-                wf.commit(
-                    { kind: "metadata", bookCode: "GEN", chapter: 5, dirty: false },
-                    makeCommitMeta({
+                wf.commit({
+                    patch: { kind: "metadata", bookCode: "GEN", chapter: 5, dirty: false },
+                    meta: makeCommitMeta({
                         kind: "metadataOnly",
                         bookCode: "GEN",
                         chapter: 5,
                         dirtyTextContent: false,
                     }),
-                );
+                });
                 yield* drainYields();
 
                 expect(tracker.has("GEN", 5)).toBe(false);
@@ -79,15 +79,15 @@ describe("recoveredConflictTrackerSubscriber (integration)", () => {
                 yield* drainYields();
 
                 // A commit that leaves the chapter dirty (still differs).
-                wf.commit(
-                    { kind: "metadata", bookCode: "GEN", chapter: 5, dirty: true },
-                    makeCommitMeta({
+                wf.commit({
+                    patch: { kind: "metadata", bookCode: "GEN", chapter: 5, dirty: true },
+                    meta: makeCommitMeta({
                         kind: "metadataOnly",
                         bookCode: "GEN",
                         chapter: 5,
                         dirtyTextContent: false,
                     }),
-                );
+                });
                 yield* drainYields();
 
                 expect(tracker.has("GEN", 5)).toBe(true);

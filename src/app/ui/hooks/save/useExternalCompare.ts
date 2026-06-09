@@ -1,6 +1,6 @@
 import type { LexicalEditor } from "lexical";
 import { useMemo, useRef, useState } from "react";
-import type { EditorModeSetting } from "@/app/data/editor.ts";
+import { type EditorModeSetting, shapeForSurface } from "@/app/data/editor.ts";
 import { acceptRemoteLatestReview } from "@/app/domain/project/acceptRemoteLatestReview.ts";
 import { applyIncomingToStore } from "@/app/domain/project/compare/applyIncomingToStore.ts";
 import {
@@ -68,7 +68,6 @@ import type {
 import {
     buildCurrentProjectCompareMetadata,
     type ChapterRef,
-    invalidateWorkingScriptureChanges,
     selectScriptureBookStatesForChapterRefs,
 } from "./shared.ts";
 
@@ -111,7 +110,6 @@ export function useExternalCompare(args: {
     authSessionProvider: AuthSessionProvider;
     autoAcceptIncomingWork: boolean;
     bumpDirtyVersion: () => void;
-    refreshUnsavedChapters?: (chapters: ChapterRef[]) => Promise<void>;
     onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
 }) {
     const [mode, setMode] = useState<CompareMode>("unsaved");
@@ -133,11 +131,12 @@ export function useExternalCompare(args: {
         projectsService: args.projectsService,
         fileSystem: args.fileSystem,
         storageRoots: args.storageRoots,
-        editorMode: args.editorMode,
         usfmOnionService: args.usfmOnionService,
         authSessionProvider: args.authSessionProvider,
         gitProvider: args.gitProvider,
     });
+    const workingShape = () =>
+        shapeForSurface("workingRebuild", args.editorMode);
 
     async function computeExternalDiffs(
         sourceFiles: ScriptureBookState[],
@@ -271,11 +270,10 @@ export function useExternalCompare(args: {
     // abort the rest of the reconciliation (and skip remote-accept side effects)
     // rather than mark a remote synced without applying it.
     function commitIncoming(
-        patch: Parameters<WorkingFilesStore["commit"]>[0],
-        meta: Parameters<WorkingFilesStore["commit"]>[1],
+        input: Parameters<WorkingFilesStore["commit"]>[0],
     ): boolean {
         if (!requireGateOpen(args.interactionGate.get())) return false;
-        args.workingFilesStore.commit(patch, meta);
+        args.workingFilesStore.commit(input);
         return true;
     }
 
@@ -371,7 +369,6 @@ export function useExternalCompare(args: {
                 const parsedFiles = await snapshotToScriptureBookStates({
                     loadedProject: args.loadedProject,
                     snapshot,
-                    editorMode: args.editorMode,
                     usfmOnionService: args.usfmOnionService,
                 });
                 return {
@@ -518,22 +515,10 @@ export function useExternalCompare(args: {
                     fullChapterApplies: [],
                     hunkApplies: [diff],
                     sourceFiles: compareResult.sourceFiles ?? [],
+                    shape: workingShape(),
                 });
                 if (applied.kind !== "committed") return;
-                await invalidateWorkingScriptureChanges({
-                    chapters: [
-                        {
-                            bookCode: diff.bookCode,
-                            chapterNum: diff.chapterNum,
-                        },
-                    ],
-                    bumpDirtyVersion: args.bumpDirtyVersion,
-                    refreshUnsavedChapters: args.refreshUnsavedChapters,
-                    editorRef: args.editorRef,
-                    workingFiles: args.workingFilesStore.read(),
-                    pickedFile: args.pickedFile,
-                    pickedChapter: args.pickedChapter,
-                });
+                args.bumpDirtyVersion();
                 await rerunForChapters([
                     {
                         bookCode: diff.bookCode,
@@ -561,30 +546,24 @@ export function useExternalCompare(args: {
                     sourceFiles: compareResult.sourceFiles ?? [],
                     bookCode,
                     chapterNum,
+                    shape: workingShape(),
                 });
                 // Sync applier (no await between draft and commit), so only the
                 // gate recheck is needed at the commit boundary.
                 if (
-                    !commitIncoming(
-                        { kind: "bulk", files: draft },
-                        {
+                    !commitIncoming({
+                        patch: { kind: "bulk", files: draft },
+                        meta: {
                             kind: "import",
+                            action: "applyIncoming",
                             scope: { project: true },
                             dirtyTextContent: true,
                         },
-                    )
+                    })
                 ) {
                     return;
                 }
-                await invalidateWorkingScriptureChanges({
-                    chapters: [{ bookCode, chapterNum }],
-                    bumpDirtyVersion: args.bumpDirtyVersion,
-                    refreshUnsavedChapters: args.refreshUnsavedChapters,
-                    editorRef: args.editorRef,
-                    workingFiles: args.workingFilesStore.read(),
-                    pickedFile: args.pickedFile,
-                    pickedChapter: args.pickedChapter,
-                });
+                args.bumpDirtyVersion();
                 await rerunForChapters([{ bookCode, chapterNum }]);
             },
         });
@@ -602,6 +581,7 @@ export function useExternalCompare(args: {
                 applyIncomingChapterAll({
                     workingFiles: draft,
                     sourceFiles: compareResult.sourceFiles ?? [],
+                    shape: workingShape(),
                 });
                 if (
                     compareResult.remoteSync?.relationship ===
@@ -610,31 +590,25 @@ export function useExternalCompare(args: {
                     applyVersionSnapshotToWorkingFiles({
                         workingFiles: draft,
                         sourceFiles: compareResult.sourceFiles ?? [],
+                        shape: workingShape(),
                     });
                 }
                 // Sync appliers (no await between draft and commit); gate-recheck
                 // at the commit boundary and bail before the remote-accept below.
                 if (
-                    !commitIncoming(
-                        { kind: "bulk", files: draft },
-                        {
+                    !commitIncoming({
+                        patch: { kind: "bulk", files: draft },
+                        meta: {
                             kind: "import",
+                            action: "applyIncoming",
                             scope: { project: true },
                             dirtyTextContent: true,
                         },
-                    )
+                    })
                 ) {
                     return;
                 }
-                await invalidateWorkingScriptureChanges({
-                    chapters: listCompareChapterRefs(),
-                    bumpDirtyVersion: args.bumpDirtyVersion,
-                    refreshUnsavedChapters: args.refreshUnsavedChapters,
-                    editorRef: args.editorRef,
-                    workingFiles: args.workingFilesStore.read(),
-                    pickedFile: args.pickedFile,
-                    pickedChapter: args.pickedChapter,
-                });
+                args.bumpDirtyVersion();
                 if (
                     compareResult.remoteSync?.relationship ===
                     GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY

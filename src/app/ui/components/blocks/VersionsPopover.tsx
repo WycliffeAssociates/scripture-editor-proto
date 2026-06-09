@@ -32,10 +32,8 @@ const VERSION_TIMESTAMP_FORMATTER = new Intl.DateTimeFormat(undefined, {
 export function VersionsPopover() {
     const [opened, setOpened] = useState(false);
     const { loadedProject, save } = useWorkspaceContext();
-    const { gitProvider, settingsManager, usfmOnionService } =
-        useRouter().options.context;
+    const { gitProvider, usfmOnionService } = useRouter().options.context;
     const queryClient = useQueryClient();
-    const editorMode = settingsManager.get("editorMode");
 
     useEffect(() => {
         if (!opened) return;
@@ -63,13 +61,11 @@ export function VersionsPopover() {
                 commitHash,
                 loadedProject,
                 gitProvider,
-                editorMode,
                 usfmOnionService,
             });
         }
     }, [
         opened,
-        editorMode,
         gitProvider,
         loadedProject,
         queryClient,
@@ -167,7 +163,6 @@ export function VersionsPopover() {
                                         commitHash: hash,
                                         loadedProject,
                                         gitProvider,
-                                        editorMode,
                                         usfmOnionService,
                                     })
                                 }

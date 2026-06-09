@@ -43,13 +43,15 @@ export function ToolbarOverflowMenu(props: ToolbarOverflowMenuProps) {
                                 <Trans>Match formatting to source</Trans>
                             </Menu.Item>
                         ) : null}
-                        <Menu.Item
-                            className={styles.item}
-                            onClick={() => props.onCopyEditorJson?.()}
-                        >
-                            <Copy size={14} className={styles.itemIcon} />
-                            <Trans>Copy editor JSON</Trans>
-                        </Menu.Item>
+                        {props.onCopyEditorJson ? (
+                            <Menu.Item
+                                className={styles.item}
+                                onClick={() => props.onCopyEditorJson?.()}
+                            >
+                                <Copy size={14} className={styles.itemIcon} />
+                                <Trans>Copy editor JSON</Trans>
+                            </Menu.Item>
+                        ) : null}
                     </Menu.Popup>
                 </Menu.Positioner>
             </Menu.Portal>

@@ -1,9 +1,15 @@
 import { $createLineBreakNode, type LexicalNode } from "lexical";
-import { UsfmTokenTypes } from "@/app/data/editor.ts";
+import { type EditorShape, UsfmTokenTypes } from "@/app/data/editor.ts";
+import { $createUSFMNumberedMarkerNode } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import { $createUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
+import {
+    ALL_USFM_MARKERS,
+    getClosingBehavior,
+    isEnabledNumberedMarker,
+} from "@/core/domain/usfm/onionMarkers.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 const USFM_MARKER_PATTERN =
@@ -32,12 +38,14 @@ export type ClipboardUsfmTokenParseResult =
 export function isUsfmLikePaste(text: string): boolean {
     const trimmed = text.trim();
     if (!trimmed.length) return false;
-    const matches = [...trimmed.matchAll(USFM_MARKER_PATTERN)];
-    if (matches.length === 0) return false;
-    if (matches.length > 1) return true;
-    return (
-        /^\s*\\[A-Za-z][A-Za-z0-9]*\b/mu.test(trimmed) && /\n/u.test(trimmed)
+    // The regex only EXTRACTS candidate \name tokens; classification is
+    // catalog membership — onion's marker set, not a marker-shaped guess.
+    // A single unknown backslash-word (a path, a TeX fragment) stays plain
+    // text; any known marker routes the paste through the parser.
+    const candidates = [...trimmed.matchAll(USFM_MARKER_PATTERN)].map((m) =>
+        m[0].trim().replace(/^\\/u, "").replace(/\*$/u, ""),
     );
+    return candidates.some((marker) => ALL_USFM_MARKERS.has(marker));
 }
 
 function onionKindToLexicalTokenType(kind: Token["kind"]): string {
@@ -58,25 +66,6 @@ function onionKindToLexicalTokenType(kind: Token["kind"]): string {
     }
 }
 
-function hasMalformedChapterOrVerseNumber(text: string): boolean {
-    const lines = text.split(/\r?\n/u);
-    for (const line of lines) {
-        const markerMatch = line.match(/^\s*\\(c|v)\b(.*)$/u);
-        if (!markerMatch) continue;
-        const marker = markerMatch[1];
-        const tail = markerMatch[2]?.trim() ?? "";
-        if (!tail.length) return true;
-
-        if (marker === "c") {
-            if (!/^\d+\b/u.test(tail)) return true;
-            continue;
-        }
-
-        if (!/^\d+(?:-\d+)?[a-z]?\b/iu.test(tail)) return true;
-    }
-    return false;
-}
-
 export function parseClipboardUsfmToTokens(args: {
     text: string;
     bookCode: string;
@@ -93,10 +82,6 @@ async function parseClipboardUsfmToTokensAsync(args: {
     usfmOnionService: IUsfmOnionService;
 }): Promise<ClipboardUsfmTokenParseResult> {
     try {
-        if (hasMalformedChapterOrVerseNumber(args.text)) {
-            return { ok: false, reason: "parse-failed" };
-        }
-
         const projected = await args.usfmOnionService.parseUsfm(args.text, {
             lintOptions: null,
         });
@@ -119,12 +104,23 @@ async function parseClipboardUsfmToTokensAsync(args: {
 /**
  * Convert parsed USFM tokens into nodes that can be inserted into the current
  * Lexical editor selection.
+ *
+ * Every node gets a FRESH id: the clipboard parse mints the same
+ * deterministic id scheme the original load used, so reusing them would
+ * duplicate finding anchors already present in the document.
+ *
+ * In the regular shape, marker+number pairs become numbered-marker nodes —
+ * the same pairing rule as the load waist (adjacent pair → one node;
+ * unpaired enabled marker → empty-content node), applied to live nodes.
+ * Flat shapes keep flat tokens: markers are visible editable bytes there.
  */
 export function parsedUsfmTokensToInsertableNodes(
     tokens: Token[],
+    shape: EditorShape = "regular",
 ): LexicalNode[] {
     const nodes: LexicalNode[] = [];
-    for (const token of tokens) {
+    for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
         const tokenType = onionKindToLexicalTokenType(token.kind);
         if (!VALID_INSERTABLE_TOKEN_TYPES.has(tokenType)) {
             continue;
@@ -135,9 +131,42 @@ export function parsedUsfmTokensToInsertableNodes(
             continue;
         }
 
+        if (
+            shape === "regular" &&
+            tokenType === UsfmTokenTypes.marker &&
+            token.marker &&
+            isEnabledNumberedMarker(token.marker)
+        ) {
+            const next = tokens[i + 1];
+            const isNumber = next?.kind === "number";
+            let closeBytes: string | null = null;
+            if (
+                isNumber &&
+                getClosingBehavior(token.marker) === "requiredExplicit" &&
+                tokens[i + 2]?.kind === "endMarker" &&
+                tokens[i + 2]?.marker === token.marker
+            ) {
+                closeBytes = tokens[i + 2].source;
+            }
+            nodes.push(
+                $createUSFMNumberedMarkerNode(isNumber ? next.source : "", {
+                    numberId: guidGenerator(),
+                    openId: guidGenerator(),
+                    closeId: closeBytes ? guidGenerator() : null,
+                    openBytes: token.source,
+                    closeBytes,
+                    marker: token.marker,
+                    sid: token.sid || "",
+                    inPara: "",
+                }),
+            );
+            if (isNumber) i += closeBytes != null ? 2 : 1;
+            continue;
+        }
+
         nodes.push(
             $createUSFMTextNode(token.source, {
-                id: token.id || guidGenerator(),
+                id: guidGenerator(),
                 sid: token.sid || "",
                 tokenType,
                 marker: token.marker,

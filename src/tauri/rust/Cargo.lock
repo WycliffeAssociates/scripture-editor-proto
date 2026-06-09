@@ -4099,6 +4099,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ssc-core"
+version = "0.1.0"
+source = "git+https://github.com/WycliffeAssociates/scripture-sous-chef.git?tag=v0.0.1#65e88b6d47c70da14644260433b162748d62ec64"
+dependencies = [
+ "serde",
+ "unicode-script",
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "stable_deref_trait"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5090,6 +5100,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a5f39404a5da50712a4c1eecf25e90dd62b613502b7e925fd4e4d19b5c96512"
 
 [[package]]
+name = "unicode-script"
+version = "0.5.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "383ad40bb927465ec0ce7720e033cb4ca06912855fc35db31b5755d0de75b1ee"
+
+[[package]]
 name = "unicode-segmentation"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5128,7 +5144,7 @@ dependencies = [
 [[package]]
 name = "usfm_onion"
 version = "0.1.0"
-source = "git+https://github.com/WycliffeAssociates/usfm-onion?tag=v0.0.4#52d263f0c5d4b290ceac31ff4cfed55820c4937b"
+source = "git+https://github.com/WycliffeAssociates/usfm-onion.git?tag=v0.0.7#52748a3eb151ca77d7057004ed34320c96b8f2ce"
 dependencies = [
  "logos",
  "quick-xml 0.37.5",
@@ -6084,7 +6100,7 @@ dependencies = [
 
 [[package]]
 name = "zephyr"
-version = "0.3.2"
+version = "0.5.0"
 dependencies = [
  "git2",
  "md-5",
@@ -6093,6 +6109,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "ssc-core",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",

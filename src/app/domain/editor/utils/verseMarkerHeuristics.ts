@@ -1,4 +1,5 @@
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
+import { $isUSFMNumberedMarkerNode } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import {
     $isUSFMTextNode,
     type USFMTextNode,
@@ -57,6 +58,11 @@ export function canPromoteLeadingVerseNumber(anchorNode: USFMTextNode): {
     // Out-of-range numbers (e.g. "200 …", years, list items) aren't verses.
     if (!isPlausibleVerseNumber(match.verseNumber)) return null;
     const prevNode = anchorNode.getPreviousSibling();
+    // A numbered-marker node just before this text covers both legacy cases
+    // at once in the regular shape: the marker expecting a number IS the
+    // node, and the parsed number is its content (`\v 5 5 …` duplicates are
+    // lint's to flag, not promotion candidates).
+    if ($isUSFMNumberedMarkerNode(prevNode)) return null;
     if ($isUSFMTextNode(prevNode)) {
         const prevType = prevNode.getTokenType();
         // Already a marker expecting a number (`\v`/`\c`) right before.

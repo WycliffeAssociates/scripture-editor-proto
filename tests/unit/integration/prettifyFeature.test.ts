@@ -6,6 +6,7 @@ import {
     isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { isSerializedUSFMNumberedMarkerNode } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import { walkNodes } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import {
     lexicalRootChildrenToUsfmTokenStream,
@@ -37,6 +38,7 @@ const createChapter = async (
     const lexicalState = await createSerializedState(usfmContent);
     return {
         chapterNumber,
+        eol: "\n",
         lexicalState,
         loadedLexicalState: structuredClone(lexicalState),
         sourceTokens: [] as Token[],
@@ -91,12 +93,14 @@ describe("Prettify Feature Integration", () => {
             expect(chapterPara).toBeTruthy();
             const chapterChildren = (chapterPara as { children?: unknown })
                 .children as SerializedLexicalNode[];
+            // The chapter is one numbered-marker node (marker bytes in node
+            // state, number as content) inside a byte-less shell container.
             const chapterNumberIndex = chapterChildren.findIndex(
                 (node) =>
-                    isSerializedUSFMTextNode(node) &&
-                    node.tokenType === UsfmTokenTypes.numberRange &&
+                    isSerializedUSFMNumberedMarkerNode(node) &&
                     node.text.trim() === "1",
             );
+            expect(chapterNumberIndex).toBeGreaterThanOrEqual(0);
             expect(chapterChildren[chapterNumberIndex + 1]?.type).toBe(
                 "linebreak",
             );
@@ -107,8 +111,11 @@ describe("Prettify Feature Integration", () => {
                     node.tokenType === UsfmTokenTypes.text &&
                     node.text.includes("My soul makes its boast"),
             ) as SerializedUSFMTextNode;
+            // Delimiter parking: the verse number absorbs its own argument
+            // terminator, so following text arrives content-pure (no leading
+            // space).
             expect(v2TextNode.text).toBe(
-                " My soul makes its boast in the Lord; let the humble hear and be glad. ",
+                "My soul makes its boast in the Lord; let the humble hear and be glad. ",
             );
 
             const vMarkers = flattened.filter(
@@ -257,10 +264,10 @@ These are the   names`,
             ).children as SerializedLexicalNode[];
             const genChapterIndex = genChapterChildren.findIndex(
                 (node) =>
-                    isSerializedUSFMTextNode(node) &&
-                    node.tokenType === UsfmTokenTypes.numberRange &&
+                    isSerializedUSFMNumberedMarkerNode(node) &&
                     node.text.trim() === "1",
             );
+            expect(genChapterIndex).toBeGreaterThanOrEqual(0);
             expect(genChapterChildren[genChapterIndex + 1]?.type).toBe(
                 "linebreak",
             );
@@ -287,10 +294,10 @@ These are the   names`,
             ).children as SerializedLexicalNode[];
             const exoChapterIndex = exoChapterChildren.findIndex(
                 (node) =>
-                    isSerializedUSFMTextNode(node) &&
-                    node.tokenType === UsfmTokenTypes.numberRange &&
+                    isSerializedUSFMNumberedMarkerNode(node) &&
                     node.text.trim() === "1",
             );
+            expect(exoChapterIndex).toBeGreaterThanOrEqual(0);
             expect(exoChapterChildren[exoChapterIndex + 1]?.type).toBe(
                 "linebreak",
             );

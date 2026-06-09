@@ -40,6 +40,8 @@ import {
     useRef,
     useState,
 } from "react";
+import { decorateFindingInert } from "@/app/domain/editor/annotations/decorators/decorateFinding.tsx";
+import { lintIssuesToFindings } from "@/app/domain/editor/annotations/normalizeFindings.ts";
 import {
     consumePendingFocus,
     deriveBlockKind,
@@ -51,7 +53,7 @@ import {
     replaceFragmentText,
 } from "@/app/domain/editor/utils/formModeBlockTree.ts";
 import { emptyVerseSyntheticIssue } from "@/app/domain/editor/utils/formModeSyntheticLint.ts";
-import { LintFixPopover } from "@/app/ui/components/blocks/LintFixPopover.tsx";
+import { AnnotationPopover } from "@/app/ui/components/blocks/AnnotationPopover.tsx";
 import { AutoTextarea } from "@/app/ui/components/primitives/AutoTextarea/AutoTextarea.tsx";
 import {
     FORM_ROW_KEY_ATTR,
@@ -611,10 +613,16 @@ function FragmentRow(props: FragmentRowProps) {
     // the shared popover and its localized message. See formModeSyntheticLint.
     const [errIconEl, setErrIconEl] = useState<HTMLElement | null>(null);
     const [errHovered, setErrHovered] = useState(false);
-    const emptyVerseIssue = useMemo(
-        () => emptyVerseSyntheticIssue(fragmentSid || undefined),
-        [fragmentSid],
-    );
+    // The synthetic issue carries no fix, so it decorates to a message-only
+    // finding (no action button) — same as it rendered under the old
+    // lint-mode popover. Inert decoration: form mode's per-card affordance
+    // offers no capabilities, so no ctx is assembled.
+    const emptyVerseAnnotation = useMemo(() => {
+        const [finding] = lintIssuesToFindings([
+            emptyVerseSyntheticIssue(fragmentSid || undefined),
+        ]);
+        return decorateFindingInert(finding);
+    }, [fragmentSid]);
     const fieldClassName = [
         styles.field,
         isInvalid ? styles.fieldInvalid : "",
@@ -735,10 +743,11 @@ function FragmentRow(props: FragmentRowProps) {
                         >
                             <AlertCircle size={16} />
                         </button>
-                        <LintFixPopover
+                        <AnnotationPopover
                             anchor={errIconEl}
-                            errors={errHovered ? [emptyVerseIssue] : null}
-                            onApplyFix={() => undefined}
+                            annotations={
+                                errHovered ? [emptyVerseAnnotation] : null
+                            }
                             onMouseEnter={() => setErrHovered(true)}
                             onMouseLeave={() => setErrHovered(false)}
                             side="top"

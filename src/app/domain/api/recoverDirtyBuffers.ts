@@ -20,9 +20,11 @@
 //   present(X)      | present(X)    -> restore (baseline match -> no tracker)
 //   present(X)      | present(Y!=X) -> restore (baseline mismatch -> tracker)
 
-import type { EditorModeSetting } from "@/app/data/editor.ts";
+import { type EditorShape, shapeForSurface } from "@/app/data/editor.ts";
 import { parseRecoveredBookContents } from "@/app/domain/api/parseRecoveredBookContents.ts";
+import type { InitialLintByBook } from "@/app/domain/api/scriptureProjectToParsedFiles.ts";
 import {
+    detectLineEnding,
     tokensToLexical,
     tokensToUsfm,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
@@ -37,7 +39,6 @@ import type {
 import type { RecoveredConflictTracker } from "@/app/state/RecoveredConflictTracker.ts";
 import type { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
 import { relintBookFiles } from "@/app/ui/hooks/linting.ts";
-import type { LintMessagesByBook } from "@/app/ui/hooks/lintState.ts";
 import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 
@@ -74,7 +75,7 @@ export type RecoveryResult = {
      */
     conflictedBookCodes: string[];
     recoveryReportEntries: RecoveryReportEntry[];
-    initialLintErrorsByBook: LintMessagesByBook;
+    initialLintErrorsByBook: InitialLintByBook;
 };
 
 export async function recoverDirtyBuffers(args: {
@@ -91,9 +92,10 @@ export async function recoverDirtyBuffers(args: {
     recoveredConflictTracker: RecoveredConflictTracker;
     workspaceKey: string;
     direction: LanguageDirection;
-    editorMode: EditorModeSetting;
+    /** The `mainEditor` shape (see `shapeForSurface`). */
+    shape: EditorShape;
     usfmOnionService: IUsfmOnionService;
-    initialLintErrorsByBook: LintMessagesByBook;
+    initialLintErrorsByBook: InitialLintByBook;
 }): Promise<RecoveryResult> {
     const {
         workspaceBaselineStore,
@@ -178,7 +180,7 @@ export async function recoverDirtyBuffers(args: {
                 bookCode,
                 content: result.entry.content,
                 direction: args.direction,
-                editorMode: args.editorMode,
+                shape: args.shape,
                 usfmOnionService: args.usfmOnionService,
             });
         } catch (error) {
@@ -207,9 +209,13 @@ export async function recoverDirtyBuffers(args: {
         }> = [];
         for (const [chapterNum, restored] of restoredChapters) {
             const diskChapter = diskChaptersByNum.get(chapterNum);
-            const restoredSource = tokensToUsfm(restored.tokens);
+            // Compare both sides under one EOL convention (disk's if known, else
+            // the restored buffer's) so a pure CRLF/LF difference never reads as
+            // real content drift in the stale-residue check.
+            const eol = diskChapter?.eol ?? detectLineEnding(restored.tokens);
+            const restoredSource = tokensToUsfm(restored.tokens, eol);
             const diskSource = diskChapter
-                ? tokensToUsfm(diskChapter.sourceTokens)
+                ? tokensToUsfm(diskChapter.sourceTokens, eol)
                 : null;
             if (diskSource !== null && restoredSource === diskSource) {
                 continue; // matches disk — nothing to restore for this chapter
@@ -231,9 +237,10 @@ export async function recoverDirtyBuffers(args: {
                       loadedLexicalState: tokensToLexical({
                           tokens: [],
                           direction: args.direction,
-                          mode: "flat",
+                          mode: shapeForSurface("savedBaseline"),
                       }),
                       dirty: true,
+                      eol,
                   };
             differingChapters.push({ chapterNum, chapter: layered });
         }
@@ -257,10 +264,13 @@ export async function recoverDirtyBuffers(args: {
                 chapter: {
                     ...diskChapter,
                     currentTokens: [],
+                    // Empty content materializes the same under every shape
+                    // (tokensToLexical keeps the wrapped-flat empty paragraph),
+                    // so the user's shape is correct AND Lexical-valid here.
                     lexicalState: tokensToLexical({
                         tokens: [],
                         direction: args.direction,
-                        mode: "flat",
+                        mode: args.shape,
                     }),
                     dirty: true,
                 },
@@ -324,7 +334,7 @@ export async function recoverDirtyBuffers(args: {
         restoredFiles,
         args.usfmOnionService,
     );
-    const initialLintErrorsByBook: LintMessagesByBook = {
+    const initialLintErrorsByBook: InitialLintByBook = {
         ...args.initialLintErrorsByBook,
         ...relinted,
     };

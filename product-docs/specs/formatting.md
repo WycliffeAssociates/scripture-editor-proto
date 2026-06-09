@@ -61,10 +61,10 @@ never commits.
 ## Key modules (for agents)
 - `src/app/ui/hooks/usePrettifyOperations.tsx`
 - `src/app/ui/hooks/useFormatMatching.tsx`
-- `src/app/ui/hooks/useLintFixing.tsx`
+- `src/app/domain/editor/annotations/decorators/lintFix.ts` — `fixLintFinding` (lint autofix; called from `decorateFinding.tsx`)
 - `src/core/domain/usfm/prettify/prettifyTokenStream.ts`
 - `src/app/domain/editor/utils/prettifySerializedNode.ts`
 - `src/app/domain/editor/actions/prettifyActions.ts`
 - `src/app/state/WorkingFilesStore.ts` — `draftWithChapters`
 - `src/app/domain/project/workingFileCommand.ts` — `withWorkingFilesDraft` seam
-- `src/app/ui/components/blocks/Toolbar.tsx`
+- `src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx`

@@ -1,4 +1,10 @@
 minimumReleaseAge: 7200
+# First-party org packages (git-tag deps) are exempt from the release-age
+# delay: the guard is for third-party registry supply-chain risk, and we'd
+# otherwise be unable to adopt our own just-pushed tags for 5 days.
+minimumReleaseAgeExclude:
+  - usfm-onion-web
+  - scripture-sous-chef-web
 allowBuilds:
   esbuild: true
   lefthook: true

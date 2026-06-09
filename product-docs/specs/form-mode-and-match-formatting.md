@@ -312,7 +312,7 @@ the verse stamp and content show.
 
 ## Files
 
-### Created
+### Owned modules (form mode)
 
 - `src/app/domain/editor/utils/formModeBlockTree.ts` — pure block-tree
   builder + helpers. Public surface:
@@ -362,17 +362,7 @@ the verse stamp and content show.
   usfm-onion catalog's `paragraphCategory` (see "Marker-category
   derivation"). Public surface: `classifyParagraphMarker`, `isSectionMarker`.
 
-### Removed
-
-- `FormVerseNode.tsx`, `FormPreludeNode.tsx`,
-  `FormVerseCard.tsx`, `FormPreludeCard.tsx`,
-  `MarkerInsertSlot.tsx`, `MarkerContextMenu.tsx`,
-  `formCard.css.ts` — superseded by the discourse-first model. The
-  seam logic, `expandedRowKeys`, click-to-expand, and the
-  `ALWAYS_SEAM_MARKERS` / `PARAGRAPH_CLASS_MARKERS` /
-  `CONTENTLESS_MARKERS` heuristics all go away with them.
-
-### Modified
+### Integration points
 
 - `src/app/data/editor.ts` — `"form"` added to `EditorModeSetting` and
   `EDITOR_MODES`.

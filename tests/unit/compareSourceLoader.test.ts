@@ -80,7 +80,6 @@ function makeLoader(fileSystem: InMemoryFileSystem) {
         },
         fileSystem,
         storageRoots,
-        editorMode: "regular",
         usfmOnionService,
         authSessionProvider,
         gitProvider,

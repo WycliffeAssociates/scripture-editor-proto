@@ -1,52 +1,23 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import {
-    COMMAND_PRIORITY_EDITOR,
-    REDO_COMMAND,
-    SELECTION_CHANGE_COMMAND,
-    UNDO_COMMAND,
-} from "lexical";
+import { COMMAND_PRIORITY_EDITOR, REDO_COMMAND, UNDO_COMMAND } from "lexical";
 import { useEffect } from "react";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 /**
- * Redirects Lexical's update and undo/redo signals into the workspace-owned
- * history system.
+ * Redirects Lexical's undo/redo COMMANDS into the workspace-owned history
+ * system (Cmd-Z / Cmd-Shift-Z land here; the app's history replaces
+ * Lexical's built-in plugin).
  *
- * The app tracks chapter snapshots, save points, and selection restoration outside
- * Lexical's built-in history plugin, so this plugin is the bridge between editor
- * mutations and that richer history pipeline.
+ * Commands only — history's update CAPTURE is fed by the single
+ * lexical→app update listener in `WorkingFilesBridgePlugin`, which owns
+ * the capture-before-publish ordering.
  */
 export function CustomHistoryPlugin() {
     const [editor] = useLexicalComposerContext();
     const { history } = useWorkspaceContext();
-    const { captureEditorUpdate, captureEditorSelection, undo, redo } = history;
+    const { undo, redo } = history;
 
     useEffect(() => {
-        const unregisterUpdates = editor.registerUpdateListener(
-            ({
-                editorState,
-                prevEditorState,
-                dirtyElements,
-                dirtyLeaves,
-                tags,
-            }) => {
-                captureEditorUpdate({
-                    editorState,
-                    prevEditorState,
-                    dirtyElements,
-                    dirtyLeaves,
-                    tags,
-                });
-            },
-        );
-        const unregisterSelection = editor.registerCommand(
-            SELECTION_CHANGE_COMMAND,
-            () => {
-                captureEditorSelection(editor.getEditorState());
-                return false;
-            },
-            COMMAND_PRIORITY_EDITOR,
-        );
         const unregisterUndo = editor.registerCommand(
             UNDO_COMMAND,
             () => {
@@ -66,12 +37,10 @@ export function CustomHistoryPlugin() {
         );
 
         return () => {
-            unregisterUpdates();
-            unregisterSelection();
             unregisterUndo();
             unregisterRedo();
         };
-    }, [editor, captureEditorUpdate, captureEditorSelection, undo, redo]);
+    }, [editor, undo, redo]);
 
     return null;
 }

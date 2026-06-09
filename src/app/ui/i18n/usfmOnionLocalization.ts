@@ -48,31 +48,25 @@ export const LOCALIZED_LINT_CODES = [
     "implicitly-closed-marker",
     "unclosed-marker",
     "duplicate-chapter-number",
-    "chapter-expected-increase-by-one",
-    "inconsistent-chapter-label",
     "duplicate-verse-number",
-    "verse-expected-increase-by-one",
     "invalid-number-range",
     "number-range-not-preceded-by-marker-expecting-number",
     "missing-whitespace-before-marker",
     "missing-horizontal-whitespace-after-marker-name",
     "missing-tag-end-delimiter-after-marker",
-    "excess-whitespace-around-marker",
-    "excess-whitespace-in-content",
     "missing-content-space-after-close-marker",
     "verse-in-section-or-other-paragraph",
+    "content-after-blank-marker",
 ] as const;
 
 export function formatLintIssueMessage(issue: LintIssue): string {
     const marker = markerForIssue(issue);
     const expected = getParam(issue.messageParams, "expected");
-    const found = getParam(issue.messageParams, "found");
     const chapter = getParam(issue.messageParams, "chapter");
     const verse = getParam(issue.messageParams, "verse");
     const context = getParam(issue.messageParams, "context");
     const kind = getParam(issue.messageParams, "kind");
     const target = getParam(issue.messageParams, "target");
-    const position = getParam(issue.messageParams, "position");
     const closer = getParam(issue.messageParams, "closer");
     const form = getParam(issue.messageParams, "form");
     const category = getParam(issue.messageParams, "category");
@@ -157,17 +151,12 @@ export function formatLintIssueMessage(issue: LintIssue): string {
         }
         case "duplicate-chapter-number":
             return t`Chapter ${chapter} appears more than once.`;
-        case "chapter-expected-increase-by-one":
-            if (!expected || !found) return fallbackMessage;
-            return t`Chapters should count up by one: expected chapter ${expected}, found chapter ${found}.`;
-        case "inconsistent-chapter-label":
-            if (!expected || !found) return fallbackMessage;
-            return t`Chapter label '${found}' does not match the label '${expected}' used elsewhere in this file.`;
+        // chapter-expected-increase-by-one, inconsistent-chapter-label, and
+        // verse-expected-increase-by-one were dropped from the library: they
+        // are consistency heuristics, not USFM validity, and live as a
+        // consumer-side token-space reduce.
         case "duplicate-verse-number":
             return t`Verse ${verse} appears more than once in chapter ${chapter}.`;
-        case "verse-expected-increase-by-one":
-            if (!expected || !found) return fallbackMessage;
-            return t`Verses should count up by one: expected verse ${expected}, found verse ${found}.`;
         case "invalid-number-range":
             return verse
                 ? t`'${verse}' is not a valid verse range.`
@@ -180,16 +169,6 @@ export function formatLintIssueMessage(issue: LintIssue): string {
             return t`\\${marker} needs a space after the marker name.`;
         case "missing-tag-end-delimiter-after-marker":
             return t`\\${marker} needs a space before the text that follows.`;
-        case "excess-whitespace-around-marker":
-            if (position === "before") {
-                return t`Too much whitespace before \\${marker}.`;
-            }
-            if (position === "after") {
-                return t`Too much whitespace after \\${marker}.`;
-            }
-            return t`Too much whitespace around \\${marker}.`;
-        case "excess-whitespace-in-content":
-            return t`Multiple spaces or a stray newline inside this text — collapse to a single space.`;
         case "missing-content-space-after-close-marker":
             return t`\\${marker}* is directly followed by text with no space. If this is an intentional contraction (e.g. \\nd Lord\\nd*'s) you can ignore this.`;
         case "verse-in-section-or-other-paragraph":
@@ -197,6 +176,8 @@ export function formatLintIssueMessage(issue: LintIssue): string {
                 return t`\\v is not allowed inside a section heading; verses must appear inside body paragraphs, lists, or tables.`;
             }
             return t`\\v is not allowed inside a non-content paragraph; verses must appear inside body paragraphs, lists, or tables.`;
+        case "content-after-blank-marker":
+            return t`\\${marker} is a blank line and takes no content; put this content in its own paragraph (\\p, \\q, …).`;
         default:
             return fallbackMessage;
     }

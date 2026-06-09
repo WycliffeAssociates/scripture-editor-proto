@@ -1,7 +1,7 @@
-import { EDITOR_MODES, editorModeToShape } from "@/app/data/editor.ts";
+import { type EditorShape, shapeForSurface } from "@/app/data/editor.ts";
 import { groupFlatTokensByChapter } from "@/app/domain/editor/serialization/flatTokensByChapter.ts";
 import {
-    inferContentEditorModeFromRootChildren,
+    detectLineEnding,
     tokensToLexical,
     tokensToUsfm,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
@@ -15,13 +15,15 @@ import { normalizeTokenSids } from "@/core/domain/usfm/tokenSidNormalization.ts"
  *
  * This is used when a workflow already has new USFM for a book and wants to
  * refresh the editable workspace state without reloading the entire project
- * from disk. It preserves mode/direction expectations from the existing book
- * state while replacing the parsed chapter contents.
+ * from disk. It preserves direction expectations from the existing book state
+ * while replacing the parsed chapter contents; the caller supplies the
+ * `workingRebuild` shape so the rebuilt chapters stay in the user's mode.
  */
 export async function rebuildParsedFileFromUsfm(args: {
     targetFile: ScriptureBookState;
     sourceUsfm: string;
     usfmOnionService: IUsfmOnionService;
+    shape: EditorShape;
 }) {
     const projection = await args.usfmOnionService.parseUsfm(args.sourceUsfm, {
         tokenOptions: {
@@ -35,12 +37,6 @@ export async function rebuildParsedFileFromUsfm(args: {
             LanguageDirection.LTR) === LanguageDirection.RTL
             ? LanguageDirection.RTL
             : LanguageDirection.LTR;
-    const modeSampleChapter = args.targetFile.chapters[0];
-    const currentMode = modeSampleChapter
-        ? inferContentEditorModeFromRootChildren(
-              modeSampleChapter.lexicalState.root.children,
-          )
-        : EDITOR_MODES.regular;
 
     const normalizedTokens = normalizeTokenSids(
         projection.tokens,
@@ -61,13 +57,15 @@ export async function rebuildParsedFileFromUsfm(args: {
             const nextLoadedState = tokensToLexical({
                 tokens: nextSourceTokens,
                 direction,
-                mode: "flat",
+                mode: shapeForSurface("savedBaseline"),
             });
             const nextLexicalState = tokensToLexical({
                 tokens: nextCurrentTokens,
                 direction,
-                mode: editorModeToShape(currentMode),
+                mode: args.shape,
             });
+            const eol =
+                existingChapter?.eol ?? detectLineEnding(nextSourceTokens);
             return {
                 lexicalState: nextLexicalState,
                 loadedLexicalState: nextLoadedState,
@@ -75,8 +73,9 @@ export async function rebuildParsedFileFromUsfm(args: {
                 currentTokens: structuredClone(nextCurrentTokens),
                 chapterNumber,
                 dirty:
-                    tokensToUsfm(nextCurrentTokens) !==
-                    tokensToUsfm(nextSourceTokens),
+                    tokensToUsfm(nextCurrentTokens, eol) !==
+                    tokensToUsfm(nextSourceTokens, eol),
+                eol,
             };
         })
         .sort((a, b) => a.chapterNumber - b.chapterNumber);

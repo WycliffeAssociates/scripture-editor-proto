@@ -4,8 +4,6 @@ import {
     $getSelection,
     $isRangeSelection,
     COMMAND_PRIORITY_HIGH,
-    COPY_COMMAND,
-    CUT_COMMAND,
     KEY_BACKSPACE_COMMAND,
     KEY_DOWN_COMMAND,
     KEY_ENTER_COMMAND,
@@ -16,11 +14,12 @@ import {
 } from "lexical";
 import { useEffect } from "react";
 import { DATA_JS } from "@/app/data/constants.ts";
-import { EDITOR_MODES, UsfmTokenTypes } from "@/app/data/editor.ts";
 import {
-    handleBackslashOnStartOfVerse,
-    handleBackspaceToRemoveLinebreakBeforeVerse,
-    handleEnterOnStartOfVerse,
+    EDITOR_MODES,
+    editorModeToShape,
+    UsfmTokenTypes,
+} from "@/app/data/editor.ts";
+import {
     moveToAdjacentNodesWhenSeemsAppropriate,
     normalizeSelectionAtHiddenMarkerBoundary,
     redirectPrintableTypingAtHiddenMarkerBoundary,
@@ -30,6 +29,7 @@ import {
     textNodeTransform,
 } from "@/app/domain/editor/listeners/manageUsfmMarkers.ts";
 import { redirectParaInsertionToLineBreak } from "@/app/domain/editor/listeners/useLineBreaksNotParas.ts";
+import { registerNumberedMarkerBehaviors } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import {
     $createUSFMParagraphNode,
     $isUSFMParagraphNode,
@@ -39,8 +39,8 @@ import {
     $isUSFMTextNode,
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { expandSelectionToIncludePrecedingVerseMarker } from "@/app/domain/editor/utils/expandSelectionToIncludeVerseMarker.ts";
 import { calculateIsStartOfLine } from "@/app/domain/editor/utils/nodePositionUtils.ts";
+import { registerUsfmCopy } from "@/app/domain/editor/utils/usfmCopy.ts";
 import {
     isUsfmLikePaste,
     parseClipboardUsfmToTokens,
@@ -61,8 +61,7 @@ import { isValidParaMarker } from "@/core/domain/usfm/onionMarkers.ts";
  * paragraphs, verse behavior, and paste normalization.
  */
 export function useEditorInput(editor: LexicalEditor) {
-    const { project, projectLanguageDirection, search, history } =
-        useWorkspaceContext();
+    const { project, projectLanguageDirection, search } = useWorkspaceContext();
     const { usfmOnionService } = useRouter().options.context;
     const { appSettings } = project;
     const editorModeSetting = appSettings.editorMode;
@@ -90,6 +89,25 @@ export function useEditorInput(editor: LexicalEditor) {
         const redirectParaInsertionToLineBreakUnregister =
             redirectParaInsertionToLineBreak(editor);
 
+        // Numbered-marker (\c/\v) caret + editing behavior: direction-agnostic
+        // boundary stops (the prose-edge `text@0` and the number's end are both
+        // reachable, color-distinguished by NumberedCaretPlugin), the
+        // canonicalization defenses that hold `text@0`, two-stage delete,
+        // empty-node retype, and the space-jump. Self-gating — acts only when the
+        // selection is in a numbered node, which exists only in the regular shape.
+        const numberedMarkerBehaviorsUnregister =
+            registerNumberedMarkerBehaviors(editor);
+
+        // Regular-mode copy/cut: text/plain = USFM bytes via the token
+        // waist (flat modes' default copy is already the bytes).
+        const usfmCopyUnregister =
+            editorModeSetting === EDITOR_MODES.regular
+                ? registerUsfmCopy(editor)
+                : null;
+
+        // Hidden-byte char/note markers (flat `marker` tokens): nudge the caret
+        // past their bytes to the adjacent content. These skip numbered nodes
+        // (tokenType `numberedMarker`), which own their boundary behavior above.
         const normalizeSelectionAtHiddenMarkerBoundaryUnregister =
             editor.registerCommand(
                 SELECTION_CHANGE_COMMAND,
@@ -101,7 +119,6 @@ export function useEditorInput(editor: LexicalEditor) {
                 COMMAND_PRIORITY_HIGH,
             );
 
-        // Register KEY_DOWN_COMMAND for moving to adjacent nodes
         const moveToAdjacentNodesUnregister = editor.registerCommand(
             KEY_DOWN_COMMAND,
             (event: KeyboardEvent) => {
@@ -122,14 +139,6 @@ export function useEditorInput(editor: LexicalEditor) {
                 (event: KeyboardEvent) => {
                     if (editorModeSetting !== EDITOR_MODES.regular)
                         return false;
-                    if (
-                        handleBackspaceToRemoveLinebreakBeforeVerse(
-                            editor,
-                            event,
-                        )
-                    ) {
-                        return true;
-                    }
                     const selection = $getSelection();
                     if (
                         !$isRangeSelection(selection) ||
@@ -273,130 +282,6 @@ export function useEditorInput(editor: LexicalEditor) {
                 COMMAND_PRIORITY_HIGH,
             );
 
-        const expandVerseCopySelectionUnregister = editor.registerCommand(
-            COPY_COMMAND,
-            (payload) => {
-                if (editorModeSetting !== EDITOR_MODES.regular) return false;
-
-                const event =
-                    payload instanceof Event
-                        ? (payload as ClipboardEvent | KeyboardEvent)
-                        : null;
-
-                const restoreRef: {
-                    current: {
-                        anchor: {
-                            key: string;
-                            offset: number;
-                            type: "text" | "element";
-                        };
-                        focus: {
-                            key: string;
-                            offset: number;
-                            type: "text" | "element";
-                        };
-                        format: number;
-                        style: string;
-                    } | null;
-                } = {
-                    current: null,
-                };
-
-                editor.update(
-                    () => {
-                        const selection = $getSelection();
-                        if (
-                            !$isRangeSelection(selection) ||
-                            selection.isCollapsed()
-                        ) {
-                            return;
-                        }
-
-                        const snapshot = selection.clone();
-                        const didExpand =
-                            expandSelectionToIncludePrecedingVerseMarker(
-                                selection,
-                            );
-                        if (!didExpand) return;
-
-                        restoreRef.current = {
-                            anchor: {
-                                key: snapshot.anchor.key,
-                                offset: snapshot.anchor.offset,
-                                type: snapshot.anchor.type,
-                            },
-                            focus: {
-                                key: snapshot.focus.key,
-                                offset: snapshot.focus.offset,
-                                type: snapshot.focus.type,
-                            },
-                            format: snapshot.format,
-                            style: snapshot.style,
-                        };
-                    },
-                    { discrete: true, event },
-                );
-
-                const restoreSelection = restoreRef.current;
-                if (restoreSelection) {
-                    queueMicrotask(() => {
-                        editor.update(
-                            () => {
-                                const selection = $getSelection();
-                                if (!$isRangeSelection(selection)) return;
-
-                                selection.anchor.set(
-                                    restoreSelection.anchor.key,
-                                    restoreSelection.anchor.offset,
-                                    restoreSelection.anchor.type,
-                                );
-                                selection.focus.set(
-                                    restoreSelection.focus.key,
-                                    restoreSelection.focus.offset,
-                                    restoreSelection.focus.type,
-                                );
-                                selection.setFormat(restoreSelection.format);
-                                selection.setStyle(restoreSelection.style);
-                            },
-                            { discrete: true },
-                        );
-                    });
-                }
-
-                return false;
-            },
-            COMMAND_PRIORITY_HIGH,
-        );
-
-        const expandVerseCutSelectionUnregister = editor.registerCommand(
-            CUT_COMMAND,
-            (payload) => {
-                if (editorModeSetting !== EDITOR_MODES.regular) return false;
-
-                const event =
-                    payload instanceof Event
-                        ? (payload as ClipboardEvent | KeyboardEvent)
-                        : null;
-
-                editor.update(
-                    () => {
-                        const selection = $getSelection();
-                        if (
-                            !$isRangeSelection(selection) ||
-                            selection.isCollapsed()
-                        ) {
-                            return;
-                        }
-                        expandSelectionToIncludePrecedingVerseMarker(selection);
-                    },
-                    { discrete: true, event },
-                );
-
-                return false;
-            },
-            COMMAND_PRIORITY_HIGH,
-        );
-
         const usfmAwarePasteUnregister = editor.registerCommand(
             PASTE_COMMAND,
             (payload) => {
@@ -436,6 +321,7 @@ export function useEditorInput(editor: LexicalEditor) {
                             selection.insertNodes(
                                 parsedUsfmTokensToInsertableNodes(
                                     parsed.tokens,
+                                    editorModeToShape(editorModeSetting),
                                 ),
                             );
                         },
@@ -448,32 +334,17 @@ export function useEditorInput(editor: LexicalEditor) {
             COMMAND_PRIORITY_HIGH,
         );
 
-        // Register KEY_DOWN_COMMAND for handling Enter at start of verse
-        const handleEnterOnVerseUnregister = editor.registerCommand(
-            KEY_DOWN_COMMAND,
-            (event: KeyboardEvent) => {
-                const backslashHandled = handleBackslashOnStartOfVerse(
-                    editor,
-                    event,
-                );
-                if (backslashHandled) return true;
-                return handleEnterOnStartOfVerse(editor, event);
-            },
-            COMMAND_PRIORITY_HIGH,
-        );
-
         // Cleanup function
         const cleanup = () => {
             unregisterTransformWhileTyping();
             redirectParaInsertionToLineBreakUnregister();
+            numberedMarkerBehaviorsUnregister();
             normalizeSelectionAtHiddenMarkerBoundaryUnregister();
             moveToAdjacentNodesUnregister();
             removeStructuralEmptyParaOnBackspaceUnregister();
             insertParagraphAfterStructuralEmptyMarkerUnregister();
-            expandVerseCopySelectionUnregister();
-            expandVerseCutSelectionUnregister();
             usfmAwarePasteUnregister();
-            handleEnterOnVerseUnregister();
+            usfmCopyUnregister?.();
         };
 
         return cleanup;
@@ -488,27 +359,11 @@ export function useEditorInput(editor: LexicalEditor) {
     //   FIND HOTKEY TO OPEN PANEL
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
-            const rootEl = editor.getRootElement();
-            const isEditorFocused =
-                !!rootEl && rootEl.contains(document.activeElement);
-            const isUndo =
-                (event.metaKey || event.ctrlKey) && event.key === "z";
-            const isRedo =
-                (event.metaKey || event.ctrlKey) &&
-                ((event.shiftKey && event.key === "Z") || event.key === "y");
-
-            // Route undo/redo through custom history so post-undo listeners
-            // (search highlight/result rerun) always execute on keyboard shortcuts.
-            if (isEditorFocused && isUndo) {
-                event.preventDefault();
-                history.undo();
-                return;
-            }
-            if (isEditorFocused && isRedo) {
-                event.preventDefault();
-                history.redo();
-                return;
-            }
+            // Undo/redo shortcuts are NOT handled here: Lexical's root
+            // keydown dispatches UNDO_COMMAND/REDO_COMMAND, which
+            // `CustomHistoryPlugin` routes into custom history. A duplicate
+            // document-level route would double-pop — keydown bubbles past
+            // Lexical's preventDefault, so both handlers fire.
             if (
                 (event.metaKey || event.ctrlKey) &&
                 event.key.toLowerCase() === "f"
@@ -537,5 +392,5 @@ export function useEditorInput(editor: LexicalEditor) {
         return () => {
             document.removeEventListener("keydown", handleKeyDown);
         };
-    }, [editor, history, search]);
+    }, [search]);
 }

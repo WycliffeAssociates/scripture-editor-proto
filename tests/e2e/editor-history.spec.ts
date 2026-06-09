@@ -79,6 +79,11 @@ test.describe("Editor History", () => {
         await editorPage.keyboard.type(appendedText);
         await editorPage.keyboard.press("Control+Home");
         await undoButton.click();
+        // Let the post-undo cursor restore land (deferred ~50ms past the
+        // content swap) before typing — automation can otherwise type at
+        // the focus-default position (document start) faster than any
+        // human gesture could.
+        await editorPage.waitForTimeout(200);
         await editor.focus();
         await editorPage.keyboard.type(selectionMarker);
 
@@ -184,7 +189,7 @@ test.describe("Editor History", () => {
             .click();
         const editor = editorPage.getByRole("textbox", { name: "USFM Editor" });
         await editor.click();
-        await editorPage.keyboard.press("Control+z");
+        await editorPage.keyboard.press("ControlOrMeta+z");
         await expect(editor).not.toContainText("HistorySearchRefreshToken", {
             timeout: 10_000,
         });
@@ -241,6 +246,213 @@ test.describe("Editor History", () => {
             await undoButton.click();
         }
         await expect.poll(countInlineTokens, { timeout: 10_000 }).toBe(0);
+    });
+
+    test.describe("selection fidelity (acceptance)", () => {
+        // Desktop Chromium only: these assert exact DOM selection state,
+        // which is browser-fiddly; one fast engine pins the contract.
+        test.skip(
+            ({ browserName, isMobile }) =>
+                browserName !== "chromium" || isMobile === true,
+            "Selection-state assertions run on desktop Chromium only.",
+        );
+
+        // Automation presses keys faster than the browser dispatches
+        // `selectionchange`, which Lexical needs to observe a reposition —
+        // a human gesture always has this gap. Pause after repositioning
+        // so the editor state sees the move before the next edit.
+        const SELECTION_SYNC_MS = 150;
+
+        // Where the caret/selection actually sits, read from the live DOM.
+        // Undo/redo restores are deferred ~50ms past the content swap, so
+        // every assertion on this goes through `expect.poll`.
+        const readDomSelection = (page: Page) =>
+            page.evaluate(() => {
+                const sel = window.getSelection();
+                if (!sel || sel.rangeCount === 0) return null;
+                const host =
+                    sel.anchorNode instanceof Element
+                        ? sel.anchorNode.closest("[data-id]")
+                        : sel.anchorNode?.parentElement?.closest("[data-id]");
+                if (!host) return null;
+                return {
+                    id: host.getAttribute("data-id"),
+                    offset: sel.anchorOffset,
+                    textLen: host.textContent?.length ?? 0,
+                    collapsed: sel.isCollapsed,
+                    selectedText: sel.toString(),
+                };
+            });
+
+        // Click into the editor, let the selection sync into Lexical state
+        // (and the store's selection fact), and return where the caret
+        // landed. All caret expectations are relative to this start point —
+        // platform-independent (Control+End/Home are no-ops on macOS).
+        const clickAndCaptureCaret = async (page: Page) => {
+            await page
+                .getByRole("textbox", { name: "USFM Editor" })
+                .click();
+            await page.waitForTimeout(SELECTION_SYNC_MS);
+            const start = await readDomSelection(page);
+            expect(start).not.toBeNull();
+            return start as NonNullable<Awaited<ReturnType<typeof readDomSelection>>>;
+        };
+
+        const pollCaretAt = (page: Page, id: string | null, offset: number) =>
+            expect
+                .poll(
+                    async () => {
+                        const caret = await readDomSelection(page);
+                        if (!caret || !caret.collapsed) return null;
+                        return { id: caret.id, offset: caret.offset };
+                    },
+                    { timeout: 5_000 },
+                )
+                .toEqual({ id, offset });
+
+        test("caret-at-end delete: undo restores the caret at the deletion point", async ({
+            editorPage,
+        }) => {
+            const editor = editorPage.getByRole("textbox", {
+                name: "USFM Editor",
+            });
+            const start = await clickAndCaptureCaret(editorPage);
+            await editorPage.keyboard.type("CARETDEL");
+            await expect(editor).toContainText("CARETDEL");
+
+            // Reposition (seals the typing run), then forward-delete the
+            // tail "DEL" — its own undo entry by move-boundary, no
+            // coalesce-window wait needed.
+            for (let i = 0; i < 3; i++) {
+                await editorPage.keyboard.press("ArrowLeft");
+            }
+            await editorPage.waitForTimeout(SELECTION_SYNC_MS);
+            for (let i = 0; i < 3; i++) {
+                await editorPage.keyboard.press("Delete");
+            }
+            await expect(editor).not.toContainText("CARETDEL");
+            await expect(editor).toContainText("CARET");
+
+            await editorPage.waitForTimeout(SELECTION_SYNC_MS);
+            await editorPage.keyboard.press("ControlOrMeta+z");
+            await expect(editor).toContainText("CARETDEL");
+            // Caret back where the deletion happened: after "CARET",
+            // before the restored "DEL".
+            await pollCaretAt(editorPage, start.id, start.offset + 5);
+        });
+
+        test("range delete: undo restores the deleted range as the selection", async ({
+            editorPage,
+        }) => {
+            const editor = editorPage.getByRole("textbox", {
+                name: "USFM Editor",
+            });
+            await appendToEditor(editorPage, "RANGEDELETE");
+            await expect(editor).toContainText("RANGEDELETE");
+
+            for (let i = 0; i < 6; i++) {
+                await editorPage.keyboard.press("Shift+ArrowLeft");
+            }
+            await editorPage.waitForTimeout(SELECTION_SYNC_MS);
+            await editorPage.keyboard.press("Backspace");
+            await expect(editor).not.toContainText("RANGEDELETE");
+
+            await editorPage.waitForTimeout(SELECTION_SYNC_MS);
+            await editorPage.keyboard.press("ControlOrMeta+z");
+            await expect(editor).toContainText("RANGEDELETE");
+            await expect
+                .poll(
+                    async () =>
+                        (await readDomSelection(editorPage))?.selectedText,
+                    { timeout: 5_000 },
+                )
+                .toBe("DELETE");
+        });
+
+        test("range delete + cursor moved: undo returns to the deletion site, not the parked cursor", async ({
+            editorPage,
+        }) => {
+            const editor = editorPage.getByRole("textbox", {
+                name: "USFM Editor",
+            });
+            await appendToEditor(editorPage, "RANGEMOVED");
+            await expect(editor).toContainText("RANGEMOVED");
+
+            for (let i = 0; i < 5; i++) {
+                await editorPage.keyboard.press("Shift+ArrowLeft");
+            }
+            await editorPage.waitForTimeout(SELECTION_SYNC_MS);
+            await editorPage.keyboard.press("Backspace");
+            await expect(editor).not.toContainText("RANGEMOVED");
+
+            // Park the cursor elsewhere — selection-only commits; the
+            // historical restore target must still win. (ArrowUp, not
+            // Control+Home: the latter is a no-op on macOS, which would
+            // make the "cursor moved" leg vacuous there.)
+            await editorPage.keyboard.press("ArrowUp");
+            await editorPage.keyboard.press("ArrowUp");
+            await editorPage.waitForTimeout(SELECTION_SYNC_MS);
+
+            await editorPage.keyboard.press("ControlOrMeta+z");
+            await expect(editor).toContainText("RANGEMOVED");
+            await expect
+                .poll(
+                    async () =>
+                        (await readDomSelection(editorPage))?.selectedText,
+                    { timeout: 5_000 },
+                )
+                .toBe("MOVED");
+        });
+
+        test("type + move: undo lands the caret where typing started", async ({
+            editorPage,
+        }) => {
+            const editor = editorPage.getByRole("textbox", {
+                name: "USFM Editor",
+            });
+            const start = await clickAndCaptureCaret(editorPage);
+            await editorPage.keyboard.type("TYPEMOVE");
+            await expect(editor).toContainText("TYPEMOVE");
+
+            // Park the cursor elsewhere — selection-only commits.
+            await editorPage.keyboard.press("ArrowUp");
+            await editorPage.keyboard.press("ArrowUp");
+            await editorPage.waitForTimeout(SELECTION_SYNC_MS);
+
+            await editorPage.keyboard.press("ControlOrMeta+z");
+            await expect(editor).not.toContainText("TYPEMOVE");
+            // selectionBefore = the caret at the moment typing began — not
+            // where the cursor was parked.
+            await pollCaretAt(editorPage, start.id, start.offset);
+        });
+
+        test("type + move + redo: redo lands the caret where typing ended", async ({
+            editorPage,
+        }) => {
+            const editor = editorPage.getByRole("textbox", {
+                name: "USFM Editor",
+            });
+            const start = await clickAndCaptureCaret(editorPage);
+            await editorPage.keyboard.type("TYPEREDO");
+            await expect(editor).toContainText("TYPEREDO");
+
+            await editorPage.keyboard.press("ArrowUp");
+            await editorPage.keyboard.press("ArrowUp");
+            await editorPage.waitForTimeout(SELECTION_SYNC_MS);
+            await editorPage.keyboard.press("ControlOrMeta+z");
+            await expect(editor).not.toContainText("TYPEREDO");
+
+            await editorPage.waitForTimeout(SELECTION_SYNC_MS);
+            await editorPage.keyboard.press("ControlOrMeta+Shift+z");
+            await expect(editor).toContainText("TYPEREDO");
+            // selectionAfter = caret at the end of the typed run — not
+            // where the cursor was parked before undo.
+            await pollCaretAt(
+                editorPage,
+                start.id,
+                start.offset + "TYPEREDO".length,
+            );
+        });
     });
 
     test("undo and redo preserve plain mode projection after editing in regular", async ({

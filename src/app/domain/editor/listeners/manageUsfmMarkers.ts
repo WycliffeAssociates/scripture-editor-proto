@@ -1,7 +1,7 @@
 import { $getSelection, $isRangeSelection, type LexicalEditor } from "lexical";
 import {
-    EDITOR_MODES,
     type EditorModeSetting,
+    isRegularShape,
     UsfmTokenTypes,
 } from "@/app/data/editor.ts";
 import {
@@ -52,10 +52,7 @@ export function textNodeTransform({
     languageDirection,
 }: TextNodeTransformParams) {
     // Regular mode (WYSIWYG) currently inserts markers via UI actions, not typed USFM.
-    if (
-        editorMode === EDITOR_MODES.regular ||
-        editorMode === EDITOR_MODES.view
-    ) {
+    if (isRegularShape(editorMode)) {
         return;
     }
 
@@ -194,10 +191,7 @@ export function inverseTextNodeTransform({
     node,
     editorMode,
 }: TextNodeTransformParams) {
-    if (
-        editorMode === EDITOR_MODES.regular ||
-        editorMode === EDITOR_MODES.view
-    ) {
+    if (isRegularShape(editorMode)) {
         return;
     }
     const undoableNodeTypes = [

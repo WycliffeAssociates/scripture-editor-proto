@@ -101,6 +101,7 @@ describe("incoming reconciliation: dirty-SID split → safe apply", () => {
       fullChapterApplies,
       hunkApplies,
       sourceFiles: [book("GEN", "gen-incoming"), book("EXO", "exo-incoming")],
+        shape: "flat",
     });
 
     expect(result.kind).toBe("committed");
@@ -134,6 +135,7 @@ describe("incoming reconciliation: dirty-SID split → safe apply", () => {
       fullChapterApplies,
       hunkApplies,
       sourceFiles: [book("GEN", "gen-incoming")],
+        shape: "flat",
     });
 
     // Nothing to apply → typed empty-plan abort, local edit preserved.

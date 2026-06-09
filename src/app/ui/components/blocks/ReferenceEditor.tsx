@@ -17,17 +17,22 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
-import { EDITOR_MODES } from "@/app/data/editor.ts";
+import {
+    domPresentationMode,
+    EDITOR_MODES,
+    shapeForSurface,
+} from "@/app/data/editor.ts";
 import { BookFrontmatterFormNode } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
 import { FormBlockNode } from "@/app/domain/editor/nodes/FormBlockNode.tsx";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import { USFMNumberedMarkerNode } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import { USFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     $createUSFMTextNode,
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
-import { transformToMode } from "@/app/domain/editor/utils/modeTransforms.ts";
+import { transformToShape } from "@/app/domain/editor/utils/modeTransforms.ts";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon/index.ts";
 import { Switch } from "@/app/ui/components/primitives/Switch/index.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
@@ -156,8 +161,7 @@ function ScriptureReferencePane() {
         useWorkspaceContext();
     const { referenceChapter } = referenceResource;
     const editorMode = project?.appSettings.editorMode ?? EDITOR_MODES.regular;
-    const resolvedReferenceMode =
-        editorMode === EDITOR_MODES.view ? EDITOR_MODES.regular : editorMode;
+    const referenceShape = shapeForSurface("referencePane", editorMode);
 
     useEffect(() => {
         if (!referenceChapter) return;
@@ -165,15 +169,15 @@ function ScriptureReferencePane() {
         if (!editor) return;
 
         editor.setEditable(false);
-        const clonedState = transformToMode(
+        const clonedState = transformToShape(
             structuredClone(referenceChapter.lexicalState),
-            resolvedReferenceMode,
+            referenceShape,
         );
 
         editor.setEditorState(editor.parseEditorState(clonedState), {
             tag: HISTORY_MERGE_TAG,
         });
-    }, [referenceChapter, referenceEditorRef, resolvedReferenceMode]);
+    }, [referenceChapter, referenceEditorRef, referenceShape]);
 
     return (
         <div className={shellStyles.referenceEditorRoot}>
@@ -275,7 +279,7 @@ function ScriptureReferencePane() {
                                             : ""
                                     }`}
                                     aria-label={t`USFM Editor`}
-                                    data-mode={resolvedReferenceMode}
+                                    data-mode={domPresentationMode(editorMode)}
                                     data-form-pane="reference"
                                 />
                             }
@@ -363,6 +367,7 @@ function getIntialConfig(): InitialConfigType {
         nodes: [
             USFMParagraphNode,
             USFMTextNode,
+            USFMNumberedMarkerNode,
             {
                 replace: TextNode,
                 with: (node: TextNode) => {

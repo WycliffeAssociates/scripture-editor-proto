@@ -22,6 +22,7 @@
 // `deps`; everything the body reads off the workspace nouns is on `deps.args`.
 
 import type { LexicalEditor } from "lexical";
+import { type EditorModeSetting, shapeForSurface } from "@/app/data/editor.ts";
 import {
     applyIncomingToStore,
     runIncomingMutation,
@@ -58,10 +59,7 @@ import {
     type WorkspaceGateStore,
 } from "@/app/state/WorkspaceInteractionGate.ts";
 import { yieldToMainThread } from "@/app/ui/hooks/diffCalculationRunner.ts";
-import {
-    buildCurrentProjectCompareMetadata,
-    invalidateWorkingScriptureChanges,
-} from "@/app/ui/hooks/save/shared.ts";
+import { buildCurrentProjectCompareMetadata } from "@/app/ui/hooks/save/shared.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
@@ -106,16 +104,15 @@ export type IncomingReconciliationArgs = {
     editorRef: React.RefObject<LexicalEditor | null>;
     pickedFile: ScriptureBookState | null;
     pickedChapter: ScriptureChapterState | null;
+    editorMode: EditorModeSetting;
     bumpDirtyVersion: () => void;
-    refreshUnsavedChapters?: (chapters: ChapterRef[]) => Promise<void>;
     onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
 };
 
 export type IncomingReconciliationDeps = {
     args: IncomingReconciliationArgs;
     commitIncoming: (
-        patch: Parameters<WorkingFilesStore["commit"]>[0],
-        meta: Parameters<WorkingFilesStore["commit"]>[1],
+        input: Parameters<WorkingFilesStore["commit"]>[0],
     ) => boolean;
     incomingFlowsBlocked: () => boolean;
     listCompareChapterRefs: () => ChapterRef[];
@@ -286,6 +283,8 @@ export async function runIncomingReconciliation(
         listCompareChapterRefs,
     } = deps;
 
+    const workingShape = shapeForSurface("workingRebuild", args.editorMode);
+
     // Mutation-boundary recheck: the source load that precedes this call
     // awaits the network, and a save can flip the gate to `saving` in that
     // window. The entry checks on the public actions only guard at action
@@ -390,6 +389,7 @@ export async function runIncomingReconciliation(
         applyVersionSnapshotToWorkingFiles({
             workingFiles: workingDraft,
             sourceFiles: argsForAuto.sourceFiles,
+            shape: workingShape,
         });
         // workingDraft is mutated below (book entries replaced in place),
         // so any future bookCode→book index must be rebuilt AFTER this loop.
@@ -424,14 +424,15 @@ export async function runIncomingReconciliation(
         }
         // Gate closed mid-flight → don't apply; fall through to manual review.
         if (
-            !commitIncoming(
-                { kind: "bulk", files: workingDraft },
-                {
+            !commitIncoming({
+                patch: { kind: "bulk", files: workingDraft },
+                meta: {
                     kind: "import",
+                    action: "incomingReconciliation",
                     scope: { project: true },
                     dirtyTextContent: true,
                 },
-            )
+            })
         ) {
             return null;
         }
@@ -461,15 +462,7 @@ export async function runIncomingReconciliation(
                 chapterRef,
             );
         }
-        await invalidateWorkingScriptureChanges({
-            chapters: Array.from(touchedChapterMap.values()),
-            bumpDirtyVersion: args.bumpDirtyVersion,
-            refreshUnsavedChapters: args.refreshUnsavedChapters,
-            editorRef: args.editorRef,
-            workingFiles: args.workingFilesStore.read(),
-            pickedFile: args.pickedFile,
-            pickedChapter: args.pickedChapter,
-        });
+        args.bumpDirtyVersion();
 
         // Diverged-disjoint: applied non-overlapping remote books, preserved
         // local. The reconciliation-SAVE flow (not the review modal) resolves
@@ -542,7 +535,6 @@ export async function runIncomingReconciliation(
             GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY &&
         !hasDiffsByChapter(blockedDiffsByChapter)
     ) {
-        const touchedChapters = listCompareChapterRefs();
         // Any state-changing commit during the dirty-sid await (a content
         // edit OR a newly added chapter/book) or a closed gate → abort
         // before the workspace snapshot apply + accept; don't clobber that
@@ -562,24 +554,18 @@ export async function runIncomingReconciliation(
         applyVersionSnapshotToWorkingFiles({
             workingFiles: behindDraft,
             sourceFiles: argsForAuto.sourceFiles,
+            shape: workingShape,
         });
-        args.workingFilesStore.commit(
-            { kind: "bulk", files: behindDraft },
-            {
+        args.workingFilesStore.commit({
+            patch: { kind: "bulk", files: behindDraft },
+            meta: {
                 kind: "import",
+                action: "incomingReconciliation",
                 scope: { project: true },
                 dirtyTextContent: true,
             },
-        );
-        await invalidateWorkingScriptureChanges({
-            chapters: touchedChapters,
-            bumpDirtyVersion: args.bumpDirtyVersion,
-            refreshUnsavedChapters: args.refreshUnsavedChapters,
-            editorRef: args.editorRef,
-            workingFiles: args.workingFilesStore.read(),
-            pickedFile: args.pickedFile,
-            pickedChapter: args.pickedChapter,
         });
+        args.bumpDirtyVersion();
         // Behind-only with a fully clean apply (no blocked diffs): the whole-
         // workspace snapshot landed, so there is nothing left to review. Hand
         // the fast-forward to the hook; finalizeOutcome clears remoteSync since
@@ -659,6 +645,7 @@ export async function runIncomingReconciliation(
                 fullChapterApplies,
                 hunkApplies,
                 sourceFiles: argsForAuto.sourceFiles,
+                shape: workingShape,
             });
             autoAcceptApplied = result.kind === "committed";
         },
@@ -670,15 +657,7 @@ export async function runIncomingReconciliation(
         return { requiresReview: false };
     }
 
-    await invalidateWorkingScriptureChanges({
-        chapters: touchedChapters,
-        bumpDirtyVersion: args.bumpDirtyVersion,
-        refreshUnsavedChapters: args.refreshUnsavedChapters,
-        editorRef: args.editorRef,
-        workingFiles: args.workingFilesStore.read(),
-        pickedFile: args.pickedFile,
-        pickedChapter: args.pickedChapter,
-    });
+    args.bumpDirtyVersion();
 
     // Post-apply refreshed diff + behind-only clean normalization, through
     // the validated boundary: a user edit during the refreshed-diff await
@@ -721,15 +700,17 @@ export async function runIncomingReconciliation(
                 applyVersionSnapshotToWorkingFiles({
                     workingFiles: cleanDraft,
                     sourceFiles: argsForAuto.sourceFiles,
+                    shape: workingShape,
                 });
-                args.workingFilesStore.commit(
-                    { kind: "bulk", files: cleanDraft },
-                    {
+                args.workingFilesStore.commit({
+                    patch: { kind: "bulk", files: cleanDraft },
+                    meta: {
                         kind: "import",
+                        action: "incomingReconciliation",
                         scope: { project: true },
                         dirtyTextContent: true,
                     },
-                );
+                });
             }
         },
     });

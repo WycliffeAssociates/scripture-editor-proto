@@ -80,14 +80,14 @@ function editChapterConcurrently(
             { kind: "text", source: next, id: `edit-${bookCode}` },
         ] as never;
     }
-    store.commit(
-        { kind: "bulk", files: draft },
-        {
+    store.commit({
+        patch: { kind: "bulk", files: draft },
+        meta: {
             kind: "userEdit",
-            scope: { bookCode, chapter: 1 },
+            scope: { chapters: [{ bookCode, chapterNum: 1 }] },
             dirtyTextContent: true,
         },
-    );
+    });
 }
 
 describe("applyIncomingToStore concurrency", () => {
@@ -118,6 +118,7 @@ describe("applyIncomingToStore concurrency", () => {
             fullChapterApplies: [{ bookCode: "MAT", chapterNum: 1 }],
             hunkApplies: [genHunk],
             sourceFiles: [book("GEN", "gen-incoming"), book("MAT", "mat-incoming")],
+            shape: "flat",
         });
 
         // Concurrent edit to the full-chapter target while the hunk is pending.
@@ -149,6 +150,7 @@ describe("applyIncomingToStore concurrency", () => {
             fullChapterApplies: [{ bookCode: "MAT", chapterNum: 1 }],
             hunkApplies: [genHunk],
             sourceFiles: [book("GEN", "gen-incoming"), book("MAT", "mat-incoming")],
+            shape: "flat",
         });
 
         expect(committed).toMatchObject({ kind: "committed" });
@@ -179,6 +181,7 @@ describe("applyIncomingToStore concurrency", () => {
             fullChapterApplies: [],
             hunkApplies: [genHunk],
             sourceFiles: [book("GEN", "gen-incoming")],
+            shape: "flat",
         });
 
         editChapterConcurrently(store, "EXO", "exo-edited");
@@ -218,6 +221,7 @@ describe("applyIncomingToStore concurrency", () => {
             fullChapterApplies: [],
             hunkApplies: [genHunk],
             sourceFiles: [book("GEN", "gen-incoming")],
+            shape: "flat",
         });
 
         // Same-text save-rebase on GEN 1: baseline → current text, dirty → false,
@@ -232,14 +236,14 @@ describe("applyIncomingToStore concurrency", () => {
             ] as never;
             target.dirty = false;
         }
-        store.commit(
-            { kind: "bulk", files: draft },
-            {
+        store.commit({
+            patch: { kind: "bulk", files: draft },
+            meta: {
                 kind: "metadataOnly",
                 scope: { project: true },
                 dirtyTextContent: false,
             },
-        );
+        });
 
         releaseRevert();
         const committed = await promise;
@@ -268,6 +272,7 @@ describe("applyIncomingToStore concurrency", () => {
             fullChapterApplies: [],
             hunkApplies: [genHunk],
             sourceFiles: [book("GEN", "gen-incoming")],
+            shape: "flat",
         });
 
         expect(committed).toMatchObject({ kind: "aborted" });
@@ -347,10 +352,10 @@ describe("runIncomingMutation", () => {
         });
 
         // A permitted local op adds a NEW book while the compute is pending.
-        store.commit(
-            { kind: "bulk", files: [...store.read(), book("MAT", "new-book")] },
-            { kind: "import", scope: { project: true }, dirtyTextContent: true },
-        );
+        store.commit({
+            patch: { kind: "bulk", files: [...store.read(), book("MAT", "new-book")] },
+            meta: { kind: "import", scope: { project: true }, dirtyTextContent: true },
+        });
         releaseCompute();
         const result = await promise;
 
@@ -377,14 +382,14 @@ describe("runIncomingMutation", () => {
         });
 
         // selectionOnly preserves the state array → not a state change.
-        store.commit(
-            { kind: "selectionOnly", bookCode: "GEN", chapter: 1 },
-            {
+        store.commit({
+            patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1, selection: null },
+            meta: {
                 kind: "metadataOnly",
-                scope: { bookCode: "GEN", chapter: 1 },
+                scope: { chapters: [{ bookCode: "GEN", chapterNum: 1 }] },
                 dirtyTextContent: false,
             },
-        );
+        });
         releaseCompute();
         const result = await promise;
 
