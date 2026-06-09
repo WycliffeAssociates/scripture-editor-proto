@@ -1,5 +1,5 @@
 import type { LexicalEditor, LexicalNode } from "lexical";
-import { EDITOR_MODES, type EditorModeSetting } from "@/app/data/editor.ts";
+import { type EditorModeSetting, isRegularShape } from "@/app/data/editor.ts";
 import {
     $isUSFMTextNode,
     type USFMTextNode,
@@ -40,7 +40,7 @@ export function calculateIsStartOfLine(
     // at the start of a line while still being inside a hidden marker node (e.g. inside `\\v `).
     const anchorIsHidden =
         isDomHidden(anchorNode) ||
-        (opts?.editorMode === EDITOR_MODES.regular &&
+        (isRegularShape(opts?.editorMode) &&
             (anchorNode.getTokenType() === "marker" ||
                 anchorNode.getTokenType() === "endMarker"));
 
@@ -59,7 +59,7 @@ export function calculateIsStartOfLine(
     // If the caret is sitting at the end of a hidden structural marker (e.g. `\v `)
     // in regular mode, treat that as the start of the line for insertion purposes.
     if (
-        opts?.editorMode === EDITOR_MODES.regular &&
+        isRegularShape(opts?.editorMode) &&
         anchorIsHidden &&
         (anchorNode.getTokenType() === "marker" ||
             anchorNode.getTokenType() === "endMarker")
@@ -81,7 +81,7 @@ export function calculateIsStartOfLine(
     // When we're at a start-of-line candidate, shift the anchor backward to the
     // earliest contiguous hidden marker immediately preceding the anchor.
     if (
-        opts?.editorMode === EDITOR_MODES.regular &&
+        isRegularShape(opts?.editorMode) &&
         anchorOffset === 0 &&
         !anchorIsHidden
     ) {
@@ -137,10 +137,7 @@ export function calculateIsStartOfLine(
         }
 
         // Heuristic fallback when DOM is unavailable: in regular mode, marker tokens are hidden.
-        if (
-            opts?.editorMode === EDITOR_MODES.regular &&
-            $isUSFMTextNode(prev)
-        ) {
+        if (isRegularShape(opts?.editorMode) && $isUSFMTextNode(prev)) {
             const tt = prev.getTokenType();
             if (tt === "marker" || tt === "endMarker") {
                 prev = prev.getPreviousSibling();

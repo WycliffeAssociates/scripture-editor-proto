@@ -116,11 +116,23 @@ export function isEditableEditorMode(mode: EditorModeSetting): boolean {
 }
 
 /**
+ * True for the regular (WYSIWYG) shape — `regular` and its read-only twin
+ * `view`. The intent-named predicate for sites that ask "is this the regular
+ * presentation?"; prefer it over `=== EDITOR_MODES.regular`, which silently
+ * excludes view.
+ */
+export function isRegularShape(mode: EditorModeSetting | undefined): boolean {
+    return (
+        mode !== undefined && editorModeToShape(mode) === EDITOR_SHAPES.regular
+    );
+}
+
+/**
  * Regular-shape presentations hide raw USFM marker bytes behind WYSIWYG
  * styling; every other mode shows them.
  */
 export function markersHiddenInMode(mode: EditorModeSetting): boolean {
-    return editorModeToShape(mode) === EDITOR_SHAPES.regular;
+    return isRegularShape(mode);
 }
 
 /**

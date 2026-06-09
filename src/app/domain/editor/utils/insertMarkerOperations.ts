@@ -8,8 +8,8 @@ import {
     type LexicalNode,
 } from "lexical";
 import {
-    EDITOR_MODES,
     type EditorModeSetting,
+    isRegularShape,
     UsfmTokenTypes,
 } from "@/app/data/editor.ts";
 import { $createUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
@@ -360,7 +360,7 @@ function $insertNumberedMarkerRegularMode(
 }
 
 export function $insertVerse(args: BaseInsertArgs, verseNumber?: string): void {
-    if (args.editorMode === EDITOR_MODES.regular) {
+    if (isRegularShape(args.editorMode)) {
         $insertNumberedMarkerRegularMode(args, verseNumber);
         return;
     }
@@ -436,7 +436,7 @@ export function $insertVerse(args: BaseInsertArgs, verseNumber?: string): void {
 // ============================================================================
 // todo: we actually shouldn't allow inserting chapters since we break on as a ux division of edit per chapter
 export function $insertChapter(args: BaseInsertArgs): void {
-    if (args.editorMode === EDITOR_MODES.regular) {
+    if (isRegularShape(args.editorMode)) {
         $insertNumberedMarkerRegularMode(args, undefined);
         return;
     }
@@ -510,7 +510,7 @@ export function $insertChapter(args: BaseInsertArgs): void {
 
 export function $insertPara(args: BaseInsertArgs): void {
     // Regular mode uses tree structure with USFMParagraphNode containers
-    if (args.editorMode === EDITOR_MODES.regular) {
+    if (isRegularShape(args.editorMode)) {
         $insertParaRegularMode(args);
     } else {
         $insertParaSourceMode(args);
@@ -885,7 +885,7 @@ export function $insertNote(args: BaseInsertArgs): void {
 
     if (!$isRangeSelection(selection)) return;
 
-    if (args.editorMode !== EDITOR_MODES.regular) {
+    if (!isRegularShape(args.editorMode)) {
         // In USFM/Plain mode, notes are edited inline as flat tokens (no nested decorator).
         // Insert a minimal `\f + \f*` scaffold and place the cursor inside.
         const openingMarker = $createUSFMTextNode(`\\${marker} `, {
