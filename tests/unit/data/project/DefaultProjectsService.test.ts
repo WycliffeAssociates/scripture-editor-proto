@@ -112,6 +112,8 @@ function createRemoteRepoProvider(): RemoteRepoProvider {
     listWritableRepos: vi.fn(),
     listOwnedRepos: vi.fn(),
     createRepo: vi.fn(),
+    getRepo: vi.fn(),
+    forkRepo: vi.fn(),
     inspectProjectMetadata: vi.fn(),
   };
 }

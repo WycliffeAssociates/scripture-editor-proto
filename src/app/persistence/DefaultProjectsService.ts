@@ -14,6 +14,8 @@ import {
 } from "@/app/persistence/projectWorkspaceMappers.ts";
 import { attachTranslationNotesRemoteSync } from "@/app/reference/translationNotesRemoteSync.ts";
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
+import type { DeclaredSource } from "@/core/domain/project/declaredSources.ts";
+import { readDeclaredSources } from "@/core/domain/project/declaredSources.ts";
 import {
     type ImportSource,
     ProjectImporter,
@@ -69,6 +71,8 @@ import type {
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 import type {
     CloneWritableRemoteProjectArgs,
+    ForkRemoteRepoArgs,
+    GetRemoteRepoArgs,
     ImportProjectOptions,
     ImportProjectResult,
     ListOwnedRemoteReposArgs,
@@ -677,6 +681,16 @@ export class DefaultProjectsService implements ProjectsService {
         return this.requireGitRemoteProjectService().listOwnedRepos(args);
     }
 
+    async getRemoteRepo(
+        args: GetRemoteRepoArgs,
+    ): Promise<RemoteRepoSummary | null> {
+        return this.requireGitRemoteProjectService().getRepo(args);
+    }
+
+    async forkRemoteRepo(args: ForkRemoteRepoArgs): Promise<RemoteRepoSummary> {
+        return this.requireGitRemoteProjectService().forkRepo(args);
+    }
+
     async createRemoteForProject(projectRef: string): Promise<{
         repo: RemoteRepoSummary;
         remoteInfo: GitRemoteProjectInfo;
@@ -822,6 +836,15 @@ export class DefaultProjectsService implements ProjectsService {
                 await this.projectIndex.indexItem(loadedItem);
             }
         }
+    }
+
+    async readDeclaredSources(
+        workspacePath: string,
+    ): Promise<DeclaredSource[]> {
+        return readDeclaredSources({
+            fileSystem: this.fileSystem,
+            projectRootPath: workspacePath,
+        });
     }
 
     async deleteProject(

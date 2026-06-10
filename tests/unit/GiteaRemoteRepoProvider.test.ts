@@ -14,7 +14,12 @@ function jsonResponse(body: unknown, init?: ResponseInit): Response {
 
 describe("GiteaRemoteRepoProvider", () => {
     it("lists only writable repos and preserves next-page detection from the server payload", async () => {
-        const fetchImpl = vi.fn().mockResolvedValue(
+        const fetchImpl = vi
+            .fn()
+            .mockResolvedValueOnce(
+                jsonResponse({ id: 7, login: "alice", username: "alice" }),
+            )
+            .mockResolvedValueOnce(
             jsonResponse(
                 {
                     data: [
@@ -62,10 +67,13 @@ describe("GiteaRemoteRepoProvider", () => {
             topic: "consolidated",
         });
 
-        expect(fetchImpl).toHaveBeenCalledTimes(1);
-        const [url, init] = vi.mocked(fetchImpl).mock.calls[0]!;
+        expect(fetchImpl).toHaveBeenCalledTimes(2);
+        expect(String(vi.mocked(fetchImpl).mock.calls[0]?.[0])).toBe(
+            "https://gitea.example.org/api/v1/user",
+        );
+        const [url, init] = vi.mocked(fetchImpl).mock.calls[1]!;
         expect(String(url)).toBe(
-            "https://gitea.example.org/api/v1/repos/search?page=1&limit=2&private=true&q=consolidated&topic=true",
+            "https://gitea.example.org/api/v1/repos/search?page=1&limit=2&private=true&q=consolidated&topic=true&uid=7",
         );
         expect(init).toMatchObject({
             method: "GET",
@@ -96,7 +104,12 @@ describe("GiteaRemoteRepoProvider", () => {
     });
 
     it("preserves the API clone_url so web git can route through corsProxy", async () => {
-        const fetchImpl = vi.fn().mockResolvedValue(
+        const fetchImpl = vi
+            .fn()
+            .mockResolvedValueOnce(
+                jsonResponse({ id: 7, login: "alice", username: "alice" }),
+            )
+            .mockResolvedValueOnce(
             jsonResponse({
                 data: [
                     {
@@ -130,7 +143,12 @@ describe("GiteaRemoteRepoProvider", () => {
     });
 
     it("falls back to the created-repo default branch when the server omits default_branch", async () => {
-        const fetchImpl = vi.fn().mockResolvedValue(
+        const fetchImpl = vi
+            .fn()
+            .mockResolvedValueOnce(
+                jsonResponse({ id: 7, login: "alice", username: "alice" }),
+            )
+            .mockResolvedValueOnce(
             jsonResponse({
                 data: [
                     {
@@ -265,7 +283,7 @@ describe("GiteaRemoteRepoProvider", () => {
             },
         });
 
-        expect(fetchImpl).toHaveBeenCalledTimes(1);
+        expect(fetchImpl).toHaveBeenCalledTimes(2);
         const [url, init] = vi.mocked(fetchImpl).mock.calls[0]!;
         expect(String(url)).toBe("https://gitea.example.org/api/v1/user/repos");
         expect(init?.method).toBe("POST");
@@ -280,14 +298,174 @@ describe("GiteaRemoteRepoProvider", () => {
             default_branch: "master",
             auto_init: false,
         });
+
+        // Topics aren't accepted by the create endpoint, so they're applied via
+        // a follow-up PUT — required here because the `consolidated` topic is
+        // what makes the new remote writable in this ecosystem.
+        const [topicsUrl, topicsInit] = vi.mocked(fetchImpl).mock.calls[1]!;
+        expect(String(topicsUrl)).toBe(
+            "https://gitea.example.org/api/v1/repos/alice/bho-bible/topics",
+        );
+        expect(topicsInit?.method).toBe("PUT");
+        expect(JSON.parse(String(topicsInit?.body))).toEqual({
+            topics: ["consolidated"],
+        });
+
         expect(repo).toMatchObject({
             id: "11",
             owner: "alice",
             name: "bho-bible",
             cloneUrl: "https://gitea.example.org/alice/bho-bible.git",
             defaultBranch: "master",
+            topics: ["consolidated"],
             canWrite: true,
         });
+    });
+
+    it("forks a repo into the caller's account and ensures the consolidated topic", async () => {
+        const fetchImpl = vi
+            .fn()
+            .mockResolvedValueOnce(
+                jsonResponse(
+                    {
+                        id: 21,
+                        name: "bho-bible",
+                        full_name: "alice/bho-bible",
+                        html_url: "https://gitea.example.org/alice/bho-bible",
+                        clone_url:
+                            "https://gitea.example.org/alice/bho-bible.git",
+                        default_branch: "master",
+                        // Fork inherited an unrelated topic; consolidated is
+                        // added, not replaced.
+                        topics: ["draft"],
+                        owner: { username: "alice" },
+                        permissions: { admin: true },
+                    },
+                    { status: 202 },
+                ),
+            )
+            // Follow-up topics PUT.
+            .mockResolvedValueOnce(new Response(null, { status: 204 }));
+        const provider = new GiteaRemoteRepoProvider(fetchImpl);
+
+        const repo = await provider.forkRepo({
+            hostBaseUrl: "https://gitea.example.org",
+            username: "alice",
+            token: "secret-token",
+            owner: "source-org",
+            name: "bho-bible",
+            topics: ["consolidated"],
+        });
+
+        expect(fetchImpl).toHaveBeenCalledTimes(2);
+        const [forkUrl, forkInit] = vi.mocked(fetchImpl).mock.calls[0]!;
+        expect(String(forkUrl)).toBe(
+            "https://gitea.example.org/api/v1/repos/source-org/bho-bible/forks",
+        );
+        expect(forkInit?.method).toBe("POST");
+
+        const [topicsUrl, topicsInit] = vi.mocked(fetchImpl).mock.calls[1]!;
+        expect(String(topicsUrl)).toBe(
+            "https://gitea.example.org/api/v1/repos/alice/bho-bible/topics",
+        );
+        expect(topicsInit?.method).toBe("PUT");
+        expect(JSON.parse(String(topicsInit?.body))).toEqual({
+            topics: ["draft", "consolidated"],
+        });
+
+        expect(repo).toMatchObject({
+            owner: "alice",
+            name: "bho-bible",
+            topics: ["draft", "consolidated"],
+            canWrite: true,
+        });
+    });
+
+    it("resolves the existing fork when the caller already forked the repo", async () => {
+        const fetchImpl = vi
+            .fn()
+            // POST /forks → already forked.
+            .mockResolvedValueOnce(new Response("already forked", { status: 409 }))
+            // GET /repos/{caller}/{name} → the existing fork (a fork of the
+            // requested source), already tagged. Topics + fork/parent come back
+            // inline on the single-repo GET.
+            .mockResolvedValueOnce(
+                jsonResponse({
+                    id: 31,
+                    name: "bho-bible",
+                    full_name: "alice/bho-bible",
+                    html_url: "https://gitea.example.org/alice/bho-bible",
+                    clone_url: "https://gitea.example.org/alice/bho-bible.git",
+                    default_branch: "master",
+                    topics: ["consolidated"],
+                    owner: { username: "alice" },
+                    permissions: { admin: true },
+                    fork: true,
+                    parent: { full_name: "source-org/bho-bible" },
+                }),
+            );
+        const provider = new GiteaRemoteRepoProvider(fetchImpl);
+
+        const repo = await provider.forkRepo({
+            hostBaseUrl: "https://gitea.example.org",
+            username: "alice",
+            token: "secret-token",
+            owner: "source-org",
+            name: "bho-bible",
+            topics: ["consolidated"],
+        });
+
+        // POST forks + GET existing fork; no topics PUT (already consolidated).
+        expect(fetchImpl).toHaveBeenCalledTimes(2);
+        expect(String(vi.mocked(fetchImpl).mock.calls[1]?.[0])).toBe(
+            "https://gitea.example.org/api/v1/repos/alice/bho-bible",
+        );
+        expect(repo).toMatchObject({
+            owner: "alice",
+            name: "bho-bible",
+            topics: ["consolidated"],
+            canWrite: true,
+        });
+    });
+
+    it("refuses to reuse an unrelated same-named repo on fork conflict", async () => {
+        const fetchImpl = vi
+            .fn()
+            // POST /forks → 409 (a repo of this name already exists).
+            .mockResolvedValueOnce(
+                new Response("already exists", { status: 409 }),
+            )
+            // GET /repos/{caller}/{name} → an UNRELATED repo: not a fork of the
+            // requested source (in fact not a fork at all).
+            .mockResolvedValueOnce(
+                jsonResponse({
+                    id: 99,
+                    name: "bho-bible",
+                    full_name: "alice/bho-bible",
+                    html_url: "https://gitea.example.org/alice/bho-bible",
+                    clone_url: "https://gitea.example.org/alice/bho-bible.git",
+                    default_branch: "master",
+                    topics: ["my-own-thing"],
+                    owner: { username: "alice" },
+                    permissions: { admin: true },
+                    fork: false,
+                }),
+            );
+        const provider = new GiteaRemoteRepoProvider(fetchImpl);
+
+        await expect(
+            provider.forkRepo({
+                hostBaseUrl: "https://gitea.example.org",
+                username: "alice",
+                token: "secret-token",
+                owner: "source-org",
+                name: "bho-bible",
+                topics: ["consolidated"],
+            }),
+        ).rejects.toThrow(/isn't a copy of source-org\/bho-bible/u);
+
+        // POST + GET only — must NOT have mutated the unrelated repo's topics.
+        expect(fetchImpl).toHaveBeenCalledTimes(2);
     });
 
     it("throws the response body when listing repos fails", async () => {

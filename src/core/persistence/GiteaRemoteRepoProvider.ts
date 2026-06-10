@@ -36,6 +36,12 @@ const GiteaCurrentUserSchema = v.object({
     id: v.union([v.number(), v.string()]),
 });
 
+const GiteaRepoParentSchema = v.object({
+    full_name: v.optional(v.string()),
+    name: v.optional(v.string()),
+    owner: v.optional(GiteaRepoOwnerSchema),
+});
+
 const GiteaRepoRecordSchema = v.object({
     id: v.optional(v.union([v.number(), v.string()])),
     name: v.optional(v.string()),
@@ -46,6 +52,8 @@ const GiteaRepoRecordSchema = v.object({
     topics: v.optional(v.array(v.string())),
     owner: v.optional(GiteaRepoOwnerSchema),
     permissions: v.optional(GiteaRepoPermissionsSchema),
+    fork: v.optional(v.boolean()),
+    parent: v.optional(GiteaRepoParentSchema),
 });
 
 const GiteaRepoContentSchema = v.object({
@@ -80,6 +88,12 @@ export class GiteaRemoteRepoProvider implements RemoteRepoProvider {
         searchQuery?: string;
         signal?: AbortSignal;
     }): Promise<RemoteRepoPage> {
+        // Scope to the signed-in user's repos (owned + ones they collaborate
+        // on) via `uid`. Without it, the search is instance-wide and the first
+        // page rarely contains the caller's writable repos — so the list reads
+        // as empty even when they own writable repos. `canWrite` then trims to
+        // the ones they can actually push to.
+        const userId = await this.resolveCurrentUserId(args);
         return await this.listRepoPage({
             hostBaseUrl: args.hostBaseUrl,
             token: args.token,
@@ -90,7 +104,7 @@ export class GiteaRemoteRepoProvider implements RemoteRepoProvider {
             signal: args.signal,
             username: args.username,
             fallbackMessage: "Failed to list writable repositories",
-            query: {},
+            query: { uid: userId },
             map: (repo) =>
                 mapRepoSummary(repo, args.username, args.hostBaseUrl),
             filter: (repo) =>
@@ -153,7 +167,177 @@ export class GiteaRemoteRepoProvider implements RemoteRepoProvider {
         await throwIfNotOk(response, "Failed to create remote repository");
 
         const repo = parseGiteaRepoRecord(await response.json());
+        const summary = mapRepoSummary(repo, args.username, args.hostBaseUrl);
+
+        // Gitea's create endpoint ignores `topics`; they must be set through
+        // the dedicated topics endpoint. This is load-bearing here, not
+        // cosmetic: write-eligibility in this ecosystem is carried by the
+        // `consolidated` topic, and every project is derived from a
+        // consolidated source — so a freshly created remote that lacks the
+        // topic would be unwritable the instant it exists. We surface a failure
+        // rather than silently leaving an untaggable remote behind.
+        if (args.request.topics.length > 0) {
+            await this.replaceRepoTopics({
+                hostBaseUrl: args.hostBaseUrl,
+                token: args.token,
+                owner: summary.owner,
+                name: summary.name,
+                topics: args.request.topics,
+            });
+            return { ...summary, topics: args.request.topics };
+        }
+
+        return summary;
+    }
+
+    private async replaceRepoTopics(args: {
+        hostBaseUrl: string;
+        token: string;
+        owner: string;
+        name: string;
+        topics: string[];
+    }): Promise<void> {
+        const encodedOwner = encodeURIComponent(args.owner);
+        const encodedName = encodeURIComponent(args.name);
+        const response = await this.fetchImpl(
+            new URL(
+                `/api/v1/repos/${encodedOwner}/${encodedName}/topics`,
+                args.hostBaseUrl,
+            ),
+            {
+                method: "PUT",
+                headers: {
+                    ...buildAuthHeaders(args.token),
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ topics: args.topics }),
+            },
+        );
+        await throwIfNotOk(response, "Failed to set repository topics");
+    }
+
+    async getRepo(args: {
+        hostBaseUrl: string;
+        username: string;
+        token: string;
+        owner: string;
+        name: string;
+        signal?: AbortSignal;
+    }): Promise<RemoteRepoSummary | null> {
+        const repo = await this.fetchRepoRecord(args);
+        if (!repo) {
+            return null;
+        }
+        // The single-repo GET includes `topics` inline, so callers can gate on
+        // the `consolidated` marker straight from this summary.
         return mapRepoSummary(repo, args.username, args.hostBaseUrl);
+    }
+
+    private async fetchRepoRecord(args: {
+        hostBaseUrl: string;
+        token: string;
+        owner: string;
+        name: string;
+        signal?: AbortSignal;
+    }): Promise<GiteaRepoRecord | null> {
+        const encodedOwner = encodeURIComponent(args.owner);
+        const encodedName = encodeURIComponent(args.name);
+        const response = await this.fetchImpl(
+            new URL(
+                `/api/v1/repos/${encodedOwner}/${encodedName}`,
+                args.hostBaseUrl,
+            ),
+            {
+                method: "GET",
+                headers: buildAuthHeaders(args.token),
+                signal: args.signal,
+            },
+        );
+        if (response.status === 404) {
+            return null;
+        }
+        await throwIfNotOk(response, "Failed to load repository");
+        return parseGiteaRepoRecord(await response.json());
+    }
+
+    async forkRepo(args: {
+        hostBaseUrl: string;
+        username: string;
+        token: string;
+        owner: string;
+        name: string;
+        topics: string[];
+        signal?: AbortSignal;
+    }): Promise<RemoteRepoSummary> {
+        const encodedOwner = encodeURIComponent(args.owner);
+        const encodedName = encodeURIComponent(args.name);
+        const response = await this.fetchImpl(
+            new URL(
+                `/api/v1/repos/${encodedOwner}/${encodedName}/forks`,
+                args.hostBaseUrl,
+            ),
+            {
+                method: "POST",
+                headers: {
+                    ...buildAuthHeaders(args.token),
+                    "Content-Type": "application/json",
+                },
+                // Empty body forks into the authenticated user's account,
+                // keeping the upstream repo name.
+                body: "{}",
+                signal: args.signal,
+            },
+        );
+
+        let summary: RemoteRepoSummary | null;
+        if (response.status === 409) {
+            // A repo of this name already exists under the caller. Only reuse it
+            // if it's genuinely OUR fork of THIS source — otherwise a plain
+            // name collision (an unrelated repo the user happens to own) would
+            // get attached and have its topics mutated. Verify ancestry; fail
+            // loudly when it doesn't match.
+            const existing = await this.fetchRepoRecord({
+                hostBaseUrl: args.hostBaseUrl,
+                token: args.token,
+                owner: args.username,
+                name: args.name,
+                signal: args.signal,
+            });
+            if (!existing || !isForkOf(existing, args.owner, args.name)) {
+                throw new Error(
+                    `You already have a project named "${args.name}" that isn't a copy of ${args.owner}/${args.name}. Rename it or remove it before saving your own copy.`,
+                );
+            }
+            summary = mapRepoSummary(existing, args.username, args.hostBaseUrl);
+        } else {
+            await throwIfNotOk(response, "Failed to fork repository");
+            summary = mapRepoSummary(
+                parseGiteaRepoRecord(await response.json()),
+                args.username,
+                args.hostBaseUrl,
+            );
+        }
+        if (!summary) {
+            throw new Error("Fork did not produce a repository");
+        }
+
+        // Ensure the requested topics (the `consolidated` write-eligibility
+        // marker) are present without dropping any the fork already carries.
+        const mergedTopics = Array.from(
+            new Set([...summary.topics, ...args.topics]),
+        );
+        if (mergedTopics.length !== summary.topics.length) {
+            await this.replaceRepoTopics({
+                hostBaseUrl: args.hostBaseUrl,
+                token: args.token,
+                owner: summary.owner,
+                name: summary.name,
+                topics: mergedTopics,
+            });
+            summary = { ...summary, topics: mergedTopics };
+        }
+
+        return summary;
     }
 
     async inspectProjectMetadata(args: {
@@ -429,6 +613,30 @@ function mapRepoSummary(
             repo.permissions?.write === true ||
             owner === username,
     };
+}
+
+/**
+ * True when `repo` is a fork whose parent is `sourceOwner/sourceName` — the
+ * guard that keeps the fork-409 fallback from reusing an unrelated same-named
+ * repo the caller happens to own.
+ */
+function isForkOf(
+    repo: GiteaRepoRecord,
+    sourceOwner: string,
+    sourceName: string,
+): boolean {
+    if (repo.fork !== true || !repo.parent) {
+        return false;
+    }
+    const expected = `${sourceOwner}/${sourceName}`.toLowerCase();
+    const parentFullName = repo.parent.full_name?.toLowerCase();
+    if (parentFullName) {
+        return parentFullName === expected;
+    }
+    const parentOwner =
+        repo.parent.owner?.username || repo.parent.owner?.login || "";
+    const parentName = repo.parent.name || "";
+    return `${parentOwner}/${parentName}`.toLowerCase() === expected;
 }
 
 function isWritableRepo(repo: GiteaRepoRecord, username: string): boolean {

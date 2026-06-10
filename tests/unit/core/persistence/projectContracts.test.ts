@@ -176,6 +176,10 @@ describe("path-based persistence contracts", () => {
                 nextPage: null,
                 rawResultCount: 0,
             }),
+            getRemoteRepo: async () => null,
+            forkRemoteRepo: async () => {
+                throw new Error("not implemented in contract test");
+            },
             createRemoteForProject: async () => {
                 throw new Error("not implemented in contract test");
             },
@@ -185,6 +189,7 @@ describe("path-based persistence contracts", () => {
             cloneWritableRemoteProject: async () => {
                 throw new Error("not implemented in contract test");
             },
+            readDeclaredSources: async () => [],
             deleteProject: async () => {},
             renameDisplayName: async () => {},
             reconcileIndex: async () => {},

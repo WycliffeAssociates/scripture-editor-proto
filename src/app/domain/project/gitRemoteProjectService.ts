@@ -45,6 +45,8 @@ export class GitRemoteProjectService {
             token: session.token,
             page: args.page,
             pageSize: args.pageSize,
+            // In this ecosystem, write-eligibility is carried by the
+            // `consolidated` topic, so the writable listing is gated on it.
             topic: args.topic ?? GIT_REMOTE_DEFAULT_TOPIC,
             searchQuery: args.searchQuery,
             signal: args.signal,
@@ -67,6 +69,37 @@ export class GitRemoteProjectService {
             pageSize: args.pageSize,
             topic: args.topic ?? GIT_REMOTE_DEFAULT_TOPIC,
             searchQuery: args.searchQuery,
+            signal: args.signal,
+        });
+    }
+
+    async getRepo(args: { owner: string; name: string; signal?: AbortSignal }) {
+        const session = await this.requireSession();
+        return this.remoteRepoProvider.getRepo({
+            hostBaseUrl: session.hostBaseUrl,
+            username: session.username,
+            token: session.token,
+            owner: args.owner,
+            name: args.name,
+            signal: args.signal,
+        });
+    }
+
+    async forkRepo(args: {
+        owner: string;
+        name: string;
+        signal?: AbortSignal;
+    }) {
+        const session = await this.requireSession();
+        return this.remoteRepoProvider.forkRepo({
+            hostBaseUrl: session.hostBaseUrl,
+            username: session.username,
+            token: session.token,
+            owner: args.owner,
+            name: args.name,
+            // Forks must carry the write-eligibility marker, same as created
+            // remotes (see createRemoteForProject).
+            topics: [GIT_REMOTE_DEFAULT_TOPIC],
             signal: args.signal,
         });
     }

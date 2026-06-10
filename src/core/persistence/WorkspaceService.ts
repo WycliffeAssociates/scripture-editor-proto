@@ -1,3 +1,4 @@
+import type { DeclaredSource } from "@/core/domain/project/declaredSources.ts";
 import type { ImportSource } from "@/core/domain/project/import/ProjectImporter.ts";
 import type {
     MetadataEditorDocument,
@@ -76,6 +77,18 @@ export type ListOwnedRemoteReposArgs = {
     signal?: AbortSignal;
 };
 
+export type GetRemoteRepoArgs = {
+    owner: string;
+    name: string;
+    signal?: AbortSignal;
+};
+
+export type ForkRemoteRepoArgs = {
+    owner: string;
+    name: string;
+    signal?: AbortSignal;
+};
+
 export type CloneWritableRemoteProjectArgs = {
     repo: RemoteRepoSummary;
 };
@@ -118,6 +131,8 @@ export interface WorkspaceService {
     listOwnedRemoteRepos(
         args: ListOwnedRemoteReposArgs,
     ): Promise<RemoteRepoPage>;
+    getRemoteRepo(args: GetRemoteRepoArgs): Promise<RemoteRepoSummary | null>;
+    forkRemoteRepo(args: ForkRemoteRepoArgs): Promise<RemoteRepoSummary>;
     createRemoteForProject(projectRef: string): Promise<{
         repo: RemoteRepoSummary;
         remoteInfo: GitRemoteProjectInfo;
@@ -132,6 +147,7 @@ export interface WorkspaceService {
     cloneWritableRemoteProject(
         args: CloneWritableRemoteProjectArgs,
     ): Promise<ImportProjectResult>;
+    readDeclaredSources(workspacePath: string): Promise<DeclaredSource[]>;
     deleteProject(workspacePath: string): Promise<void>;
     renameDisplayName(
         workspacePath: string,
