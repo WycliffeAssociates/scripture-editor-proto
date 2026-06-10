@@ -33,7 +33,7 @@ const bookOf = (tokens: readonly Token[]): string =>
  */
 export class WebSousService implements ISousService {
     async analyze(tokens: Token[]): Promise<SousAnalyzeResult> {
-        using _timer = devTimer(`web:sousAnalyze ${bookOf(tokens)}`);
+        const endTimer = devTimer(`web:sousAnalyze ${bookOf(tokens)}`);
         const index = onion.vrefIndexTokens(tokens);
 
         const segments: SegmentsBySid = {};
@@ -63,6 +63,7 @@ export class WebSousService implements ISousService {
                 score: finding.score ?? undefined,
             }));
 
+        endTimer();
         return { segments, findings };
     }
 }

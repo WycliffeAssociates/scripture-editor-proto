@@ -128,7 +128,7 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
         tokenBatches: Token[][],
         options: TokenLintOptions = {},
     ): Promise<LintIssue[][]> {
-        using _timer = devTimer(
+        const end = devTimer(
             `[tauri] lintTokenBatches (batches: ${tokenBatches.length})`,
         );
         const results = await invoke<LintIssue[][]>(
@@ -138,6 +138,7 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
                 options: toTauriTokenLintOptions(options),
             },
         );
+        end();
         return results;
     }
 
@@ -154,7 +155,7 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
     private async formatTokenBatches(
         tokenBatches: Token[][],
     ): Promise<TokenTransformResult[]> {
-        using _timer = devTimer(
+        const end = devTimer(
             `[tauri] formatTokenBatches (batches: ${tokenBatches.length})`,
         );
         const results = await invoke<TokenTransformResult[]>(
@@ -163,9 +164,11 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
                 tokenBatches,
             },
         );
-        return results.map((result, index) =>
+        const mapped = results.map((result, index) =>
             withFormatChangeFlag(tokenBatches[index] ?? [], result),
         );
+        end();
+        return mapped;
     }
 
     private async diffBatchFromPathPairs(
@@ -187,7 +190,7 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
             lintOptions: null,
         },
     ): Promise<ProjectedUsfmDocument> {
-        using _timer = devTimer(
+        const end = devTimer(
             `[tauri] parseUsfm (sourceLength: ${source.length})`,
         );
         const projection = await invoke<ProjectedUsfmDocument>(
@@ -197,6 +200,7 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
                 options: toTauriProjectOptions(options),
             },
         );
+        end();
         return projection;
     }
 
@@ -207,7 +211,7 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
             lintOptions: null,
         },
     ): Promise<ProjectedUsfmDocument[]> {
-        using _timer = devTimer(
+        const end = devTimer(
             `[tauri] parseUsfmBatchFromPaths (paths: ${paths.length})`,
         );
         const projections = await invoke<ProjectedUsfmDocument[]>(
@@ -217,6 +221,7 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
                 options: toTauriProjectOptions(options),
             },
         );
+        end();
         return projections;
     }
 
@@ -359,7 +364,7 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
             };
         }
 
-        using _timer = devTimer(
+        const end = devTimer(
             `[tauri] applyTokenFixes (tokens: ${tokens.length}, fixes: ${fixes.length})`,
         );
         let nextTokens = tokens;
@@ -378,6 +383,7 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
             });
         }
 
+        end();
         return {
             tokens: nextTokens as Token[],
             appliedChanges,
@@ -464,14 +470,16 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
         currentTokens: Token[],
         buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
     ): Promise<Diff[]> {
-        using _timer = devTimer(
+        const end = devTimer(
             `[tauri] diffTokens (baseline: ${baselineTokens.length}, current: ${currentTokens.length})`,
         );
-        return invoke("usfm_onion_diff_tokens", {
+        const result = invoke<Diff[]>("usfm_onion_diff_tokens", {
             baselineTokens,
             currentTokens,
             buildOptions,
         });
+        end();
+        return result;
     }
 
     async revertDiffBlock(

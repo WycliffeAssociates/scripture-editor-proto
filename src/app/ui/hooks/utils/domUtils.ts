@@ -62,27 +62,28 @@ export function timeInDev(fn: () => void, label?: string) {
 // them out from framework/browser User Timing entries.
 const DEV_TIMER_PREFIX = "⏱ ";
 
+const NOOP_TIMER = () => {};
+
 /**
- * Dev-only timing via the User Timing API. Use with `using` so disposal (the
- * measure) fires at scope exit without a wrapper frame:
+ * Dev-only timing via the User Timing API. Returns an `end` function; call it
+ * to record the measure:
  *
- *   using _t = devTimer("web:parseUsfm");
+ *   const end = devTimer("web:parseUsfm");
+ *   ...
+ *   end();
  *
  * The measure shows in DevTools → Performance → User Timing, and — once
  * {@link installDevTimerLogger} has run — is also logged to the console as it
- * completes. Either way there's no wrapper frame in the timed code's stack.
- * No-op in production.
+ * completes. No-op in production (returns a shared empty function).
  */
-export function devTimer(label: string): Disposable {
-    if (!import.meta.env.DEV) return { [Symbol.dispose]() {} };
+export function devTimer(label: string): () => void {
+    if (!import.meta.env.DEV) return NOOP_TIMER;
     const start = performance.now();
-    return {
-        [Symbol.dispose]() {
-            performance.measure(`${DEV_TIMER_PREFIX}${label}`, {
-                start,
-                end: performance.now(),
-            });
-        },
+    return () => {
+        performance.measure(`${DEV_TIMER_PREFIX}${label}`, {
+            start,
+            end: performance.now(),
+        });
     };
 }
 
