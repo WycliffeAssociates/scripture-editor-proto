@@ -95,8 +95,8 @@ describe("cloud project status UI", () => {
       </>,
     );
 
-    expect(document.body.textContent).toContain("Connected");
-    expect(document.body.textContent).not.toContain("Changes not yet published");
+    expect(document.body.textContent).toContain("Up to date");
+    expect(document.body.textContent).not.toContain("Changes to send");
   });
 
   it("renders a review banner for incoming cloud changes that need review", () => {
@@ -110,7 +110,7 @@ describe("cloud project status UI", () => {
       />,
     );
 
-    expect(document.body.textContent).toContain("Cloud and local changes need review");
+    expect(document.body.textContent).toContain("Some changes need your review");
     expect(document.body.textContent).toContain("Review changes");
     act(() => {
       document.querySelector("button")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -130,9 +130,9 @@ describe("cloud project status UI", () => {
     );
 
     expect(document.body.textContent).toContain(
-      "Your latest local save has not been published to the cloud yet.",
+      "Your latest work is saved here but not yet in the shared project.",
     );
-    expect(document.body.textContent).toContain("Sync now");
+    expect(document.body.textContent).toContain("Send my changes");
     act(() => {
       document.querySelector("button")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });

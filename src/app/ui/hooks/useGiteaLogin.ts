@@ -32,7 +32,7 @@ export function useGiteaLogin(args: UseGiteaLoginArgs) {
             showErrorNotification({
                 notification: {
                     title: t`Enter your credentials`,
-                    message: t`Username and password are required to connect your cloud account.`,
+                    message: t`Username and password are required to connect your account.`,
                 },
             });
             return;
@@ -41,7 +41,7 @@ export function useGiteaLogin(args: UseGiteaLoginArgs) {
             showErrorNotification({
                 notification: {
                     title: t`Enter your credentials`,
-                    message: t`Username and password are required to connect your cloud account.`,
+                    message: t`Username and password are required to connect your account.`,
                 },
             });
             return;
@@ -58,19 +58,19 @@ export function useGiteaLogin(args: UseGiteaLoginArgs) {
             setLoginOtp("");
             showNotificationSuccess({
                 notification: {
-                    title: t`Cloud account connected`,
-                    message: t`You can now browse your writable cloud projects.`,
+                    title: t`Account connected`,
+                    message: t`You can now browse the projects you can edit.`,
                 },
             });
             await onSuccess?.(session.username);
         } catch (error) {
             showErrorNotification({
                 notification: {
-                    title: t`Cloud login failed`,
+                    title: t`Sign-in failed`,
                     message:
                         error instanceof Error
                             ? error.message
-                            : t`Could not connect your cloud account.`,
+                            : t`Couldn't connect your account.`,
                 },
             });
         } finally {

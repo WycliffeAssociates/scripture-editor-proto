@@ -142,7 +142,7 @@ export function DiffViewerToolbar({
         { value: COMPARE_TARGET_UNSAVED, label: t`Current changes` },
         {
             value: COMPARE_SOURCE_KIND.REMOTE_LATEST,
-            label: t`Incoming cloud`,
+            label: t`Incoming shared`,
         },
         {
             value: COMPARE_SOURCE_KIND.PREVIOUS_VERSION,

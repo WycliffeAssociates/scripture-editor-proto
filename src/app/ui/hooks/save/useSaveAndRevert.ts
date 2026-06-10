@@ -131,9 +131,9 @@ export function useSaveAndRevert(args: {
             if (result.publish?.kind === "failed") {
                 showErrorNotification({
                     notification: {
-                        title: "Cloud Publish Warning",
+                        title: "Couldn't send your changes",
                         message:
-                            "Your changes were saved locally, but publishing to the cloud could not be completed.",
+                            "Your changes were saved here, but they couldn't be sent to the shared project.",
                     },
                 });
             }

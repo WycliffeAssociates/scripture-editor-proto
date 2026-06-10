@@ -99,7 +99,7 @@ function getCompareSourceLabel(args: {
                 )?.label ?? t`No version selected`
             );
         case COMPARE_SOURCE_KIND.REMOTE_LATEST:
-            return t`Incoming cloud changes`;
+            return t`Incoming shared changes`;
         case COMPARE_SOURCE_KIND.ZIP_FILE:
             return t`ZIP file`;
         case COMPARE_SOURCE_KIND.DIRECTORY:

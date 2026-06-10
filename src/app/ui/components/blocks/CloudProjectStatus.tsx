@@ -1,5 +1,10 @@
+import { i18n } from "@lingui/core";
 import { t } from "@lingui/core/macro";
 import { AlertCircle, Cloud, CloudOff, RefreshCw } from "lucide-react";
+import {
+    presentSharedProjectStatus,
+    sharedProjectActions,
+} from "@/app/domain/project/remoteSync/sharedProjectCopy.ts";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import * as styles from "@/app/ui/styles/modules/CloudProjectStatus.css.ts";
 import {
@@ -43,10 +48,23 @@ function Badge({
 function getCloudStatusPresentation(
     status: GitRemoteProjectStatus,
 ): CloudStatusPresentation {
+    // Badge/title/message text comes from the shared-project glossary so this
+    // banner can't drift from the toolbar chip and status popover. Only the
+    // banner-specific color + action semantics stay local.
+    const shared = presentSharedProjectStatus({
+        status,
+        isRefreshing: false,
+        i18n,
+    });
+    const base = {
+        badgeLabel: shared.chipLabel,
+        bannerTitle: shared.headline,
+        bannerMessage: shared.detail,
+    };
     switch (status.kind) {
         case GIT_REMOTE_PROJECT_STATUS_CONNECTED:
             return {
-                badgeLabel: t`Connected`,
+                ...base,
                 color: "teal",
                 bannerTitle: null,
                 bannerMessage: null,
@@ -55,46 +73,36 @@ function getCloudStatusPresentation(
             };
         case GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH:
             return {
-                badgeLabel: t`Changes not yet published`,
+                ...base,
                 color: "orange",
-                bannerTitle: t`Changes not yet published`,
-                bannerMessage: t`Your latest local save has not been published to the cloud yet.`,
                 actionKind: "sync" as const,
-                actionLabel: t`Sync now`,
+                actionLabel: i18n._(sharedProjectActions.send),
             };
         case GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE:
             return {
-                badgeLabel: t`Cloud updates available`,
+                ...base,
                 color: "blue",
-                bannerTitle: t`Cloud updates available`,
-                bannerMessage: t`New cloud changes are ready for review before you bring them into this project.`,
                 actionKind: "review" as const,
-                actionLabel: t`Review changes`,
+                actionLabel: i18n._(sharedProjectActions.review),
             };
         case GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW:
             return {
-                badgeLabel: t`Needs review`,
+                ...base,
                 color: "yellow",
-                bannerTitle: t`Cloud and local changes need review`,
-                bannerMessage: t`This project has local and cloud changes that need review before the next publish.`,
                 actionKind: "review" as const,
-                actionLabel: t`Review changes`,
+                actionLabel: i18n._(sharedProjectActions.review),
             };
         case GIT_REMOTE_PROJECT_STATUS_OFFLINE:
             return {
-                badgeLabel: t`Offline`,
+                ...base,
                 color: "gray",
-                bannerTitle: t`Cloud is unavailable`,
-                bannerMessage: t`You can keep working locally. Try syncing again when you are back online.`,
                 actionKind: "sync" as const,
                 actionLabel: t`Try again`,
             };
         case GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED:
             return {
-                badgeLabel: t`Reconnect account`,
+                ...base,
                 color: "red",
-                bannerTitle: t`Reconnect your account`,
-                bannerMessage: t`Cloud actions are paused until you sign in to this linked account again.`,
                 actionKind: null,
                 actionLabel: null,
             };
