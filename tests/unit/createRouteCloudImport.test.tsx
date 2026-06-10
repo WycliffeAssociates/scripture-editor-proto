@@ -5,14 +5,53 @@ import { I18nProvider } from "@lingui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { CreateProject } from "@/app/routes/create.tsx";
 
 const useRouterMock = vi.fn();
+const notifications = {
+  showErrorNotification: vi.fn(),
+  showNotificationInfo: vi.fn(),
+  showNotificationSuccess: vi.fn(),
+  showProgressNotification: vi.fn((..._args: unknown[]) => "notif-id"),
+  updateProgressNotification: vi.fn(),
+  hideNotification: vi.fn(),
+};
+
+// The create route's job is to wire SourcePicker's callbacks to the import
+// facade and surface progress/result toasts — the picker's own catalog browse,
+// search, and paste-a-link behavior live in (and are tested with) SourcePicker.
+// Stub it to a couple of buttons that fire the props the route owns.
+const ZIP_URL = "https://gitea.example.org/alice/bho-bible/archive/master.zip";
+vi.mock("@/app/ui/components/blocks/SourcePicker/SourcePicker.tsx", () => ({
+  SourcePicker: (props: {
+    onDownload: (zipUrl: string) => void;
+    giteaHostBaseUrl?: string | null;
+    isBusy?: boolean;
+  }) => (
+    <div>
+      <span data-testid="picker-host">{props.giteaHostBaseUrl ?? "none"}</span>
+      <span data-testid="picker-busy">{String(Boolean(props.isBusy))}</span>
+      <button type="button" onClick={() => props.onDownload(ZIP_URL)}>
+        download source
+      </button>
+    </div>
+  ),
+}));
 
 vi.mock("@tanstack/react-router", () => ({
   createFileRoute: () => () => ({}),
-  Link: (props: React.AnchorHTMLAttributes<HTMLAnchorElement>) => <a {...props} />,
+  Link: (props: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
+    <a {...props} />
+  ),
   useRouter: () => useRouterMock(),
 }));
 
@@ -21,11 +60,29 @@ vi.mock("@/app/ui/i18n/loadLocale.tsx", () => ({
 }));
 
 vi.mock("@/app/ui/components/blocks/ProjectSettings/Settings.tsx", () => ({
-  LanguageSelector: (props: { value: string | null; onChange: (value: string | null) => void }) => (
+  LanguageSelector: (props: {
+    value: string | null;
+    onChange: (value: string | null) => void;
+  }) => (
     <button type="button" onClick={() => props.onChange(props.value)}>
       language
     </button>
   ),
+}));
+
+vi.mock("@/app/ui/components/primitives/notifications.ts", () => ({
+  showErrorNotification: (...args: unknown[]) =>
+    notifications.showErrorNotification(...args),
+  showNotificationInfo: (...args: unknown[]) =>
+    notifications.showNotificationInfo(...args),
+  showNotificationSuccess: (...args: unknown[]) =>
+    notifications.showNotificationSuccess(...args),
+  showProgressNotification: (...args: unknown[]) =>
+    notifications.showProgressNotification(...args),
+  updateProgressNotification: (...args: unknown[]) =>
+    notifications.updateProgressNotification(...args),
+  hideNotification: (...args: unknown[]) =>
+    notifications.hideNotification(...args),
 }));
 
 let container: HTMLDivElement | null = null;
@@ -38,21 +95,6 @@ beforeAll(() => {
   (
     globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  if (!window.matchMedia) {
-    Object.defineProperty(window, "matchMedia", {
-      writable: true,
-      value: (query: string) => ({
-        matches: query.includes("min-width"),
-        media: query,
-        onchange: null,
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        dispatchEvent: vi.fn(),
-      }),
-    });
-  }
 });
 
 beforeEach(() => {
@@ -60,11 +102,7 @@ beforeEach(() => {
   document.body.appendChild(container);
   root = createRoot(container);
   queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
-      },
-    },
+    defaultOptions: { queries: { retry: false } },
   });
 });
 
@@ -79,6 +117,8 @@ afterEach(() => {
   container = null;
   document.body.innerHTML = "";
   useRouterMock.mockReset();
+  for (const spy of Object.values(notifications)) spy.mockReset();
+  notifications.showProgressNotification.mockReturnValue("notif-id");
 });
 
 function render(ui: React.ReactNode) {
@@ -91,359 +131,80 @@ function render(ui: React.ReactNode) {
   });
 }
 
-function setInputValue(input: HTMLInputElement, value: string) {
-  const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
-  valueSetter?.call(input, value);
-  input.dispatchEvent(new Event("input", { bubbles: true }));
-  input.dispatchEvent(new Event("change", { bubbles: true }));
+function mountWithImportRemoteZip(importRemoteZip: ReturnType<typeof vi.fn>) {
+  const invalidate = vi.fn(async () => {});
+  useRouterMock.mockReturnValue({
+    invalidate,
+    navigate: vi.fn(),
+    options: {
+      context: {
+        settingsManager: {
+          get: vi.fn().mockReturnValue("en"),
+          set: vi.fn(),
+          applySettings: vi.fn(),
+          update: vi.fn(),
+        },
+        importService: { importRemoteZip },
+        projectsService: {},
+        giteaHostBaseUrl: "https://gitea.example.org",
+      },
+    },
+  });
+  render(<CreateProject />);
+  return { invalidate };
 }
 
-async function selectLinkedCloudAndSearch(term: string) {
-  await act(async () => {
-    await Promise.resolve();
-    await Promise.resolve();
-  });
-
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    if (
-      [...document.querySelectorAll("button")].some((button) =>
-        button.textContent?.includes("Log out"),
-      )
-    ) {
-      break;
-    }
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-  }
-
-  const linkedCloudButton = [...document.querySelectorAll("button")].find((button) =>
-    button.textContent?.includes("Linked cloud"),
+async function clickDownload() {
+  const button = [...document.querySelectorAll("button")].find((node) =>
+    node.textContent?.includes("download source"),
   );
-  expect(linkedCloudButton).toBeTruthy();
-
+  expect(button).toBeTruthy();
   await act(async () => {
-    linkedCloudButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-  });
-
-  const searchInput = document.querySelector(
-    'input[aria-label="Search projects"]',
-  ) as HTMLInputElement | null;
-  expect(searchInput).toBeTruthy();
-
-  await act(async () => {
-    setInputValue(searchInput!, term);
-    await new Promise((resolve) => window.setTimeout(resolve, 250));
+    button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await Promise.resolve();
     await Promise.resolve();
   });
 }
 
-async function waitForButtonText(text: string) {
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    const button = [...document.querySelectorAll("button")].find((node) =>
-      node.textContent?.includes(text),
+describe("CreateProject source import", () => {
+  it("downloads the chosen source through the import facade and refreshes the router", async () => {
+    const importRemoteZip = vi.fn().mockResolvedValue({
+      project: { projectPath: "/userData/projects/bho-bible" },
+      isEditableProject: false,
+      requiresMetadataReview: false,
+      warning: undefined,
+    });
+    const { invalidate } = mountWithImportRemoteZip(importRemoteZip);
+
+    await clickDownload();
+
+    expect(importRemoteZip).toHaveBeenCalledWith(
+      { type: "fromGitRepo", url: ZIP_URL },
+      expect.objectContaining({ onProgress: expect.any(Function) }),
     );
-    if (button) {
-      return button as HTMLButtonElement;
-    }
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-  }
-  return null;
-}
-
-describe("CreateProject cloud import", () => {
-  it("loads writable cloud repos for the current session and clones the selected repo", async () => {
-    const listWritableRemoteRepos = vi.fn().mockResolvedValue({
-      repos: [
-        {
-          id: "1",
-          owner: "alice",
-          name: "bho-bible",
-          fullName: "alice/bho-bible",
-          htmlUrl: "https://gitea.example.org/alice/bho-bible",
-          cloneUrl: "https://gitea.example.org/alice/bho-bible.git",
-          defaultBranch: "master",
-          topics: ["consolidated"],
-          canWrite: true,
-        },
-      ],
-      nextPage: null,
-      rawResultCount: 1,
-    });
-    const cloneWritableRemoteProject = vi.fn().mockResolvedValue({
-      project: {
-        projectPath: "/userData/projects/bho-bible",
-      },
-      isEditableProject: true,
-      gitReady: true,
-    });
-    const invalidate = vi.fn(async () => {});
-
-    useRouterMock.mockReturnValue({
-      invalidate,
-      navigate: vi.fn(),
-      options: {
-        context: {
-          settingsManager: {
-            get: vi.fn().mockReturnValue("en"),
-            set: vi.fn(),
-            applySettings: vi.fn(),
-            update: vi.fn(),
-          },
-          importService: {},
-          projectsService: {
-            listWritableRemoteRepos,
-            listOwnedRemoteRepos: vi.fn(),
-            cloneWritableRemoteProject,
-          },
-          giteaHostBaseUrl: "https://gitea.example.org",
-          authSessionProvider: {
-            getCurrentSession: vi.fn().mockResolvedValue({
-              username: "alice",
-              hostBaseUrl: "https://gitea.example.org",
-              token: "secret-token",
-              tokenId: "1",
-              tokenName: "zephyr-web",
-            }),
-            loginWithPassword: vi.fn(),
-            logoutCurrentSession: vi.fn(),
-          },
-        },
-      },
-    });
-
-    render(<CreateProject />);
-    await selectLinkedCloudAndSearch("bho");
-
-    expect(listWritableRemoteRepos).toHaveBeenCalledWith(
-      expect.objectContaining({
-        page: 1,
-        pageSize: 100,
-        topic: "consolidated",
-        searchQuery: "bho",
-        signal: expect.any(AbortSignal),
-      }),
-    );
-    expect(document.body.textContent).toContain("Choose a source");
-    const importLinkedCopyButton = await waitForButtonText("Import linked copy");
-    expect(importLinkedCopyButton).toBeTruthy();
-    await act(async () => {
-      importLinkedCopyButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      await Promise.resolve();
-    });
-
-    expect(cloneWritableRemoteProject).toHaveBeenCalledWith({
-      repo: expect.objectContaining({
-        name: "bho-bible",
-      }),
-    });
     expect(invalidate).toHaveBeenCalled();
+    expect(notifications.showNotificationSuccess).toHaveBeenCalled();
+    expect(notifications.showErrorNotification).not.toHaveBeenCalled();
   });
 
-  it("loads owned repos from Gitea when the owned-only checkbox is checked", async () => {
-    const listWritableRemoteRepos = vi.fn().mockResolvedValue({
-      repos: [
-        {
-          id: "1",
-          owner: "alice",
-          name: "bho-bible",
-          fullName: "alice/bho-bible",
-          htmlUrl: "https://gitea.example.org/alice/bho-bible",
-          cloneUrl: "https://gitea.example.org/alice/bho-bible.git",
-          defaultBranch: "master",
-          topics: ["consolidated"],
-          canWrite: true,
-        },
-        {
-          id: "2",
-          owner: "someone",
-          name: "not-owned",
-          fullName: "someone/not-owned",
-          htmlUrl: "https://gitea.example.org/someone/not-owned",
-          cloneUrl: "https://gitea.example.org/someone/not-owned.git",
-          defaultBranch: "master",
-          topics: ["consolidated"],
-          canWrite: true,
-        },
-      ],
-      nextPage: null,
-      rawResultCount: 2,
-    });
-    const listOwnedRemoteRepos = vi.fn().mockResolvedValue({
-      repos: [
-        {
-          id: "1",
-          owner: "alice",
-          name: "bho-bible",
-          fullName: "alice/bho-bible",
-          htmlUrl: "https://gitea.example.org/alice/bho-bible",
-          cloneUrl: "https://gitea.example.org/alice/bho-bible.git",
-          defaultBranch: "master",
-          topics: ["consolidated"],
-          canWrite: true,
-        },
-      ],
-      nextPage: null,
-      rawResultCount: 1,
-    });
+  it("surfaces an error notification when the download fails", async () => {
+    const importRemoteZip = vi
+      .fn()
+      .mockRejectedValue(new Error("network down"));
+    const { invalidate } = mountWithImportRemoteZip(importRemoteZip);
 
-    useRouterMock.mockReturnValue({
-      invalidate: vi.fn(async () => {}),
-      navigate: vi.fn(),
-      options: {
-        context: {
-          settingsManager: {
-            get: vi.fn().mockReturnValue("en"),
-            set: vi.fn(),
-            applySettings: vi.fn(),
-            update: vi.fn(),
-          },
-          importService: {},
-          projectsService: {
-            listWritableRemoteRepos,
-            listOwnedRemoteRepos,
-            cloneWritableRemoteProject: vi.fn(),
-          },
-          giteaHostBaseUrl: "https://gitea.example.org",
-          authSessionProvider: {
-            getCurrentSession: vi.fn().mockResolvedValue({
-              username: "alice",
-              hostBaseUrl: "https://gitea.example.org",
-              token: "secret-token",
-              tokenId: "1",
-              tokenName: "zephyr-web",
-            }),
-            loginWithPassword: vi.fn(),
-            logoutCurrentSession: vi.fn(),
-          },
-        },
-      },
-    });
+    await clickDownload();
 
-    render(<CreateProject />);
-    await selectLinkedCloudAndSearch("bho");
-
-    expect(listWritableRemoteRepos).toHaveBeenCalledWith(
-      expect.objectContaining({
-        page: 1,
-        pageSize: 100,
-        topic: "consolidated",
-        searchQuery: "bho",
-        signal: expect.any(AbortSignal),
-      }),
-    );
-
-    const ownedToggle = document.querySelector<HTMLInputElement>('input[type="checkbox"]');
-    expect(ownedToggle).toBeTruthy();
-
-    await act(async () => {
-      ownedToggle?.click();
-      await new Promise((resolve) => window.setTimeout(resolve, 250));
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(listOwnedRemoteRepos).toHaveBeenCalledWith(
-      expect.objectContaining({
-        page: 1,
-        pageSize: 100,
-        topic: "consolidated",
-        searchQuery: "bho",
-        signal: expect.any(AbortSignal),
-      }),
-    );
+    expect(notifications.showErrorNotification).toHaveBeenCalled();
+    // The router only refreshes after a successful import.
+    expect(invalidate).not.toHaveBeenCalled();
   });
 
-  it("creates a cloud session from the login form when a host is configured", async () => {
-    const loginWithPassword = vi.fn().mockResolvedValue({
-      username: "alice",
-      hostBaseUrl: "https://gitea.example.org",
-      token: "created-token",
-      tokenId: "7",
-      tokenName: "zephyr-7",
-    });
-    const listWritableRemoteRepos = vi.fn().mockResolvedValue({
-      repos: [],
-      nextPage: null,
-      rawResultCount: 0,
-    });
+  it("passes the configured git host to the source picker so a project link can be pasted", async () => {
+    mountWithImportRemoteZip(vi.fn().mockResolvedValue({}));
 
-    useRouterMock.mockReturnValue({
-      invalidate: vi.fn(async () => {}),
-      navigate: vi.fn(),
-      options: {
-        context: {
-          settingsManager: {
-            get: vi.fn().mockReturnValue("en"),
-            set: vi.fn(),
-            applySettings: vi.fn(),
-            update: vi.fn(),
-          },
-          importService: {},
-          projectsService: {
-            listWritableRemoteRepos,
-            listOwnedRemoteRepos: vi.fn(),
-            cloneWritableRemoteProject: vi.fn(),
-          },
-          giteaHostBaseUrl: "https://gitea.example.org",
-          authSessionProvider: {
-            getCurrentSession: vi.fn().mockResolvedValue(null),
-            loginWithPassword,
-            logoutCurrentSession: vi.fn(),
-            clearSession: vi.fn(),
-          },
-        },
-      },
-    });
-
-    render(<CreateProject />);
-
-    const linkedCloudToggle = [...document.querySelectorAll("button")].find((button) =>
-      button.textContent?.includes("Linked cloud"),
-    );
-    expect(linkedCloudToggle).toBeTruthy();
-
-    await act(async () => {
-      linkedCloudToggle?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      await Promise.resolve();
-    });
-
-    const usernameInput = document.querySelector(
-      'input[aria-label="Remote username"]',
-    ) as HTMLInputElement | null;
-    const passwordInput = document.querySelector(
-      'input[aria-label="Remote password"]',
-    ) as HTMLInputElement | null;
-    expect(usernameInput).toBeTruthy();
-    expect(passwordInput).toBeTruthy();
-
-    await act(async () => {
-      setInputValue(usernameInput!, "alice");
-      setInputValue(passwordInput!, "secret");
-      await Promise.resolve();
-    });
-
-    const connectButton = [...document.querySelectorAll("button")].find((button) =>
-      button.textContent?.includes("Connect account"),
-    );
-    expect(connectButton).toBeTruthy();
-
-    await act(async () => {
-      connectButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(loginWithPassword).toHaveBeenCalledWith({
-      hostBaseUrl: "https://gitea.example.org",
-      username: "alice",
-      password: "secret",
-      otp: null,
-    });
+    expect(
+      document.querySelector('[data-testid="picker-host"]')?.textContent,
+    ).toBe("https://gitea.example.org");
   });
 });

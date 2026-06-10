@@ -4,7 +4,7 @@ import { vars } from "@/app/ui/styles/designSystem.css.ts";
 export const page = style({
     minHeight: "100dvh",
     padding: vars.spacing.lg,
-    backgroundColor: vars.color.surfaceSecondary,
+    backgroundColor: vars.color.surfaceCanvas,
     color: vars.color.onSurfacePrimary,
 });
 

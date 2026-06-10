@@ -1,11 +1,10 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { createProjectImportFacade } from "@/app/domain/api/import.ts";
-import { GIT_REMOTE_DEFAULT_TOPIC } from "@/app/domain/project/gitRemoteProjectService.ts";
-import { ProjectImportHub } from "@/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx";
 import { LanguageSelector } from "@/app/ui/components/blocks/ProjectSettings/Settings.tsx";
+import { SourcePicker } from "@/app/ui/components/blocks/SourcePicker/SourcePicker.tsx";
 import {
     hideNotification,
     showErrorNotification,
@@ -14,7 +13,6 @@ import {
     showProgressNotification,
     updateProgressNotification,
 } from "@/app/ui/components/primitives/notifications.ts";
-import { useGiteaLogin } from "@/app/ui/hooks/useGiteaLogin.ts";
 import { loadLocale } from "@/app/ui/i18n/loadLocale.tsx";
 import * as styles from "@/app/ui/styles/modules/createRoute.css.ts";
 import {
@@ -22,8 +20,12 @@ import {
     getProjectParamFromImportedPath,
     resolveImportErrorMessage,
 } from "@/app/utils/createRouteHelpers.ts";
+import { declaresEnglishUlbSource } from "@/core/domain/project/declaredSources.ts";
+import {
+    fetchConsolidatedRepos,
+    getZipUrl,
+} from "@/core/domain/project/import/LanguageApiImporter.ts";
 import type { ImportProgressUpdate } from "@/core/library/ImportService.ts";
-import type { RemoteRepoSummary } from "@/core/persistence/RemoteRepoProvider.ts";
 import type { ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
 
 /**
@@ -31,7 +33,8 @@ import type { ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
  *
  * This route stays at the app-shell level: it gathers user intent, forwards it to
  * the import facade, and reflects progress/result notifications. Import branching
- * and managed-disk shaping live below this UI layer.
+ * and managed-disk shaping live below this UI layer. Browsing and downloading an
+ * existing project is delegated to the embeddable `SourcePicker`.
  */
 export const Route = createFileRoute("/create")({
     component: CreateProject,
@@ -45,7 +48,6 @@ export function CreateProject() {
         settingsManager,
         importService,
         projectsService,
-        authSessionProvider,
         giteaHostBaseUrl,
     } = router.options.context;
     const importController = useMemo(
@@ -63,24 +65,6 @@ export function CreateProject() {
         settingsManager.get("appLanguage"),
     );
     const [isImporting, setIsImporting] = useState(false);
-    const [cloudSessionUsername, setCloudSessionUsername] = useState<
-        string | null
-    >(null);
-    const [isDisconnectingCloudAccount, setIsDisconnectingCloudAccount] =
-        useState(false);
-    const [cloudError, setCloudError] = useState<string | null>(null);
-
-    useEffect(() => {
-        void authSessionProvider
-            .getCurrentSession()
-            .then((session) => {
-                setCloudSessionUsername(session?.username ?? null);
-            })
-            .catch((error) => {
-                console.error("Failed to load cloud session", error);
-                setCloudSessionUsername(null);
-            });
-    }, [authSessionProvider]);
 
     const showImportGitWarningToast = (warning: string | undefined) => {
         if (!warning) return;
@@ -159,6 +143,74 @@ export function CreateProject() {
                 ),
             },
         });
+
+        if (importedProject) {
+            void maybeOfferEnglishUlbSource(importedProject);
+        }
+    };
+
+    /**
+     * When a freshly imported project declares the English ULB as its source and
+     * we don't already have it, offer to download the curated copy from the
+     * catalog. The catalog lookup doubles as the availability check — everything
+     * in WA-Catalog is in the public data API.
+     */
+    const maybeOfferEnglishUlbSource = async (project: ProjectListItem) => {
+        try {
+            const sources = await projectsService.readDeclaredSources(
+                project.projectPath,
+            );
+            if (!declaresEnglishUlbSource(sources)) return;
+
+            const [projects, references, catalog] = await Promise.all([
+                projectsService.listProjects(),
+                projectsService.listReferenceResources(),
+                fetchConsolidatedRepos(),
+            ]);
+
+            const englishUlb = catalog.find(
+                (repo) =>
+                    repo.username.toLowerCase() === "wa-catalog" &&
+                    repo.repo_name.toLowerCase() === "en_ulb",
+            );
+            if (!englishUlb) return;
+
+            // Heuristic dedupe: skip the offer when an English ULB-ish item is
+            // already on disk. Refine once items record their origin repo.
+            const alreadyHave = [...projects, ...references].some(
+                (item) =>
+                    item.languageCode?.toLowerCase() === "en" &&
+                    `${item.folderName} ${item.displayName}`
+                        .toLowerCase()
+                        .includes("ulb"),
+            );
+            if (alreadyHave) return;
+
+            const zipUrl = await getZipUrl(englishUlb);
+            showNotificationInfo({
+                notification: {
+                    title: t`Source text available`,
+                    autoClose: false,
+                    withCloseButton: true,
+                    message: (
+                        <>
+                            {t`This project lists the English ULB as its source.`}{" "}
+                            <button
+                                type="button"
+                                className={styles.notificationLink}
+                                onClick={() => {
+                                    void downloadSourceText(zipUrl);
+                                }}
+                            >
+                                <Trans>Download English ULB</Trans>
+                            </button>
+                        </>
+                    ),
+                },
+            });
+        } catch (error) {
+            console.error("Failed to offer source text", error);
+        }
     };
 
     /**
@@ -190,91 +242,6 @@ export function CreateProject() {
         }
     };
 
-    const resetCloudRepoState = useCallback(() => {
-        setCloudError(null);
-    }, []);
-
-    const disconnectCloudAccount = useCallback(async () => {
-        try {
-            setIsDisconnectingCloudAccount(true);
-            await authSessionProvider.logoutCurrentSession();
-            setCloudSessionUsername(null);
-            resetCloudRepoState();
-            setCloudError(null);
-            showNotificationInfo({
-                notification: {
-                    title: t`Cloud account logged out`,
-                    message: t`This device no longer has access to your cloud session.`,
-                    autoClose: 4000,
-                },
-            });
-        } catch (error) {
-            showErrorNotification({
-                notification: {
-                    title: t`Could not disconnect cloud account`,
-                    message:
-                        error instanceof Error
-                            ? error.message
-                            : t`Please try again.`,
-                },
-            });
-        } finally {
-            setIsDisconnectingCloudAccount(false);
-        }
-    }, [authSessionProvider, resetCloudRepoState, t]);
-
-    const {
-        loginUsername,
-        loginPassword,
-        loginOtp,
-        setLoginUsername: onLoginUsernameChange,
-        setLoginPassword: onLoginPasswordChange,
-        setLoginOtp: onLoginOtpChange,
-        isRunningConnect: isConnectingCloudAccount,
-        handleConnect: connectCloudAccount,
-    } = useGiteaLogin({
-        authSessionProvider,
-        giteaHostBaseUrl,
-        onSuccess: (username) => {
-            setCloudSessionUsername(username);
-            resetCloudRepoState();
-        },
-    });
-
-    const cloneCloudRepo = async (repo: RemoteRepoSummary) => {
-        try {
-            setIsImporting(true);
-            const importedProject = await runImportWithProgress(
-                t`Importing cloud project...`,
-                () => projectsService.cloneWritableRemoteProject({ repo }),
-            );
-            await router.invalidate();
-            showImportSuccessToast({
-                importedProject: importedProject.project,
-                message: importedProject.requiresMetadataReview
-                    ? t`Project imported successfully. Metadata needs review before opening it.`
-                    : importedProject.isEditableProject === false
-                      ? t`Resource imported successfully! It is available in the reference picker.`
-                      : t`Cloud project imported successfully!`,
-                isEditableProject: importedProject.isEditableProject,
-                requiresMetadataReview: importedProject.requiresMetadataReview,
-            });
-            showImportGitWarningToast(importedProject.warning);
-        } catch (error) {
-            showErrorNotification({
-                notification: {
-                    message: resolveImportErrorMessage({
-                        error,
-                        fallback: t`Failed to import cloud project`,
-                    }),
-                    title: t`Import Error`,
-                },
-            });
-        } finally {
-            setIsImporting(false);
-        }
-    };
-
     const onDownload = async (url: string) => {
         try {
             setIsImporting(true);
@@ -302,6 +269,41 @@ export function CreateProject() {
                     message: resolveImportErrorMessage({
                         error,
                         fallback: t`Failed to download project`,
+                    }),
+                    title: t`Download Error`,
+                },
+            });
+        } finally {
+            setIsImporting(false);
+        }
+    };
+
+    /**
+     * Download a declared source text. Unlike a project import, this is reference
+     * material for the project just brought in — so it confirms quietly with no
+     * "open project" prompt, even though the ULB itself is editable scripture.
+     */
+    const downloadSourceText = async (url: string) => {
+        try {
+            setIsImporting(true);
+            const imported = await runImportWithProgress(
+                t`Downloading source text...`,
+                ({ onProgress }) =>
+                    importController.download(url, { onProgress }),
+            );
+            showNotificationSuccess({
+                notification: buildPersistentImportSuccessNotification(
+                    t`Source text downloaded`,
+                    t`The English ULB is available as a reference text.`,
+                ),
+            });
+            showImportGitWarningToast(imported.warning);
+        } catch (error) {
+            showErrorNotification({
+                notification: {
+                    message: resolveImportErrorMessage({
+                        error,
+                        fallback: t`Failed to download source text`,
                     }),
                     title: t`Download Error`,
                 },
@@ -485,9 +487,6 @@ export function CreateProject() {
                             <ArrowLeft size={16} />
                             <Trans>Projects</Trans>
                         </Link>
-                        <h1 className={styles.pageTitle}>
-                            <Trans>New Project</Trans>
-                        </h1>
                     </div>
 
                     <div className={styles.localizationBlock}>
@@ -505,9 +504,11 @@ export function CreateProject() {
                     </div>
                 </header>
 
-                <ProjectImportHub
-                    onDownload={onDownload}
-                    isDownloadDisabled={isImporting}
+                <SourcePicker
+                    onDownload={(zipUrl) => {
+                        void onDownload(zipUrl);
+                    }}
+                    isBusy={isImporting}
                     onDirectoryAction={onDirectoryAction}
                     onZipAction={onZipAction}
                     onDirectorySelected={
@@ -520,29 +521,7 @@ export function CreateProject() {
                     }
                     directoryInputRef={directoryInputRef}
                     zipInputRef={zipInputRef}
-                    hostBaseUrl={giteaHostBaseUrl}
-                    remoteRepoTopic={GIT_REMOTE_DEFAULT_TOPIC}
-                    sessionUsername={cloudSessionUsername}
-                    isImporting={isImporting}
-                    isConnecting={isConnectingCloudAccount}
-                    isDisconnecting={isDisconnectingCloudAccount}
-                    loginUsername={loginUsername}
-                    loginPassword={loginPassword}
-                    loginOtp={loginOtp}
-                    error={cloudError}
-                    projectsService={projectsService}
-                    onLoginUsernameChange={onLoginUsernameChange}
-                    onLoginPasswordChange={onLoginPasswordChange}
-                    onLoginOtpChange={onLoginOtpChange}
-                    onConnect={() => {
-                        void connectCloudAccount();
-                    }}
-                    onDisconnect={() => {
-                        void disconnectCloudAccount();
-                    }}
-                    onCloneRepo={(repo) => {
-                        void cloneCloudRepo(repo);
-                    }}
+                    giteaHostBaseUrl={giteaHostBaseUrl}
                 />
             </section>
         </main>
