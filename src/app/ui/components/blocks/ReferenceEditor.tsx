@@ -13,7 +13,6 @@ import {
     ParagraphNode,
     TextNode,
 } from "lexical";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
@@ -33,11 +32,8 @@ import {
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
 import { transformToShape } from "@/app/domain/editor/utils/modeTransforms.ts";
-import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon/index.ts";
-import { Switch } from "@/app/ui/components/primitives/Switch/index.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as shellStyles from "@/app/ui/styles/modules/EditorShell.css.ts";
-import * as projectViewStyles from "@/app/ui/styles/modules/Projectview.css.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 /**
@@ -66,40 +62,6 @@ function TranslationNotesReferencePane() {
 
     return (
         <div className={shellStyles.referenceEditorRoot}>
-            <div
-                className={projectViewStyles.referenceStickyNav}
-                data-testid={TESTING_IDS.reference.stickyNav}
-            >
-                <div
-                    className={projectViewStyles.referenceStickyNavRow}
-                    style={{
-                        display: "flex",
-                        gap: "1rem",
-                        alignItems: "center",
-                    }}
-                >
-                    <Switch
-                        compact
-                        data-testid={TESTING_IDS.reference.syncNavigationToggle}
-                        label="Sync navigation"
-                        checked={referenceResource.isReferenceNavSynced}
-                        onCheckedChange={(checked) =>
-                            referenceResource.setReferenceNavigationSynced(
-                                checked,
-                            )
-                        }
-                    />
-                    <span
-                        style={{
-                            fontSize: "0.875rem",
-                            color: "var(--text-muted)",
-                        }}
-                    >
-                        {referenceBookCode} {referenceChapterNumber}
-                    </span>
-                </div>
-            </div>
-
             <div
                 className={shellStyles.referenceEditorOuter}
                 data-js={DATA_JS.referenceEditorScrollContainer}
@@ -181,80 +143,6 @@ function ScriptureReferencePane() {
 
     return (
         <div className={shellStyles.referenceEditorRoot}>
-            <div
-                className={projectViewStyles.referenceStickyNav}
-                data-testid={TESTING_IDS.reference.stickyNav}
-            >
-                <div
-                    className={projectViewStyles.referenceStickyNavRow}
-                    style={{
-                        display: "flex",
-                        gap: "1rem",
-                        alignItems: "center",
-                    }}
-                >
-                    <Switch
-                        compact
-                        data-testid={TESTING_IDS.reference.syncNavigationToggle}
-                        label="Sync navigation"
-                        checked={referenceResource.isReferenceNavSynced}
-                        onCheckedChange={(checked) =>
-                            referenceResource.setReferenceNavigationSynced(
-                                checked,
-                            )
-                        }
-                    />
-                    <Switch
-                        compact
-                        data-testid={TESTING_IDS.reference.syncScrollingToggle}
-                        label="Sync scrolling"
-                        checked={referenceResource.isReferenceScrollSynced}
-                        disabled={!referenceResource.isReferenceNavSynced}
-                        onCheckedChange={(checked) =>
-                            referenceResource.setReferenceScrollingSynced(
-                                checked,
-                            )
-                        }
-                    />
-                    <span
-                        style={{
-                            fontSize: "0.875rem",
-                            color: "var(--text-muted)",
-                        }}
-                    >
-                        {referenceResource.referenceBookCode}{" "}
-                        {referenceResource.referenceChapterNumber}
-                    </span>
-                    <ActionIconSimple
-                        aria-label={t`Previous chapter`}
-                        title={t`Previous chapter`}
-                        data-testid={TESTING_IDS.reference.prevButton}
-                        disabled={
-                            referenceResource.isReferenceNavSynced ||
-                            !referenceResource.hasPrevReferenceChapter
-                        }
-                        onClick={() =>
-                            referenceResource.goToPrevReferenceChapter()
-                        }
-                    >
-                        <ChevronLeft size={16} />
-                    </ActionIconSimple>
-                    <ActionIconSimple
-                        aria-label={t`Next chapter`}
-                        title={t`Next chapter`}
-                        data-testid={TESTING_IDS.reference.nextButton}
-                        disabled={
-                            referenceResource.isReferenceNavSynced ||
-                            !referenceResource.hasNextReferenceChapter
-                        }
-                        onClick={() =>
-                            referenceResource.goToNextReferenceChapter()
-                        }
-                    >
-                        <ChevronRight size={16} />
-                    </ActionIconSimple>
-                </div>
-            </div>
             <div
                 className={shellStyles.referenceEditorOuter}
                 data-js={DATA_JS.referenceEditorScrollContainer}

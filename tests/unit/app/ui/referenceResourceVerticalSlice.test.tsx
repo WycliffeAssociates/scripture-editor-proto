@@ -257,9 +257,12 @@ describe("reference-resource vertical slice", () => {
     await waitForText("Why do we still need a witness?");
 
     expect(document.body.textContent).toContain('"We have no further need for witnesses!"');
-    expect(
-      document.querySelector(`[data-testid="${TESTING_IDS.reference.syncNavigationToggle}"]`),
-    ).not.toBeNull();
+    // DISABLED: the "Sync navigation" toggle was removed from the reference UI
+    // (nav-sync is now always on). TODO: delete or rewrite once the sync-nav
+    // direction is settled (see TODOs in useReferenceItem.tsx).
+    // expect(
+    //   document.querySelector(`[data-testid="${TESTING_IDS.reference.syncNavigationToggle}"]`),
+    // ).not.toBeNull();
     expect(document.querySelector(`[data-testid="${TESTING_IDS.referencePicker}"]`)).toBeNull();
     expect(document.body.textContent).not.toContain("Check for updates");
     expect(document.body.textContent).not.toContain("Apply updates");

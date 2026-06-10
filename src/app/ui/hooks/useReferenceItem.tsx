@@ -241,7 +241,15 @@ export const useReferenceItem = ({
         useState(pickedFileIdentifier);
     const [referenceChapterNumber, setReferenceChapterNumber] =
         useState(pickedChapterNumber);
+    // The "Sync navigation" toggle was removed from the reference UI; nav-sync
+    // is now always on (the reference follows the main editor's book/chapter).
+    // The state + setters are retained so the plumbing survives.
+    // TODO: delete isReferenceNavSynced and its setter/consumers if we decide we
+    // never want a user-facing toggle back.
     const [isReferenceNavSynced, setIsReferenceNavSynced] = useState(true);
+    // The "Sync scrolling" toggle was likewise removed; scroll-sync stays off.
+    // TODO: delete isReferenceScrollSynced and its setter/consumers if we decide
+    // we never want a user-facing toggle back.
     const [isReferenceScrollSynced, setIsReferenceScrollSynced] =
         useState(false);
     const { usfmOnionService } = useRouter().options.context;
