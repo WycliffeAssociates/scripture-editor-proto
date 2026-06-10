@@ -8,13 +8,16 @@ import {
 import type { RemoteRepoSummary } from "@/core/persistence/RemoteRepoProvider.ts";
 
 const messages = {
-    createSuccessTitle: msg`Cloud project created`,
-    createSuccessBody: msg`This project is now linked and published to cloud.`,
-    createFailureTitle: msg`Failed to create remote project`,
-    createDuplicateName: msg`A cloud project with this name already exists in your account. Attach the existing cloud project instead.`,
-    attachSuccessTitle: msg`Cloud project attached`,
-    attachSuccessBody: msg`This project is now linked to the selected cloud repository.`,
-    attachFailureTitle: msg`Failed to attach cloud project`,
+    createSuccessTitle: msg`Shared project created`,
+    createSuccessBody: msg`Your project is now saved as a shared project.`,
+    createFailureTitle: msg`Couldn't create the shared project`,
+    createDuplicateName: msg`You already have a shared project with this name. Connect to it instead.`,
+    attachSuccessTitle: msg`Connected to shared project`,
+    attachSuccessBody: msg`Your project is now connected to the shared project you chose.`,
+    attachFailureTitle: msg`Couldn't connect to the shared project`,
+    saveOwnCopySuccessTitle: msg`Your own copy is saved online`,
+    saveOwnCopySuccessBody: msg`We made your own online copy and connected this project to it.`,
+    saveOwnCopyFailureTitle: msg`Couldn't save your own copy online`,
     fallbackError: msg`Please try again.`,
 };
 
@@ -27,6 +30,11 @@ export type CloudProjectsService = {
             "id" | "owner" | "name" | "htmlUrl" | "cloneUrl" | "defaultBranch"
         >;
     }) => Promise<unknown>;
+    forkRemoteRepo: (args: {
+        owner: string;
+        name: string;
+        signal?: AbortSignal;
+    }) => Promise<RemoteRepoSummary>;
 };
 
 export type RemoteSyncTarget = {
@@ -105,6 +113,59 @@ export async function attachRemoteProject(args: {
         showErrorNotification({
             notification: {
                 title: i18n._(messages.attachFailureTitle),
+                message: errorMessage(error, i18n),
+            },
+        });
+        return { ok: false };
+    }
+}
+
+/**
+ * Resolve a "I can't write to this shared project" dead-end: fork it into the
+ * user's own account (preserving provenance + the shared git base), tag the
+ * fork `consolidated`, then connect the local project to the fork. Because the
+ * fork shares history with the upstream the user derived from, the connection
+ * and later sync work cleanly — unlike creating a brand-new orphan remote.
+ */
+export async function saveOwnCopyOnline(args: {
+    projectsService: Pick<
+        CloudProjectsService,
+        "forkRemoteRepo" | "attachProjectToRemote"
+    >;
+    loadedProjectPath: string;
+    repo: Pick<RemoteRepoSummary, "owner" | "name">;
+    refresh: () => Promise<void>;
+    i18n: I18n;
+}): Promise<{ ok: true } | { ok: false }> {
+    const { projectsService, loadedProjectPath, repo, refresh, i18n } = args;
+    try {
+        const fork = await projectsService.forkRemoteRepo({
+            owner: repo.owner,
+            name: repo.name,
+        });
+        await projectsService.attachProjectToRemote({
+            projectRef: loadedProjectPath,
+            repo: {
+                id: fork.id,
+                owner: fork.owner,
+                name: fork.name,
+                htmlUrl: fork.htmlUrl,
+                cloneUrl: fork.cloneUrl,
+                defaultBranch: fork.defaultBranch,
+            },
+        });
+        await refresh();
+        showNotificationSuccess({
+            notification: {
+                title: i18n._(messages.saveOwnCopySuccessTitle),
+                message: i18n._(messages.saveOwnCopySuccessBody),
+            },
+        });
+        return { ok: true };
+    } catch (error) {
+        showErrorNotification({
+            notification: {
+                title: i18n._(messages.saveOwnCopyFailureTitle),
                 message: errorMessage(error, i18n),
             },
         });

@@ -7,6 +7,7 @@ import {
     type RemoteSyncTarget,
     runRemoteSyncAction,
     type SyncActionMode,
+    saveOwnCopyOnline,
 } from "@/app/domain/project/cloudProjectActions.ts";
 import type { RemoteRepoSummary } from "@/core/persistence/RemoteRepoProvider.ts";
 
@@ -19,6 +20,7 @@ export function useCloudProjectActions(args: {
     const { i18n } = useLingui();
     const [isCreating, setIsCreating] = useState(false);
     const [isAttaching, setIsAttaching] = useState(false);
+    const [isSavingOwnCopy, setIsSavingOwnCopy] = useState(false);
 
     async function create() {
         setIsCreating(true);
@@ -50,7 +52,30 @@ export function useCloudProjectActions(args: {
         }
     }
 
-    return { create, attach, isCreating, isAttaching };
+    async function saveOwnCopy(repo: { owner: string; name: string } | null) {
+        if (!repo) return;
+        setIsSavingOwnCopy(true);
+        try {
+            await saveOwnCopyOnline({
+                projectsService,
+                loadedProjectPath,
+                repo,
+                refresh,
+                i18n,
+            });
+        } finally {
+            setIsSavingOwnCopy(false);
+        }
+    }
+
+    return {
+        create,
+        attach,
+        saveOwnCopy,
+        isCreating,
+        isAttaching,
+        isSavingOwnCopy,
+    };
 }
 
 export function useRemoteSyncAction(args: { remote: RemoteSyncTarget }) {

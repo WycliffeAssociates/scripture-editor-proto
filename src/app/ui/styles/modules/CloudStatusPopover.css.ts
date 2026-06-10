@@ -184,12 +184,16 @@ export const comboboxItem = style({
     alignItems: "center",
     gap: "0.25rem",
     width: "100%",
+    // Highlight with a brand outline on the white surface rather than a filled
+    // row, so it reads as "this is where your click lands" (box-shadow keeps the
+    // row from shifting on hover).
+    boxShadow: "inset 0 0 0 1px transparent",
     selectors: {
         "&:hover": {
-            backgroundColor: vars.button.tertiary.surfaceHover,
+            boxShadow: `inset 0 0 0 1px ${vars.color.brandBase}`,
         },
         "&[data-highlighted]": {
-            backgroundColor: vars.button.tertiary.surfaceHover,
+            boxShadow: `inset 0 0 0 1px ${vars.color.brandBase}`,
         },
         "&:focus-visible": {
             outline: "none",
@@ -206,6 +210,12 @@ export const comboboxItemIndicator = style({
     color: vars.color.brandBase,
 });
 
+/** Owner suffix on a project row — muted context, not the primary label. */
+export const comboboxItemOwner = style({
+    color: vars.color.onSurfaceTertiary,
+    fontWeight: 400,
+});
+
 export const comboboxEmpty = style({
     padding: `${vars.spacing.sm} ${vars.spacing.xs}`,
     fontSize: vars.typography.bodySmallest.fontSize,
@@ -214,22 +224,15 @@ export const comboboxEmpty = style({
     backgroundColor: vars.color.surfacePrimary,
 });
 
-export const inlineGrid = style({
-    display: "grid",
-    gridTemplateColumns: "1fr auto auto",
+export const comboboxLinkFooter = style({
+    display: "flex",
+    flexDirection: "column",
     gap: vars.spacing.xs,
-    alignItems: "end",
-    "@media": {
-        "screen and (max-width: 900px)": {
-            gridTemplateColumns: "1fr",
-        },
-    },
-});
-
-export const helper = style({
-    margin: 0,
+    padding: `${vars.spacing.sm} ${vars.spacing.xs}`,
+    borderTop: `${vars.border.width.thin} solid ${vars.color.surfaceBorder}`,
     fontSize: vars.typography.bodySmallest.fontSize,
-    color: vars.color.onSurfaceTertiary,
+    lineHeight: vars.typography.bodySmallest.lineHeight,
+    color: vars.color.onSurfaceSecondary,
 });
 
 export const settingsDisclosureButton = style({

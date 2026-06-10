@@ -7,32 +7,28 @@ import { Trans } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { Check, Languages, MoonStar, Save, SunMedium } from "lucide-react";
-import {
-    type ReactNode,
-    type RefObject,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-} from "react";
+import { type ReactNode, type RefObject, useRef, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { GET_LOCALES, type Settings } from "@/app/data/settings.ts";
-import {
-    type CloudProjectsService,
-    sortReposByOwnerPriority,
-} from "@/app/domain/project/cloudProjectActions.ts";
+import type { CloudProjectsService } from "@/app/domain/project/cloudProjectActions.ts";
+import { sharedProjectLabels } from "@/app/domain/project/remoteSync/sharedProjectCopy.ts";
+import { AttachResolveStatus } from "@/app/ui/components/blocks/SharedProjectAttach/AttachResolveStatus.tsx";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import { showErrorNotification } from "@/app/ui/components/primitives/notifications.ts";
 import { SelectPrimitive } from "@/app/ui/components/primitives/Select/Select.tsx";
 import { Switch } from "@/app/ui/components/primitives/Switch/Switch.tsx";
 import { ToggleGroup } from "@/app/ui/components/primitives/ToggleGroup/ToggleGroup.tsx";
 import { useCloudProjectActions } from "@/app/ui/hooks/useCloudProjectActions.ts";
-import { useGiteaApi } from "@/app/ui/hooks/useGiteaApi.ts";
+import {
+    type SharedProjectPicker,
+    useSharedProjectPicker,
+} from "@/app/ui/hooks/useSharedProjectPicker.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { loadLocale } from "@/app/ui/i18n/loadLocale.tsx";
+import type { ConsolidatedRepo } from "@/core/domain/project/import/LanguageApiImporter.ts";
 import type { IUpdaterService } from "@/core/domain/updater/IUpdaterService.ts";
 import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
-import type { RemoteRepoSummary } from "@/core/persistence/RemoteRepoProvider.ts";
+import type { ProjectsService } from "@/core/persistence/WorkspaceService.ts";
 import EditorModeToggle from "./EditorModeToggle.tsx";
 import FontSizeControl from "./FontSizeControl.tsx";
 import * as styles from "./settings.css.ts";
@@ -47,8 +43,12 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({ onClose }: SettingsPanelProps) {
     const { actions, loadedProject, project, remote } = useWorkspaceContext();
-    const { authSessionProvider, projectsService, updaterService } =
-        useRouter().options.context;
+    const {
+        authSessionProvider,
+        projectsService,
+        updaterService,
+        giteaHostBaseUrl,
+    } = useRouter().options.context;
     const overlayPortalRef = useRef<HTMLDivElement | null>(null);
     const [activeTab, setActiveTab] = useState<SettingsTab>("app-appearance");
     const [initialSettings] = useState<Settings>(() =>
@@ -192,6 +192,10 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                                 syncRemoteStatus={remote.syncNow}
                                 authSessionProvider={authSessionProvider}
                                 projectsService={projectsService}
+                                giteaHostBaseUrl={giteaHostBaseUrl}
+                                currentLanguageCode={
+                                    loadedProject.language.code
+                                }
                                 settings={project.appSettings}
                                 applyUpdates={handleSettingsChange}
                                 portalContainer={overlayPortalRef}
@@ -407,6 +411,8 @@ function AdvancedTab({
     syncRemoteStatus,
     authSessionProvider,
     projectsService,
+    giteaHostBaseUrl,
+    currentLanguageCode,
     settings,
     applyUpdates,
     portalContainer,
@@ -416,28 +422,10 @@ function AdvancedTab({
     isCloudLinked: boolean;
     syncRemoteStatus: () => Promise<void>;
     authSessionProvider: Pick<AuthSessionProvider, "getCurrentSession">;
-    projectsService: CloudProjectsService & {
-        listWritableRemoteRepos: (args: {
-            page: number;
-            pageSize: number;
-            topic?: string;
-            searchQuery?: string;
-        }) => Promise<{
-            repos: RemoteRepoSummary[];
-            nextPage: number | null;
-            rawResultCount: number;
-        }>;
-        listOwnedRemoteRepos: (args: {
-            page: number;
-            pageSize: number;
-            topic?: string;
-            searchQuery?: string;
-        }) => Promise<{
-            repos: RemoteRepoSummary[];
-            nextPage: number | null;
-            rawResultCount: number;
-        }>;
-    };
+    projectsService: CloudProjectsService &
+        Pick<ProjectsService, "getRemoteRepo">;
+    giteaHostBaseUrl: string | null;
+    currentLanguageCode: string | null;
     settings: Settings;
     applyUpdates: (updates: Partial<Settings>) => Promise<void>;
     portalContainer: RefObject<HTMLElement | null>;
@@ -448,32 +436,18 @@ function AdvancedTab({
         queryFn: async () => await authSessionProvider.getCurrentSession(),
     });
     const cloudSessionUsername = sessionQuery.data?.username ?? null;
-    const gitea = useGiteaApi({
-        sessionUsername: cloudSessionUsername,
-        projectsService,
-    });
-    const [selectedRepo, setSelectedRepo] = useState<RemoteRepoSummary | null>(
-        null,
-    );
     const cloudActions = useCloudProjectActions({
         projectsService,
         loadedProjectPath,
         refresh: syncRemoteStatus,
     });
-    const displayedRepos = useMemo(
-        () => sortReposByOwnerPriority(gitea.repos, cloudSessionUsername),
-        [gitea.repos, cloudSessionUsername],
-    );
-
-    useEffect(() => {
-        if (!gitea.error) return;
-        showErrorNotification({
-            notification: {
-                title: t`Failed to load cloud projects`,
-                message: gitea.error,
-            },
-        });
-    }, [gitea.error]);
+    // Catalog browse + paste-a-link resolve, shared with the cloud popover.
+    const picker = useSharedProjectPicker({
+        projectsService,
+        giteaHostBaseUrl,
+        sessionUsername: cloudSessionUsername,
+        currentLanguageCode,
+    });
 
     return (
         <div className={styles.section}>
@@ -488,8 +462,8 @@ function AdvancedTab({
                 }
             />
             <EnabledDisabledRow
-                title={t`Auto Sync on Open`}
-                description={t`Check for cloud updates automatically when opening a linked project.`}
+                title={i18n._(sharedProjectLabels.autoReceiveTitle)}
+                description={i18n._(sharedProjectLabels.autoReceiveDescription)}
                 checked={settings.autoSyncOnOpen}
                 testId={TESTING_IDS.settings.autoSyncOnOpenToggle}
                 onChange={(checked) =>
@@ -497,8 +471,8 @@ function AdvancedTab({
                 }
             />
             <EnabledDisabledRow
-                title={t`Auto Publish on Save`}
-                description={t`Publish local saves automatically for linked cloud projects.`}
+                title={i18n._(sharedProjectLabels.autoSendTitle)}
+                description={i18n._(sharedProjectLabels.autoSendDescription)}
                 checked={settings.autoPushOnSave}
                 testId={TESTING_IDS.settings.autoPushOnSaveToggle}
                 onChange={(checked) =>
@@ -516,7 +490,7 @@ function AdvancedTab({
             />
             <EnabledDisabledRow
                 title={t`Auto Accept Incoming Work`}
-                description={t`Accept incoming cloud changes automatically unless the same verse already has unresolved local edits.`}
+                description={t`Accept incoming shared changes automatically unless the same verse already has unresolved local edits.`}
                 checked={settings.autoAcceptIncomingWork}
                 testId={TESTING_IDS.settings.autoAcceptIncomingWorkToggle}
                 onChange={(checked) =>
@@ -533,13 +507,16 @@ function AdvancedTab({
                     />
                     <AttachCloudProjectRow
                         cloudSessionUsername={cloudSessionUsername}
-                        gitea={gitea}
-                        displayedRepos={displayedRepos}
-                        selectedRepo={selectedRepo}
-                        onSelectRepo={setSelectedRepo}
+                        picker={picker}
                         portalContainer={portalContainer}
                         isAttaching={cloudActions.isAttaching}
-                        onAttach={() => cloudActions.attach(selectedRepo)}
+                        onAttach={() =>
+                            cloudActions.attach(picker.resolvedRepo)
+                        }
+                        isSavingOwnCopy={cloudActions.isSavingOwnCopy}
+                        onSaveOwnCopy={() =>
+                            cloudActions.saveOwnCopy(picker.resolvedRepo)
+                        }
                     />
                 </>
             ) : null}
@@ -619,8 +596,8 @@ function CreateCloudProjectRow(props: {
 }) {
     return (
         <SettingRow
-            title={t`Create cloud project`}
-            description={t`Create and link a new cloud repository from this local project.`}
+            title={t`Create a shared project`}
+            description={t`Save this project as a new shared project.`}
             control={
                 <div className={styles.rowControlEnd}>
                     <Button
@@ -637,7 +614,7 @@ function CreateCloudProjectRow(props: {
                     >
                         {props.isCreating
                             ? t`Creating...`
-                            : t`Save as new cloud project`}
+                            : t`Save as a new shared project`}
                     </Button>
                 </div>
             }
@@ -645,41 +622,57 @@ function CreateCloudProjectRow(props: {
     );
 }
 
+function catalogRepoLabel(repo: ConsolidatedRepo) {
+    return repo.title?.trim() ? repo.title : repo.repo_name;
+}
+
+function catalogRepoKey(repo: ConsolidatedRepo) {
+    return `${repo.username}/${repo.repo_name}`;
+}
+
 function AttachCloudProjectRow(props: {
     cloudSessionUsername: string | null;
-    gitea: ReturnType<typeof useGiteaApi>;
-    displayedRepos: RemoteRepoSummary[];
-    selectedRepo: RemoteRepoSummary | null;
-    onSelectRepo: (repo: RemoteRepoSummary | null) => void;
+    picker: SharedProjectPicker;
     portalContainer: RefObject<HTMLElement | null>;
     isAttaching: boolean;
     onAttach: () => void;
+    isSavingOwnCopy: boolean;
+    onSaveOwnCopy: () => void;
 }) {
+    const catalogError = props.picker.isCatalogError
+        ? (props.picker.catalogErrorMessage ?? t`Couldn't load your projects`)
+        : null;
     return (
         <SettingRow
-            title={t`Attach existing cloud project`}
-            description={t`Link this local project to any cloud repository you can edit.`}
+            title={t`Connect to a shared project`}
+            description={t`Connect this project to a shared project you can edit.`}
             control={
                 <div className={styles.fieldControl}>
                     <CloudProjectCombobox
-                        gitea={props.gitea}
-                        displayedRepos={props.displayedRepos}
-                        selectedRepo={props.selectedRepo}
-                        onSelectRepo={props.onSelectRepo}
+                        picker={props.picker}
+                        catalogError={catalogError}
                         portalContainer={props.portalContainer}
-                    />
-                    {props.gitea.hasAdditionalReposAvailable ? (
-                        <div className={styles.cloudProjectComboboxMeta}>
-                            {t`Showing ${props.gitea.visiblePageSize} projects to start. Search to find additional repositories.`}
-                        </div>
-                    ) : null}
-                    <CloudAttachActions
                         cloudSessionUsername={props.cloudSessionUsername}
-                        gitea={props.gitea}
-                        selectedRepo={props.selectedRepo}
                         isAttaching={props.isAttaching}
                         onAttach={props.onAttach}
+                        isSavingOwnCopy={props.isSavingOwnCopy}
+                        onSaveOwnCopy={props.onSaveOwnCopy}
                     />
+                    {props.picker.linkTargetLabel ? null : (
+                        <AttachResolveStatus
+                            resolveState={props.picker.resolveState}
+                            targetLabel={
+                                props.picker.selectedRepo
+                                    ? catalogRepoKey(props.picker.selectedRepo)
+                                    : null
+                            }
+                            canRunActions={Boolean(props.cloudSessionUsername)}
+                            isAttaching={props.isAttaching}
+                            isSavingOwnCopy={props.isSavingOwnCopy}
+                            onConnect={props.onAttach}
+                            onSaveOwnCopy={props.onSaveOwnCopy}
+                        />
+                    )}
                 </div>
             }
         />
@@ -687,30 +680,38 @@ function AttachCloudProjectRow(props: {
 }
 
 function CloudProjectCombobox(props: {
-    gitea: ReturnType<typeof useGiteaApi>;
-    displayedRepos: RemoteRepoSummary[];
-    selectedRepo: RemoteRepoSummary | null;
-    onSelectRepo: (repo: RemoteRepoSummary | null) => void;
+    picker: SharedProjectPicker;
+    catalogError: string | null;
     portalContainer: RefObject<HTMLElement | null>;
+    cloudSessionUsername: string | null;
+    isAttaching: boolean;
+    onAttach: () => void;
+    isSavingOwnCopy: boolean;
+    onSaveOwnCopy: () => void;
 }) {
+    const { picker } = props;
+    const selectedKey = picker.selectedRepo
+        ? catalogRepoKey(picker.selectedRepo)
+        : null;
     return (
         <div data-testid={TESTING_IDS.settings.attachRemoteProjectSelect}>
-            <Combobox.Root<RemoteRepoSummary>
-                items={props.displayedRepos}
-                value={props.selectedRepo}
-                inputValue={props.gitea.query}
-                onInputValueChange={props.gitea.setQuery}
-                onValueChange={(value) => props.onSelectRepo(value ?? null)}
-                itemToStringLabel={(item) => item.fullName}
-                itemToStringValue={(item) => item.fullName}
+            <Combobox.Root<ConsolidatedRepo>
+                items={picker.catalogRepos}
+                value={picker.selectedRepo}
+                inputValue={picker.catalogQuery}
+                onInputValueChange={picker.setCatalogQuery}
+                onValueChange={(value) => picker.setSelectedRepo(value ?? null)}
+                itemToStringLabel={catalogRepoLabel}
+                itemToStringValue={catalogRepoKey}
             >
                 <Combobox.Trigger
                     className={styles.cloudProjectComboboxTrigger}
-                    aria-label={t`Select cloud project`}
+                    aria-label={t`Select a shared project`}
                 >
                     <span className={styles.cloudProjectComboboxValue}>
-                        {props.selectedRepo?.fullName ??
-                            t`Select cloud project`}
+                        {picker.selectedRepo
+                            ? catalogRepoLabel(picker.selectedRepo)
+                            : t`Select a shared project`}
                     </span>
                     <span
                         className={styles.cloudProjectComboboxChevron}
@@ -727,8 +728,8 @@ function CloudProjectCombobox(props: {
                             <div className={styles.cloudProjectComboboxHeader}>
                                 <Combobox.Input
                                     className={styles.cloudProjectComboboxInput}
-                                    aria-label={t`Search cloud projects`}
-                                    placeholder={t`Search cloud projects`}
+                                    aria-label={t`Search projects or paste a project link`}
+                                    placeholder={t`Search or paste a project link`}
                                     autoFocus
                                 />
                             </div>
@@ -747,9 +748,9 @@ function CloudProjectCombobox(props: {
                                             styles.cloudProjectComboboxList
                                         }
                                     >
-                                        {props.displayedRepos.map((repo) => (
+                                        {picker.catalogRepos.map((repo) => (
                                             <Combobox.Item
-                                                key={repo.id}
+                                                key={catalogRepoKey(repo)}
                                                 value={repo}
                                                 className={
                                                     styles.cloudProjectComboboxItem
@@ -761,13 +762,22 @@ function CloudProjectCombobox(props: {
                                                     }
                                                     aria-hidden="true"
                                                 >
-                                                    {props.selectedRepo
-                                                        ?.fullName ===
-                                                    repo.fullName ? (
+                                                    {selectedKey ===
+                                                    catalogRepoKey(repo) ? (
                                                         <Check size={14} />
                                                     ) : null}
                                                 </span>
-                                                <span>{repo.fullName}</span>
+                                                <span>
+                                                    {catalogRepoLabel(repo)}
+                                                    <span
+                                                        className={
+                                                            styles.cloudProjectComboboxItemOwner
+                                                        }
+                                                    >
+                                                        {" "}
+                                                        · {repo.username}
+                                                    </span>
+                                                </span>
                                             </Combobox.Item>
                                         ))}
                                     </Combobox.List>
@@ -776,60 +786,48 @@ function CloudProjectCombobox(props: {
                                             styles.cloudProjectComboboxEmpty
                                         }
                                     >
-                                        {t`No cloud projects found.`}
+                                        {/* Link-mode status + action live in the
+                                            footer below, not here. */}
+                                        {picker.linkTargetLabel ? null : picker.isCatalogLoading ? (
+                                            <Trans>
+                                                Loading your projects…
+                                            </Trans>
+                                        ) : props.catalogError ? (
+                                            props.catalogError
+                                        ) : (
+                                            <Trans>
+                                                No shared projects found.
+                                            </Trans>
+                                        )}
                                     </Combobox.Empty>
                                 </ScrollArea.Viewport>
                                 <ScrollArea.Scrollbar orientation="vertical">
                                     <ScrollArea.Thumb />
                                 </ScrollArea.Scrollbar>
                             </ScrollArea.Root>
-                            {props.gitea.hasAdditionalReposAvailable ? (
+                            {picker.linkTargetLabel ? (
                                 <div
                                     className={
-                                        styles.cloudProjectComboboxFooter
+                                        styles.cloudProjectComboboxLinkFooter
                                     }
                                 >
-                                    {t`Showing initial ${props.gitea.visiblePageSize}. Search to find more.`}
+                                    <AttachResolveStatus
+                                        resolveState={picker.resolveState}
+                                        targetLabel={picker.linkTargetLabel}
+                                        canRunActions={Boolean(
+                                            props.cloudSessionUsername,
+                                        )}
+                                        isAttaching={props.isAttaching}
+                                        isSavingOwnCopy={props.isSavingOwnCopy}
+                                        onConnect={props.onAttach}
+                                        onSaveOwnCopy={props.onSaveOwnCopy}
+                                    />
                                 </div>
                             ) : null}
                         </Combobox.Popup>
                     </Combobox.Positioner>
                 </Combobox.Portal>
             </Combobox.Root>
-        </div>
-    );
-}
-
-function CloudAttachActions(props: {
-    cloudSessionUsername: string | null;
-    gitea: ReturnType<typeof useGiteaApi>;
-    selectedRepo: RemoteRepoSummary | null;
-    isAttaching: boolean;
-    onAttach: () => void;
-}) {
-    const attachDisabled =
-        !props.cloudSessionUsername || !props.selectedRepo || props.isAttaching;
-    return (
-        <div className={styles.cloudAttachActions}>
-            <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                disabled={props.gitea.isLoading}
-                onClick={() => void props.gitea.refresh()}
-            >
-                {props.gitea.isLoading ? t`Refreshing...` : t`Refresh`}
-            </Button>
-            <Button
-                type="button"
-                size="sm"
-                variant="primary"
-                data-testid={TESTING_IDS.settings.attachRemoteProjectButton}
-                disabled={attachDisabled}
-                onClick={props.onAttach}
-            >
-                {props.isAttaching ? t`Attaching...` : t`Attach`}
-            </Button>
         </div>
     );
 }

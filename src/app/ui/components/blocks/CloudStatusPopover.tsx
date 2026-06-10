@@ -2,19 +2,19 @@ import { Combobox } from "@base-ui/react/combobox";
 import { Popover as BasePopover } from "@base-ui/react/popover";
 import { ScrollArea } from "@base-ui/react/scroll-area";
 import { Tooltip } from "@base-ui/react/tooltip";
-import type { I18n } from "@lingui/core";
-import { msg } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { Check, ChevronRight, Info } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { Settings } from "@/app/data/settings.ts";
-import {
-    type SyncActionMode,
-    sortReposByOwnerPriority,
-} from "@/app/domain/project/cloudProjectActions.ts";
+import type { SyncActionMode } from "@/app/domain/project/cloudProjectActions.ts";
 import { getRemoteSyncActionMode } from "@/app/domain/project/remoteSync/gitRemoteLifecycle.ts";
+import {
+    presentSharedProjectStatus,
+    sharedProjectLabels,
+} from "@/app/domain/project/remoteSync/sharedProjectCopy.ts";
+import { AttachResolveStatus } from "@/app/ui/components/blocks/SharedProjectAttach/AttachResolveStatus.tsx";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import type { CloudStatusButtonState } from "@/app/ui/components/primitives/CloudStatusButton/index.ts";
 import { CloudStatusButton } from "@/app/ui/components/primitives/CloudStatusButton/index.ts";
@@ -23,22 +23,20 @@ import {
     useCloudProjectActions,
     useRemoteSyncAction,
 } from "@/app/ui/hooks/useCloudProjectActions.ts";
-import { useGiteaApi } from "@/app/ui/hooks/useGiteaApi.ts";
 import { useGiteaLogin } from "@/app/ui/hooks/useGiteaLogin.ts";
 import { useNetworkStatus } from "@/app/ui/hooks/useNetworkStatus.ts";
+import {
+    type AttachResolveState,
+    useSharedProjectPicker,
+} from "@/app/ui/hooks/useSharedProjectPicker.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/CloudStatusPopover.css.ts";
 import { zLayer } from "@/app/ui/styles/zLayers.ts";
+import type { ConsolidatedRepo } from "@/core/domain/project/import/LanguageApiImporter.ts";
 import {
-    GIT_REMOTE_PROJECT_STATUS_CONNECTED,
-    GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW,
-    GIT_REMOTE_PROJECT_STATUS_OFFLINE,
-    GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH,
     GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED,
-    GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE,
     type GitRemoteProjectStatus,
 } from "@/core/persistence/gitRemoteModels.ts";
-import type { RemoteRepoSummary } from "@/core/persistence/RemoteRepoProvider.ts";
 
 type CloudPopoverProps = {
     buttonState: CloudStatusButtonState;
@@ -60,17 +58,31 @@ interface LoginState {
 }
 
 interface RepoSelectionState {
-    displayedRepos: RemoteRepoSummary[];
-    selectedRepo: RemoteRepoSummary | null;
-    setSelectedRepo: (repo: RemoteRepoSummary | null) => void;
-    gitea: ReturnType<typeof useGiteaApi>;
+    /** The shared projects to choose from (yours by default; all when searching). */
+    catalogRepos: ConsolidatedRepo[];
+    catalogQuery: string;
+    setCatalogQuery: (query: string) => void;
+    isCatalogLoading: boolean;
+    catalogErrorMessage: string | null;
+    selectedRepo: ConsolidatedRepo | null;
+    onSelectRepo: (repo: ConsolidatedRepo | null) => void;
+    resolveState: AttachResolveState;
+    /**
+     * `owner/repo` when the search box holds a project link under the configured
+     * host, else null. Lets the picker bypass the catalog and resolve the repo
+     * directly — Git is the source of record, so a freshly-created project is
+     * attachable here before it propagates into the catalog.
+     */
+    linkTargetLabel: string | null;
 }
 
 interface NetworkActions {
     isRunningCreate: boolean;
     isRunningAttach: boolean;
+    isRunningSaveOwnCopy: boolean;
     handleCreateRemote: () => void;
     handleAttachRemote: () => void;
+    handleSaveOwnCopy: () => void;
     canRunNetworkActions: boolean;
 }
 
@@ -105,86 +117,14 @@ function isReauthState(status: GitRemoteProjectStatus | null) {
     return status?.kind === GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED;
 }
 
-const cloudStatusMessages = {
-    connected: {
-        title: msg`Project is in sync`,
-        body: msg`Local and cloud are aligned.`,
-    },
-    remoteUpdatesAvailable: {
-        title: msg`Updates available`,
-        body: msg`You are connected, but there are remote changes for you to sync.`,
-    },
-    pendingPublish: {
-        title: msg`Local changes ahead`,
-        body: msg`You currently have work saved locally that is not saved remotely.`,
-    },
-    needsReview: {
-        title: msg`Needs reconciliation`,
-        body: msg`Your changes are saved, but they conflict with edits from the remote project. You can continue working and saving locally, but you can't save to the cloud until you review these edits.`,
-    },
-    reauthRequired: {
-        title: msg`Reconnect your account`,
-        body: msg`Cloud actions are paused until you sign in to this linked account again.`,
-    },
-    offline: {
-        title: msg`Offline`,
-        body: msg`You are currently offline, but your work is still being saved locally.`,
-    },
-};
-
-function cloudStatusCopy(args: {
-    status: GitRemoteProjectStatus;
-    i18n: I18n;
-}): {
-    title: string;
-    body: string;
-} {
-    const { status, i18n } = args;
-    switch (status.kind) {
-        case GIT_REMOTE_PROJECT_STATUS_CONNECTED:
-            return {
-                title: i18n._(cloudStatusMessages.connected.title),
-                body: i18n._(cloudStatusMessages.connected.body),
-            };
-        case GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE:
-            return {
-                title: i18n._(cloudStatusMessages.remoteUpdatesAvailable.title),
-                body: i18n._(cloudStatusMessages.remoteUpdatesAvailable.body),
-            };
-        case GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH:
-            return {
-                title: i18n._(cloudStatusMessages.pendingPublish.title),
-                body: i18n._(cloudStatusMessages.pendingPublish.body),
-            };
-        case GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW:
-            return {
-                title: i18n._(cloudStatusMessages.needsReview.title),
-                body: i18n._(cloudStatusMessages.needsReview.body),
-            };
-        case GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED:
-            return {
-                title: i18n._(cloudStatusMessages.reauthRequired.title),
-                body: i18n._(cloudStatusMessages.reauthRequired.body),
-            };
-        case GIT_REMOTE_PROJECT_STATUS_OFFLINE:
-            return {
-                title: i18n._(cloudStatusMessages.offline.title),
-                body: i18n._(cloudStatusMessages.offline.body),
-            };
-    }
-}
-
 export function CloudStatusPopover(props: CloudPopoverProps) {
-    const { i18n } = useLingui();
+    const { t, i18n } = useLingui();
     const { remote, project, loadedProject } = useWorkspaceContext();
     const { authSessionProvider, projectsService, giteaHostBaseUrl } =
         useRouter().options.context;
     const { isOnline } = useNetworkStatus();
     const popupContainerRef = useRef<HTMLDivElement | null>(null);
     const [opened, setOpened] = useState(false);
-    const [selectedRepo, setSelectedRepo] = useState<RemoteRepoSummary | null>(
-        null,
-    );
 
     const sessionQuery = useQuery({
         queryKey: ["giteaSession", "cloudPopover", loadedProject.projectPath],
@@ -219,25 +159,13 @@ export function CloudStatusPopover(props: CloudPopoverProps) {
         onSuccess: () => refreshSessionAndStatus(),
     });
 
-    const gitea = useGiteaApi({
+    // Catalog browse + paste-a-link resolve, shared with the settings picker.
+    const picker = useSharedProjectPicker({
+        projectsService,
+        giteaHostBaseUrl,
         sessionUsername,
-        projectsService: {
-            listWritableRemoteRepos: projectsService.listWritableRemoteRepos,
-            listOwnedRemoteRepos: projectsService.listOwnedRemoteRepos,
-        },
+        currentLanguageCode: loadedProject.language.code,
     });
-
-    const displayedRepos = useMemo(() => {
-        const sortedRepos = sortReposByOwnerPriority(
-            gitea.repos,
-            sessionUsername,
-        );
-        if (!selectedRepo) return sortedRepos;
-        if (sortedRepos.some((repo) => repo.id === selectedRepo.id)) {
-            return sortedRepos;
-        }
-        return [selectedRepo, ...sortedRepos];
-    }, [gitea.repos, selectedRepo, sessionUsername]);
 
     const normalizedStatus = remote.status;
 
@@ -252,6 +180,7 @@ export function CloudStatusPopover(props: CloudPopoverProps) {
         !syncAction.isSyncing &&
         !cloudActions.isCreating &&
         !cloudActions.isAttaching &&
+        !cloudActions.isSavingOwnCopy &&
         !isRunningConnect;
 
     function handleRunSyncAction() {
@@ -266,7 +195,16 @@ export function CloudStatusPopover(props: CloudPopoverProps) {
 
     function handleAttachRemote() {
         if (!canRunNetworkActions) return;
-        cloudActions.attach(selectedRepo);
+        if (picker.resolveState !== "writable" || !picker.resolvedRepo) return;
+        cloudActions.attach(picker.resolvedRepo);
+    }
+
+    function handleSaveOwnCopy() {
+        if (!canRunNetworkActions) return;
+        if (picker.resolveState !== "not-writable" || !picker.resolvedRepo) {
+            return;
+        }
+        cloudActions.saveOwnCopy(picker.resolvedRepo);
     }
 
     const remoteCommitLabel = formatCommitTimestamp(
@@ -276,11 +214,18 @@ export function CloudStatusPopover(props: CloudPopoverProps) {
         normalizedStatus?.lastKnownLocalHeadAuthoredAt,
     );
 
-    const statusCopy = normalizedStatus
-        ? cloudStatusCopy({
+    const statusPresentation = normalizedStatus
+        ? presentSharedProjectStatus({
               status: normalizedStatus,
+              isRefreshing: false,
               i18n,
           })
+        : null;
+    const statusCopy = statusPresentation
+        ? {
+              title: statusPresentation.headline,
+              body: statusPresentation.detail,
+          }
         : null;
 
     return (
@@ -329,12 +274,26 @@ export function CloudStatusPopover(props: CloudPopoverProps) {
                                 isRunningConnect={isRunningConnect}
                                 isRunningCreate={cloudActions.isCreating}
                                 isRunningAttach={cloudActions.isAttaching}
+                                isRunningSaveOwnCopy={
+                                    cloudActions.isSavingOwnCopy
+                                }
                                 handleCreateRemote={handleCreateRemote}
                                 handleAttachRemote={handleAttachRemote}
-                                displayedRepos={displayedRepos}
-                                selectedRepo={selectedRepo}
-                                setSelectedRepo={setSelectedRepo}
-                                gitea={gitea}
+                                handleSaveOwnCopy={handleSaveOwnCopy}
+                                catalogRepos={picker.catalogRepos}
+                                catalogQuery={picker.catalogQuery}
+                                setCatalogQuery={picker.setCatalogQuery}
+                                isCatalogLoading={picker.isCatalogLoading}
+                                catalogErrorMessage={
+                                    picker.isCatalogError
+                                        ? (picker.catalogErrorMessage ??
+                                          t`Couldn't load your projects`)
+                                        : null
+                                }
+                                selectedRepo={picker.selectedRepo}
+                                onSelectRepo={picker.setSelectedRepo}
+                                resolveState={picker.resolveState}
+                                linkTargetLabel={picker.linkTargetLabel}
                                 popupContainerRef={popupContainerRef}
                             />
                         </div>
@@ -392,12 +351,13 @@ function SyncingState() {
     return (
         <>
             <h3 className={styles.heading}>
-                <Trans>Syncing</Trans>
+                <Trans>Checking…</Trans>
             </h3>
             <p className={styles.body}>
                 <Trans>
-                    Syncing with the cloud. This may take a moment. A window
-                    will appear to review changes if needed.
+                    Checking the shared project for changes to send or receive.
+                    This may take a moment. A window will appear to review
+                    changes if needed.
                 </Trans>
             </p>
             <div className={styles.progressTrack}>
@@ -444,19 +404,19 @@ function ConnectedStatus(
             </div>
             <div className={styles.statusMeta}>
                 <span className={styles.statusMetaLabel}>
-                    <Trans>Remote</Trans>
+                    <Trans>Shared project link</Trans>
                 </span>
                 <span>
                     {props.remote.projectInfo?.repoUrl ?? t`Not connected`}
                 </span>
                 <span className={styles.statusMetaLabel}>
-                    <Trans>Last local commit</Trans>
+                    <Trans>Last saved here</Trans>
                 </span>
                 <span className={styles.statusMetaTimestamp}>
                     {props.localCommitLabel}
                 </span>
                 <span className={styles.statusMetaLabel}>
-                    <Trans>Last remote commit</Trans>
+                    <Trans>Last update in the shared project</Trans>
                 </span>
                 <span className={styles.statusMetaTimestamp}>
                     {props.remoteCommitLabel}
@@ -508,12 +468,19 @@ function NotUploadedState(
                 <SignedInState
                     isRunningCreate={props.isRunningCreate}
                     isRunningAttach={props.isRunningAttach}
+                    isRunningSaveOwnCopy={props.isRunningSaveOwnCopy}
                     handleCreateRemote={props.handleCreateRemote}
                     handleAttachRemote={props.handleAttachRemote}
-                    displayedRepos={props.displayedRepos}
+                    handleSaveOwnCopy={props.handleSaveOwnCopy}
+                    catalogRepos={props.catalogRepos}
+                    catalogQuery={props.catalogQuery}
+                    setCatalogQuery={props.setCatalogQuery}
+                    isCatalogLoading={props.isCatalogLoading}
+                    catalogErrorMessage={props.catalogErrorMessage}
                     selectedRepo={props.selectedRepo}
-                    setSelectedRepo={props.setSelectedRepo}
-                    gitea={props.gitea}
+                    onSelectRepo={props.onSelectRepo}
+                    resolveState={props.resolveState}
+                    linkTargetLabel={props.linkTargetLabel}
                     canRunNetworkActions={props.canRunNetworkActions}
                     sessionUsername={props.sessionUsername}
                     popupContainerRef={props.popupContainerRef}
@@ -535,6 +502,14 @@ function NotUploadedState(
     );
 }
 
+function catalogRepoLabel(repo: ConsolidatedRepo) {
+    return repo.title?.trim() ? repo.title : repo.repo_name;
+}
+
+function catalogRepoKey(repo: ConsolidatedRepo) {
+    return `${repo.username}/${repo.repo_name}`;
+}
+
 function SignedInState(
     props: NetworkActions &
         RepoSelectionState & {
@@ -543,6 +518,9 @@ function SignedInState(
         },
 ) {
     const { t } = useLingui();
+    const selectedKey = props.selectedRepo
+        ? catalogRepoKey(props.selectedRepo)
+        : null;
     return (
         <>
             <p className={styles.signedIn}>
@@ -559,32 +537,31 @@ function SignedInState(
                     {props.isRunningCreate ? (
                         <Trans>Creating...</Trans>
                     ) : (
-                        <Trans>Save as new cloud project</Trans>
+                        <Trans>Save as a new shared project</Trans>
                     )}
                 </Button>
             </div>
             <div className={styles.fieldGroup}>
                 <span className={styles.label}>
-                    <Trans>Attach existing cloud project</Trans>
+                    <Trans>Connect to a shared project</Trans>
                 </span>
-                <Combobox.Root<RemoteRepoSummary>
-                    items={props.displayedRepos}
+                <Combobox.Root<ConsolidatedRepo>
+                    items={props.catalogRepos}
                     value={props.selectedRepo}
-                    inputValue={props.gitea.query}
-                    onInputValueChange={props.gitea.setQuery}
-                    onValueChange={(value) =>
-                        props.setSelectedRepo(value ?? null)
-                    }
-                    itemToStringLabel={(item) => item.fullName}
-                    itemToStringValue={(item) => item.fullName}
+                    inputValue={props.catalogQuery}
+                    onInputValueChange={props.setCatalogQuery}
+                    onValueChange={(value) => props.onSelectRepo(value ?? null)}
+                    itemToStringLabel={catalogRepoLabel}
+                    itemToStringValue={catalogRepoKey}
                 >
                     <Combobox.Trigger
                         className={styles.comboboxTrigger}
-                        aria-label={t`Select cloud project`}
+                        aria-label={t`Select a shared project`}
                     >
                         <span className={styles.comboboxValue}>
-                            {props.selectedRepo?.fullName ??
-                                t`Select cloud project`}
+                            {props.selectedRepo
+                                ? catalogRepoLabel(props.selectedRepo)
+                                : t`Select a shared project`}
                         </span>
                         <span
                             className={styles.comboboxChevron}
@@ -599,8 +576,8 @@ function SignedInState(
                                 <div className={styles.comboboxHeader}>
                                     <Combobox.Input
                                         className={styles.comboboxInput}
-                                        aria-label={t`Search cloud projects`}
-                                        placeholder={t`Search cloud projects`}
+                                        aria-label={t`Search projects or paste a project link`}
+                                        placeholder={t`Search or paste a project link`}
                                         autoFocus
                                     />
                                 </div>
@@ -615,91 +592,100 @@ function SignedInState(
                                         <Combobox.List
                                             className={styles.comboboxList}
                                         >
-                                            {props.displayedRepos.map(
-                                                (repo) => (
-                                                    <Combobox.Item
-                                                        key={repo.id}
-                                                        value={repo}
+                                            {props.catalogRepos.map((repo) => (
+                                                <Combobox.Item
+                                                    key={catalogRepoKey(repo)}
+                                                    value={repo}
+                                                    className={
+                                                        styles.comboboxItem
+                                                    }
+                                                >
+                                                    <span
                                                         className={
-                                                            styles.comboboxItem
+                                                            styles.comboboxItemIndicator
                                                         }
+                                                        aria-hidden="true"
                                                     >
+                                                        {selectedKey ===
+                                                        catalogRepoKey(repo) ? (
+                                                            <Check size={14} />
+                                                        ) : null}
+                                                    </span>
+                                                    <span>
+                                                        {catalogRepoLabel(repo)}
                                                         <span
                                                             className={
-                                                                styles.comboboxItemIndicator
+                                                                styles.comboboxItemOwner
                                                             }
-                                                            aria-hidden="true"
                                                         >
-                                                            {props.selectedRepo
-                                                                ?.id ===
-                                                            repo.id ? (
-                                                                <Check
-                                                                    size={14}
-                                                                />
-                                                            ) : null}
+                                                            {" "}
+                                                            · {repo.username}
                                                         </span>
-                                                        <span>
-                                                            {repo.fullName}
-                                                        </span>
-                                                    </Combobox.Item>
-                                                ),
-                                            )}
+                                                    </span>
+                                                </Combobox.Item>
+                                            ))}
                                         </Combobox.List>
                                         <Combobox.Empty
                                             className={styles.comboboxEmpty}
                                         >
-                                            <Trans>
-                                                No cloud projects found.
-                                            </Trans>
+                                            {/* Link-mode status + action live in
+                                                the footer below, not here. */}
+                                            {props.linkTargetLabel ? null : props.isCatalogLoading ? (
+                                                <Trans>
+                                                    Loading your projects…
+                                                </Trans>
+                                            ) : props.catalogErrorMessage ? (
+                                                props.catalogErrorMessage
+                                            ) : (
+                                                <Trans>
+                                                    No shared projects found.
+                                                </Trans>
+                                            )}
                                         </Combobox.Empty>
                                     </ScrollArea.Viewport>
                                     <ScrollArea.Scrollbar orientation="vertical">
                                         <ScrollArea.Thumb />
                                     </ScrollArea.Scrollbar>
                                 </ScrollArea.Root>
+                                {props.linkTargetLabel ? (
+                                    <div className={styles.comboboxLinkFooter}>
+                                        <AttachResolveStatus
+                                            resolveState={props.resolveState}
+                                            targetLabel={props.linkTargetLabel}
+                                            canRunActions={
+                                                props.canRunNetworkActions
+                                            }
+                                            isAttaching={props.isRunningAttach}
+                                            isSavingOwnCopy={
+                                                props.isRunningSaveOwnCopy
+                                            }
+                                            onConnect={props.handleAttachRemote}
+                                            onSaveOwnCopy={
+                                                props.handleSaveOwnCopy
+                                            }
+                                        />
+                                    </div>
+                                ) : null}
                             </Combobox.Popup>
                         </Combobox.Positioner>
                     </Combobox.Portal>
                 </Combobox.Root>
+                {props.linkTargetLabel ? null : (
+                    <AttachResolveStatus
+                        resolveState={props.resolveState}
+                        targetLabel={
+                            props.selectedRepo
+                                ? catalogRepoKey(props.selectedRepo)
+                                : null
+                        }
+                        canRunActions={props.canRunNetworkActions}
+                        isAttaching={props.isRunningAttach}
+                        isSavingOwnCopy={props.isRunningSaveOwnCopy}
+                        onConnect={props.handleAttachRemote}
+                        onSaveOwnCopy={props.handleSaveOwnCopy}
+                    />
+                )}
             </div>
-            <div className={styles.inlineGrid}>
-                <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => props.gitea.refresh()}
-                    disabled={!props.canRunNetworkActions}
-                >
-                    {props.gitea.isLoading ? (
-                        <Trans>Refreshing...</Trans>
-                    ) : (
-                        <Trans>Refresh</Trans>
-                    )}
-                </Button>
-                <Button
-                    type="button"
-                    size="sm"
-                    variant="primary"
-                    onClick={() => props.handleAttachRemote()}
-                    disabled={
-                        !props.canRunNetworkActions || !props.selectedRepo
-                    }
-                >
-                    {props.isRunningAttach ? (
-                        <Trans>Attaching...</Trans>
-                    ) : (
-                        <Trans>Attach</Trans>
-                    )}
-                </Button>
-            </div>
-            {props.gitea.hasAdditionalReposAvailable ? (
-                <p className={styles.helper}>
-                    <Trans>
-                        Showing {props.gitea.visiblePageSize} projects to start.
-                        Search to find additional repositories.
-                    </Trans>
-                </p>
-            ) : null}
         </>
     );
 }
@@ -804,19 +790,19 @@ function AutoSyncSettings(props: {
     settings: Settings;
     onChange: (updates: Partial<Settings>) => void;
 }) {
-    const { t } = useLingui();
+    const { t, i18n } = useLingui();
     const [expanded, setExpanded] = useState(false);
 
     const rows: AutoSyncRow[] = [
         {
             key: "autoSyncOnOpen",
-            title: t`Auto Sync on Open`,
-            description: t`Check for cloud updates automatically when opening a linked project.`,
+            title: i18n._(sharedProjectLabels.autoReceiveTitle),
+            description: i18n._(sharedProjectLabels.autoReceiveDescription),
         },
         {
             key: "autoPushOnSave",
-            title: t`Auto Publish on Save`,
-            description: t`Publish local saves automatically for linked cloud projects.`,
+            title: i18n._(sharedProjectLabels.autoSendTitle),
+            description: i18n._(sharedProjectLabels.autoSendDescription),
         },
         {
             key: "autoAcceptOwnWorkOnSave",
@@ -846,7 +832,7 @@ function AutoSyncSettings(props: {
                 >
                     <ChevronRight size={12} />
                 </span>
-                <Trans>Auto-sync settings</Trans>
+                <Trans>Send & receive settings</Trans>
             </button>
             {expanded ? (
                 <div className={styles.settingsList}>
