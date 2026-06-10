@@ -12,10 +12,6 @@ import { SearchPanel } from "../search-panel/SearchPanel.tsx";
 
 interface EditorPaneProps {
     isSmall: boolean;
-    hasReferenceResource: boolean;
-    hasSearchPaneOpen: boolean;
-    toggleReferencePane: () => void;
-    toggleSearchPane: () => void;
 }
 
 function EditorPane(props: EditorPaneProps) {
@@ -28,14 +24,6 @@ function EditorPane(props: EditorPaneProps) {
                     : styles.editorWrapperDesktop
             }
         >
-            <div className={styles.editorPaneHeader}>
-                <EditorToolbar
-                    isReferencePaneOpen={props.hasReferenceResource}
-                    onToggleReferencePane={props.toggleReferencePane}
-                    isSearchPaneOpen={props.hasSearchPaneOpen}
-                    onToggleSearchPane={props.toggleSearchPane}
-                />
-            </div>
             <MainEditor />
         </div>
     );
@@ -80,24 +68,13 @@ export type WorkspacePane = "editor" | "settings" | "projects" | "search";
 
 interface WorkspacePaneStackProps {
     isSmall: boolean;
-    activeWorkspacePane: WorkspacePane;
-    hasReferenceResource: boolean;
-    hasSearchPaneOpen: boolean;
-    toggleReferencePane: () => void;
-    toggleSearchPane: () => void;
 }
 
 function WorkspacePaneStack(props: WorkspacePaneStackProps) {
     return (
         <div className={styles.workspacePaneStack}>
             <div className={styles.workspaceEditorPane}>
-                <EditorPane
-                    isSmall={props.isSmall}
-                    hasReferenceResource={props.hasReferenceResource}
-                    hasSearchPaneOpen={props.hasSearchPaneOpen}
-                    toggleReferencePane={props.toggleReferencePane}
-                    toggleSearchPane={props.toggleSearchPane}
-                />
+                <EditorPane isSmall={props.isSmall} />
             </div>
         </div>
     );
@@ -127,6 +104,17 @@ function EditorsShell(props: EditorsShellProps) {
             }
         >
             <div className={styles.workspaceEditorsStage}>
+                {/* Full-width toolbar bar — spans the reference + editor row
+                    beneath it. Covered by the overlay pane when a non-editor
+                    pane (settings/projects/search) is active. */}
+                <div className={styles.editorToolbarRow}>
+                    <EditorToolbar
+                        isReferencePaneOpen={props.hasReferenceResource}
+                        onToggleReferencePane={props.toggleReferencePane}
+                        isSearchPaneOpen={props.hasSearchPaneOpen}
+                        onToggleSearchPane={props.toggleSearchPane}
+                    />
+                </div>
                 <div
                     className={
                         props.isSmall
@@ -139,14 +127,7 @@ function EditorsShell(props: EditorsShellProps) {
                     {props.hasReferenceResource ? (
                         <ReferencePane isSmall={props.isSmall} />
                     ) : null}
-                    <WorkspacePaneStack
-                        isSmall={props.isSmall}
-                        activeWorkspacePane={props.activeWorkspacePane}
-                        hasReferenceResource={props.hasReferenceResource}
-                        hasSearchPaneOpen={props.hasSearchPaneOpen}
-                        toggleReferencePane={props.toggleReferencePane}
-                        toggleSearchPane={props.toggleSearchPane}
-                    />
+                    <WorkspacePaneStack isSmall={props.isSmall} />
                     <SaveAndReviewChangesOverlay />
                 </div>
                 {props.activeWorkspacePane !== "editor" ? (

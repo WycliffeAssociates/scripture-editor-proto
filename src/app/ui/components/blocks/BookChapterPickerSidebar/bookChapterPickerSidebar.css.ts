@@ -16,6 +16,41 @@ export const shell = style({
     overflow: "hidden",
 });
 
+export const findButton = style({
+    flex: "0 0 auto",
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    gap: vars.spacing.sm,
+    minHeight: "2.5rem",
+    marginBottom: vars.spacing.sm,
+    paddingInline: vars.spacing.md,
+    paddingBlock: vars.spacing.sm,
+    borderRadius: vars.border.radius.md,
+    border: `${vars.border.width.thin} solid ${railBorder}`,
+    backgroundColor: railSurface,
+    color: railTextMuted,
+    fontSize: vars.typography.bodySmall.fontSize,
+    fontWeight: 600,
+    textAlign: "left",
+    cursor: "pointer",
+    transition: "background-color 140ms ease, color 140ms ease",
+    selectors: {
+        "&:hover": {
+            backgroundColor: railSurfaceHover,
+            color: railTextStrong,
+        },
+        "&:focus-visible": {
+            outline: `2px solid ${vars.color.brandBase}`,
+            outlineOffset: 2,
+        },
+    },
+});
+
+export const findButtonIcon = style({
+    flexShrink: 0,
+});
+
 export const viewport = style({
     position: "relative",
     flex: 1,

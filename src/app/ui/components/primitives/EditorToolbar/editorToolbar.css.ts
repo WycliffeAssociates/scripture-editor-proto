@@ -1,4 +1,4 @@
-import { keyframes, style } from "@vanilla-extract/css";
+import { globalStyle, keyframes, style } from "@vanilla-extract/css";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
 
 const spin = keyframes({
@@ -18,19 +18,77 @@ export const dialogButtonContent = style({
 });
 
 export const root = style({
+    flex: "1 1 auto",
+    width: "100%",
+    minWidth: 0,
     display: "flex",
     flexDirection: "column",
-    paddingBlock: vars.spacing.xs,
-    paddingInline: vars.spacing.sm,
+    // The toolbar is its own white surface floating on the canvas — one
+    // continuous bar across the top (no inter-group separators for now), with
+    // the figma radius, padding and drop shadow.
+    backgroundColor: vars.color.surfacePrimary,
+    border: `${vars.border.width.thin} solid ${vars.color.surfaceBorder}`,
+    borderRadius: vars.border.radius.xl,
+    boxShadow: vars.shadow.small,
+    paddingBlock: vars.spacing.sm,
+    paddingInline: vars.spacing.md,
 });
 
 export const toolbarRow = style({
     width: "100%",
     display: "flex",
     alignItems: "center",
+    justifyContent: "space-between",
+    gap: vars.spacing.sm,
+    flexWrap: "wrap",
+});
+
+export const leftGroup = style({
+    display: "flex",
+    alignItems: "center",
+    gap: vars.spacing.sm,
+    minWidth: 0,
+});
+
+export const rightGroup = style({
+    display: "flex",
+    alignItems: "center",
     justifyContent: "flex-end",
     gap: vars.spacing.sm,
     flexWrap: "wrap",
+    minWidth: 0,
+});
+
+export const saveButton = style({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: vars.spacing.xs,
+    height: "2rem",
+    paddingInline: vars.spacing.sm,
+    borderRadius: vars.border.radius.md,
+    border: `${vars.border.width.thin} solid ${vars.color.surfaceBorder}`,
+    backgroundColor: vars.color.surfacePrimary,
+    color: vars.color.onSurfacePrimary,
+    fontSize: vars.typography.bodySmall.fontSize,
+    fontWeight: 600,
+    cursor: "pointer",
+    transition:
+        "background-color 120ms ease, border-color 120ms ease, color 120ms ease",
+    selectors: {
+        "&:hover": {
+            borderColor: vars.color.brandBase,
+            backgroundColor: vars.button.tertiary.surfaceHover,
+        },
+        "&:focus-visible": {
+            outline: "none",
+            boxShadow: `0 0 0 2px ${vars.color.surfacePrimary}, 0 0 0 4px ${vars.color.brandBase}`,
+        },
+    },
+});
+
+// The save glyph carries the brand accent; the label stays neutral.
+globalStyle(`${saveButton} > svg`, {
+    color: vars.color.brandBase,
 });
 
 export const clusterRow = style({
@@ -54,13 +112,6 @@ export const cluster = style({
 
 export const leftCluster = style({
     flex: "1 1 auto",
-});
-
-export const locationSeparator = style({
-    width: "1px",
-    height: "1rem",
-    backgroundColor: vars.color.surfaceBorder,
-    flex: "0 0 auto",
 });
 
 export const currentLocation = style({

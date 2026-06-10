@@ -78,6 +78,8 @@ export const vars = createThemeContract({
         surfacePrimary: "",
         surfaceSecondary: "",
         surfaceTertiary: "",
+        /** App canvas behind cards/tables — faintly accent-tinted. */
+        surfaceCanvas: "",
         surfaceBorder: "",
         surfaceInvert: "",
         surfaceOverlay: "",
@@ -254,6 +256,7 @@ const lightValues = {
         surfacePrimary: primitives.neutral[100],
         surfaceSecondary: primitives.neutral[95],
         surfaceTertiary: primitives.neutral[90],
+        surfaceCanvas: "#F4F8FB",
         surfaceBorder: primitives.neutral[90],
         surfaceInvert: primitives.neutral[5],
         surfaceOverlay: "rgba(31, 31, 31, 0.6)",
@@ -329,6 +332,9 @@ const darkValues = {
         surfacePrimary: primitives.neutral[20],
         surfaceSecondary: primitives.neutral[10],
         surfaceTertiary: primitives.neutral[5],
+        // Mirror of the light canvas: a near-black surface with a faint accent
+        // tint so the page reads as "behind the cards" rather than pure black.
+        surfaceCanvas: `color-mix(in srgb, ${primitives.brand[40]} 6%, ${primitives.neutral[10]})`,
         surfaceBorder: primitives.neutral[5],
         surfaceInvert: primitives.neutral[90],
         surfaceOverlay: "rgba(31, 31, 31, 0.8)",

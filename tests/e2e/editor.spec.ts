@@ -274,6 +274,14 @@ test.describe("Reference Project Selection", () => {
         ).toBeVisible();
     });
 
+    /*
+     * DISABLED: the "Sync navigation" toggle and the reference-only chapter
+     * arrows were removed from the reference UI (nav-sync is now always on),
+     * so this test targets controls that no longer exist.
+     * TODO: delete this block, or rewrite it, once the sync-nav direction is
+     * settled (see TODOs at the isReferenceNavSynced state seam in
+     * useReferenceItem.tsx).
+     *
     test("reference navigation can move independently when sync navigation is off", async ({
         editorWithTwoProjects: page,
     }, testInfo) => {
@@ -309,6 +317,7 @@ test.describe("Reference Project Selection", () => {
             refChapterBefore ?? "",
         );
     });
+    */
 });
 
 test.describe("Search Functionality", () => {

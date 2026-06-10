@@ -60,6 +60,13 @@ export const triggerValue = style({
     textAlign: "left",
 });
 
+/* The positioner is position:fixed, so it forms its own stacking context. It
+   must carry the dropdown z-index — otherwise the popup's z-index is trapped at
+   the positioner's level (auto) and loses to sticky page chrome above it. */
+export const positioner = style({
+    zIndex: zLayer.selectDropdown,
+});
+
 export const popup = style({
     minWidth: "var(--anchor-width)",
     backgroundColor: vars.color.surfacePrimary,

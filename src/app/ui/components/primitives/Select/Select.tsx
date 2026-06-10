@@ -60,7 +60,11 @@ export function SelectPrimitive({
             </Select.Trigger>
 
             <Select.Portal container={portalContainer}>
-                <Select.Positioner sideOffset={8} alignItemWithTrigger={false}>
+                <Select.Positioner
+                    className={styles.positioner}
+                    sideOffset={8}
+                    alignItemWithTrigger={false}
+                >
                     <Select.Popup
                         className={joinClassNames(styles.popup, popupClassName)}
                     >

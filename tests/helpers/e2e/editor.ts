@@ -10,7 +10,7 @@ export async function openActionPalette(page: Page) {
 }
 
 export async function openSearchPanel(page: Page) {
-    await page.getByRole("button", { name: "Open search" }).click();
+    await page.getByRole("button", { name: "Find" }).click();
 }
 
 export async function fillSearchQuery(page: Page, query: string) {

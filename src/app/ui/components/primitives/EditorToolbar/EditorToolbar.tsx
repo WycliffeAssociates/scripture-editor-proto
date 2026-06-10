@@ -7,8 +7,6 @@ import {
     BookCopy,
     ChevronLeft,
     ChevronRight,
-    ClipboardPaste,
-    Copy,
     Hash,
     Loader2,
     MessageSquare,
@@ -16,8 +14,6 @@ import {
     Quote,
     Redo2,
     Save,
-    Scissors,
-    Search,
     Undo2,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
@@ -30,12 +26,11 @@ import {
     parseClipboardUsfmToTokens,
     parsedUsfmTokensToInsertableNodes,
 } from "@/app/domain/editor/utils/usfmPaste.ts";
+import { presentSharedProjectStatus } from "@/app/domain/project/remoteSync/sharedProjectCopy.ts";
 import { CloudStatusPopover } from "@/app/ui/components/blocks/CloudStatusPopover.tsx";
 import { FindingsPopover } from "@/app/ui/components/blocks/FindingsPopover.tsx";
 import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker.tsx";
-import { VersionsPopover } from "@/app/ui/components/blocks/VersionsPopover.tsx";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
-import type { CloudStatusButtonState } from "@/app/ui/components/primitives/CloudStatusButton/index.ts";
 import { joinClassNames } from "@/app/ui/components/primitives/classNames.ts";
 import { showNotificationInfo } from "@/app/ui/components/primitives/notifications.ts";
 import { ToolbarOverflowMenu } from "@/app/ui/components/primitives/ToolbarOverflowMenu/index.ts";
@@ -43,15 +38,6 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { getLocalizedUsfmMarkerLabel } from "@/app/ui/i18n/usfmMarkerLocalization.ts";
 import * as dialogStyles from "@/app/ui/styles/modules/ProjectRow.css.ts";
 import { zLayer } from "@/app/ui/styles/zLayers.ts";
-import {
-    GIT_REMOTE_PROJECT_STATUS_CONNECTED,
-    GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW,
-    GIT_REMOTE_PROJECT_STATUS_OFFLINE,
-    GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH,
-    GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED,
-    GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE,
-    type GitRemoteProjectStatus,
-} from "@/core/persistence/gitRemoteModels.ts";
 import * as styles from "./editorToolbar.css.ts";
 
 type EditorToolbarProps = {
@@ -63,7 +49,7 @@ type EditorToolbarProps = {
 
 //todo: This is probably rye for decomposition. There's a mixture of state, a good number of dependent and dependency injection of the workspace context. especially the stuff like handle cut, handle copy, handle paste. Just kind of distracts from seeing the return body and feels like a lot of logic before and most of these functions feel like we could probably, you know, extract some of this out, move some of it to some other spots potentially. I'm open to your suggestions on it ON HOW YOU'D DEOMCPOSE HERE.
 export function EditorToolbar(props: EditorToolbarProps) {
-    const { t } = useLingui();
+    const { t, i18n } = useLingui();
     const {
         actions,
         editorRef,
@@ -80,11 +66,11 @@ export function EditorToolbar(props: EditorToolbarProps) {
     const currentBookLabel = bookCodeToProjectLocalizedTitle({
         bookCode: project.pickedFile.bookCode,
     });
-    const cloudStatus = getCloudStatusPresentation(
-        remote.status,
-        remote.isRefreshing,
-        t,
-    );
+    const cloudStatus = presentSharedProjectStatus({
+        status: remote.status,
+        isRefreshing: remote.isRefreshing,
+        i18n,
+    });
 
     const handleCut = async () => {
         const editor = editorRef.current;
@@ -231,10 +217,66 @@ export function EditorToolbar(props: EditorToolbarProps) {
     const markerButtonLabel = (marker: string) =>
         getLocalizedUsfmMarkerLabel(marker);
 
+    // The "Content" section of the kebab. Icons + localized labels are minted
+    // here because the toolbar owns the marker vocabulary; the kebab is just a
+    // renderer. Order mirrors the old top-level marker clusters.
+    const markerActions = [
+        {
+            marker: "p",
+            label: markerButtonLabel("p"),
+            icon: <Pilcrow size={15} />,
+            onSelect: () => handleInsertUsfm("p"),
+        },
+        {
+            marker: "m",
+            label: markerButtonLabel("m"),
+            icon: <AlignLeft size={15} />,
+            onSelect: () => handleInsertUsfm("m"),
+        },
+        {
+            marker: "q1",
+            label: markerButtonLabel("q1"),
+            icon: <QuoteLevelIcon level={1} />,
+            onSelect: () => handleInsertUsfm("q1"),
+        },
+        {
+            marker: "q2",
+            label: markerButtonLabel("q2"),
+            icon: <QuoteLevelIcon level={2} />,
+            onSelect: () => handleInsertUsfm("q2"),
+        },
+        {
+            marker: "v",
+            label: markerButtonLabel("v"),
+            icon: <Hash size={14} />,
+            onSelect: () => handleInsertUsfm("v"),
+        },
+        {
+            marker: "f",
+            label: markerButtonLabel("f"),
+            icon: <MessageSquare size={14} />,
+            onSelect: () => handleInsertUsfm("f"),
+        },
+    ];
+
     return (
         <div className={styles.root}>
             <div className={styles.toolbarRow}>
-                <div className={styles.clusterRow}>
+                <div className={styles.leftGroup}>
+                    <div
+                        className={styles.currentLocation}
+                        data-testid={TESTING_IDS.currentLocation}
+                    >
+                        <span className={styles.currentLocationBook}>
+                            {currentBookLabel}
+                        </span>
+                        <span>{project.pickedChapter?.chapterNumber}</span>
+                    </div>
+                </div>
+
+                <div className={styles.rightGroup}>
+                    {/* Chapter-nav chevrons sit immediately left of the kebab
+                        (intentional deviation from the figma). */}
                     <div className={styles.cluster}>
                         <ToolbarTooltipButton
                             label={t`Previous chapter`}
@@ -250,99 +292,28 @@ export function EditorToolbar(props: EditorToolbarProps) {
                         />
                     </div>
 
-                    <div
-                        className={styles.locationSeparator}
-                        aria-hidden="true"
-                    />
-
-                    <div
-                        className={styles.currentLocation}
-                        data-testid={TESTING_IDS.currentLocation}
-                    >
-                        <span className={styles.currentLocationBook}>
-                            {currentBookLabel}
-                        </span>
-                        <span>{project.pickedChapter?.chapterNumber}</span>
-                    </div>
-
-                    <div
-                        className={styles.locationSeparator}
-                        aria-hidden="true"
-                    />
-
-                    <div className={styles.cluster}>
-                        <ToolbarTooltipButton
-                            label={markerButtonLabel("p")}
-                            onClick={() => handleInsertUsfm("p")}
-                            icon={<Pilcrow size={15} />}
-                        />
-                        <ToolbarTooltipButton
-                            label={markerButtonLabel("m")}
-                            onClick={() => handleInsertUsfm("m")}
-                            icon={<AlignLeft size={15} />}
-                        />
-                        <ToolbarTooltipButton
-                            label={markerButtonLabel("q1")}
-                            onClick={() => handleInsertUsfm("q1")}
-                            icon={<QuoteLevelIcon level={1} />}
-                        />
-                        <ToolbarTooltipButton
-                            label={markerButtonLabel("q2")}
-                            onClick={() => handleInsertUsfm("q2")}
-                            icon={<QuoteLevelIcon level={2} />}
-                        />
-                    </div>
-
-                    <div
-                        className={styles.locationSeparator}
-                        aria-hidden="true"
+                    <ToolbarOverflowMenu
+                        onCut={() => {
+                            void handleCut();
+                        }}
+                        onCopy={() => {
+                            void handleCopy();
+                        }}
+                        onPaste={() => {
+                            void handlePaste();
+                        }}
+                        markerActions={markerActions}
+                        onMatchFormattingToSource={
+                            handleMatchFormattingToSource
+                        }
+                        onCopyEditorJson={
+                            import.meta.env.DEV
+                                ? () => void handleCopyEditorJson()
+                                : undefined
+                        }
                     />
 
                     <div className={styles.cluster}>
-                        <ToolbarTooltipButton
-                            label={markerButtonLabel("v")}
-                            onClick={() => handleInsertUsfm("v")}
-                            icon={<Hash size={14} />}
-                        />
-                        <ToolbarTooltipButton
-                            label={markerButtonLabel("f")}
-                            onClick={() => handleInsertUsfm("f")}
-                            icon={<MessageSquare size={14} />}
-                        />
-                    </div>
-
-                    <div
-                        className={styles.locationSeparator}
-                        aria-hidden="true"
-                    />
-
-                    <div className={styles.cluster}>
-                        <ToolbarTooltipButton
-                            label={t`Cut`}
-                            onClick={() => {
-                                void handleCut();
-                            }}
-                            icon={<Scissors size={16} />}
-                        />
-                        <ToolbarTooltipButton
-                            label={t`Copy`}
-                            onClick={() => {
-                                void handleCopy();
-                            }}
-                            icon={<Copy size={16} />}
-                        />
-                        <ToolbarTooltipButton
-                            label={t`Paste`}
-                            onClick={() => {
-                                void handlePaste();
-                            }}
-                            icon={<ClipboardPaste size={16} />}
-                        />
-                        <ToolbarTooltipButton
-                            label={t`Save`}
-                            onClick={handleOpenSaveReview}
-                            icon={<Save size={16} />}
-                        />
                         <ToolbarTooltipButton
                             label={undoLabel ? t`Undo — ${undoLabel}` : t`Undo`}
                             onClick={history.undo}
@@ -357,12 +328,14 @@ export function EditorToolbar(props: EditorToolbarProps) {
                         />
                     </div>
 
-                    <div
-                        className={styles.locationSeparator}
-                        aria-hidden="true"
-                    />
-
                     <div className={styles.cluster}>
+                        <FindingsPopover />
+                        <CloudStatusPopover
+                            buttonState={cloudStatus.buttonState}
+                            buttonLabel={cloudStatus.chipLabel}
+                            buttonDescription={cloudStatus.detail}
+                            buttonAriaLabel={cloudStatus.headline}
+                        />
                         <ToolbarTooltipButton
                             label={
                                 props.isReferencePaneOpen
@@ -373,35 +346,16 @@ export function EditorToolbar(props: EditorToolbarProps) {
                             active={props.isReferencePaneOpen}
                             icon={<BookCopy size={16} />}
                         />
-                        <FindingsPopover />
-                        <ToolbarTooltipButton
-                            label={
-                                props.isSearchPaneOpen
-                                    ? t`Close search`
-                                    : t`Open search`
-                            }
-                            onClick={props.onToggleSearchPane ?? (() => {})}
-                            active={props.isSearchPaneOpen}
-                            icon={<Search size={16} />}
-                        />
-                        <VersionsPopover />
-                        <ToolbarOverflowMenu
-                            onCopyEditorJson={
-                                import.meta.env.DEV
-                                    ? () => void handleCopyEditorJson()
-                                    : undefined
-                            }
-                            onMatchFormattingToSource={
-                                handleMatchFormattingToSource
-                            }
-                        />
-                        <CloudStatusPopover
-                            buttonState={cloudStatus.state}
-                            buttonLabel={cloudStatus.label}
-                            buttonDescription={cloudStatus.description}
-                            buttonAriaLabel={cloudStatus.ariaLabel}
-                        />
                     </div>
+
+                    <button
+                        type="button"
+                        className={styles.saveButton}
+                        onClick={handleOpenSaveReview}
+                    >
+                        <Save size={16} />
+                        <span>{t`Save`}</span>
+                    </button>
                 </div>
             </div>
             {pickReferenceDialogOpen && typeof document !== "undefined"
@@ -464,82 +418,6 @@ export function EditorToolbar(props: EditorToolbarProps) {
                 : null}
         </div>
     );
-}
-
-type CloudStatusPresentation = {
-    state: CloudStatusButtonState;
-    label: string;
-    description: string;
-    ariaLabel: string;
-};
-
-function getCloudStatusPresentation(
-    status: GitRemoteProjectStatus | null,
-    isRefreshing: boolean,
-    t: (strings: TemplateStringsArray, ...args: Array<unknown>) => string,
-): CloudStatusPresentation {
-    if (isRefreshing) {
-        return {
-            state: "syncing",
-            label: t`Syncing`,
-            description: t`Cloud status is refreshing.`,
-            ariaLabel: t`Syncing cloud status`,
-        };
-    }
-
-    if (!status) {
-        return {
-            state: "connected",
-            label: t`Cloud`,
-            description: t`Open cloud status.`,
-            ariaLabel: t`Open cloud status`,
-        };
-    }
-
-    switch (status.kind) {
-        case GIT_REMOTE_PROJECT_STATUS_CONNECTED:
-            return {
-                state: "connected",
-                label: t`Connected`,
-                description: t`Cloud is connected.`,
-                ariaLabel: t`Open cloud status`,
-            };
-        case GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH:
-            return {
-                state: "behind",
-                label: t`Behind`,
-                description: t`Local changes are ahead of cloud.`,
-                ariaLabel: t`Open cloud status`,
-            };
-        case GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE:
-            return {
-                state: "behind",
-                label: t`Behind`,
-                description: t`Cloud changes are waiting to be reviewed.`,
-                ariaLabel: t`Open cloud status`,
-            };
-        case GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW:
-            return {
-                state: "diverged",
-                label: t`Diverged`,
-                description: t`Local and cloud changes need review.`,
-                ariaLabel: t`Open cloud status`,
-            };
-        case GIT_REMOTE_PROJECT_STATUS_OFFLINE:
-            return {
-                state: "behind",
-                label: t`Behind`,
-                description: t`Cloud is currently unavailable.`,
-                ariaLabel: t`Open cloud status`,
-            };
-        case GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED:
-            return {
-                state: "diverged",
-                label: t`Reconnect`,
-                description: t`Reconnect your account to resume cloud sync.`,
-                ariaLabel: t`Open cloud status`,
-            };
-    }
 }
 
 function QuoteLevelIcon({ level }: { level: 1 | 2 }) {

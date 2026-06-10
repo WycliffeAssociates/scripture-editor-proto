@@ -43,7 +43,7 @@ export const workspaceMain = style({
     display: "flex",
     flexDirection: "column",
     minHeight: 0,
-    backgroundColor: vars.color.surfacePrimary,
+    backgroundColor: vars.color.surfaceCanvas,
     "@media": {
         [mediaQuery.up("lg")]: {
             minHeight: "100dvh",
@@ -71,6 +71,26 @@ export const workspaceEditorsStage = style({
     position: "relative",
     minHeight: 0,
     minWidth: 0,
+    height: "100%",
+    // The canvas the toolbar bar + editor card float on. A top auto row holds
+    // the full-width toolbar; the 1fr row below holds the reference + editor
+    // columns, each its own scroll container.
+    display: "grid",
+    gridTemplateRows: "auto minmax(0, 1fr)",
+    backgroundColor: vars.color.surfaceCanvas,
+    "@media": {
+        [mediaQuery.up("lg")]: {
+            gap: vars.spacing.md,
+            padding: vars.spacing.md,
+        },
+    },
+});
+
+// Wrapper for the hoisted toolbar; keeps the bar a single full-width row that
+// spans both columns beneath it.
+export const editorToolbarRow = style({
+    minWidth: 0,
+    display: "flex",
 });
 
 export const desktopSidebar = style({
@@ -188,10 +208,13 @@ export const editorWrapperDesktop = style({
     width: "100%",
     minWidth: 0,
     minHeight: 0,
-    height: "100dvh",
+    height: "100%",
+    // The editor column's own scroll container, sitting on the canvas beneath
+    // the shared toolbar. The white editor card floats inside it so its rounded
+    // boundary — the right-click action-palette target — reads clearly against
+    // the canvas. This column scrolls; the reference column scrolls separately.
     overflowY: "auto",
-    display: "grid",
-    gridTemplateRows: "auto minmax(0, 1fr)",
+    backgroundColor: vars.color.surfaceCanvas,
 });
 
 export const workspacePaneStack = style({
@@ -215,18 +238,6 @@ export const workspaceOverlayPane = style({
     minHeight: 0,
     height: "100%",
     zIndex: zLayer.editorOverlayPane,
-});
-
-export const editorPaneHeader = style({
-    display: "flex",
-    justifyContent: "flex-end",
-    width: "100%",
-    paddingInline: vars.spacing.lg,
-    paddingBlockEnd: vars.spacing.sm,
-    position: "sticky",
-    top: "0",
-    backgroundColor: vars.color.surfacePrimary,
-    zIndex: zLayer.popoverPositioner,
 });
 
 export const referenceToggleButton = style({
@@ -296,16 +307,16 @@ export const editorReferenceSmall = style({
 export const referenceColumn = style({
     minWidth: 0,
     width: "100%",
-    height: "100dvh",
+    height: "100%",
     display: "grid",
+    // Resource picker (auto) above the scripture text (1fr). Sits directly on
+    // the canvas with no card/border; the text area is its own scroll container
+    // so switching chapters never jumps the layout.
     gridTemplateRows: "auto minmax(0, 1fr)",
+    gap: vars.spacing.md,
+    minHeight: 0,
     overflow: "hidden",
-    backgroundColor: vars.color.surfacePrimary,
-    "@media": {
-        [mediaQuery.up("lg")]: {
-            borderRight: `1px solid ${vars.color.surfaceBorder}`,
-        },
-    },
+    backgroundColor: "transparent",
 });
 
 export const referencePanePlaceholder = style({
@@ -1034,18 +1045,4 @@ export const versionRowChapterSummary = style({
     color: vars.color.onSurfaceSecondary,
     fontSize: vars.typography.bodySmallest.fontSize,
     overflowWrap: "anywhere",
-});
-
-export const referenceStickyNav = style({
-    padding: vars.spacing.md,
-    display: "flex",
-    borderBottom: `1px solid ${vars.color.surfaceBorder}`,
-    backgroundColor: vars.color.surfacePrimary,
-});
-
-export const referenceStickyNavRow = style({
-    display: "flex",
-    alignItems: "center",
-    gap: vars.spacing.md,
-    flexWrap: "wrap",
 });

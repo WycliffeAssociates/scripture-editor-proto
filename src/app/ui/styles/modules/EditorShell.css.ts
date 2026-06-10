@@ -21,10 +21,20 @@ const vars = {
 };
 
 export const editorOuter = style({
-    flex: "1 1 auto",
     position: "relative",
-    minHeight: 0,
+    boxSizing: "border-box",
     padding: vars.spacing.sm,
+    // Fill the visible body when content is short, but grow with the content
+    // (alignSelf:start + auto height) so the card's white background always
+    // covers the full text — the column, not the card, does the scrolling.
+    alignSelf: "start",
+    minHeight: "100%",
+    selectors: {
+        '[data-theme="dark"] &': {
+            backgroundColor: vars.colors.dark[6],
+            borderColor: vars.colors.dark[4],
+        },
+    },
 });
 
 export const editorContainer = style({
@@ -46,9 +56,24 @@ export const contentEditable = style({
     fontFamily: vars.typography.fontFamilySerif,
     maxWidth: "75ch",
     margin: "0 auto",
+    backgroundColor: vars.colors.gray[0],
+    borderRadius: vars.radius.xl,
+    border: `1px solid ${vars.colors.gray[3]}`,
+    boxShadow: dsVars.shadow.small,
+    // The white editor card. It fills its column and floats on the surrounding
+    // canvas; the gutter comes from the stage's padding + grid gap, so the card
+    // itself carries no margin. Its rounded border is the right-click
+    // action-palette boundary.
+
     selectors: {
         '&[data-mode="plain"]': {
             fontFamily: vars.typography.fontFamilyMono,
+        },
+        '&[data-mode="form"]': {
+            backgroundColor: "transparent",
+            borderRadius: "none",
+            border: "none",
+            boxShadow: "none",
         },
     },
 });
@@ -170,12 +195,6 @@ export const contentEditableReference = style({
     width: "100%",
     minHeight: "100%",
     padding: vars.spacing.md,
-    backgroundColor: vars.colors.gray[0],
-    selectors: {
-        '[data-theme="dark"] &': {
-            backgroundColor: vars.colors.dark[6],
-        },
-    },
 });
 
 export const contentEditableReferenceSearchOpen = style({
@@ -192,7 +211,7 @@ export const referenceEditorRoot = style({
     minHeight: 0,
     height: "100%",
     display: "grid",
-    gridTemplateRows: "auto minmax(0, 1fr)",
+    gridTemplateRows: "minmax(0, 1fr)",
 });
 
 export const referenceEditorOuter = style({

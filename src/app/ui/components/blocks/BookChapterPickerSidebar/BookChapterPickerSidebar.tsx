@@ -1,8 +1,14 @@
 import { ScrollArea } from "@base-ui/react/scroll-area";
 import { useLingui } from "@lingui/react/macro";
-import { BookIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import {
+    BookIcon,
+    ChevronLeftIcon,
+    ChevronRightIcon,
+    SearchIcon,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { DATA_JS } from "@/app/data/constants.ts";
 import { joinClassNames } from "@/app/ui/components/primitives/classNames.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "./bookChapterPickerSidebar.css.ts";
@@ -20,7 +26,7 @@ type SidebarChapter = {
 
 export function BookChapterPickerSidebar() {
     const { t } = useLingui();
-    const { actions, bookCodeToProjectLocalizedTitle, project } =
+    const { actions, bookCodeToProjectLocalizedTitle, project, search } =
         useWorkspaceContext();
     const [screen, setScreen] = useState<"books" | "chapters">("books");
     const [selectedBookCode, setSelectedBookCode] = useState(
@@ -57,8 +63,33 @@ export function BookChapterPickerSidebar() {
         actions.switchBookOrChapter(activeBook.bookCode, chapterNumber);
     }
 
+    // Open the search pane and focus its input. The pane mounts on the next
+    // frame (driven by `isSearchPaneOpen`), so the focus is deferred — same
+    // pattern as the Cmd/Ctrl+F shortcut in `useEditorInput`.
+    function handleOpenSearch() {
+        if (!search.isSearchPaneOpen) {
+            search.setIsSearchPaneOpen(true);
+        }
+        requestAnimationFrame(() => {
+            const input = document.querySelector(
+                `[data-js="${DATA_JS.searchInput}"]`,
+            );
+            if (input instanceof HTMLInputElement) {
+                input.focus();
+            }
+        });
+    }
+
     return (
         <div className={styles.shell}>
+            <button
+                type="button"
+                className={styles.findButton}
+                onClick={handleOpenSearch}
+            >
+                <SearchIcon size={16} className={styles.findButtonIcon} />
+                <span>{t`Find`}</span>
+            </button>
             <div className={styles.viewport}>
                 <BooksPanel
                     books={books}
