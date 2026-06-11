@@ -185,17 +185,3 @@ export async function runRemoteSyncAction(args: {
     }
     await remote.syncNow();
 }
-
-export function sortReposByOwnerPriority(
-    repos: RemoteRepoSummary[],
-    username: string | null,
-): RemoteRepoSummary[] {
-    const normalized = username?.toLowerCase() ?? "";
-    if (!normalized) return repos;
-    return repos.toSorted((a, b) => {
-        const aMine = a.owner.toLowerCase() === normalized;
-        const bMine = b.owner.toLowerCase() === normalized;
-        if (aMine !== bMine) return aMine ? -1 : 1;
-        return a.fullName.localeCompare(b.fullName);
-    });
-}

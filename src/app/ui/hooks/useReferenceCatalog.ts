@@ -14,7 +14,7 @@ import type { ImportService } from "@/core/library/ImportService.ts";
 import type { ProjectsService } from "@/core/persistence/WorkspaceService.ts";
 
 /** Stable identity for a catalog row, used for busy-state and dedupe keys. */
-export function consolidatedRepoKey(repo: ConsolidatedRepo): string {
+function consolidatedRepoKey(repo: ConsolidatedRepo): string {
     return `${repo.username}/${repo.repo_name}`;
 }
 

@@ -9,6 +9,13 @@
     "!src/tauri/rust/**",
     "!src/app/ui/i18n/locales/**"
   ],
+  "ignore": [
+    "src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx",
+    "src/app/ui/styles/modules/projectImportHub.css.ts",
+    "src/app/ui/hooks/useGiteaApi.ts",
+    "src/app/ui/components/blocks/VersionsPopover.tsx",
+    "src/app/ui/styles/modules/VersionsPopover.css.ts"
+  ],
   "ignoreDependencies": ["buffer"],
   "tanstack-router": {
     "entry": ["src/app/routes/**/*.{ts,tsx}"]

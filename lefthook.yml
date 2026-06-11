@@ -23,3 +23,11 @@ pre-commit:
         - ref: master
       run: node scripts/syncVersions.js
       stage_fixed: true
+
+pre-push:
+  commands:
+    knip-master:
+      only:
+        - ref: master
+      # knip failures fail CI; catch them before the push that triggers it
+      run: pnpm run knip

@@ -179,24 +179,3 @@ export function presentSharedProjectStatus(args: {
         detail: args.i18n._(state.detail),
     };
 }
-
-/**
- * The primary action label, adapted to the state: send when you're ahead,
- * receive when the shared project is ahead, review when they overlap.
- */
-export function primarySharedProjectActionLabel(args: {
-    status: GitRemoteProjectStatus | null;
-    i18n: I18n;
-}): string {
-    const { status, i18n } = args;
-    switch (status?.kind) {
-        case GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH:
-            return i18n._(sharedProjectActions.send);
-        case GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE:
-            return i18n._(sharedProjectActions.receive);
-        case GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW:
-            return i18n._(sharedProjectActions.review);
-        default:
-            return i18n._(sharedProjectActions.sendAndReceive);
-    }
-}
