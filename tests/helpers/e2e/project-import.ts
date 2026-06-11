@@ -25,8 +25,10 @@ export const MOCK_DIRS = {
 
 export async function gotoCreate(page: Page) {
     await page.goto("/create", { waitUntil: "domcontentloaded" });
+    // The create page is the SourcePicker hero ("Search for an existing
+    // project") since the onboarding redesign dropped create-from-scratch.
     await expect(
-        page.getByRole("heading", { name: /new project/i }),
+        page.getByRole("heading", { name: /search for an existing project/i }),
     ).toBeVisible();
 }
 
