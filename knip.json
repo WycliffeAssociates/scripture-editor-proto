@@ -1,5 +1,5 @@
 {
-  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": ["src/web/main.tsx!", "src/app/entrypoint.tsx!"],
   "project": [
     "src/**/*.{ts,tsx,css}!",
@@ -16,7 +16,7 @@
     "src/app/ui/components/blocks/VersionsPopover.tsx",
     "src/app/ui/styles/modules/VersionsPopover.css.ts"
   ],
-  "ignoreDependencies": ["buffer"],
+  "ignoreDependencies": ["buffer", "@lingui/swc-plugin"],
   "tanstack-router": {
     "entry": ["src/app/routes/**/*.{ts,tsx}"]
   },

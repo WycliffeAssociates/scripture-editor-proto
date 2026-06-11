@@ -6,6 +6,7 @@ minimumReleaseAgeExclude:
   - usfm-onion-web
   - scripture-sous-chef-web
 allowBuilds:
+  '@swc/core': true
   esbuild: true
   lefthook: true
   msgpackr-extract: true

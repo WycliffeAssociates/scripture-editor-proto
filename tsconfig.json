@@ -12,6 +12,10 @@
         ],
         "module": "ESNext",
         "skipLibCheck": true,
+        // TS 6 no longer auto-discovers all @types/* packages; list the ones
+        // we rely on for ambient globals explicitly. (React/DOM types arrive
+        // via imports + lib.)
+        "types": ["node"],
 
         /* Bundler mode */
         "moduleResolution": "bundler",
@@ -27,7 +31,6 @@
         "noUnusedParameters": true,
         "noFallthroughCasesInSwitch": true,
 
-        "baseUrl": ".",
         "paths": {
             "@/*": ["./src/*"],
             "@tests/*": ["./tests/*"]

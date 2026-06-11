@@ -4,7 +4,9 @@
         "skipLibCheck": true,
         "module": "ESNext",
         "moduleResolution": "bundler",
-        "allowSyntheticDefaultImports": true
+        "allowSyntheticDefaultImports": true,
+        // TS 6 no longer auto-discovers @types/*; the vite configs use Node globals.
+        "types": ["node"]
     },
     "include": ["vite.tauri.config.ts", "vite.web.config.ts"]
 }
