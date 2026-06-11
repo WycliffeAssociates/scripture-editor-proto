@@ -6,8 +6,8 @@
     "scripts": {
         "dev.tauri": "vite --config vite.tauri.config.ts",
         "dev.web": "vite dev --config vite.web.config.ts --port 5175",
-        "build.tauri": "vite build --config vite.tauri.config.ts",
-        "build.web": "vite build --config vite.web.config.ts",
+        "build.tauri": "pnpm run i18n && vite build --config vite.tauri.config.ts",
+        "build.web": "pnpm run i18n && vite build --config vite.web.config.ts",
         "preview": "vite preview --outDir ./dist-web",
         "tauri": "tauri",
         "tauri-dev": "tauri dev",
@@ -15,6 +15,7 @@
         "lingui": "lingui",
         "lingui-extract": "lingui extract",
         "lingui-compile": "lingui compile --typescript",
+        "i18n": "lingui extract && lingui compile --typescript",
         "check": "tsc --noEmit",
         "format": "biome check --write .",
         "test": "vitest",
