@@ -25,10 +25,11 @@ export const MOCK_DIRS = {
 
 export async function gotoCreate(page: Page) {
     await page.goto("/create", { waitUntil: "domcontentloaded" });
-    // The create page is the SourcePicker hero ("Search for an existing
-    // project") since the onboarding redesign dropped create-from-scratch.
+    // Wait on the SourcePicker's testid rather than heading text: the e2e build
+    // renders app strings as scrambled tokens, so any localized-text assertion
+    // is unreliable. The hidden import inputs live inside this section.
     await expect(
-        page.getByRole("heading", { name: /search for an existing project/i }),
+        page.getByTestId(TESTING_IDS.language.apiImporter),
     ).toBeVisible();
 }
 
