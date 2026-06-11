@@ -29,7 +29,7 @@ import {
 import { presentSharedProjectStatus } from "@/app/domain/project/remoteSync/sharedProjectCopy.ts";
 import { CloudStatusPopover } from "@/app/ui/components/blocks/CloudStatusPopover.tsx";
 import { FindingsPopover } from "@/app/ui/components/blocks/FindingsPopover.tsx";
-import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker.tsx";
+import { ReferencePanel } from "@/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import { joinClassNames } from "@/app/ui/components/primitives/classNames.ts";
 import { showNotificationInfo } from "@/app/ui/components/primitives/notifications.ts";
@@ -380,7 +380,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
                                       {t`Match formatting can replace paragraph and poetry markers in the current chapter.`}
                                   </span>
                               </p>
-                              <ReferencePicker />
+                              <ReferencePanel />
                               <div className={dialogStyles.dialogActions}>
                                   <Button
                                       variant="secondary"

@@ -59,6 +59,15 @@ import {
     basenameStoragePath,
     joinStoragePath,
 } from "@/core/persistence/pathUtils.ts";
+import {
+    deriveOriginFromImportSource,
+    type ProjectOrigin,
+} from "@/core/persistence/projectOriginModels.ts";
+import {
+    deleteProjectOrigin,
+    readProjectOrigin,
+    writeProjectOrigin,
+} from "@/core/persistence/projectOriginStore.ts";
 import type {
     RemoteRepoPage,
     RemoteRepoProvider,
@@ -178,6 +187,43 @@ export class DefaultProjectsService implements ProjectsService {
             projectPath,
         });
         await deleteGitRemoteProjectStatus({
+            fileSystem: this.fileSystem,
+            storageRoots: this.roots,
+            projectPath,
+        });
+    }
+
+    /**
+     * Stamp where a freshly-imported project came from.
+     *
+     * A re-import re-establishes provenance, so this always overwrites. Failure
+     * is non-fatal: provenance only powers a "you already have this" hint, never
+     * correctness, so a sidecar write hiccup must not fail the import.
+     */
+    private async recordProjectOrigin(
+        source: ImportSource,
+        projectPath: string,
+    ): Promise<void> {
+        const origin = deriveOriginFromImportSource(source, projectPath);
+        if (!origin) return;
+        try {
+            await writeProjectOrigin({
+                fileSystem: this.fileSystem,
+                storageRoots: this.roots,
+                origin,
+            });
+        } catch (error) {
+            console.warn(
+                `[DefaultProjectsService] Failed to record import provenance for ${projectPath}:`,
+                error,
+            );
+        }
+    }
+
+    async readProjectOrigin(
+        projectPath: string,
+    ): Promise<ProjectOrigin | null> {
+        return readProjectOrigin({
             fileSystem: this.fileSystem,
             storageRoots: this.roots,
             projectPath,
@@ -440,6 +486,8 @@ export class DefaultProjectsService implements ProjectsService {
             if (shouldClearPersistedRemoteLinkState(source)) {
                 await this.clearPersistedRemoteLinkState(importedPath);
             }
+
+            await this.recordProjectOrigin(source, importedPath);
 
             await this.reportImportProgress(
                 options,
@@ -854,6 +902,11 @@ export class DefaultProjectsService implements ProjectsService {
         await this.fileSystem.remove(projectPath, options);
         await this.projectIndex.deleteProject(projectPath);
         await this.clearPersistedRemoteLinkState(projectPath);
+        await deleteProjectOrigin({
+            fileSystem: this.fileSystem,
+            storageRoots: this.roots,
+            projectPath,
+        });
     }
 
     async renameDisplayName(

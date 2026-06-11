@@ -4,7 +4,7 @@ import { MainEditor } from "@/app/ui/components/blocks/Editor.tsx";
 import { SettingsPanel } from "@/app/ui/components/blocks/ProjectSettings/Settings.tsx";
 import { ProjectBrowserPane } from "@/app/ui/components/blocks/ProjectSwitcher/ProjectBrowserPane.tsx";
 import { ReferenceEditor } from "@/app/ui/components/blocks/ReferenceEditor.tsx";
-import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker.tsx";
+import { ReferencePanel } from "@/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx";
 import { EditorToolbar } from "@/app/ui/components/primitives/EditorToolbar/index.ts";
 import { FormFocusProvider } from "@/app/ui/contexts/FormFocusContext.tsx";
 import * as styles from "@/app/ui/styles/modules/Projectview.css.ts";
@@ -42,7 +42,7 @@ function ReferencePane(props: ReferencePaneProps) {
                     : styles.referenceColumn
             }
         >
-            <ReferencePicker />
+            <ReferencePanel />
             <ReferenceEditor />
         </div>
     );

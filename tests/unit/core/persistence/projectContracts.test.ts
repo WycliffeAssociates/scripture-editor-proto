@@ -190,6 +190,7 @@ describe("path-based persistence contracts", () => {
                 throw new Error("not implemented in contract test");
             },
             readDeclaredSources: async () => [],
+            readProjectOrigin: async () => null,
             deleteProject: async () => {},
             renameDisplayName: async () => {},
             reconcileIndex: async () => {},

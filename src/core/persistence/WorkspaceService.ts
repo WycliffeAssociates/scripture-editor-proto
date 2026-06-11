@@ -16,6 +16,7 @@ import type {
     ResourceLibraryItem,
 } from "@/core/library/ProjectIndex.ts";
 import type { GitRemoteProjectInfo } from "@/core/persistence/gitRemoteModels.ts";
+import type { ProjectOrigin } from "@/core/persistence/projectOriginModels.ts";
 import type {
     RemoteRepoPage,
     RemoteRepoSummary,
@@ -148,6 +149,12 @@ export interface WorkspaceService {
         args: CloneWritableRemoteProjectArgs,
     ): Promise<ImportProjectResult>;
     readDeclaredSources(workspacePath: string): Promise<DeclaredSource[]>;
+    /**
+     * Read where a project was imported from, if recorded. Powers "you already
+     * have this" dedupe in source/reference pickers; null when the project
+     * predates provenance or was brought in without a recoverable origin.
+     */
+    readProjectOrigin(workspacePath: string): Promise<ProjectOrigin | null>;
     deleteProject(workspacePath: string): Promise<void>;
     renameDisplayName(
         workspacePath: string,

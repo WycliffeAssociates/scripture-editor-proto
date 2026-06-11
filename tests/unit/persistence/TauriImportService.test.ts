@@ -75,6 +75,7 @@ describe("TauriImportService", () => {
             attachProjectToRemote: vi.fn(),
             cloneWritableRemoteProject: vi.fn(),
             readDeclaredSources: vi.fn(),
+            readProjectOrigin: vi.fn(),
             deleteProject: vi.fn(),
             renameDisplayName: vi.fn(),
             reconcileIndex: vi.fn(),
