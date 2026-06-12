@@ -17,9 +17,9 @@
 // idempotently and drop stale results. Stamping is uniform so no transport has
 // to special-case it.
 
-import type { LineEnding } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type { DiskBaseline } from "@/app/state/DirtyBufferStore.ts";
 import type { SousAnalyzeResult } from "@/core/domain/sous/sousTypes.ts";
+import type { LineEnding } from "@/core/domain/usfm/usfmBytes.ts";
 import type { LintIssue, Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 /** A chapter address in the mirror, mirroring the editor's `(book, chapter)`. */

@@ -11,6 +11,14 @@ const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Module workers get their own bundling pipeline; plugins from the main
+  // `plugins` array do NOT apply. The workspace-mirror/backup workers import
+  // the wasm-pack bundler-target packages, so the wasm plugin must be
+  // declared here too (and wasm requires ESM-format worker output).
+  worker: {
+    format: "es",
+    plugins: () => [wasm()],
+  },
   plugins: [
     vanillaExtractPlugin(),
     tanstackRouter({

@@ -14,15 +14,15 @@
 // scope from resident state and call the injected engines.
 
 import {
-  type LineEnding,
-  serializeChaptersToUsfm,
-} from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
-import {
   DIRTY_BUFFER_SCHEMA_VERSION,
   type DirtyBufferFile,
   type DiskBaseline,
 } from "@/app/state/DirtyBufferStore.ts";
 import type { SousAnalyzeResult } from "@/core/domain/sous/sousTypes.ts";
+import {
+  type LineEnding,
+  serializeChaptersToUsfm,
+} from "@/core/domain/usfm/usfmBytes.ts";
 import type { LintIssue, Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 import type {
