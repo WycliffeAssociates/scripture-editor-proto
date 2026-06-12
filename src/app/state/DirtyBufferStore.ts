@@ -98,6 +98,12 @@ export class DirtyBufferStore {
     private readonly rootDir: string,
   ) {}
 
+  /** The managed root backups live under — the web mirror worker needs it to
+   *  construct its own OPFS-backed store at the same path. */
+  rootDirectory(): string {
+    return this.rootDir;
+  }
+
   private workspaceDir(workspaceKey: string): string {
     return `${this.rootDir}/${workspaceKey}`;
   }

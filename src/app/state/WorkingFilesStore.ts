@@ -65,6 +65,11 @@ export class WorkingFilesStore {
     return this.state;
   }
 
+  /** Current commit generation — the high-water mark mirror seeds align to. */
+  generation(): number {
+    return this.gen;
+  }
+
   readChapter(
     bookCode: string,
     chapter: number,

@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 
 import type { PlatformAndWeb } from "@/app/data/constants.ts";
+import type { MirrorSessionFactory } from "@/app/domain/mirror/mirrorSessionFactory.ts";
 import { App } from "@/app/entrypoint.tsx";
 import { DefaultLibraryService } from "@/app/library/DefaultLibraryService.ts";
 import {
@@ -20,6 +21,7 @@ import {
 import { GiteaRemoteRepoProvider } from "@/core/persistence/GiteaRemoteRepoProvider.ts";
 import { OpfsGitFs } from "@/web/adapters/git/OpfsGitFs.ts";
 import { WebGitProvider } from "@/web/adapters/git/WebGitProvider.ts";
+import { WorkerMirrorSession } from "@/web/domain/mirror/WorkerMirrorSession.ts";
 import { createBrowserSettingsManager } from "@/web/domain/settings.ts";
 import { WebSousService } from "@/web/domain/sous/WebSousService.ts";
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
@@ -94,6 +96,13 @@ const importService = new WebImportService(
   projectsService,
   fileSystem,
 );
+// Web mirror: a module worker holds the token mirror + wasm engines + OPFS
+// backup off the main thread. The factory attaches it to the workspace feed.
+const mirrorSessionFactory: MirrorSessionFactory = ({
+  feed,
+  workspaceKey,
+  dirtyBufferRoot,
+}) => new WorkerMirrorSession({ feed, workspaceKey, dirtyBufferRoot });
 initializeUsfmMarkerCatalog(await webUsfmOnionService.getMarkerCatalog());
 root.render(
   <StrictMode>
@@ -109,6 +118,7 @@ root.render(
       gitProvider={gitProvider}
       opener={opener}
       platform={platform}
+      mirrorSessionFactory={mirrorSessionFactory}
       projectsService={projectsService}
       libraryService={libraryService}
       importService={importService}
