@@ -1,10 +1,11 @@
 // mirrorSessionFactory.ts
 //
-// The platform seam for constructing a mirror session. The workspace builds the
-// platform-neutral `MirrorFeed`, then asks the injected factory to attach a
-// mirror to it. Web returns a worker-backed session; desktop returns an
-// in-process session bound to its services (the phase-2 interim). The workspace
-// itself stays platform-agnostic — it only knows the feed and the factory.
+// The platform seam for constructing a mirror session. The kernel builder
+// builds the platform-neutral `MirrorFeed`, then asks the injected factory to
+// attach a mirror to it. Web returns a worker-backed session; desktop returns a
+// composed session over two sinks (Rust resident mirror + backup worker). The
+// kernel itself stays platform-agnostic — it only knows the feed and the
+// factory.
 
 import type { DirtyBufferStore } from "@/app/state/DirtyBufferStore.ts";
 

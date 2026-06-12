@@ -53,9 +53,10 @@ type EntryPointProps = {
   /** Desktop wires `TauriUpdaterService`; web passes null (no auto-updates). */
   updaterService?: IUpdaterService | null;
   /**
-   * Builds the workspace mirror session: web attaches a worker (token mirror +
-   * wasm engines + OPFS backup off the main thread); desktop attaches an
-   * in-process session bound to its services (phase-2 interim).
+   * Builds the workspace mirror session, invoked by the kernel builder at load:
+   * web attaches a worker (token mirror + wasm engines + OPFS backup off the
+   * main thread); desktop attaches two sinks (Rust resident mirror for
+   * lint/sous + a wasm-free backup worker).
    */
   mirrorSessionFactory: MirrorSessionFactory;
 };

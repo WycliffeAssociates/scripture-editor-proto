@@ -1,9 +1,13 @@
 import { Trans } from "@lingui/react/macro";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { shapeForSurface } from "@/app/data/editor.ts";
+import { analysisDisabledInMode, shapeForSurface } from "@/app/data/editor.ts";
 import { projectParamToParsedScripture } from "@/app/domain/api/projectToParsed.tsx";
 import { recoverDirtyBuffers } from "@/app/domain/api/recoverDirtyBuffers.ts";
+import {
+  acquireWorkspaceKernel,
+  type WorkspaceKernelHandle,
+} from "@/app/domain/mirror/workspaceKernel.ts";
 import { DirtyBufferStore } from "@/app/state/DirtyBufferStore.ts";
 import { RecoveredConflictTracker } from "@/app/state/RecoveredConflictTracker.ts";
 import { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
@@ -38,7 +42,14 @@ export const Route = createFileRoute("/$project/")({
       chapter: search.chapter ? Number(search.chapter) : undefined,
     };
   },
-  loader: async ({ context, params }) => {
+  // The loader runs the whole project into view before the editor paints: it
+  // parses, checks for crash backups, then — via the kernel registry — spawns
+  // the mirror, awaits its engines, seeds it, and awaits the initial project
+  // findings. Each step below is the first call of a pipeline-shaped capability
+  // the running app reuses (parse, recover, seed, analyze). The kernel handle +
+  // its initial findings ride in loader data; the provider claims the kernel
+  // and commits the findings before first paint.
+  loader: async ({ context, params, preload }) => {
     const {
       libraryService,
       projectsService,
@@ -48,14 +59,15 @@ export const Route = createFileRoute("/$project/")({
       gitProvider,
       settingsManager,
       usfmOnionService,
+      mirrorSessionFactory,
     } = context;
     const { project } = params;
     // The loader is boot wiring — the one place mode is read straight off
     // the settings manager and resolved to a shape for the load.
-    const editorShape = shapeForSurface(
-      "mainEditor",
-      settingsManager.get("editorMode"),
-    );
+    const editorMode = settingsManager.get("editorMode");
+    const editorShape = shapeForSurface("mainEditor", editorMode);
+
+    // parseProject — reopen the managed path as a typed scripture noun.
     const result = await projectParamToParsedScripture({
       projectsService,
       libraryService,
@@ -104,7 +116,6 @@ export const Route = createFileRoute("/$project/")({
     if (!loadedProject) {
       return {
         projectFiles: parsedFiles,
-        initialLintErrorsByBook,
         loadedProject,
         rejectionReason,
         workspaceBaselineStore,
@@ -114,6 +125,7 @@ export const Route = createFileRoute("/$project/")({
         restoredBookCodes: [] as string[],
         conflictedBookCodes: [] as string[],
         recoveryReportEntries: [],
+        kernel: null as WorkspaceKernelHandle | null,
       };
     }
 
@@ -123,10 +135,11 @@ export const Route = createFileRoute("/$project/")({
     // which is all the single-window/no-multi-tab model requires.
     const workspaceKey = loadedProject.folderName;
 
-    // `diskMd5ByBook` is the md5 of each book's real source bytes, hashed by
-    // the parser where it already read them (Rust for desktop path IO, JS
-    // for web content IO) — no second read, no re-serialization, no extra
-    // IPC. Recovery + the dirty-buffer pipeline compare against it to tell
+    // checkForCrashBackupFiles — restore any per-book dirty buffers and
+    // baseline disk md5s. `diskMd5ByBook` is the md5 of each book's real source
+    // bytes, hashed by the parser where it already read them (Rust for desktop
+    // path IO, JS for web content IO) — no second read, no re-serialization, no
+    // extra IPC. Recovery + the dirty-buffer pipeline compare against it to tell
     // "disk moved underneath this backup" from "backup matches disk".
     // A book missing from the map (read/hash failure, or an old desktop
     // binary that predates `sourceMd5`) is simply left un-baselined, so any
@@ -147,9 +160,25 @@ export const Route = createFileRoute("/$project/")({
       initialLintErrorsByBook,
     });
 
+    // spawnMirrors → awaitEnginesReady → seedMirrors → initialFindings, all
+    // behind the single-slot kernel registry. On a preload that would evict the
+    // open workspace the registry returns null and we skip kernel work (the open
+    // project keeps its one worker set); the provider then builds nothing and
+    // the warmed-or-live kernel is claimed on the real navigation. Plain mode
+    // disables analysis, so the kernel skips the initial findings pass.
+    const kernel = await acquireWorkspaceKernel({
+      preload,
+      projectKey: workspaceKey,
+      projectFiles: recovery.parsedFiles,
+      workspaceBaselineStore,
+      dirtyBufferStore,
+      dirtyBufferRoot: dirtyBufferStore.rootDirectory(),
+      mirrorSessionFactory,
+      analysisDisabled: analysisDisabledInMode(editorMode),
+    });
+
     return {
       projectFiles: recovery.parsedFiles,
-      initialLintErrorsByBook: recovery.initialLintErrorsByBook,
       loadedProject,
       rejectionReason,
       workspaceBaselineStore,
@@ -159,6 +188,7 @@ export const Route = createFileRoute("/$project/")({
       restoredBookCodes: recovery.restoredBookCodes,
       conflictedBookCodes: recovery.conflictedBookCodes,
       recoveryReportEntries: recovery.recoveryReportEntries,
+      kernel,
     };
   },
 });
@@ -175,6 +205,7 @@ export function RouteComponent() {
     restoredBookCodes,
     conflictedBookCodes,
     recoveryReportEntries,
+    kernel,
   } = Route.useLoaderData();
 
   const { project } = Route.useParams();
@@ -186,6 +217,17 @@ export function RouteComponent() {
         {rejectionReason === "not-editable"
           ? "This resource cannot be opened in the editable workspace."
           : "Project not found"}
+      </div>
+    );
+  }
+  // A null kernel is only ever the preload-while-occupied skip (the registry
+  // declined to evict the open workspace); such a loader result never mounts
+  // because the open project isn't being navigated away from. A real
+  // navigation always re-runs the loader and yields a claimed handle.
+  if (!kernel) {
+    return (
+      <div className={styles.pendingPaper}>
+        <Trans>Loading...</Trans>
       </div>
     );
   }
@@ -201,6 +243,7 @@ export function RouteComponent() {
       restoredBookCodes={restoredBookCodes}
       conflictedBookCodes={conflictedBookCodes}
       recoveryReportEntries={recoveryReportEntries}
+      kernel={kernel}
       queryBookOverride={search.book}
       queryChapterOverride={search.chapter}
     >
