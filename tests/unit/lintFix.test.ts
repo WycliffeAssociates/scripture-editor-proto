@@ -9,12 +9,6 @@ import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts"
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 
-const rebuildParsedFileFromUsfmMock = vi.hoisted(() => vi.fn());
-
-vi.mock("@/app/domain/editor/services/rebuildParsedFileFromUsfm.ts", () => ({
-  rebuildParsedFileFromUsfm: rebuildParsedFileFromUsfmMock,
-}));
-
 function makeEditorState(
   text: string,
   sid: string,
@@ -144,23 +138,20 @@ function makeService(args?: {
   } as unknown as IUsfmOnionService;
 }
 
-// applyLintFixToFile is now SCRATCH-ONLY + COMPUTE per the withWorkingFilesDraft
-// contract: it mutates only the file it's handed and returns data. The diff/lint
-// refresh, editor sync, and success toast moved to the hook's post-commit
-// `invalidate` (so a stale/gate abort can't publish "fix applied" for a write
-// that didn't land). These tests pin the compute contract; the post-commit
-// ordering is guaranteed by workingFileCommand.test.ts (invalidate runs only on
-// a real commit).
-describe("applyLintFixToFile (scratch compute)", () => {
+// applyLintFixToFile is COMPUTE-ONLY per the withWorkingFilesDraft contract: it
+// reads the book it's handed and returns the rebuilt USFM (no store writes, no
+// rebuild). The checkout + rebuild, diff/lint refresh, editor sync, and success
+// toast live in the hook's mutate + post-commit follow-through (so a stale/gate
+// abort can't publish "fix applied" for a write that didn't land). These tests
+// pin the compute contract; the commit ordering is guaranteed by
+// workingFileCommand.test.ts.
+describe("applyLintFixToFile (compute)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("applies a fix to the scratch file and reports applied:true", async () => {
+  it("computes a fix and reports applied:true with rebuilt USFM", async () => {
     const file = makeScriptureBookState();
-    rebuildParsedFileFromUsfmMock.mockImplementation(async ({ targetFile }) => {
-      targetFile.chapters = file.chapters;
-    });
     const service = makeService({ lintScope: vi.fn(async () => [[]]) });
     const fix = makeIssue().fix;
     if (!fix) throw new Error("Fix is required");
@@ -172,21 +163,17 @@ describe("applyLintFixToFile (scratch compute)", () => {
       targetBookCode: "GEN",
       targetChapterNumber: 2,
       usfmOnionService: service,
-      shape: "regular",
     });
 
     expect(result.applied).toBe(true);
+    if (result.applied) expect(typeof result.nextUsfm).toBe("string");
     // No fallback relint needed when the fix anchors on the first try.
     expect(result.fallbackIssues).toBeUndefined();
     expect(service.applyTokenFixes).toHaveBeenCalledTimes(1);
-    expect(rebuildParsedFileFromUsfmMock).toHaveBeenCalledTimes(1);
   });
 
   it("re-lints once and retries when the original fix no longer anchors, surfacing fallbackIssues", async () => {
     const file = makeScriptureBookState();
-    rebuildParsedFileFromUsfmMock.mockImplementation(async ({ targetFile }) => {
-      targetFile.chapters = file.chapters;
-    });
     const applyTokenFixes = vi
       .fn()
       .mockResolvedValueOnce({
@@ -248,7 +235,6 @@ describe("applyLintFixToFile (scratch compute)", () => {
       targetBookCode: "GEN",
       targetChapterNumber: 2,
       usfmOnionService: service,
-      shape: "regular",
     });
 
     expect(result.applied).toBe(true);
@@ -258,7 +244,7 @@ describe("applyLintFixToFile (scratch compute)", () => {
     expect(result.fallbackIssues).toEqual([normalizedIssue]);
   });
 
-  it("reports applied:false and does not rebuild when retry still cannot apply", async () => {
+  it("reports applied:false when retry still cannot apply", async () => {
     const file = makeScriptureBookState();
     const applyTokenFixes = vi.fn().mockResolvedValue({
       tokens: [],
@@ -280,13 +266,11 @@ describe("applyLintFixToFile (scratch compute)", () => {
       targetBookCode: "GEN",
       targetChapterNumber: 2,
       usfmOnionService: service,
-      shape: "regular",
     });
 
     expect(result.applied).toBe(false);
     // The fallback relint is still surfaced so the no-op path can refresh
     // the lint panel post-transaction.
     expect(result.fallbackIssues).toEqual(fallback);
-    expect(rebuildParsedFileFromUsfmMock).not.toHaveBeenCalled();
   });
 });

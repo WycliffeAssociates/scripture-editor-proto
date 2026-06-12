@@ -3,6 +3,7 @@ import type { LexicalEditor, SerializedEditorState } from "lexical";
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type {
+  ReadonlyScriptureBookState,
   ScriptureBookState,
   ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
@@ -25,7 +26,7 @@ function collectChapterTokens(
 }
 
 export function collectFileTokens(
-  file: ScriptureBookState | null,
+  file: ReadonlyScriptureBookState | null,
   options?: { structuralParagraphBreaks?: boolean },
 ): Token[] {
   if (!file) return [];

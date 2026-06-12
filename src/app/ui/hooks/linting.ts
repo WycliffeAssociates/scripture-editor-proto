@@ -1,4 +1,7 @@
-import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type {
+  ReadonlyScriptureBookState,
+  ScriptureBookState,
+} from "@/app/scripture/ScriptureWorkspaceState.ts";
 import {
   collectFileTokens,
   collectWorkingFileTokens,
@@ -30,7 +33,7 @@ async function relintFlatTokens(
 }
 
 export async function relintBookFile(
-  file: ScriptureBookState,
+  file: ReadonlyScriptureBookState,
   usfmOnionService: IUsfmOnionService,
 ): Promise<LintIssue[]> {
   const tokens = collectFileTokens(file, {

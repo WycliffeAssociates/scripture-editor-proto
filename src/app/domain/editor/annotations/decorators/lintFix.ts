@@ -9,11 +9,7 @@
 
 import { t } from "@lingui/core/macro";
 
-import {
-  type EditorModeSetting,
-  type EditorShape,
-  shapeForSurface,
-} from "@/app/data/editor.ts";
+import { type EditorModeSetting, shapeForSurface } from "@/app/data/editor.ts";
 import { onionFindingsByChapter } from "@/app/domain/editor/annotations/normalizeFindings.ts";
 import { rebuildParsedFileFromUsfm } from "@/app/domain/editor/services/rebuildParsedFileFromUsfm.ts";
 import {
@@ -22,8 +18,7 @@ import {
   tokensToUsfm,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { withWorkingFilesDraft } from "@/app/domain/project/workingFileCommand.ts";
-import { chapterRefsForBook } from "@/app/domain/project/workingFileMutations.ts";
-import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { ReadonlyScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { FindingsStore } from "@/app/state/FindingsStore.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import {
@@ -97,30 +92,29 @@ function findEquivalentIssue(
 }
 
 /**
- * Result of computing a lint fix on the SCRATCH. Pure compute (per the
- * withWorkingFilesDraft contract): it mutates only the scratch file and returns
- * data; the caller runs its toast on the typed result, so a stale/gate abort
- * can never publish a "fix applied" effect for a write that didn't land.
+ * Result of computing a lint fix against a book's CURRENT content. Pure
+ * compute (per the withWorkingFilesDraft contract): no store writes here. When
+ * a fix applies, `nextUsfm` is the rebuilt book text the mutator feeds back
+ * after checking out the book; the caller runs its toast on the typed result,
+ * so a stale/gate abort can never publish a "fix applied" effect for a write
+ * that didn't land.
  *
  * `fallbackIssues` is the relint computed when the first fix didn't apply (used
  * to re-find the issue whose id/span shifted). It's surfaced so the caller can
  * still refresh the lint panel even on the no-op path — without committing
  * anything mid-mutation.
  */
-type LintFixComputeResult = {
-  applied: boolean;
-  fallbackIssues?: LintIssue[];
-};
+type LintFixComputeResult =
+  | { applied: false; fallbackIssues?: LintIssue[] }
+  | { applied: true; nextUsfm: string; fallbackIssues?: LintIssue[] };
 
 export async function applyLintFixToFile(args: {
   err: LintIssue;
   issueFix: TokenFix;
-  file: ScriptureBookState;
+  file: ReadonlyScriptureBookState;
   targetBookCode: string;
   targetChapterNumber: number;
   usfmOnionService: IUsfmOnionService;
-  /** The `workingRebuild` shape (see `shapeForSurface`). */
-  shape: EditorShape;
 }): Promise<LintFixComputeResult> {
   const baselineTokens = args.file.chapters.flatMap((c) =>
     lexicalToTokens(c.lexicalState, {
@@ -162,14 +156,7 @@ export async function applyLintFixToFile(args: {
   // `baselineTokens` came through `lexicalToTokens` (LF-stamped newlines), so
   // the file's own EOL — not the token sources — is the source of truth here.
   const nextUsfm = tokensToUsfm(result.tokens, bookLineEnding(args.file));
-  await rebuildParsedFileFromUsfm({
-    targetFile: args.file,
-    sourceUsfm: nextUsfm,
-    usfmOnionService: args.usfmOnionService,
-    shape: args.shape,
-  });
-
-  return { applied: true, fallbackIssues };
+  return { applied: true, nextUsfm, fallbackIssues };
 }
 
 export type LintFixDeps = {
@@ -204,13 +191,12 @@ export async function fixLintFinding(err: LintIssue, deps: LintFixDeps) {
   const sidParsed = parseSid(err.sid);
   if (!sidParsed) return;
 
-  // applyLintFixToFile mutates whatever ScriptureBookState we hand it —
-  // rebuildParsedFileFromUsfm replaces `targetFile.chapters` wholesale and
-  // may rebuild multiple chapters. That whole-file replacement is why this
-  // is a workspace-scope (validate-then-bulk) commit through the seam, not
-  // a per-chapter overlay. Lint/diff/editor sync react to the commit via
-  // their subscribers; the success toast runs on the typed result, so a
-  // save racing this op (which aborts at the gate recheck) can't leave
+  // applyLintFixToFile rebuilds the whole book (rebuildParsedFileFromUsfm
+  // replaces `targetFile.chapters` and may rebuild multiple chapters), so the
+  // mutator checks the book out WHOLESALE — the seam commits it as a validated
+  // bulk rather than a per-chapter overlay. Lint/diff/editor sync react to the
+  // commit via their subscribers; the success toast runs on the typed result,
+  // so a save racing this op (which aborts at the gate recheck) can't leave
   // the UI claiming the fix landed.
   const originalFile = deps.workingFilesStore
     .read()
@@ -239,21 +225,14 @@ export async function fixLintFinding(err: LintIssue, deps: LintFixDeps) {
       const outcome = await withWorkingFilesDraft({
         workingFilesStore: deps.workingFilesStore,
         interactionGate: deps.interactionGate,
-        scope: "workspace",
-        draftRefs: chapterRefsForBook(originalFile),
         commitMeta: {
           kind: "programmaticFix",
           action: "lintFix",
           dirtyTextContent: true,
         },
-        mutate: async (scratch) => {
-          const file = scratch.find((f) => f.bookCode === sidParsed.book);
-          if (!file) {
-            const noop: LintFixComputeResult = {
-              applied: false,
-            };
-            return { affected: [], value: noop };
-          }
+        mutate: async (draft): Promise<LintFixComputeResult> => {
+          const file = draft.read().find((f) => f.bookCode === sidParsed.book);
+          if (!file) return { applied: false };
           const computed = await applyLintFixToFile({
             err,
             issueFix,
@@ -261,12 +240,20 @@ export async function fixLintFinding(err: LintIssue, deps: LintFixDeps) {
             targetBookCode: file.bookCode,
             targetChapterNumber,
             usfmOnionService: deps.usfmOnionService,
+          });
+          if (!computed.applied) return computed;
+
+          // The fix produced changes — check out the book and rebuild it in
+          // place from the new USFM (replaces its chapters wholesale).
+          const writableFile = draft.bookForWrite(sidParsed.book);
+          if (!writableFile) return { applied: false };
+          await rebuildParsedFileFromUsfm({
+            targetFile: writableFile,
+            sourceUsfm: computed.nextUsfm,
+            usfmOnionService: deps.usfmOnionService,
             shape: shapeForSurface("workingRebuild", deps.editorMode),
           });
-          return {
-            affected: computed.applied ? chapterRefsForBook(file) : [],
-            value: computed,
-          };
+          return computed;
         },
       });
 

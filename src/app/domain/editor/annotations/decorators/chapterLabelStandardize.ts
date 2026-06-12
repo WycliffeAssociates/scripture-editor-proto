@@ -9,11 +9,7 @@
 
 import { t } from "@lingui/core/macro";
 
-import {
-  type EditorModeSetting,
-  type EditorShape,
-  shapeForSurface,
-} from "@/app/data/editor.ts";
+import { type EditorModeSetting, shapeForSurface } from "@/app/data/editor.ts";
 import {
   applyChapterLabelRewrites,
   fabricateChapterLabelRewrites,
@@ -31,7 +27,10 @@ import {
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { withWorkingFilesDraft } from "@/app/domain/project/workingFileCommand.ts";
 import { chapterRefsForBook } from "@/app/domain/project/workingFileMutations.ts";
-import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type {
+  ReadonlyScriptureBookState,
+  ScriptureBookState,
+} from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import {
   requireGateOpen,
@@ -60,58 +59,28 @@ export function computeChapterLabelTally(
 }
 
 /**
- * Number-stripped chapter-label stems are rewritten per book on the SCRATCH
- * (per the `withWorkingFilesDraft` contract: mutate the scratch + return
- * data, no side effects). Rewrites the off-target `\cl` labels in place by
- * direct token mutation → `tokensToUsfm` → rebuild, exactly like
+ * Compute the rebuilt USFM for one book's off-target `\cl` labels — pure
+ * compute (per the `withWorkingFilesDraft` contract, no store writes here).
+ * Rewrites the labels by direct token mutation → `tokensToUsfm`, exactly like
  * `applyLintFixToFile` but with an app-fabricated rewrite instead of an onion
- * `TokenFix`. Returns whether this book changed.
+ * `TokenFix`. Returns the new book text, or null when this book is on target.
  */
-async function applyChapterLabelToFile(args: {
-  file: ScriptureBookState;
-  targetStem: string;
-  usfmOnionService: IUsfmOnionService;
-  /** The `workingRebuild` shape (see `shapeForSurface`). */
-  shape: EditorShape;
-}): Promise<boolean> {
-  const tokens = args.file.chapters.flatMap((chapter) =>
+function computeChapterLabelUsfm(
+  file: ReadonlyScriptureBookState,
+  targetStem: string,
+): string | null {
+  const tokens = file.chapters.flatMap((chapter) =>
     lexicalToTokens(chapter.lexicalState, {
-      bookCode: args.file.bookCode,
+      bookCode: file.bookCode,
     }),
   );
-  const rewrites = fabricateChapterLabelRewrites(tokens, args.targetStem);
-  if (rewrites.length === 0) return false;
+  const rewrites = fabricateChapterLabelRewrites(tokens, targetStem);
+  if (rewrites.length === 0) return null;
 
   const nextTokens = applyChapterLabelRewrites(tokens, rewrites);
   // `lexicalToTokens` stamps LF newlines, so the file's own EOL is the source
   // of truth here (mirrors applyLintFixToFile — keeps the CRLF/LF fix intact).
-  const nextUsfm = tokensToUsfm(nextTokens, bookLineEnding(args.file));
-  await rebuildParsedFileFromUsfm({
-    targetFile: args.file,
-    sourceUsfm: nextUsfm,
-    usfmOnionService: args.usfmOnionService,
-    shape: args.shape,
-  });
-  return true;
-}
-
-function booksWithOffTargetLabels(
-  files: ScriptureBookState[],
-  targetStem: string,
-): string[] {
-  return files
-    .filter(
-      (file) =>
-        fabricateChapterLabelRewrites(
-          file.chapters.flatMap((chapter) =>
-            lexicalToTokens(chapter.lexicalState, {
-              bookCode: file.bookCode,
-            }),
-          ),
-          targetStem,
-        ).length > 0,
-    )
-    .map((file) => file.bookCode);
+  return tokensToUsfm(nextTokens, bookLineEnding(file));
 }
 
 export type StandardizeChapterLabelsDeps = {
@@ -141,56 +110,48 @@ export async function standardizeChapterLabels(
   // also rechecks at commit time).
   if (!requireGateOpen(deps.interactionGate.get())) return;
 
-  // Pre-scan the committed files to scope the draft + transaction to the
-  // books that actually change. Recomputed against the scratch in
-  // `mutate`, so a concurrent edit can only shrink the set, never produce
-  // a write the workspace-scope staleness check wouldn't catch.
-  const affectedBookCodes = booksWithOffTargetLabels(
-    deps.workingFilesStore.read(),
-    targetStem,
-  );
-  if (affectedBookCodes.length === 0) return;
-
-  const draftRefs = deps.workingFilesStore
-    .read()
-    .filter((file) => affectedBookCodes.includes(file.bookCode))
+  // Scope the history transaction to every chapter that could be touched (each
+  // book carrying an off-target label rebuilds wholesale). The seam measures
+  // the actually-changed books from its own checkouts; this list only narrows
+  // history's before-snapshot capture.
+  const startState = deps.workingFilesStore.read();
+  const candidates = startState
+    .filter((file) => computeChapterLabelUsfm(file, targetStem) !== null)
     .flatMap(chapterRefsForBook);
+  if (candidates.length === 0) return;
 
   await deps.history.runTransaction({
     label: t`Standardize chapter labels to "${targetStem}"`,
-    candidates: draftRefs,
+    candidates,
     run: async () => {
       const outcome = await withWorkingFilesDraft<{
         changedBookCodes: string[];
       }>({
         workingFilesStore: deps.workingFilesStore,
         interactionGate: deps.interactionGate,
-        // Whole-file replacement across N books (rebuild swaps each
-        // book's chapters wholesale) → workspace scope.
-        scope: "workspace",
-        draftRefs,
         commitMeta: {
           kind: "programmaticFix",
           action: "chapterLabelStandardize",
           dirtyTextContent: true,
         },
-        mutate: async (scratch) => {
+        mutate: async (draft) => {
           const changedBookCodes: string[] = [];
-          for (const bookCode of affectedBookCodes) {
-            const file = scratch.find((f) => f.bookCode === bookCode);
-            if (!file) continue;
-            const changed = await applyChapterLabelToFile({
-              file,
-              targetStem,
+          for (const file of draft.read()) {
+            const nextUsfm = computeChapterLabelUsfm(file, targetStem);
+            if (nextUsfm === null) continue;
+            // Off-target labels found — check the book out and rebuild it
+            // wholesale from the rewritten USFM.
+            const writableFile = draft.bookForWrite(file.bookCode);
+            if (!writableFile) continue;
+            await rebuildParsedFileFromUsfm({
+              targetFile: writableFile,
+              sourceUsfm: nextUsfm,
               usfmOnionService: deps.usfmOnionService,
               shape: shapeForSurface("workingRebuild", deps.editorMode),
             });
-            if (changed) changedBookCodes.push(bookCode);
+            changedBookCodes.push(file.bookCode);
           }
-          const affected = scratch
-            .filter((f) => changedBookCodes.includes(f.bookCode))
-            .flatMap(chapterRefsForBook);
-          return { affected, value: { changedBookCodes } };
+          return { changedBookCodes };
         },
       });
 

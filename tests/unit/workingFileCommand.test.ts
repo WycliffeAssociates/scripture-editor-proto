@@ -1,8 +1,10 @@
 // workingFileCommand.test.ts
 //
 // The lost-update + post-commit contract for the ACTIVE working-files mutation
-// seam. Real WorkingFilesStore + WorkspaceGateStore; the mutator is a plain fn
-// so we can inject a concurrent commit "during" its await.
+// seam, now on the recording-draft checkout shape. Real WorkingFilesStore +
+// WorkspaceGateStore; the mutator is a plain fn so we can inject a concurrent
+// commit "during" its await. `affected` is MEASURED from checkouts, never
+// declared — the mutators here check out the chapters/books they write.
 
 import { describe, expect, it, vi } from "vitest";
 
@@ -55,20 +57,11 @@ function contentOf(store: WorkingFilesStore, bookCode: string, chap: number) {
 
 const commitMeta = {
   kind: "programmaticFix",
-  scope: { project: true },
   dirtyTextContent: true,
 } as const;
 
-/** Mutator that rewrites GEN:1's content and reports it changed. */
-function rewriteGen1(to: string) {
-  return async (scratch: ScriptureBookState[]) => {
-    const ch = scratch
-      .find((b) => b.bookCode === "GEN")
-      ?.chapters.find((c) => c.chapterNumber === 1);
-    if (ch)
-      ch.currentTokens = [{ kind: "text", source: to, id: "c-new" }] as never;
-    return { affected: [{ bookCode: "GEN", chapterNum: 1 }], value: to };
-  };
+function tokens(source: string, id: string) {
+  return [{ kind: "text", source, id }] as never;
 }
 
 describe("withWorkingFilesDraft", () => {
@@ -82,9 +75,12 @@ describe("withWorkingFilesDraft", () => {
     const result = await withWorkingFilesDraft({
       workingFilesStore: store,
       interactionGate: gate,
-      draftRefs: [{ bookCode: "GEN", chapterNum: 1 }],
       commitMeta,
-      mutate: rewriteGen1("gen1-formatted"),
+      mutate: async (draft) => {
+        const ch = draft.chapterForWrite({ bookCode: "GEN", chapterNum: 1 });
+        if (ch) ch.currentTokens = tokens("gen1-formatted", "c-new");
+        return "gen1-formatted";
+      },
     });
 
     // The typed result carries the committed chapters + value — the
@@ -98,6 +94,10 @@ describe("withWorkingFilesDraft", () => {
     expect(contentOf(store, "GEN", 1)).toBe("gen1-formatted");
     // Untouched chapter aliased through.
     expect(contentOf(store, "GEN", 2)).toBe("gen2");
+    // A pure chapter checkout stamps a chapter list, never project:true.
+    expect(commitSpy.mock.calls[0][0].meta.scope).toEqual({
+      chapters: [{ bookCode: "GEN", chapterNum: 1 }],
+    });
   });
 
   it("preserves a concurrent commit to a DIFFERENT chapter (overlay, not clobber)", async () => {
@@ -109,23 +109,21 @@ describe("withWorkingFilesDraft", () => {
     const result = await withWorkingFilesDraft({
       workingFilesStore: store,
       interactionGate: gate,
-      draftRefs: [{ bookCode: "GEN", chapterNum: 1 }],
       commitMeta,
-      mutate: async (scratch) => {
+      mutate: async (draft) => {
         // Simulate a concurrent user edit to chapter 2 landing mid-await.
-        const draft = store.draftWithChapters([
+        const concurrent = store.draftWithChapters([
           { bookCode: "GEN", chapterNum: 2 },
         ]);
-        const ch2 = draft[0].chapters.find((c) => c.chapterNumber === 2);
-        if (ch2)
-          ch2.currentTokens = [
-            { kind: "text", source: "gen2-edited", id: "c2e" },
-          ] as never;
+        const ch2 = concurrent[0].chapters.find((c) => c.chapterNumber === 2);
+        if (ch2) ch2.currentTokens = tokens("gen2-edited", "c2e");
         store.commit({
-          patch: { kind: "bulk", files: draft },
-          meta: commitMeta,
+          patch: { kind: "bulk", files: concurrent },
+          meta: { ...commitMeta, scope: { project: true } },
         });
-        return (await rewriteGen1("gen1-formatted")(scratch)) as never;
+        const ch = draft.chapterForWrite({ bookCode: "GEN", chapterNum: 1 });
+        if (ch) ch.currentTokens = tokens("gen1-formatted", "c-new");
+        return "gen1-formatted";
       },
     });
 
@@ -143,22 +141,21 @@ describe("withWorkingFilesDraft", () => {
     const result = await withWorkingFilesDraft({
       workingFilesStore: store,
       interactionGate: gate,
-      draftRefs: [{ bookCode: "GEN", chapterNum: 1 }],
       commitMeta,
-      mutate: async (scratch) => {
-        // Concurrent commit replaces GEN:1's object identity.
-        const draft = store.draftWithChapters([
+      mutate: async (draft) => {
+        // Check out FIRST (records the pre-image), then a concurrent commit
+        // replaces GEN:1's object identity → staleness must abort.
+        const ch = draft.chapterForWrite({ bookCode: "GEN", chapterNum: 1 });
+        if (ch) ch.currentTokens = tokens("gen1-formatted", "c-new");
+        const concurrent = store.draftWithChapters([
           { bookCode: "GEN", chapterNum: 1 },
         ]);
-        const ch = draft[0].chapters[0];
-        ch.currentTokens = [
-          { kind: "text", source: "gen1-user", id: "cu" },
-        ] as never;
+        concurrent[0].chapters[0].currentTokens = tokens("gen1-user", "cu");
         store.commit({
-          patch: { kind: "bulk", files: draft },
-          meta: commitMeta,
+          patch: { kind: "bulk", files: concurrent },
+          meta: { ...commitMeta, scope: { project: true } },
         });
-        return (await rewriteGen1("gen1-formatted")(scratch)) as never;
+        return "gen1-formatted";
       },
     });
 
@@ -176,9 +173,12 @@ describe("withWorkingFilesDraft", () => {
     const result = await withWorkingFilesDraft({
       workingFilesStore: store,
       interactionGate: gate,
-      draftRefs: [{ bookCode: "GEN", chapterNum: 1 }],
       commitMeta,
-      mutate: rewriteGen1("gen1-formatted"),
+      mutate: async (draft) => {
+        const ch = draft.chapterForWrite({ bookCode: "GEN", chapterNum: 1 });
+        if (ch) ch.currentTokens = tokens("gen1-formatted", "c-new");
+        return "gen1-formatted";
+      },
     });
 
     // The contract: callers branch on `kind` before any follow-through,
@@ -187,32 +187,25 @@ describe("withWorkingFilesDraft", () => {
     expect(commitSpy).not.toHaveBeenCalled();
   });
 
-  describe('scope: "workspace" (whole-state rebuild)', () => {
-    it("commits the scratch bulk after validating no concurrent commit", async () => {
+  describe("wholesale book (bookForWrite)", () => {
+    it("commits the draft as a bulk after validating no concurrent commit", async () => {
       const store = new WorkingFilesStore([
         book("GEN", chapter(1, "gen1")),
         book("EXO", chapter(1, "exo1")),
       ]);
       const gate = new WorkspaceGateStore();
+      const commitSpy = vi.spyOn(store, "commit");
 
       const result = await withWorkingFilesDraft({
         workingFilesStore: store,
         interactionGate: gate,
-        draftRefs: [
-          { bookCode: "GEN", chapterNum: 1 },
-          { bookCode: "EXO", chapterNum: 1 },
-        ],
         commitMeta,
-        scope: "workspace",
         // Simulate a wholesale rebuild: replace GEN's chapters array.
-        mutate: async (scratch) => {
-          const gen = scratch.find((b) => b.bookCode === "GEN");
+        mutate: async (draft) => {
+          const gen = draft.bookForWrite("GEN");
           if (gen)
             gen.chapters = [chapter(1, "gen1-rebuilt"), chapter(2, "gen2-new")];
-          return {
-            affected: [{ bookCode: "GEN", chapterNum: 1 }],
-            value: undefined,
-          };
+          return undefined;
         },
       });
 
@@ -220,6 +213,29 @@ describe("withWorkingFilesDraft", () => {
       expect(contentOf(store, "GEN", 1)).toBe("gen1-rebuilt");
       // A chapter ADDED by the rebuild survives (overlay couldn't do this).
       expect(contentOf(store, "GEN", 2)).toBe("gen2-new");
+      // Chapter SET changed (added ch2) → project:true.
+      expect(commitSpy.mock.calls[0][0].meta.scope).toEqual({ project: true });
+    });
+
+    it("stamps a chapter list when a wholesale rebuild keeps the same chapter set", async () => {
+      const store = new WorkingFilesStore([book("GEN", chapter(1, "gen1"))]);
+      const gate = new WorkspaceGateStore();
+      const commitSpy = vi.spyOn(store, "commit");
+
+      await withWorkingFilesDraft({
+        workingFilesStore: store,
+        interactionGate: gate,
+        commitMeta,
+        mutate: async (draft) => {
+          const gen = draft.bookForWrite("GEN");
+          if (gen) gen.chapters = [chapter(1, "gen1-rebuilt")];
+          return undefined;
+        },
+      });
+
+      expect(commitSpy.mock.calls[0][0].meta.scope).toEqual({
+        chapters: [{ bookCode: "GEN", chapterNum: 1 }],
+      });
     });
 
     it("aborts (stale-workspace) if ANY concurrent commit landed", async () => {
@@ -233,41 +249,31 @@ describe("withWorkingFilesDraft", () => {
       const result = await withWorkingFilesDraft({
         workingFilesStore: store,
         interactionGate: gate,
-        draftRefs: [{ bookCode: "GEN", chapterNum: 1 }],
         commitMeta,
-        scope: "workspace",
-        mutate: async (scratch) => {
-          // Concurrent commit to an unrelated book replaces read().
-          const draft = store.draftWithChapters([
-            { bookCode: "EXO", chapterNum: 1 },
-          ]);
-          const exo = draft.find((b) => b.bookCode === "EXO");
-          if (exo)
-            exo.chapters[0].currentTokens = [
-              { kind: "text", source: "exo-edited", id: "e" },
-            ] as never;
-          store.commit({
-            patch: { kind: "bulk", files: draft },
-            meta: commitMeta,
-          });
-          const gen = scratch.find((b) => b.bookCode === "GEN");
+        mutate: async (draft) => {
+          const gen = draft.bookForWrite("GEN");
           if (gen) gen.chapters = [chapter(1, "gen1-rebuilt")];
-          return {
-            affected: [{ bookCode: "GEN", chapterNum: 1 }],
-            value: undefined,
-          };
+          // Concurrent commit to a book this draft checked out replaces read().
+          const concurrent = store.draftWithChapters([
+            { bookCode: "GEN", chapterNum: 1 },
+          ]);
+          concurrent[0].chapters[0].currentTokens = tokens("gen1-user", "gu");
+          store.commit({
+            patch: { kind: "bulk", files: concurrent },
+            meta: { ...commitMeta, scope: { project: true } },
+          });
+          return undefined;
         },
       });
 
       expect(result).toEqual({ kind: "aborted", reason: "stale-workspace" });
       // Only the concurrent commit ran; the stale rebuild did NOT clobber it.
       expect(commitSpy).toHaveBeenCalledTimes(1);
-      expect(contentOf(store, "EXO", 1)).toBe("exo-edited");
-      expect(contentOf(store, "GEN", 1)).toBe("gen1");
+      expect(contentOf(store, "GEN", 1)).toBe("gen1-user");
     });
   });
 
-  it("returns unchanged (no commit) when nothing was affected", async () => {
+  it("returns unchanged (no commit) when nothing was checked out", async () => {
     const store = new WorkingFilesStore([book("GEN", chapter(1, "gen1"))]);
     const gate = new WorkspaceGateStore();
     const commitSpy = vi.spyOn(store, "commit");
@@ -275,9 +281,8 @@ describe("withWorkingFilesDraft", () => {
     const result = await withWorkingFilesDraft({
       workingFilesStore: store,
       interactionGate: gate,
-      draftRefs: [{ bookCode: "GEN", chapterNum: 1 }],
       commitMeta,
-      mutate: async () => ({ affected: [], value: "noop" }),
+      mutate: async () => "noop",
     });
 
     expect(result).toEqual({ kind: "unchanged", value: "noop" });

@@ -43,3 +43,14 @@ export type ScriptureChapterState = {
 export type ScriptureBookState = ScriptureBookStateBase & {
   chapters: Array<ScriptureChapterState>;
 };
+
+/**
+ * Deeply-readonly view of a book — what a recording draft's `read()` hands
+ * back. Read-only consumers (token collection, relint) accept this so the
+ * recording draft can feed them snapshot state without a mutable cast.
+ */
+export type ReadonlyScriptureBookState = Readonly<
+  Omit<ScriptureBookState, "chapters">
+> & {
+  readonly chapters: ReadonlyArray<Readonly<ScriptureChapterState>>;
+};

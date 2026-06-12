@@ -16,10 +16,7 @@ import {
   chapterRefsForBook,
 } from "@/app/domain/project/workingFileMutations.ts";
 import type { ScriptureChapterState } from "@/app/scripture/ScriptureWorkspaceState.ts";
-import {
-  findChapterInDraft,
-  type WorkingFilesStore,
-} from "@/app/state/WorkingFilesStore.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import type { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
 import { showNotificationSuccess } from "@/app/ui/components/primitives/notifications.ts";
 import type { FormatMatchingRunReport } from "@/app/ui/data/formatMatching.ts";
@@ -50,6 +47,8 @@ type ChapterMatchApplyResult = {
   changed: boolean;
   stats: VerseAnchorMatchStats;
   suggestions: SkippedMarkerSuggestion[];
+  /** The next chapter lexical state — present only when `changed`. */
+  nextLexical?: ScriptureChapterState["lexicalState"];
 };
 
 function sumStats(
@@ -109,17 +108,18 @@ export function useFormatMatching({
     }
   };
 
-  const applyChapterMatchInPlace = ({
+  // Compute the match-formatting result for one chapter against its source —
+  // pure compute (no writes). When the formatting differs, `nextLexical` is the
+  // chapter state the mutator writes after checking the chapter out.
+  const computeChapterMatch = ({
     chapter,
     sourceChapter,
     scope,
-    bookCode,
     targetMarkerPreservation,
   }: {
-    chapter: ScriptureChapterState;
-    sourceChapter: ScriptureChapterState;
+    chapter: Readonly<ScriptureChapterState>;
+    sourceChapter: Readonly<ScriptureChapterState>;
     scope: MatchFormattingScope;
-    bookCode: string;
     targetMarkerPreservation: TargetMarkerPreservationMode;
   }): ChapterMatchApplyResult => {
     const targetRootChildren = chapter.lexicalState.root
@@ -169,19 +169,25 @@ export function useFormatMatching({
     nextLexical.root.children =
       nextRootChildren as typeof nextLexical.root.children;
 
-    chapter.lexicalState = nextLexical;
-    chapter.currentTokens = lexicalToTokens(nextLexical, {
-      bookCode,
-    });
-    chapter.dirty =
-      tokensToUsfm(chapter.currentTokens, chapter.eol) !==
-      tokensToUsfm(chapter.sourceTokens, chapter.eol);
-
     return {
       changed: true,
       stats: matchResult.stats,
       suggestions: matchResult.suggestions,
+      nextLexical,
     };
+  };
+
+  // Write a computed match onto a checked-out chapter (per-chapter overlay).
+  const writeChapterMatch = (
+    chapter: ScriptureChapterState,
+    nextLexical: ScriptureChapterState["lexicalState"],
+    bookCode: string,
+  ) => {
+    chapter.lexicalState = nextLexical;
+    chapter.currentTokens = lexicalToTokens(nextLexical, { bookCode });
+    chapter.dirty =
+      tokensToUsfm(chapter.currentTokens, chapter.eol) !==
+      tokensToUsfm(chapter.sourceTokens, chapter.eol);
   };
 
   // Chapter / book / project match-formatting are the SAME flow over a different
@@ -259,41 +265,39 @@ export function useFormatMatching({
         const outcome = await withWorkingFilesDraft({
           workingFilesStore,
           interactionGate,
-          draftRefs,
           commitMeta: {
             kind: "programmaticFix",
             action: "formatMatch",
             dirtyTextContent: true,
           },
-          mutate: async (scratch) => {
-            const affected: ChapterRef[] = [];
-            // Walk only the drafted chapters; match each against its resolved
+          mutate: async (draft) => {
+            // Walk only the candidate chapters; match each against its resolved
             // source. A chapter with no counterpart in the reference is skipped
-            // (and not counted as scanned).
+            // (and not counted as scanned). Read first, check out only the
+            // chapters that actually change.
+            const files = draft.read();
             for (const ref of draftRefs) {
-              const chapter = findChapterInDraft(
-                scratch,
-                ref.bookCode,
-                ref.chapterNum,
-              );
+              const chapter = files
+                .find((b) => b.bookCode === ref.bookCode)
+                ?.chapters.find((c) => c.chapterNumber === ref.chapterNum);
               const sourceChapter = sourceFor(ref.bookCode, ref.chapterNum);
               if (!chapter || !sourceChapter) continue;
               chaptersScanned++;
-              const result = applyChapterMatchInPlace({
+              const result = computeChapterMatch({
                 chapter,
                 sourceChapter,
                 scope,
-                bookCode: ref.bookCode,
                 targetMarkerPreservation: targetMarkerPreservationMode,
               });
               aggregateStats = sumStats(aggregateStats, result.stats);
               aggregateSuggestions.push(...result.suggestions);
-              if (!result.changed) continue;
+              if (!result.changed || !result.nextLexical) continue;
+              const writable = draft.chapterForWrite(ref);
+              if (!writable) continue;
+              writeChapterMatch(writable, result.nextLexical, ref.bookCode);
               modifiedChaptersCount++;
               modifiedBooks.add(ref.bookCode);
-              affected.push(ref);
             }
-            return { affected, value: undefined };
           },
         });
 

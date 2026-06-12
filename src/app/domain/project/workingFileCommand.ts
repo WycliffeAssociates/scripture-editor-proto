@@ -9,14 +9,14 @@
 //       lost-update hazard on `WorkingFilesStore.draftWithChapters`), or
 //   (b) commit a stale whole-state `bulk` over a concurrent commit.
 //
-// It composes the SAME validated primitives the incoming-reconciliation path
-// already uses (`captureChapterIdentities` / `chapterIdentitiesUnchanged` /
-// `overlayAffectedChapters` from `applyIncomingToStore.ts`), so there is one
-// lost-update contract in the codebase, not two. The mutator runs on a
-// structural-sharing scratch (safe across awaits — it is NOT the store); the
-// helper then re-reads the latest state, validates the chapters it is about to
-// write were not replaced underneath it, rechecks the gate, and commits by
-// overlaying ONLY the affected chapters onto the latest state.
+// The mutator runs on a RECORDING DRAFT (see `recordingDraft.ts`): it reads
+// with plain reads and checks out a writable chapter/book only when its engine
+// actually produced a change. Obtaining write access IS the bookkeeping, so the
+// set of changed chapters is MEASURED at commit, never declared by the mutator.
+// The helper then re-reads the latest state, validates the chapters it checked
+// out were not replaced underneath it, rechecks the gate, and commits — by
+// overlaying only the affected chapters onto the latest state, or, when a book
+// was rebuilt wholesale (its chapters array replaced), by a validated bulk.
 //
 // Reactions vs continuations: derived state (lint, sous, diff, visible-editor
 // sync) is owned by commit-stream subscribers — the commit this seam publishes
@@ -27,9 +27,9 @@
 //
 // CONTRACT (so a stale/gate abort can't publish a side effect for a write that
 // never landed):
-//   - `mutate` may ONLY mutate the scratch and COMPUTE a value. It must not run
-//     UI side effects — at mutate time the commit has not been validated, so
-//     any effect there can outlive an abort.
+//   - `mutate` may ONLY read/check out the draft and COMPUTE a value. It must
+//     not run UI side effects — at mutate time the commit has not been
+//     validated, so any effect there can outlive an abort.
 //   - Callers branch on the returned `kind` before running any follow-through;
 //     the typed result makes "did this actually commit?" impossible to skip.
 
@@ -41,6 +41,10 @@ import {
 import type { IncomingMutationAbortReason } from "@/app/domain/project/remoteSync/commandResults.ts";
 import type { ChapterRef } from "@/app/domain/project/workingFileMutations.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import {
+  makeRecordingDraft,
+  type RecordingDraft,
+} from "@/app/state/recordingDraft.ts";
 import type { CommitMeta } from "@/app/state/types.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import {
@@ -49,11 +53,13 @@ import {
 } from "@/app/state/WorkspaceInteractionGate.ts";
 
 /**
- * Caller-provided meta, MINUS `scope` — the seam stamps it. By default scope
- * is the precise `{ chapters: affected }` the mutator reported (producers
- * state facts; the scope is exactly as true as the commit itself). Callers
- * opt into `{ project: true }` only for genuine whole-snapshot semantics
- * (books added/removed — a chapter list cannot express absence).
+ * Caller-provided meta, MINUS `scope` — the seam stamps it from measurement.
+ * By default scope is the precise `{ chapters: affected }` the recording draft
+ * measured. Callers opt into `{ project: true }` only for genuine whole-
+ * snapshot semantics they know up front (version switch / import, where books
+ * may be added or removed — a chapter list cannot express absence). The seam
+ * ALSO stamps `{ project: true }` on its own when a wholesale book's chapter
+ * SET changed (chapters added or removed by the rebuild); see `commit` below.
  */
 type CommitMetaInput = Omit<CommitMeta, "generation" | "scope"> & {
   scope?: { project: true };
@@ -65,120 +71,87 @@ export type WorkingFilesCommandResult<T> =
   | { kind: "aborted"; reason: IncomingMutationAbortReason };
 
 /**
- * Commit shape, matched to how the mutator writes the scratch:
- *
- * - `"chapters"` (default): the mutator changes chapters IN PLACE. Commit by
- *   overlaying only the affected chapters onto the latest `read()`, so a
- *   concurrent commit to OTHER chapters survives. Validation is per affected
- *   chapter (identity); a concurrent edit to a non-affected chapter is fine.
- *
- * - `"workspace"`: the mutator replaces book `chapters` arrays WHOLESALE (e.g.
- *   `rebuildParsedFileFromUsfm`, which can add/remove chapters), so there is no
- *   safe per-chapter overlay — the scratch IS the next full state. Commit the
- *   scratch as a `bulk`, but only after validating that NO concurrent commit
- *   landed (array identity, exactly like `runIncomingMutation`'s workspace
- *   scope). A concurrent commit during the await aborts rather than clobbers.
- */
-export type WorkingFilesCommandScope = "chapters" | "workspace";
-
-/**
  * Run a validated working-files mutation. See the file header for the contract.
  *
- * - `draftRefs`: the chapters to make writable in the scratch. For discovery
- *   flows (e.g. format-project) pass every chapter — only the `affected` ones the
- *   mutator returns drive the commit/report.
- * - `mutate`: does the (possibly async) work on the scratch and returns the
- *   chapters it changed plus a value. Scratch + compute ONLY — no side effects
- *   (see the file header). Empty `affected` ⇒ no commit (`unchanged`).
+ * - `mutate`: does the (possibly async) work on the recording draft and returns
+ *   only its business value. It reads the draft freely and checks out a chapter
+ *   (`chapterForWrite`) or book (`bookForWrite`) only when its engine produced a
+ *   change. The seam derives `affected` from those checkouts; no chapter checked
+ *   out ⇒ no commit (`unchanged`).
  *
- * The mutator may `await` freely: it works on the scratch, never the store. If a
- * relevant chapter (or, for `workspace` scope, anything) was committed during the
- * await, or the gate closed, the mutation aborts with a typed reason and nothing
- * is committed.
+ * The mutator may `await` freely: it works on the draft, never the store. If any
+ * chapter it checked out was committed during the await, or the gate closed, the
+ * mutation aborts with a typed reason and nothing is committed.
  */
 export async function withWorkingFilesDraft<T>(args: {
   workingFilesStore: WorkingFilesStore;
   interactionGate: WorkspaceGateStore;
-  draftRefs: ChapterRef[];
   commitMeta: CommitMetaInput;
-  scope?: WorkingFilesCommandScope;
-  mutate: (
-    scratch: ScriptureBookState[],
-  ) => Promise<{ affected: ChapterRef[]; value: T }>;
+  mutate: (draft: RecordingDraft) => Promise<T>;
 }): Promise<WorkingFilesCommandResult<T>> {
-  const scope = args.scope ?? "chapters";
   const startState = args.workingFilesStore.read();
-  const baseline = captureChapterIdentities(startState, args.draftRefs);
+  const draft = makeRecordingDraft(startState);
+  const value = await args.mutate(draft);
 
-  // The scratch is a structural-sharing draft: only `draftRefs` chapters get
-  // fresh objects. Mutating it across awaits cannot clobber the store.
-  const scratch = args.workingFilesStore.draftWithChapters(args.draftRefs);
-  const { affected, value } = await args.mutate(scratch);
+  const { files, affected, wholesaleBooks, wholesaleOriginalChapterNums } =
+    draft.result();
 
   if (affected.length === 0) {
     return { kind: "unchanged", value };
   }
 
-  const isStale =
-    scope === "workspace"
-      ? // Whole-state replacement: any commit invalidates the scratch.
-        args.workingFilesStore.read() !== startState
-      : // Per-chapter overlay: only the affected chapters must be unchanged.
-        !chapterIdentitiesUnchanged(
-          args.workingFilesStore.read(),
-          affected,
-          baseline,
-        );
-  if (isStale) {
+  // A wholesale book replaces its `chapters` array, so there is no safe per-
+  // chapter overlay — the draft IS the next full state for those books. Any of
+  // them present ⇒ bulk commit; otherwise overlay only the affected chapters.
+  const isBulk = wholesaleBooks.size > 0;
+
+  // Staleness: every checked-out chapter must still be the same object the
+  // draft branched from. Identity, not text — structural sharing replaces a
+  // touched chapter's object on ANY commit. For bulk commits the same per-
+  // chapter check stands in for the whole-array identity check, because every
+  // chapter of a wholesale book was checked out (its pre-image recorded).
+  const baseline = captureChapterIdentities(startState, affected);
+  if (
+    !chapterIdentitiesUnchanged(
+      args.workingFilesStore.read(),
+      affected,
+      baseline,
+    )
+  ) {
     console.info(
-      `[workingFileCommand] aborted — ${
-        scope === "workspace" ? "the workspace" : "an affected chapter"
-      } changed during the mutation; result is stale`,
+      "[workingFileCommand] aborted — an affected chapter changed during the mutation; result is stale",
     );
     return {
       kind: "aborted",
-      reason: scope === "workspace" ? "stale-workspace" : "stale-chapter",
+      reason: isBulk ? "stale-workspace" : "stale-chapter",
     };
   }
   if (!requireGateOpen(args.interactionGate.get())) {
     return { kind: "aborted", reason: "gate-closed" };
   }
 
-  // DEV-ONLY: workspace-scope commits write the WHOLE scratch, so an
-  // under-reported `affected` would commit changes that downstream
-  // subscribers (lint/sous/diff/editor-sync, all scope-precise) are never
-  // told about — the store skews silently against every derived view.
-  // (`chapters` scope can't lie: only `affected` chapters are overlaid, so
-  // an under-report loses the write itself — a visible bug.) Scream here,
-  // at the moment the lie is told. Cost is bounded: only the DRAFTED
-  // chapters get serialized, dev builds only.
-  if (import.meta.env.DEV && scope === "workspace") {
-    assertAffectedCoversScratchChanges({
-      startState,
-      scratch,
-      draftRefs: args.draftRefs,
-      affected,
-    });
-  }
-
   args.workingFilesStore.commit({
     patch: {
       kind: "bulk",
-      files:
-        scope === "workspace"
-          ? scratch
-          : overlayAffectedChapters(
-              args.workingFilesStore.read(),
-              scratch,
-              affected,
-            ),
+      files: isBulk
+        ? files
+        : overlayAffectedChapters(
+            args.workingFilesStore.read(),
+            files,
+            affected,
+          ),
     },
     meta: {
       ...args.commitMeta,
-      // Producers state facts: scope is stamped from what the mutator
-      // actually reported changed, unless the caller explicitly opted
-      // into whole-snapshot semantics.
-      scope: args.commitMeta.scope ?? { chapters: affected },
+      // Producers state facts: scope is the measured chapter list, widened to
+      // `{ project: true }` when a wholesale rebuild changed a book's chapter
+      // SET (added/removed chapters — a list cannot express absence) or when
+      // the caller explicitly opted into whole-snapshot semantics.
+      scope:
+        args.commitMeta.scope ??
+        (chapterSetChanged(files, wholesaleBooks, wholesaleOriginalChapterNums)
+          ? { project: true }
+          : { chapters: affected }),
     },
   });
 
@@ -186,64 +159,24 @@ export async function withWorkingFilesDraft<T>(args: {
 }
 
 /**
- * DEV-ONLY guard for workspace-scope commits: every drafted chapter whose
- * content actually changed must be listed in `affected`. An under-report
- * here is the worst failure class this seam can produce — the change COMMITS
- * (workspace scope writes the whole scratch) but scope-precise subscribers
- * are never notified, so lint/sous/diff/editor silently skew against the
- * store. Throwing in dev makes the lie unmissable at the moment it's told.
- *
- * Comparison strategy, cheapest first: shared chapter object → unchanged
- * (structural sharing); shared `lexicalState` reference → unchanged (drafted
- * chapter objects are fresh but share nested refs until actually written);
- * otherwise JSON-compare the serialized state (a rebuild swaps refs even for
- * content-identical chapters). Only DRAFTED chapters are compared — mutating
- * outside the draft set is already a contract violation of the scratch.
+ * Has any wholesale book's chapter SET changed — chapters added or removed by
+ * the rebuild? A chapter list cannot express absence, so such a commit must
+ * carry `{ project: true }` for subscribers to wipe state for vanished
+ * chapters. Same chapter set (content-only rewrite) stays a chapter list.
  */
-function assertAffectedCoversScratchChanges(args: {
-  startState: ScriptureBookState[];
-  scratch: ScriptureBookState[];
-  draftRefs: ChapterRef[];
-  affected: ChapterRef[];
-}): void {
-  const affectedKeys = new Set(
-    args.affected.map((ref) => `${ref.bookCode}:${ref.chapterNum}`),
-  );
-  const underReported: string[] = [];
-  for (const ref of args.draftRefs) {
-    const key = `${ref.bookCode}:${ref.chapterNum}`;
-    if (affectedKeys.has(key)) continue;
-    const before = findChapterIn(args.startState, ref);
-    const after = findChapterIn(args.scratch, ref);
-    if (before === after) continue;
-    if (!before || !after) {
-      underReported.push(key);
-      continue;
-    }
-    if (before.lexicalState === after.lexicalState) continue;
-    if (
-      JSON.stringify(before.lexicalState) !== JSON.stringify(after.lexicalState)
-    ) {
-      underReported.push(key);
+function chapterSetChanged(
+  files: ScriptureBookState[],
+  wholesaleBooks: Set<string>,
+  originalChapterNums: Map<string, Set<number>>,
+): boolean {
+  for (const bookCode of wholesaleBooks) {
+    const before = originalChapterNums.get(bookCode);
+    const book = files.find((b) => b.bookCode === bookCode);
+    const after = new Set(book?.chapters.map((c) => c.chapterNumber) ?? []);
+    if (!before || before.size !== after.size) return true;
+    for (const num of after) {
+      if (!before.has(num)) return true;
     }
   }
-  if (underReported.length > 0) {
-    throw new Error(
-      `[workingFileCommand] UNDER-REPORTED AFFECTED on workspace-scope commit: ` +
-        `chapters [${underReported.join(", ")}] changed in the scratch but were ` +
-        `not listed in \`affected\`. The commit would land these changes WITHOUT ` +
-        `notifying scope-precise subscribers (lint/sous/diff/editor-sync) — the ` +
-        `store would silently skew against every derived view. Fix the mutator's ` +
-        `affected computation.`,
-    );
-  }
-}
-
-function findChapterIn(files: ScriptureBookState[], ref: ChapterRef) {
-  return (
-    files
-      .find((file) => file.bookCode === ref.bookCode)
-      ?.chapters.find((chapter) => chapter.chapterNumber === ref.chapterNum) ??
-    null
-  );
+  return false;
 }
