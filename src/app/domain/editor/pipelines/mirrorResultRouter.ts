@@ -55,6 +55,12 @@ export function makeMirrorResultRouter(args: {
   // applied for that class is a stale calm-period pass and is dropped.
   let lintHighWater = -1;
   let sousHighWater = -1;
+  // Resync coalesce guard: a full re-seed is heavy and re-tokenizes the whole
+  // project. A behind transient can fire several resyncRequests in a burst (one
+  // per analyze class), all carrying the same trailing generation; re-seeding
+  // once at that generation covers them all, so drop any request that isn't
+  // newer than the last we already re-seeded for.
+  let resyncHighWater = -1;
 
   const handle = (result: MirrorResult): void => {
     switch (result.kind) {
@@ -117,6 +123,8 @@ export function makeMirrorResultRouter(args: {
         return;
       }
       case "resyncRequest": {
+        if (result.lastGeneration <= resyncHighWater) return;
+        resyncHighWater = result.lastGeneration;
         seedMirror({
           workingFilesStore: args.workingFilesStore,
           workspaceBaselineStore: args.workspaceBaselineStore,

@@ -58,8 +58,33 @@ describe("RustMirrorSession", () => {
     });
   });
 
-  it("turns a behind result into a resyncRequest, not findings", async () => {
+  it("retries a behind analyze, then delivers once the patch lands", async () => {
     const { feed, results } = setup();
+    // First two attempts lose the race; the third sees the patch applied.
+    invokeMock
+      .mockResolvedValueOnce({ byBook: {}, ranAtGeneration: 9, behind: true })
+      .mockResolvedValueOnce({ byBook: {}, ranAtGeneration: 9, behind: true })
+      .mockResolvedValue({
+        byBook: { GEN: [] },
+        ranAtGeneration: 9,
+        behind: false,
+      });
+    feed.sendCommand({
+      kind: "analyzeSous",
+      scope: { books: ["GEN"] },
+      generation: 9,
+    });
+    await vi.waitFor(() => expect(results).toHaveLength(1));
+    expect(invokeMock).toHaveBeenCalledTimes(3);
+    expect(results[0]).toMatchObject({
+      kind: "sousResult",
+      ranAtGeneration: 9,
+    });
+  });
+
+  it("falls back to a resyncRequest only after behind retries are exhausted", async () => {
+    const { feed, results } = setup();
+    // Patch never lands: every attempt is behind.
     invokeMock.mockResolvedValue({
       byBook: {},
       ranAtGeneration: 9,
@@ -71,6 +96,8 @@ describe("RustMirrorSession", () => {
       generation: 9,
     });
     await vi.waitFor(() => expect(results).toHaveLength(1));
+    // Initial attempt + the two bounded retries before falling back.
+    expect(invokeMock).toHaveBeenCalledTimes(3);
     expect(results[0]).toEqual({ kind: "resyncRequest", lastGeneration: 9 });
   });
 
