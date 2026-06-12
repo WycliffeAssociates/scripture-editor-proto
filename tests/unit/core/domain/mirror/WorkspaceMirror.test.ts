@@ -1,0 +1,278 @@
+// WorkspaceMirror.test.ts
+//
+// Protocol-level tests for the mirror state machine. No Worker, no DOM — the
+// mirror is a plain module, so we drive it with patches/commands directly and
+// assert on resident-state behavior, generation tagging, and the HARD backup
+// byte-identity invariant (backup bytes === serializeChaptersToUsfm over the
+// same chapters).
+
+import { makeTokens } from "@tests/helpers/workspaceFixtures.ts";
+import { describe, expect, it, vi } from "vitest";
+
+import { serializeChaptersToUsfm } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import type {
+  MirrorChapter,
+  MirrorPatch,
+} from "@/app/domain/mirror/mirrorProtocol.ts";
+import {
+  type MirrorEngines,
+  WorkspaceMirror,
+} from "@/app/domain/mirror/WorkspaceMirror.ts";
+import {
+  DIRTY_BUFFER_SCHEMA_VERSION,
+  type DirtyBufferFile,
+} from "@/app/state/DirtyBufferStore.ts";
+
+function makeEngines(overrides?: Partial<MirrorEngines>): MirrorEngines {
+  return {
+    lintBook: vi.fn<MirrorEngines["lintBook"]>(async () => []),
+    analyzeSousBook: vi.fn<MirrorEngines["analyzeSousBook"]>(async () => ({
+      segments: {},
+      findings: [],
+    })),
+    computeMd5: vi.fn<MirrorEngines["computeMd5"]>(
+      async (content: string) => `md5(${content.length})`,
+    ),
+    persistBackup: vi.fn<MirrorEngines["persistBackup"]>(async () => true),
+    clearBackup: vi.fn<MirrorEngines["clearBackup"]>(async () => {}),
+    ...overrides,
+  };
+}
+
+function chapter(text: string, dirty: boolean): MirrorChapter {
+  return {
+    tokens: makeTokens(text, { sid: "GEN 1:1", id: `${text}-id` }),
+    eol: "\n",
+    dirty,
+  };
+}
+
+describe("WorkspaceMirror — patches", () => {
+  it("applies pushChapter and assembles book tokens for analyze", async () => {
+    const lintBook = vi.fn<MirrorEngines["lintBook"]>(async () => []);
+    const mirror = new WorkspaceMirror(makeEngines({ lintBook }));
+
+    mirror.applyPatch({
+      kind: "pushChapter",
+      ref: { bookCode: "GEN", chapterNum: 1 },
+      chapter: chapter("hello", true),
+      generation: 1,
+    });
+
+    const result = await mirror.runCommand({
+      kind: "analyzeLint",
+      scope: { books: ["GEN"] },
+      generation: 2,
+    });
+
+    expect(result.kind).toBe("lintResult");
+    expect(lintBook).toHaveBeenCalledTimes(1);
+    expect(lintBook.mock.calls[0]?.[0]).toHaveLength(1);
+    if (result.kind === "lintResult") {
+      expect(result.ranAtGeneration).toBe(2);
+      expect(Object.keys(result.byBook)).toEqual(["GEN"]);
+    }
+  });
+
+  it("drops a stale pushChapter (older generation is a no-op)", async () => {
+    const persistBackup = vi.fn<MirrorEngines["persistBackup"]>(
+      async () => true,
+    );
+    const mirror = new WorkspaceMirror(makeEngines({ persistBackup }));
+
+    mirror.applyPatch({
+      kind: "pushChapter",
+      ref: { bookCode: "GEN", chapterNum: 1 },
+      chapter: chapter("newer", true),
+      generation: 5,
+    });
+    // Stale: lower generation must not overwrite.
+    mirror.applyPatch({
+      kind: "pushChapter",
+      ref: { bookCode: "GEN", chapterNum: 1 },
+      chapter: chapter("older", true),
+      generation: 3,
+    });
+
+    await mirror.runCommand({
+      kind: "writeBackup",
+      bookCode: "GEN",
+      appVersion: "t",
+      generation: 6,
+    });
+    const entry = JSON.parse(
+      persistBackup.mock.calls[0]![1],
+    ) as DirtyBufferFile;
+    expect(entry.content).toContain("newer");
+    expect(entry.content).not.toContain("older");
+  });
+
+  it("deleteChapter removes a chapter and drops the book when empty", async () => {
+    const lintBook = vi.fn<MirrorEngines["lintBook"]>(async () => []);
+    const mirror = new WorkspaceMirror(makeEngines({ lintBook }));
+    mirror.applyPatch({
+      kind: "pushChapter",
+      ref: { bookCode: "GEN", chapterNum: 1 },
+      chapter: chapter("x", true),
+      generation: 1,
+    });
+    mirror.applyPatch({
+      kind: "deleteChapter",
+      ref: { bookCode: "GEN", chapterNum: 1 },
+      generation: 2,
+    });
+
+    const result = await mirror.runCommand({
+      kind: "analyzeLint",
+      scope: "all",
+      generation: 3,
+    });
+    if (result.kind === "lintResult") {
+      expect(Object.keys(result.byBook)).toEqual([]);
+    }
+    expect(lintBook).not.toHaveBeenCalled();
+  });
+
+  it("fullSync replaces the whole mirror — vanished books are dropped", async () => {
+    const mirror = new WorkspaceMirror(makeEngines());
+    mirror.applyPatch({
+      kind: "pushChapter",
+      ref: { bookCode: "EXO", chapterNum: 1 },
+      chapter: chapter("exo", true),
+      generation: 1,
+    });
+    // fullSync without EXO must drop it.
+    const sync: MirrorPatch = {
+      kind: "fullSync",
+      generation: 2,
+      books: [
+        {
+          bookCode: "GEN",
+          diskBaseline: { kind: "absent" },
+          chapters: [{ chapterNum: 1, chapter: chapter("gen", true) }],
+        },
+      ],
+    };
+    mirror.applyPatch(sync);
+
+    const result = await mirror.runCommand({
+      kind: "analyzeLint",
+      scope: "all",
+      generation: 3,
+    });
+    if (result.kind === "lintResult") {
+      expect(Object.keys(result.byBook)).toEqual(["GEN"]);
+    }
+  });
+});
+
+describe("WorkspaceMirror — backup", () => {
+  it("writes a backup byte-identical to serializeChaptersToUsfm", async () => {
+    const persistBackup = vi.fn<MirrorEngines["persistBackup"]>(
+      async () => true,
+    );
+    const mirror = new WorkspaceMirror(makeEngines({ persistBackup }));
+
+    const c1 = chapter("first chapter", true);
+    const c2 = chapter("second chapter", true);
+    mirror.applyPatch({
+      kind: "pushBaseline",
+      bookCode: "GEN",
+      diskBaseline: { kind: "present", md5: "base" },
+      generation: 1,
+    });
+    mirror.applyPatch({
+      kind: "pushChapter",
+      ref: { bookCode: "GEN", chapterNum: 1 },
+      chapter: c1,
+      generation: 1,
+    });
+    mirror.applyPatch({
+      kind: "pushChapter",
+      ref: { bookCode: "GEN", chapterNum: 2 },
+      chapter: c2,
+      generation: 1,
+    });
+
+    const result = await mirror.runCommand({
+      kind: "writeBackup",
+      bookCode: "GEN",
+      appVersion: "1.0.0",
+      generation: 2,
+    });
+
+    expect(persistBackup).toHaveBeenCalledTimes(1);
+    const [, envelopeJson] = persistBackup.mock.calls[0]!;
+    const entry = JSON.parse(envelopeJson) as DirtyBufferFile;
+
+    // The invariant: identical to a real save over the same chapters.
+    const expected = serializeChaptersToUsfm(
+      [
+        { chapterNumber: 1, eol: c1.eol, currentTokens: c1.tokens },
+        { chapterNumber: 2, eol: c2.eol, currentTokens: c2.tokens },
+      ],
+      (chapterState) => chapterState.currentTokens,
+    );
+    expect(entry.content).toBe(expected);
+    expect(entry.schemaVersion).toBe(DIRTY_BUFFER_SCHEMA_VERSION);
+    expect(entry.diskBaseline).toEqual({ kind: "present", md5: "base" });
+    expect(entry.appVersion).toBe("1.0.0");
+
+    if (result.kind === "backupResult") {
+      expect(result.ranAtGeneration).toBe(2);
+      // Web persisted itself — no envelope shipped back.
+      expect(result.envelopeJson).toBeUndefined();
+    }
+  });
+
+  it("ships envelope bytes back when the host cannot persist (desktop interim)", async () => {
+    const persistBackup = vi.fn<MirrorEngines["persistBackup"]>(
+      async () => false,
+    );
+    const mirror = new WorkspaceMirror(makeEngines({ persistBackup }));
+    mirror.applyPatch({
+      kind: "pushChapter",
+      ref: { bookCode: "GEN", chapterNum: 1 },
+      chapter: chapter("dirty", true),
+      generation: 1,
+    });
+
+    const result = await mirror.runCommand({
+      kind: "writeBackup",
+      bookCode: "GEN",
+      appVersion: "1.0.0",
+      generation: 2,
+    });
+
+    if (result.kind === "backupResult") {
+      expect(result.envelopeJson).toBeDefined();
+    }
+  });
+
+  it("clears the backup when the book has no dirty chapters", async () => {
+    const clearBackup = vi.fn<MirrorEngines["clearBackup"]>(async () => {});
+    const persistBackup = vi.fn<MirrorEngines["persistBackup"]>(
+      async () => true,
+    );
+    const mirror = new WorkspaceMirror(
+      makeEngines({ clearBackup, persistBackup }),
+    );
+    mirror.applyPatch({
+      kind: "pushChapter",
+      ref: { bookCode: "GEN", chapterNum: 1 },
+      chapter: chapter("clean", false),
+      generation: 1,
+    });
+
+    const result = await mirror.runCommand({
+      kind: "writeBackup",
+      bookCode: "GEN",
+      appVersion: "1.0.0",
+      generation: 2,
+    });
+
+    expect(clearBackup).toHaveBeenCalledWith("GEN");
+    expect(persistBackup).not.toHaveBeenCalled();
+    if (result.kind === "backupResult") expect(result.cleared).toBe(true);
+  });
+});
