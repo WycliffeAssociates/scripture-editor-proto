@@ -83,15 +83,29 @@ export function makeMirrorResultRouter(args: {
         return;
       }
       case "backupResult": {
-        if (result.cleared) return;
-        if (result.envelopeJson === undefined) return;
-        // Desktop interim: the worker couldn't `invoke`, so it serialized and
-        // shipped the bytes; main does the one dumb write through the seam.
-        // Bounded retry covers a transient FS hiccup so the safety-net write
-        // isn't lost silently; on exhaust we log loudly and leave the book
-        // dormant until its next commit re-triggers a write.
-        const entry = JSON.parse(result.envelopeJson) as DirtyBufferFile;
         const bookCode = result.bookCode;
+        // Desktop: the backup worker can't `invoke`, so a clean book ships back
+        // `clearOnMain` for main to clear through the store seam. Web cleared in
+        // the worker (OPFS) and there's nothing to do here.
+        if (result.cleared) {
+          if (!result.clearOnMain) return;
+          void retryBackupWrite(() =>
+            args.dirtyBufferStore.clear(args.workspaceKey, bookCode),
+          ).catch((error: unknown) => {
+            console.error(
+              "[mirror] desktop backup clear failed after retries; book left dormant",
+              { bookCode, error },
+            );
+          });
+          return;
+        }
+        if (result.envelopeJson === undefined) return;
+        // Desktop: the worker serialized and shipped the bytes; main does the
+        // one dumb write through the seam. Bounded retry covers a transient FS
+        // hiccup so the safety-net write isn't lost silently; on exhaust we log
+        // loudly and leave the book dormant until its next commit re-triggers a
+        // write.
+        const entry = JSON.parse(result.envelopeJson) as DirtyBufferFile;
         void retryBackupWrite(() =>
           args.dirtyBufferStore.put(args.workspaceKey, bookCode, entry),
         ).catch((error: unknown) => {

@@ -187,6 +187,13 @@ export type BackupResult = {
   envelopeJson?: string;
   /** True when the mirror cleared the backup (book went clean). */
   cleared?: boolean;
+  /**
+   * True when the book went clean but the mirror's host could not clear the
+   * backup itself (the desktop backup worker can't `invoke` to reach Tauri FS):
+   * main must do the clear through the `DirtyBufferStore` seam. Web clears in
+   * the worker (OPFS) and leaves this unset.
+   */
+  clearOnMain?: boolean;
   ranAtGeneration: Generation;
 };
 

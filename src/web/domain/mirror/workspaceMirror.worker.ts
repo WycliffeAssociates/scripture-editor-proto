@@ -7,12 +7,15 @@
 // (testable without a Worker); this file only wires the engines and marshals
 // messages.
 
+import type {
+  FromWorkerMessage,
+  ToWorkerMessage,
+} from "@/app/domain/mirror/workerMessages.ts";
 import { WorkspaceMirror } from "@/app/domain/mirror/WorkspaceMirror.ts";
 import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 
 import { makeWebMirrorEngines } from "./webMirrorEngines.ts";
-import type { FromWorkerMessage, ToWorkerMessage } from "./workerMessages.ts";
 
 let mirror: WorkspaceMirror | null = null;
 

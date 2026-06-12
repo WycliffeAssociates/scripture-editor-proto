@@ -1,18 +1,20 @@
 // workerMessages.ts
 //
-// The wire envelope between the main thread and the workspace-mirror worker.
-// One FIFO postMessage channel carries patches and commands in order (the only
+// The wire envelope between the main thread and a worker-hosted mirror. One
+// FIFO postMessage channel carries patches and commands in order (the only
 // ordering web needs); results come back the same way. The payloads are the
 // transport-agnostic protocol types — this module only wraps them with a
-// direction tag and the worker's init handshake.
+// direction tag and the worker's init handshake. Shared by the web
+// workspace-mirror worker and the desktop backup worker (both host a
+// `WorkspaceMirror` behind the same channel).
 
 import type {
   MirrorCommand,
   MirrorPatch,
   MirrorResult,
-} from "@/app/domain/mirror/mirrorProtocol.ts";
+} from "./mirrorProtocol.ts";
 
-/** One-time init: tells the worker where its OPFS storage roots live. */
+/** One-time init: tells the worker where its dirty-buffer storage root lives. */
 export type WorkerInitMessage = {
   kind: "init";
   workspaceKey: string;

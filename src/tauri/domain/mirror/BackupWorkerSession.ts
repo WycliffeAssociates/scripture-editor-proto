@@ -1,9 +1,12 @@
-// WorkerMirrorSession.ts
+// BackupWorkerSession.ts
 //
-// Main-thread handle to the web workspace-mirror worker. It is the feed's one
-// sink today: patches/commands posted to the worker on the FIFO channel,
-// results delivered back into the `MirrorFeed`. The worker is a Vite module
-// worker so its imports (wasm onion/sous, OPFS) bundle like the rest of the app.
+// Main-thread handle to the desktop backup worker. On desktop the feed is
+// multicast across two sinks: this one owns crash-recovery backup, the Rust
+// mirror session owns lint/sous. So this sink forwards ALL patches (the worker
+// needs resident tokens to serialize) but only the backup commands
+// (`writeBackup`/`clearBackup`) — analyze commands go to the Rust sink and would
+// throw in this engine-less worker. Results (the bounced envelope bytes / clear
+// signal) are delivered back into the feed for the result router to write.
 
 import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import type {
@@ -15,7 +18,7 @@ import type {
   ToWorkerMessage,
 } from "@/app/domain/mirror/workerMessages.ts";
 
-export class WorkerMirrorSession {
+export class BackupWorkerSession {
   private readonly worker: Worker;
   private readonly removeSink: () => void;
 
@@ -25,7 +28,7 @@ export class WorkerMirrorSession {
     dirtyBufferRoot: string;
   }) {
     this.worker = new Worker(
-      new URL("./workspaceMirror.worker.ts", import.meta.url),
+      new URL("./backupWorker.worker.ts", import.meta.url),
       { type: "module" },
     );
     this.worker.onmessage = (event: MessageEvent<FromWorkerMessage>) => {
@@ -38,12 +41,15 @@ export class WorkerMirrorSession {
       workspaceKey: args.workspaceKey,
       dirtyBufferRoot: args.dirtyBufferRoot,
     });
-    // Register as a sink — patches/commands the producer/pipelines write now
-    // reach the worker.
     this.removeSink = args.feed.addSink({
       pushPatch: (patch: MirrorPatch) => this.post({ kind: "patch", patch }),
-      sendCommand: (command: MirrorCommand) =>
-        this.post({ kind: "command", command }),
+      sendCommand: (command: MirrorCommand) => {
+        // Only backup commands belong to this sink; lint/sous are the Rust
+        // mirror's and would throw in this engine-less worker.
+        if (command.kind === "writeBackup" || command.kind === "clearBackup") {
+          this.post({ kind: "command", command });
+        }
+      },
     });
   }
 

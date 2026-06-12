@@ -34,7 +34,7 @@ function makeEngines(overrides?: Partial<MirrorEngines>): MirrorEngines {
       async (content: string) => `md5(${content.length})`,
     ),
     persistBackup: vi.fn<MirrorEngines["persistBackup"]>(async () => true),
-    clearBackup: vi.fn<MirrorEngines["clearBackup"]>(async () => {}),
+    clearBackup: vi.fn<MirrorEngines["clearBackup"]>(async () => true),
     ...overrides,
   };
 }
@@ -168,7 +168,7 @@ describe("WorkspaceMirror — patches", () => {
     const persistBackup = vi.fn<MirrorEngines["persistBackup"]>(
       async () => true,
     );
-    const clearBackup = vi.fn<MirrorEngines["clearBackup"]>(async () => {});
+    const clearBackup = vi.fn<MirrorEngines["clearBackup"]>(async () => true);
     const mirror = new WorkspaceMirror(
       makeEngines({ persistBackup, clearBackup }),
     );
@@ -369,7 +369,7 @@ describe("WorkspaceMirror — backup", () => {
   });
 
   it("clears the backup when the book has no dirty chapters", async () => {
-    const clearBackup = vi.fn<MirrorEngines["clearBackup"]>(async () => {});
+    const clearBackup = vi.fn<MirrorEngines["clearBackup"]>(async () => true);
     const persistBackup = vi.fn<MirrorEngines["persistBackup"]>(
       async () => true,
     );

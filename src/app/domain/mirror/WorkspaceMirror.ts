@@ -53,8 +53,9 @@ export interface MirrorEngines {
   /** Persist a book's backup envelope. Returns false if persistence is not
    *  available in this host (desktop worker → main does the write). */
   persistBackup(bookCode: string, envelopeJson: string): Promise<boolean>;
-  /** Clear a book's backup. */
-  clearBackup(bookCode: string): Promise<void>;
+  /** Clear a book's backup. Returns false if clearing is not available in this
+   *  host (desktop backup worker → main clears through the store seam). */
+  clearBackup(bookCode: string): Promise<boolean>;
 }
 
 type ResidentChapter = MirrorChapter & { generation: Generation };
@@ -298,8 +299,14 @@ export class WorkspaceMirror {
     bookCode: string,
     generation: Generation,
   ): Promise<BackupResult> {
+    // `false` means the host can't clear here (the desktop backup worker can't
+    // reach Tauri FS) — main does the clear through the store seam. A throw is
+    // a transient failure: retry, then leave dormant.
+    let cleared = false;
     try {
-      await retryBackupWrite(() => this.engines.clearBackup(bookCode));
+      cleared = await retryBackupWrite(() =>
+        this.engines.clearBackup(bookCode),
+      );
     } catch (error) {
       console.error(
         "[mirror] backup clear failed after retries; book left dormant",
@@ -310,6 +317,7 @@ export class WorkspaceMirror {
       kind: "backupResult",
       bookCode,
       cleared: true,
+      clearOnMain: cleared ? undefined : true,
       ranAtGeneration: generation,
     };
   }

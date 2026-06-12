@@ -2,9 +2,14 @@
 //
 // Binds the mirror's engine/persistence callbacks to the browser stack: the
 // same wasm onion + sous services the single-thread path used, and an OPFS
-// `DirtyBufferStore` for the backup write. Runs inside the worker — none of
+// `DirtyBufferStore` for the backup write. Runs inside the web worker — none of
 // these touch the DOM or Tauri `invoke`, so they work in worker scope (S2: a
 // worker can't invoke, but web persistence is OPFS, which it can).
+//
+// This is the WEB worker's engine set and the only one that pulls in wasm. The
+// desktop backup worker uses a separate, wasm-free engine module
+// (`@/tauri/domain/mirror/backupOnlyMirrorEngines.ts`) so no wasm is bundled or
+// initialized on desktop.
 
 import type { MirrorEngines } from "@/app/domain/mirror/WorkspaceMirror.ts";
 import { DirtyBufferStore } from "@/app/state/DirtyBufferStore.ts";
@@ -43,6 +48,7 @@ export function makeWebMirrorEngines(args: {
     },
     async clearBackup(bookCode) {
       await dirtyBufferStore.clear(args.workspaceKey, bookCode);
+      return true;
     },
   };
 }
