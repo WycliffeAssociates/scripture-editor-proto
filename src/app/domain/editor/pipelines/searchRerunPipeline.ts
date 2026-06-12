@@ -1,4 +1,5 @@
 import { Duration, Effect, Stream } from "effect";
+
 import type { CommitEvent } from "@/app/state/types.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 
@@ -24,14 +25,14 @@ const DEFAULT_SEARCH_RERUN_DEBOUNCE_MS = 250;
  * `tests/unit/integration/searchRerunPipeline.test.ts`.
  */
 export function isSearchRerunRelevant(event: CommitEvent): boolean {
-    if (!event.meta.dirtyTextContent) return false;
-    const kind = event.meta.kind;
-    return (
-        kind === "undo" ||
-        kind === "redo" ||
-        kind === "programmaticFix" ||
-        kind === "import"
-    );
+  if (!event.meta.dirtyTextContent) return false;
+  const kind = event.meta.kind;
+  return (
+    kind === "undo" ||
+    kind === "redo" ||
+    kind === "programmaticFix" ||
+    kind === "import"
+  );
 }
 
 /**
@@ -53,28 +54,28 @@ export function isSearchRerunRelevant(event: CommitEvent): boolean {
  * gating it would leave stale state for the next open.
  */
 export function makeSearchRerunPipeline(args: {
-    workingFilesStore: WorkingFilesStore;
-    /** Latest search term. Empty string short-circuits the rerun. */
-    getSearchTerm: () => string;
-    /**
-     * Re-runs the search with the supplied term at project scope, no
-     * auto-pick. Wired by the caller to the search hook's
-     * `runSearchLogic`.
-     */
-    rerunSearch: (term: string) => void;
-    debounceMs?: number;
+  workingFilesStore: WorkingFilesStore;
+  /** Latest search term. Empty string short-circuits the rerun. */
+  getSearchTerm: () => string;
+  /**
+   * Re-runs the search with the supplied term at project scope, no
+   * auto-pick. Wired by the caller to the search hook's
+   * `runSearchLogic`.
+   */
+  rerunSearch: (term: string) => void;
+  debounceMs?: number;
 }): Effect.Effect<void> {
-    const debounceMs = args.debounceMs ?? DEFAULT_SEARCH_RERUN_DEBOUNCE_MS;
-    return args.workingFilesStore.changes.pipe(
-        Stream.filter(isSearchRerunRelevant),
-        Stream.debounce(Duration.millis(debounceMs)),
-        Stream.tap(() =>
-            Effect.sync(() => {
-                const term = args.getSearchTerm();
-                if (!term.trim()) return;
-                args.rerunSearch(term);
-            }),
-        ),
-        Stream.runDrain,
-    );
+  const debounceMs = args.debounceMs ?? DEFAULT_SEARCH_RERUN_DEBOUNCE_MS;
+  return args.workingFilesStore.changes.pipe(
+    Stream.filter(isSearchRerunRelevant),
+    Stream.debounce(Duration.millis(debounceMs)),
+    Stream.tap(() =>
+      Effect.sync(() => {
+        const term = args.getSearchTerm();
+        if (!term.trim()) return;
+        args.rerunSearch(term);
+      }),
+    ),
+    Stream.runDrain,
+  );
 }

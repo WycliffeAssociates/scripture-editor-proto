@@ -8,9 +8,9 @@ import { createFileRoute, Outlet } from "@tanstack/react-router";
  * whichever child view matched.
  */
 export const Route = createFileRoute("/$project")({
-    component: ProjectRouteLayout,
+  component: ProjectRouteLayout,
 });
 
 export function ProjectRouteLayout() {
-    return <Outlet />;
+  return <Outlet />;
 }

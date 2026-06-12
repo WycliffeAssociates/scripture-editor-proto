@@ -1,10 +1,12 @@
 # Zephyr Tech Stack
 
 ## Platform Targets
+
 - Desktop: Rust/Tauri with native file system access.
 - Web: Browser sandbox with OPFS (Origin Private File System).
 
 ## Architecture
+
 We use Hexagonal Architecture (Ports and Adapters).
 
 - `src/core`: Domain logic and interfaces (ports), including USFM parsing logic.
@@ -13,13 +15,16 @@ We use Hexagonal Architecture (Ports and Adapters).
 - `src/app`: UI layer that consumes `src/core` through dependency injection.
 
 ### Architecture Constraints
+
 - `src/core` must never import from `src/app`.
 - Platform-specific code must not leak into `src/app`.
 
 ## Core Abstractions (Agent-Facing)
+
 This section is the primary orientation guide for AI agents and new contributors.
 
 ### 1) Hand-Rolled USFM Lexing + Parsing
+
 Current state: lexing/parsing is intentionally hand-rolled and is a first-class core abstraction.
 
 - Lexer: `src/core/domain/usfm/lex.ts` (`lexUsfm`).
@@ -28,6 +33,7 @@ Current state: lexing/parsing is intentionally hand-rolled and is a first-class 
 - Parse/lint output is token-centric and emits lint errors tied to token/SID context.
 
 ### 2) Flat Token Stream Is the Canonical Document Model
+
 Most document operations should be reasoned about as a flat, ordered token stream (token-to-token), not as nested editor paragraphs.
 
 - Canonical work model:
@@ -43,6 +49,7 @@ Most document operations should be reasoned about as a flat, ordered token strea
 - Practical rule: treat paragraph nesting as a projection for editing UX, not as source-of-truth semantics.
 
 ### 3) Serialized Traversal and Flattening Are Core Bridge Abstractions
+
 Traversal and flattening logic is central infrastructure, not incidental utility code.
 
 - Serialized traversal generators:
@@ -54,6 +61,7 @@ Traversal and flattening logic is central infrastructure, not incidental utility
   - `src/app/domain/editor/serialization/fromSerializedToLexical.ts`
 
 ### 4) Editor Modes: Presentation Projection Over Canonical Tokens
+
 Current model (with planned rework): editor modes operate over flat token streams; nested paragraph structure is a presentation concern for Lexical.
 
 - Mode transforms:
@@ -64,6 +72,7 @@ Current model (with planned rework): editor modes operate over flat token stream
 - Shared invariant across modes: linting, parsing, maintenance, and token-linked metadata operate against flattened token order. A dev-only fixpoint check (`tokenFixpointPipeline.ts`) asserts the structured tree re-lexes to the same token stream.
 
 ### Module Boundary Map
+
 - `src/core/domain/usfm/*`:
   - Canonical USFM domain logic (lex, parse, lint, token-stream transforms, SID block operations).
   - No UI/editor framework dependencies.
@@ -75,6 +84,7 @@ Current model (with planned rework): editor modes operate over flat token stream
   - Must consume abstractions above rather than redefining parsing semantics.
 
 ### 5) Workspace State: Push-Based Store + Effect Pipelines
+
 Live workspace state (loaded chapters, dirty flags, findings, save status,
 layout ticks, search highlights) is held in a small set of stores under
 `src/app/state/`. Findings from both producers — onion lint and
@@ -107,6 +117,7 @@ See `product-docs/specs/state-architecture.md` and
 `product-docs/specs/editor-data-flow.md` for the full contract.
 
 ## Editor Stack (USFM)
+
 - Editor engine: Lexical.
 - Custom Lexical nodes:
   - `USFMElementNode`
@@ -117,19 +128,23 @@ See `product-docs/specs/state-architecture.md` and
 - Parser bridge: `src/core/domain/usfm` transforms between raw USFM string and Lexical editor state.
 
 ### Editor Constraints
+
 - Serialization/deserialization must maintain 1:1 parity between USFM string and editor state.
 - Large chapter performance requires careful optimization of Lexical listeners.
 
 ## UI and Styling
+
 - Base UI (`@base-ui/react`): unstyled headless primitives (Combobox, Select, Tabs, Toast, ScrollArea, etc.). We wrap these in app-local primitives under `src/app/ui/components/primitives/` so the rest of the app talks to project-shaped components.
 - Vanilla Extract: Primary custom styling approach (`*.css.ts`, static CSS generation, type-safe theming).
 - No Tailwind: Layout and styling should be implemented via Vanilla Extract (and Base UI primitives) for consistency and maintainability.
 
 ### Styling Constraints
+
 - Prefer component-adjacent `*.css.ts` styles.
 - Avoid runtime CSS-in-JS approaches (for example, Emotion, Styled Components) to reduce editor runtime overhead.
 
 ## Concurrency / Effects
+
 - `effect` (the Effect-TS library) is used for the per-pipeline async
   primitives only: `Stream`, `PubSub`, `Deferred`, `Fiber`, `Duration`.
 - Pipelines are forked once in `WorkspaceContext` via `Effect.runFork`
@@ -142,6 +157,7 @@ See `product-docs/specs/state-architecture.md` and
   actual problem. Deeper Effect integration is open, not ruled out.
 
 ## Local Data and Persistence
+
 - Source of truth: USFM files on disk.
 - Local metadata/index cache: Dexie.js (IndexedDB wrapper).
 - Dexie stores metadata for:
@@ -151,16 +167,19 @@ See `product-docs/specs/state-architecture.md` and
 - Synchronization model: update DB whenever app-driven file system changes occur.
 
 ### Data Integrity Constraints
+
 - Keep IndexedDB metadata in sync with file system state.
 - Run startup reconciliation/sanity checks to repair drift when needed.
 
 ### Crash-Recovery Autosave
+
 - Per-book USFM backup wrappers under `${appDataRoot}/dirty-buffers/${workspaceKey}/${bookCode}.json`, written via the `FileSystem.atomicWriteText` adapter (OPFS / Tauri).
 - Disk-baseline MD5 attached to every backup wrapper. Computed via `IMd5Service` (`crypto-es` MD5 on web, the Rust `md5` crate on desktop) and returned from the parse interface itself (one IPC on Tauri) via the `includeSourceMd5` flag.
 - Project files are never autosaved — explicit save remains the only thing that changes disk. The backup is a safety net only.
 - See `product-docs/specs/crash-recovery-autosave.md` for the full contract (classification matrix, gate + tracker safety surfaces, banners, forced-review attestation, validated incoming-mutation boundary).
 
 ## Release Pipeline & Auto-Updater
+
 Two release channels (Stable from `v*` tags, Nightly from every push to `master`) flow through a single channel-aware workflow. Desktop builds are signed with a Tauri minisign keypair so the in-app updater can verify them; a Cloudflare Worker serves the updater manifest by reading GitHub Releases at request time.
 
 See `product-docs/specs/release-pipeline.md` for the full topology, workflow shapes, manifest format, signing, and how Settings → Advanced exposes the manual switch flow.

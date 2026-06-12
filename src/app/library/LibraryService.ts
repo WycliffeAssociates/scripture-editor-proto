@@ -1,9 +1,9 @@
 import type { ImportSource } from "@/core/domain/project/import/ProjectImporter.ts";
 import type {
-    ImportFolderSource,
-    ImportOptions,
-    ImportResult,
-    ImportZipSource,
+  ImportFolderSource,
+  ImportOptions,
+  ImportResult,
+  ImportZipSource,
 } from "@/core/library/ImportService.ts";
 import type { LibraryItem } from "@/core/library/LibraryItem.ts";
 import type { ContainerFormat } from "@/core/library/LibraryItemCapabilities.ts";
@@ -19,14 +19,14 @@ import type { ResourceLibraryItem } from "@/core/library/ProjectIndex.ts";
  * reloading every item body from disk.
  */
 export type IndexedLibraryItem = {
-    managedPath: string;
-    displayName: string;
-    type: IndexedLibraryItemType;
-    containerFormat: ContainerFormat;
-    isEditable: boolean;
-    hasRemoteSync: boolean;
-    languageCode: string;
-    languageName: string;
+  managedPath: string;
+  displayName: string;
+  type: IndexedLibraryItemType;
+  containerFormat: ContainerFormat;
+  isEditable: boolean;
+  hasRemoteSync: boolean;
+  languageCode: string;
+  languageName: string;
 };
 
 /**
@@ -37,35 +37,35 @@ export type IndexedLibraryItem = {
  * or `app/reference`, and type-specific verbs belong on the loaded noun.
  */
 export interface LibraryService {
-    /**
-     * Return the full library catalog as lightweight rows.
-     */
-    listLibraryItems(): Promise<IndexedLibraryItem[]>;
-    /**
-     * Return the subset that the current UI should treat as editable/current
-     * workspaces.
-     */
-    listCurrentProjects(): Promise<IndexedLibraryItem[]>;
-    /**
-     * Reopen one managed path as a typed noun.
-     *
-     * Callers should narrow once on `item.type`, then hand the noun to
-     * type-specific hooks/components instead of branching throughout the UI.
-     */
-    openItem(itemRef: string): Promise<LibraryItem | null>;
-    importFolder(
-        source: ImportFolderSource,
-        options?: ImportOptions,
-    ): Promise<ImportResult>;
-    importZip(
-        source: ImportZipSource,
-        options?: ImportOptions,
-    ): Promise<ImportResult>;
-    importRemoteZip(
-        source: ImportSource,
-        options?: ImportOptions,
-    ): Promise<ImportResult>;
-    reconcileIndex(): Promise<void>;
+  /**
+   * Return the full library catalog as lightweight rows.
+   */
+  listLibraryItems(): Promise<IndexedLibraryItem[]>;
+  /**
+   * Return the subset that the current UI should treat as editable/current
+   * workspaces.
+   */
+  listCurrentProjects(): Promise<IndexedLibraryItem[]>;
+  /**
+   * Reopen one managed path as a typed noun.
+   *
+   * Callers should narrow once on `item.type`, then hand the noun to
+   * type-specific hooks/components instead of branching throughout the UI.
+   */
+  openItem(itemRef: string): Promise<LibraryItem | null>;
+  importFolder(
+    source: ImportFolderSource,
+    options?: ImportOptions,
+  ): Promise<ImportResult>;
+  importZip(
+    source: ImportZipSource,
+    options?: ImportOptions,
+  ): Promise<ImportResult>;
+  importRemoteZip(
+    source: ImportSource,
+    options?: ImportOptions,
+  ): Promise<ImportResult>;
+  reconcileIndex(): Promise<void>;
 }
 
 /**
@@ -76,16 +76,16 @@ export interface LibraryService {
  * disk facts rather than duplicating richer loader/runtime objects in Dexie.
  */
 export function toIndexedLibraryItem(
-    item: ResourceLibraryItem,
+  item: ResourceLibraryItem,
 ): IndexedLibraryItem | null {
-    return {
-        managedPath: item.projectPath,
-        displayName: item.displayName,
-        type: item.type,
-        containerFormat: item.containerFormat,
-        isEditable: item.isEditable,
-        hasRemoteSync: item.hasRemoteSync,
-        languageCode: item.languageCode,
-        languageName: item.languageName,
-    };
+  return {
+    managedPath: item.projectPath,
+    displayName: item.displayName,
+    type: item.type,
+    containerFormat: item.containerFormat,
+    isEditable: item.isEditable,
+    hasRemoteSync: item.hasRemoteSync,
+    languageCode: item.languageCode,
+    languageName: item.languageName,
+  };
 }

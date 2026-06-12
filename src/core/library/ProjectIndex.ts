@@ -2,8 +2,8 @@ import type { LibraryItem } from "@/core/library/LibraryItem.ts";
 import type { ContainerFormat } from "@/core/library/LibraryItemCapabilities.ts";
 import type { IndexedLibraryItemType } from "@/core/library/LibraryItemType.ts";
 import type {
-    ScriptureWorkspace,
-    ScriptureWorkspaceListItem,
+  ScriptureWorkspace,
+  ScriptureWorkspaceListItem,
 } from "@/core/persistence/ScriptureWorkspace.ts";
 
 /**
@@ -13,10 +13,10 @@ import type {
  * duplicate file trees or content bodies.
  */
 export type ResourceLibraryGroup =
-    | "scripture"
-    | "translation-notes"
-    | "translation-words"
-    | "other";
+  | "scripture"
+  | "translation-notes"
+  | "translation-words"
+  | "other";
 
 /**
  * Normalized catalog facts stored by the index layer.
@@ -25,11 +25,11 @@ export type ResourceLibraryGroup =
  * content still comes from the load pipeline.
  */
 export type ResourceLibraryItem = ScriptureWorkspaceListItem & {
-    type: IndexedLibraryItemType;
-    containerFormat: ContainerFormat;
-    isEditable: boolean;
-    hasRemoteSync: boolean;
-    libraryGroup: ResourceLibraryGroup;
+  type: IndexedLibraryItemType;
+  containerFormat: ContainerFormat;
+  isEditable: boolean;
+  hasRemoteSync: boolean;
+  libraryGroup: ResourceLibraryGroup;
 };
 
 /**
@@ -39,9 +39,9 @@ export type ResourceLibraryItem = ScriptureWorkspaceListItem & {
  * rather than a separate top-level domain.
  */
 export function isEditableScriptureProjectLibraryItem(
-    item: Pick<ResourceLibraryItem, "type" | "isEditable">,
+  item: Pick<ResourceLibraryItem, "type" | "isEditable">,
 ): boolean {
-    return item.type === "usfmScripture" && item.isEditable;
+  return item.type === "usfmScripture" && item.isEditable;
 }
 
 /**
@@ -52,15 +52,15 @@ export function isEditableScriptureProjectLibraryItem(
  * system and not a content store.
  */
 export interface ProjectIndex {
-    listProjects(): Promise<ScriptureWorkspaceListItem[]>;
-    listLibraryItems(): Promise<ResourceLibraryItem[]>;
-    getProjectByPath(
-        projectPath: string,
-    ): Promise<ScriptureWorkspaceListItem | null>;
-    getLibraryItemByPath(
-        projectPath: string,
-    ): Promise<ResourceLibraryItem | null>;
-    indexItem(item: LibraryItem | ScriptureWorkspace): Promise<void>;
-    renameDisplayName(projectPath: string, displayName: string): Promise<void>;
-    deleteProject(projectPath: string): Promise<void>;
+  listProjects(): Promise<ScriptureWorkspaceListItem[]>;
+  listLibraryItems(): Promise<ResourceLibraryItem[]>;
+  getProjectByPath(
+    projectPath: string,
+  ): Promise<ScriptureWorkspaceListItem | null>;
+  getLibraryItemByPath(
+    projectPath: string,
+  ): Promise<ResourceLibraryItem | null>;
+  indexItem(item: LibraryItem | ScriptureWorkspace): Promise<void>;
+  renameDisplayName(projectPath: string, displayName: string): Promise<void>;
+  deleteProject(projectPath: string): Promise<void>;
 }

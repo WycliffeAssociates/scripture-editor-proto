@@ -13,15 +13,15 @@ import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 const PROJECT_ORIGIN_DIRECTORY = "project-origin";
 
 export function getProjectOriginStateRoot(storageRoots: StorageRoots): string {
-    return joinStoragePath(storageRoots.appDataRoot, PROJECT_ORIGIN_DIRECTORY);
+  return joinStoragePath(storageRoots.appDataRoot, PROJECT_ORIGIN_DIRECTORY);
 }
 
 export function getProjectOriginPath(
-    storageRoots: StorageRoots,
-    projectPath: string,
+  storageRoots: StorageRoots,
+  projectPath: string,
 ): string {
-    return joinStoragePath(
-        getProjectOriginStateRoot(storageRoots),
-        `${toProjectStorageKey(projectPath)}.json`,
-    );
+  return joinStoragePath(
+    getProjectOriginStateRoot(storageRoots),
+    `${toProjectStorageKey(projectPath)}.json`,
+  );
 }

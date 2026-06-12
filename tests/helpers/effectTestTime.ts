@@ -33,9 +33,9 @@ const DRAIN_YIELDS = 5;
 
 /** Yield `n` times to let other fibers on this runtime make progress. */
 export const drainYields = (n: number = DRAIN_YIELDS) =>
-    Effect.gen(function* () {
-        for (let i = 0; i < n; i++) yield* Effect.yieldNow;
-    });
+  Effect.gen(function* () {
+    for (let i = 0; i < n; i++) yield* Effect.yieldNow;
+  });
 
 /**
  * Bridge sync `wf.commit(...)` calls to `TestClock.adjust`. Yields,
@@ -44,8 +44,8 @@ export const drainYields = (n: number = DRAIN_YIELDS) =>
  * other time-dependent operator.
  */
 export const passTime = (ms: number) =>
-    Effect.gen(function* () {
-        yield* drainYields();
-        yield* TestClock.adjust(Duration.millis(ms));
-        yield* drainYields();
-    });
+  Effect.gen(function* () {
+    yield* drainYields();
+    yield* TestClock.adjust(Duration.millis(ms));
+    yield* drainYields();
+  });

@@ -1,4 +1,6 @@
+import { InMemoryFileSystem } from "@tests/helpers/InMemoryFileSystem.ts";
 import { describe, expect, it } from "vitest";
+
 import { settingsDefaults } from "@/app/data/settings.ts";
 import {
   GIT_REMOTE_INFO_SCHEMA_VERSION,
@@ -27,7 +29,6 @@ import {
   writeGitRemoteSession,
 } from "@/core/persistence/gitRemoteStore.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
-import { InMemoryFileSystem } from "@tests/helpers/InMemoryFileSystem.ts";
 
 const storageRoots: StorageRoots = {
   appDataRoot: "/appData",
@@ -51,10 +52,14 @@ describe("git remote path helpers", () => {
     expect(getGitRemoteSessionPath(storageRoots)).toBe(
       `/appData/git-remote/${GIT_REMOTE_SESSION_FILENAME}`,
     );
-    expect(getGitRemoteProjectInfoPath(storageRoots, "/userData/projects/foo")).toBe(
+    expect(
+      getGitRemoteProjectInfoPath(storageRoots, "/userData/projects/foo"),
+    ).toBe(
       `/appData/git-remote/project-info/${toProjectStorageKey("/userData/projects/foo")}.json`,
     );
-    expect(getGitRemoteProjectStatusPath(storageRoots, "/userData/projects/foo")).toBe(
+    expect(
+      getGitRemoteProjectStatusPath(storageRoots, "/userData/projects/foo"),
+    ).toBe(
       `/appData/git-remote/project-status/${toProjectStorageKey("/userData/projects/foo")}.json`,
     );
   });
@@ -116,7 +121,9 @@ describe("git remote model parsing", () => {
   });
 
   it("creates an empty per-project status record with null timestamps and heads", () => {
-    expect(createDefaultGitRemoteProjectStatus("/userData/projects/foo")).toEqual({
+    expect(
+      createDefaultGitRemoteProjectStatus("/userData/projects/foo"),
+    ).toEqual({
       projectPath: "/userData/projects/foo",
       kind: "connected",
       lastCheckedAt: null,
@@ -339,7 +346,8 @@ describe("git remote json persistence", () => {
       update: async (existing) => {
         await firstCanFinish;
         return {
-          ...(existing ?? createDefaultGitRemoteProjectStatus("/userData/projects/foo")),
+          ...(existing ??
+            createDefaultGitRemoteProjectStatus("/userData/projects/foo")),
           kind: "pendingPublish",
           lastKnownLocalHead: "local-1",
         };
@@ -350,7 +358,8 @@ describe("git remote json persistence", () => {
       storageRoots,
       projectPath: "/userData/projects/foo",
       update: (existing) => ({
-        ...(existing ?? createDefaultGitRemoteProjectStatus("/userData/projects/foo")),
+        ...(existing ??
+          createDefaultGitRemoteProjectStatus("/userData/projects/foo")),
         kind: "needsReview",
         lastKnownRemoteHead: "remote-2",
       }),

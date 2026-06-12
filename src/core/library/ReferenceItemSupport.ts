@@ -7,32 +7,32 @@ import type { ReferenceDocumentReference } from "@/core/library/ReferenceDocumen
  * resolve one scripture anchor into one or more browseable documents.
  */
 export type ScriptureAnchor = {
-    bookCode: string;
-    chapter?: number;
-    verse?: number;
-    verseEnd?: number;
-    reference?: string;
+  bookCode: string;
+  chapter?: number;
+  verse?: number;
+  verseEnd?: number;
+  reference?: string;
 };
 
 export type RemoteSourceMetadata = RemoteSyncCapabilitySource;
 
 export type RemoteSyncCheckResult = {
-    hasUpdates: boolean;
-    remoteRevision?: string;
-    checkedAt?: string;
+  hasUpdates: boolean;
+  remoteRevision?: string;
+  checkedAt?: string;
 };
 
 export interface ScriptureAnchorAddressable {
-    resolveScriptureAnchor(
-        anchor: ScriptureAnchor,
-    ): Promise<readonly ReferenceDocumentReference[]>;
+  resolveScriptureAnchor(
+    anchor: ScriptureAnchor,
+  ): Promise<readonly ReferenceDocumentReference[]>;
 }
 
 export interface RemoteSyncCapable {
-    readonly remoteSource: RemoteSourceMetadata;
+  readonly remoteSource: RemoteSourceMetadata;
 
-    checkForUpdates(): Promise<RemoteSyncCheckResult>;
-    applyUpdates(): Promise<void>;
+  checkForUpdates(): Promise<RemoteSyncCheckResult>;
+  applyUpdates(): Promise<void>;
 }
 
 /**
@@ -40,36 +40,35 @@ export interface RemoteSyncCapable {
  * browseable reference documents.
  */
 export function isScriptureAnchorAddressable(
-    value: unknown,
+  value: unknown,
 ): value is ScriptureAnchorAddressable {
-    return (
-        typeof value === "object" &&
-        value !== null &&
-        "resolveScriptureAnchor" in value &&
-        typeof (value as { resolveScriptureAnchor?: unknown })
-            .resolveScriptureAnchor === "function"
-    );
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "resolveScriptureAnchor" in value &&
+    typeof (value as { resolveScriptureAnchor?: unknown })
+      .resolveScriptureAnchor === "function"
+  );
 }
 
 /**
  * Structural type guard for items that expose remote update affordances.
  */
 export function isRemoteSyncCapable(
-    value: unknown,
+  value: unknown,
 ): value is RemoteSyncCapable {
-    return (
-        typeof value === "object" &&
-        value !== null &&
-        "remoteSource" in value &&
-        typeof (value as { remoteSource?: unknown }).remoteSource ===
-            "object" &&
-        (value as { remoteSource?: unknown }).remoteSource !== null &&
-        "checkForUpdates" in value &&
-        typeof (value as { checkForUpdates?: unknown }).checkForUpdates ===
-            "function" &&
-        "applyUpdates" in value &&
-        typeof (value as { applyUpdates?: unknown }).applyUpdates === "function"
-    );
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "remoteSource" in value &&
+    typeof (value as { remoteSource?: unknown }).remoteSource === "object" &&
+    (value as { remoteSource?: unknown }).remoteSource !== null &&
+    "checkForUpdates" in value &&
+    typeof (value as { checkForUpdates?: unknown }).checkForUpdates ===
+      "function" &&
+    "applyUpdates" in value &&
+    typeof (value as { applyUpdates?: unknown }).applyUpdates === "function"
+  );
 }
 
 /**
@@ -77,7 +76,7 @@ export function isRemoteSyncCapable(
  * participate in scripture-anchor-driven reference browsing.
  */
 export function isReferenceTypeAnchorable(
-    type: IndexedLibraryItemType,
+  type: IndexedLibraryItemType,
 ): boolean {
-    return type === "usfmScripture" || type === "translationNotes";
+  return type === "usfmScripture" || type === "translationNotes";
 }

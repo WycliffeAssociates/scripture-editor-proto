@@ -1,31 +1,33 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import {
-    $getSelection,
-    $isElementNode,
-    $isLineBreakNode,
-    $isRangeSelection,
-    COMMAND_PRIORITY_HIGH,
-    KEY_DOWN_COMMAND,
-    type LexicalEditor,
+  $getSelection,
+  $isElementNode,
+  $isLineBreakNode,
+  $isRangeSelection,
+  COMMAND_PRIORITY_HIGH,
+  KEY_DOWN_COMMAND,
+  type LexicalEditor,
 } from "lexical";
 import {
-    useCallback,
-    useEffect,
-    useEffectEvent,
-    useRef,
-    useState,
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
 } from "react";
 import { createPortal } from "react-dom";
+
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/useWorkspaceMediaQuery.ts";
 import { useClickOutside } from "@/app/ui/hooks/general/useClickOutside.ts";
 import { zLayer } from "@/app/ui/styles/zLayers.ts";
+
 import type { EditorContext } from "../actions/types.ts";
 import { useEditorContext } from "../hooks/useEditorContext.ts";
 import { ActionPalette } from "./ContextMenu/ActionPalette.tsx";
 import {
-    clearContextMenuSelectionHighlight,
-    showContextMenuSelectionHighlight,
+  clearContextMenuSelectionHighlight,
+  showContextMenuSelectionHighlight,
 } from "./ContextMenu/selectionHighlight.ts";
 
 /**
@@ -33,34 +35,34 @@ import {
  * opened from a pointer event or from keyboard-driven selection context.
  */
 function calculateMenuPosition(
-    touchPoint: { x: number; y: number },
-    isMobile: boolean,
+  touchPoint: { x: number; y: number },
+  isMobile: boolean,
 ): { x: number; y: number } {
-    if (isMobile) {
-        const mobileWidth = Math.min(480, window.innerWidth * 0.95);
-        return {
-            x: window.innerWidth / 2 - mobileWidth / 2,
-            y: window.innerHeight / 2 - 200,
-        };
-    }
+  if (isMobile) {
+    const mobileWidth = Math.min(480, window.innerWidth * 0.95);
+    return {
+      x: window.innerWidth / 2 - mobileWidth / 2,
+      y: window.innerHeight / 2 - 200,
+    };
+  }
 
-    const menuWidth = 480; // 30rem
-    const menuHeight = 500;
-    const offset = 4;
+  const menuWidth = 480; // 30rem
+  const menuHeight = 500;
+  const offset = 4;
 
-    let x = touchPoint.x + offset;
-    let y = touchPoint.y + offset;
+  let x = touchPoint.x + offset;
+  let y = touchPoint.y + offset;
 
-    if (x + menuWidth > window.innerWidth) {
-        x = window.innerWidth - menuWidth - offset;
-    }
-    if (y + menuHeight > window.innerHeight) {
-        y = window.innerHeight - menuHeight - offset;
-    }
-    if (x < offset) x = offset;
-    if (y < offset) y = offset;
+  if (x + menuWidth > window.innerWidth) {
+    x = window.innerWidth - menuWidth - offset;
+  }
+  if (y + menuHeight > window.innerHeight) {
+    y = window.innerHeight - menuHeight - offset;
+  }
+  if (x < offset) x = offset;
+  if (y < offset) y = offset;
 
-    return { x, y };
+  return { x, y };
 }
 
 /**
@@ -72,174 +74,167 @@ function calculateMenuPosition(
  * the user's current focus point.
  */
 export function NodeContextMenuPlugin() {
-    const [editor] = useLexicalComposerContext();
-    const [opened, setOpened] = useState(false);
-    const [pos, setPos] = useState({ x: 0, y: 0 });
-    const [context, setContext] = useState<EditorContext | null>(null);
-    const { isXs, isSm } = useWorkspaceMediaQuery();
-    const { getContext } = useEditorContext();
-    const closePalette = useCallback(() => {
+  const [editor] = useLexicalComposerContext();
+  const [opened, setOpened] = useState(false);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const [context, setContext] = useState<EditorContext | null>(null);
+  const { isXs, isSm } = useWorkspaceMediaQuery();
+  const { getContext } = useEditorContext();
+  const closePalette = useCallback(() => {
+    clearContextMenuSelectionHighlight();
+    setOpened(false);
+  }, []);
+  const clickOutsideRef = useClickOutside(closePalette);
+
+  const openedRef = useRef(opened);
+
+  useEffect(() => {
+    openedRef.current = opened;
+  }, [opened]);
+
+  const handleOpen = useCallback(
+    (x: number, y: number) => {
+      const ctx = getContext();
+      setContext(ctx);
+      const nativeSelection = window.getSelection();
+      const nativeRange =
+        nativeSelection && nativeSelection.rangeCount > 0
+          ? nativeSelection.getRangeAt(0)
+          : null;
+      if (
+        nativeRange &&
+        !nativeRange.collapsed &&
+        nativeSelection &&
+        nativeSelection.toString().trim().length > 0 &&
+        (!$isRangeSelection(ctx.selection) || !ctx.selection.isCollapsed())
+      ) {
+        showContextMenuSelectionHighlight(nativeRange);
+      } else {
         clearContextMenuSelectionHighlight();
-        setOpened(false);
-    }, []);
-    const clickOutsideRef = useClickOutside(closePalette);
+      }
+      const isMobile = isXs || isSm;
+      setPos(calculateMenuPosition({ x, y }, isMobile));
+      setOpened(true);
+    },
+    [getContext, isXs, isSm],
+  );
 
-    const openedRef = useRef(opened);
+  const showTooltipNearSelection = useCallback(
+    (editor: LexicalEditor) => {
+      const selection = $getSelection();
+      if (!$isRangeSelection(selection)) {
+        handleOpen(window.innerWidth / 2, window.innerHeight / 2);
+        return true;
+      }
+      const nativeSel = window.getSelection();
+      if (!nativeSel || nativeSel.rangeCount === 0) {
+        handleOpen(window.innerWidth / 2, window.innerHeight / 2);
+        return true;
+      }
 
-    useEffect(() => {
-        openedRef.current = opened;
-    }, [opened]);
+      const range = nativeSel.getRangeAt(0);
+      let rect = range.getBoundingClientRect();
 
-    const handleOpen = useCallback(
-        (x: number, y: number) => {
-            const ctx = getContext();
-            setContext(ctx);
-            const nativeSelection = window.getSelection();
-            const nativeRange =
-                nativeSelection && nativeSelection.rangeCount > 0
-                    ? nativeSelection.getRangeAt(0)
-                    : null;
-            if (
-                nativeRange &&
-                !nativeRange.collapsed &&
-                nativeSelection &&
-                nativeSelection.toString().trim().length > 0 &&
-                (!$isRangeSelection(ctx.selection) ||
-                    !ctx.selection.isCollapsed())
-            ) {
-                showContextMenuSelectionHighlight(nativeRange);
-            } else {
-                clearContextMenuSelectionHighlight();
+      if (!rect || (rect.width === 0 && rect.height === 0)) {
+        const anchorNode = selection.anchor.getNode();
+        if ($isElementNode(anchorNode)) {
+          const nthChild = anchorNode.getChildAtIndex(selection.anchor.offset);
+          if ($isLineBreakNode(nthChild)) {
+            const dom = editor.getElementByKey(nthChild.getKey());
+            if (dom) {
+              const r = dom.getBoundingClientRect();
+              if (r.height > 0) rect = r;
             }
-            const isMobile = isXs || isSm;
-            setPos(calculateMenuPosition({ x, y }, isMobile));
-            setOpened(true);
-        },
-        [getContext, isXs, isSm],
-    );
+          }
+        }
+      }
 
-    const showTooltipNearSelection = useCallback(
-        (editor: LexicalEditor) => {
-            const selection = $getSelection();
-            if (!$isRangeSelection(selection)) {
-                handleOpen(window.innerWidth / 2, window.innerHeight / 2);
-                return true;
-            }
-            const nativeSel = window.getSelection();
-            if (!nativeSel || nativeSel.rangeCount === 0) {
-                handleOpen(window.innerWidth / 2, window.innerHeight / 2);
-                return true;
-            }
+      if (!rect || (rect.width === 0 && rect.height === 0)) {
+        handleOpen(window.innerWidth / 2, window.innerHeight / 2);
+        return true;
+      }
+      handleOpen(rect.left + rect.width / 2, rect.bottom + 6);
+      return true;
+    },
+    [handleOpen],
+  );
 
-            const range = nativeSel.getRangeAt(0);
-            let rect = range.getBoundingClientRect();
+  const openContextMenuAt = useEffectEvent((x: number, y: number) => {
+    handleOpen(x, y);
+  });
 
-            if (!rect || (rect.width === 0 && rect.height === 0)) {
-                const anchorNode = selection.anchor.getNode();
-                if ($isElementNode(anchorNode)) {
-                    const nthChild = anchorNode.getChildAtIndex(
-                        selection.anchor.offset,
-                    );
-                    if ($isLineBreakNode(nthChild)) {
-                        const dom = editor.getElementByKey(nthChild.getKey());
-                        if (dom) {
-                            const r = dom.getBoundingClientRect();
-                            if (r.height > 0) rect = r;
-                        }
-                    }
-                }
-            }
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `openContextMenuAt` is a useEffectEvent binding with stable identity by contract; including it in deps would defeat the point.
+  useEffect(() => {
+    function onContextMenu(e: MouseEvent) {
+      // Form mode renders its own cursor-anchored insert-marker
+      // menu via FormBlockCard. Skip the global action palette
+      // when the right-click originates inside a form-block-node
+      // — otherwise both menus open at once.
+      const target = e.target;
+      if (target instanceof Element && target.closest(".form-block-node")) {
+        return;
+      }
+      e.preventDefault();
+      openContextMenuAt(e.clientX, e.clientY);
+    }
 
-            if (!rect || (rect.width === 0 && rect.height === 0)) {
-                handleOpen(window.innerWidth / 2, window.innerHeight / 2);
-                return true;
-            }
-            handleOpen(rect.left + rect.width / 2, rect.bottom + 6);
-            return true;
-        },
-        [handleOpen],
-    );
-
-    const openContextMenuAt = useEffectEvent((x: number, y: number) => {
-        handleOpen(x, y);
+    return editor.registerRootListener((root, prev) => {
+      prev?.removeEventListener("contextmenu", onContextMenu);
+      root?.addEventListener("contextmenu", onContextMenu);
     });
+  }, [editor]);
 
-    // biome-ignore lint/correctness/useExhaustiveDependencies: `openContextMenuAt` is a useEffectEvent binding with stable identity by contract; including it in deps would defeat the point.
-    useEffect(() => {
-        function onContextMenu(e: MouseEvent) {
-            // Form mode renders its own cursor-anchored insert-marker
-            // menu via FormBlockCard. Skip the global action palette
-            // when the right-click originates inside a form-block-node
-            // — otherwise both menus open at once.
-            const target = e.target;
-            if (
-                target instanceof Element &&
-                target.closest(".form-block-node")
-            ) {
-                return;
-            }
-            e.preventDefault();
-            openContextMenuAt(e.clientX, e.clientY);
+  useEffect(() => {
+    return editor.registerCommand(
+      KEY_DOWN_COMMAND,
+      (event: KeyboardEvent) => {
+        if (openedRef.current) return false;
+
+        const isCmdK =
+          (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k";
+        if (isCmdK) {
+          event.preventDefault();
+          editor.getEditorState().read(() => {
+            showTooltipNearSelection(editor);
+          });
+          return true;
         }
 
-        return editor.registerRootListener((root, prev) => {
-            prev?.removeEventListener("contextmenu", onContextMenu);
-            root?.addEventListener("contextmenu", onContextMenu);
+        const isTab = event.key === "Tab";
+        if (!isTab) return false;
+        if (event.shiftKey) return false;
+
+        event.preventDefault();
+        editor.getEditorState().read(() => {
+          showTooltipNearSelection(editor);
         });
-    }, [editor]);
-
-    useEffect(() => {
-        return editor.registerCommand(
-            KEY_DOWN_COMMAND,
-            (event: KeyboardEvent) => {
-                if (openedRef.current) return false;
-
-                const isCmdK =
-                    (event.metaKey || event.ctrlKey) &&
-                    event.key.toLowerCase() === "k";
-                if (isCmdK) {
-                    event.preventDefault();
-                    editor.getEditorState().read(() => {
-                        showTooltipNearSelection(editor);
-                    });
-                    return true;
-                }
-
-                const isTab = event.key === "Tab";
-                if (!isTab) return false;
-                if (event.shiftKey) return false;
-
-                event.preventDefault();
-                editor.getEditorState().read(() => {
-                    showTooltipNearSelection(editor);
-                });
-                return true;
-            },
-            COMMAND_PRIORITY_HIGH,
-        );
-    }, [editor, showTooltipNearSelection]);
-
-    useEffect(() => {
-        return () => {
-            clearContextMenuSelectionHighlight();
-        };
-    }, []);
-
-    if (!opened || !context) return null;
-
-    return createPortal(
-        <div
-            ref={clickOutsideRef as React.RefObject<HTMLDivElement>}
-            data-testid={TESTING_IDS.contextMenu.container}
-            style={{
-                position: "fixed",
-                top: pos.y,
-                left: pos.x,
-                zIndex: zLayer.floatingOverlay,
-            }}
-        >
-            <ActionPalette context={context} onClose={closePalette} />
-        </div>,
-        document.body,
+        return true;
+      },
+      COMMAND_PRIORITY_HIGH,
     );
+  }, [editor, showTooltipNearSelection]);
+
+  useEffect(() => {
+    return () => {
+      clearContextMenuSelectionHighlight();
+    };
+  }, []);
+
+  if (!opened || !context) return null;
+
+  return createPortal(
+    <div
+      ref={clickOutsideRef as React.RefObject<HTMLDivElement>}
+      data-testid={TESTING_IDS.contextMenu.container}
+      style={{
+        position: "fixed",
+        top: pos.y,
+        left: pos.x,
+        zIndex: zLayer.floatingOverlay,
+      }}
+    >
+      <ActionPalette context={context} onClose={closePalette} />
+    </div>,
+    document.body,
+  );
 }

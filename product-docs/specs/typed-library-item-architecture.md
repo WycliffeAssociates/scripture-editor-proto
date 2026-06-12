@@ -31,12 +31,12 @@ type LibraryItemType = "usfmScripture" | "translationNotes";
 type LibraryItem = UsfmScriptureItem | TranslationNotesItem;
 
 type LibraryItemBase = {
-    id: string;
-    displayName: string;
-    managedPath: string;
-    containerFormat: ContainerFormat;
-    language: { code: string; name: string; direction: "ltr" | "rtl" };
-    capabilities: LibraryItemCapabilities;
+  id: string;
+  displayName: string;
+  managedPath: string;
+  containerFormat: ContainerFormat;
+  language: { code: string; name: string; direction: "ltr" | "rtl" };
+  capabilities: LibraryItemCapabilities;
 };
 ```
 
@@ -71,9 +71,9 @@ Do NOT branch on `containerFormat` in UI code.
 
 ```typescript
 type LibraryItemCapabilities = {
-    editableWith?: "usfmScripture";
-    remoteSync?: RemoteSyncCapability;
-    anchorNavigation?: AnchorNavigationCapability;
+  editableWith?: "usfmScripture";
+  remoteSync?: RemoteSyncCapability;
+  anchorNavigation?: AnchorNavigationCapability;
 };
 ```
 
@@ -110,15 +110,15 @@ Import is **storage-shaping only**. It decides the on-disk layout from incoming 
 
 ```typescript
 type ImportResult = {
-    item: {
-        id: string;
-        displayName: string;
-        managedPath: string;
-        type: LibraryItemType;
-    };
-    isEditableProject: boolean;
-    gitReady: boolean;
-    warning?: string;
+  item: {
+    id: string;
+    displayName: string;
+    managedPath: string;
+    type: LibraryItemType;
+  };
+  isEditableProject: boolean;
+  gitReady: boolean;
+  warning?: string;
 };
 ```
 
@@ -126,10 +126,10 @@ Import does NOT return a live `LibraryItem` runtime object.
 
 ### Import Decision Table
 
-| Source metadata | `type` | Storage shape |
-|---|---|---|
-| USFM + Bible subject | `"usfmScripture"` | Preserve source; scaffold git if needed |
-| Translation Notes markers | `"translationNotes"` | Pack to per-book JSON |
+| Source metadata           | `type`               | Storage shape                           |
+| ------------------------- | -------------------- | --------------------------------------- |
+| USFM + Bible subject      | `"usfmScripture"`    | Preserve source; scaffold git if needed |
+| Translation Notes markers | `"translationNotes"` | Pack to per-book JSON                   |
 
 Import fails if source cannot be classified as one of the two supported types.
 
@@ -145,7 +145,11 @@ The `ItemLoader` orchestrator detects container format and delegates to the appr
 
 ```typescript
 interface IItemLoader {
-    openItem(args: { fs: FileSystem; managedPath: string; displayName: string }): Promise<LibraryItem | null>;
+  openItem(args: {
+    fs: FileSystem;
+    managedPath: string;
+    displayName: string;
+  }): Promise<LibraryItem | null>;
 }
 ```
 
@@ -157,14 +161,14 @@ Dexie stores **normalized catalog facts** — enough for listing and filtering. 
 
 ```typescript
 type IndexedLibraryItem = {
-    managedPath: string;
-    displayName: string;
-    type: LibraryItemType;
-    containerFormat: ContainerFormat;
-    isEditable: boolean;
-    hasRemoteSync: boolean;
-    languageCode: string;
-    languageName: string;
+  managedPath: string;
+  displayName: string;
+  type: LibraryItemType;
+  containerFormat: ContainerFormat;
+  isEditable: boolean;
+  hasRemoteSync: boolean;
+  languageCode: string;
+  languageName: string;
 };
 ```
 
@@ -187,9 +191,9 @@ type IndexedLibraryItem = {
 
 ```typescript
 async function reconcileIndex(): Promise<void> {
-    // list managed roots on disk
-    // remove stale rows whose paths are gone
-    // for existing paths, rebuild normalized indexed facts from disk truth
+  // list managed roots on disk
+  // remove stale rows whose paths are gone
+  // for existing paths, rebuild normalized indexed facts from disk truth
 }
 ```
 
@@ -201,9 +205,9 @@ The index is a fast catalog, not a shadow file system.
 
 ```typescript
 interface LibraryService {
-    getItem(ref: string): Promise<LibraryItem | null>;
-    getItems(): Promise<IndexedLibraryItem[]>;
-    getItemsByType(type: LibraryItemType): Promise<IndexedLibraryItem[]>;
+  getItem(ref: string): Promise<LibraryItem | null>;
+  getItems(): Promise<IndexedLibraryItem[]>;
+  getItemsByType(type: LibraryItemType): Promise<IndexedLibraryItem[]>;
 }
 ```
 
@@ -211,7 +215,7 @@ interface LibraryService {
 
 ```typescript
 const editableItems = (await library.getItems()).filter(
-    (item) => item.isEditable
+  (item) => item.isEditable,
 );
 ```
 

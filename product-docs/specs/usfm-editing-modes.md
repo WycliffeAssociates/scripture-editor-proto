@@ -1,6 +1,7 @@
 # Editor Modes
 
 ## What this feature does
+
 - Provides five editor modes for different editing needs:
   - `Regular`: reader-friendly WYSIWYG editing. Chapter (`\c`) and verse (`\v`)
     markers are structured nodes (`USFMNumberedMarkerNode`) whose number is
@@ -12,8 +13,10 @@
 - Keeps content mode-switchable without changing persisted source-of-truth semantics.
 
 ## Mode vs. shape
+
 The user-facing mode is separate from the underlying Lexical tree shape.
 `editorModeToShape()` maps modes onto one of three `EditorShape` values:
+
 - `regular` shape — `regular`, `view`
 - `form` shape — `form`
 - `flat` shape — `usfm`, `plain`
@@ -24,6 +27,7 @@ deciding which existing shape it projects onto (or adding a new shape
 intentionally).
 
 ## Form mode
+
 - Renders each paragraph-class block as a `FormBlockNode` decorator
   (Lexical decorator node, not a sibling render branch). All custom
   editing UI lives inside the Lexical lifecycle.
@@ -60,12 +64,14 @@ intentionally).
   `data-aligned="true"` for a brand focus ring.
 
 ## How to access it in the app
+
 - Open project drawer.
 - Go to `Settings`.
 - Use the `Editor Mode` segmented control.
 - Quick toggle for read-only is available from the toolbar lock/unlock button.
 
 ## Typical user flow
+
 1. Work in `Regular` for text-focused editing.
 2. Switch to `Form` for structured per-block editing (paragraph/poetry
    reorganization, inserting/combining/splitting verses).
@@ -74,6 +80,7 @@ intentionally).
 5. Use `View` when reviewing without editing.
 
 ## Current limits and non-goals
+
 - `Plain` mode intentionally reduces structure helpers; lint/update behaviors differ from regular/usfm flows.
 - Mode switching changes editor presentation/projection and interaction rules; it does not auto-save changes.
 - Mode-flip losslessness: every flip reduces to flat tokens first, then rebuilds
@@ -89,6 +96,7 @@ intentionally).
 - This mode system is not a substitute for full USFM semantic validation.
 
 ## Key modules (for agents)
+
 - `src/app/data/editor.ts` — `EditorModeSetting`, `EditorShape`, `editorModeToShape`, `UsfmTokenTypes`
 - `src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx`
 - `src/app/ui/hooks/useModeSwitching.tsx`

@@ -1,5 +1,6 @@
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
+
 import type { ScriptureBurritoMetadata } from "./scriptureBurritoSchemas.ts";
 
 /**
@@ -10,21 +11,21 @@ import type { ScriptureBurritoMetadata } from "./scriptureBurritoSchemas.ts";
  * USFM file on disk.
  */
 export async function createBurritoIngredient(
-    filePath: string,
-    contents: string,
-    md5Service: IMd5Service,
-    localizedBookTitle?: string,
-    bookCode?: string,
+  filePath: string,
+  contents: string,
+  md5Service: IMd5Service,
+  localizedBookTitle?: string,
+  bookCode?: string,
 ) {
-    const md5Checksum = await md5Service.calculateMd5(contents);
-    return {
-        checksum: {
-            md5: md5Checksum,
-        },
-        size: contents.length,
-        mimeType: "text/usfm",
-        title: localizedBookTitle || bookCode || filePath,
-    };
+  const md5Checksum = await md5Service.calculateMd5(contents);
+  return {
+    checksum: {
+      md5: md5Checksum,
+    },
+    size: contents.length,
+    mimeType: "text/usfm",
+    title: localizedBookTitle || bookCode || filePath,
+  };
 }
 
 /**
@@ -32,17 +33,17 @@ export async function createBurritoIngredient(
  * a save operation changes a scripture book on disk.
  */
 export async function updateBurritoMetadataFile(args: {
-    fs: FileSystem;
-    metadataPath: string;
-    metadata: ScriptureBurritoMetadata;
-    filePath: string;
-    // biome-ignore lint/suspicious/noExplicitAny: ingredient payload is schema-shaped and varied
-    ingredientData: any;
+  fs: FileSystem;
+  metadataPath: string;
+  metadata: ScriptureBurritoMetadata;
+  filePath: string;
+  // biome-ignore lint/suspicious/noExplicitAny: ingredient payload is schema-shaped and varied
+  ingredientData: any;
 }): Promise<void> {
-    args.metadata.ingredients = args.metadata.ingredients || {};
-    args.metadata.ingredients[args.filePath] = args.ingredientData;
-    await args.fs.writeText(
-        args.metadataPath,
-        JSON.stringify(args.metadata, null, 2),
-    );
+  args.metadata.ingredients = args.metadata.ingredients || {};
+  args.metadata.ingredients[args.filePath] = args.ingredientData;
+  await args.fs.writeText(
+    args.metadataPath,
+    JSON.stringify(args.metadata, null, 2),
+  );
 }

@@ -19,13 +19,13 @@ import { type DependencyList, useEffect } from "react";
  * fork/interrupt dance for each one.
  */
 export function useForkedPipeline(
-    make: () => Effect.Effect<unknown, unknown, never>,
-    deps: DependencyList,
+  make: () => Effect.Effect<unknown, unknown, never>,
+  deps: DependencyList,
 ): void {
-    useEffect(() => {
-        const fiber = Effect.runFork(make());
-        return () => {
-            Effect.runFork(Fiber.interrupt(fiber));
-        };
-    }, deps);
+  useEffect(() => {
+    const fiber = Effect.runFork(make());
+    return () => {
+      Effect.runFork(Fiber.interrupt(fiber));
+    };
+  }, deps);
 }

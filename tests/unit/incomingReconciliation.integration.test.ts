@@ -12,8 +12,12 @@
 // COMPOSE into the right merge policy, so the executor can move with a parity net.
 
 import { describe, expect, it } from "vitest";
+
 import { applyIncomingToStore } from "@/app/domain/project/compare/applyIncomingToStore.ts";
-import type { DiffsByChapter, ProjectDiff } from "@/app/domain/project/diffTypes.ts";
+import type {
+  DiffsByChapter,
+  ProjectDiff,
+} from "@/app/domain/project/diffTypes.ts";
 import {
   buildAutoAcceptIncomingPlan,
   splitRemoteDiffsByDirtySemanticSid,
@@ -79,7 +83,9 @@ describe("incoming reconciliation: dirty-SID split → safe apply", () => {
       EXO: { 1: [diff("EXO", "EXO 1:1")] },
     };
     // The user's dirty edit overlaps EXO 1:1 → that diff is blocked.
-    const dirtySemanticSidsByChapter = new Map([["EXO:1", new Set(["EXO 1:1"])]]);
+    const dirtySemanticSidsByChapter = new Map([
+      ["EXO:1", new Set(["EXO 1:1"])],
+    ]);
 
     const { blockedDiffsByChapter } = splitRemoteDiffsByDirtySemanticSid({
       diffsByChapter: initialDiffsByChapter,
@@ -101,7 +107,7 @@ describe("incoming reconciliation: dirty-SID split → safe apply", () => {
       fullChapterApplies,
       hunkApplies,
       sourceFiles: [book("GEN", "gen-incoming"), book("EXO", "exo-incoming")],
-        shape: "flat",
+      shape: "flat",
     });
 
     expect(result.kind).toBe("committed");
@@ -135,7 +141,7 @@ describe("incoming reconciliation: dirty-SID split → safe apply", () => {
       fullChapterApplies,
       hunkApplies,
       sourceFiles: [book("GEN", "gen-incoming")],
-        shape: "flat",
+      shape: "flat",
     });
 
     // Nothing to apply → typed empty-plan abort, local edit preserved.

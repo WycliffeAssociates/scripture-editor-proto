@@ -1,27 +1,28 @@
 import * as onion from "usfm-onion-web";
+
 import { devTimer } from "@/app/ui/hooks/utils/domUtils.ts";
 import { webMd5Service } from "@/core/domain/md5/webMd5.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import { defaultBuildSidBlocksOptions } from "@/core/domain/usfm/usfmOnionAdapters.ts";
 import type {
-    BuildSidBlocksOptions,
-    Diff,
-    DiffScopeItem,
-    DiffScopeOptions,
-    FormatScopeOptions,
-    LintIssue,
-    LintOptions,
-    LintScopeOptions,
-    MarkerInfo,
-    ParsedUsfm,
-    ProjectedUsfmDocument,
-    ProjectUsfmOptions,
-    Token,
-    TokenFix,
-    TokenLintOptions,
-    TokenScopeItem,
-    TokenTransformResult,
-    UsfmMarkerCatalog,
+  BuildSidBlocksOptions,
+  Diff,
+  DiffScopeItem,
+  DiffScopeOptions,
+  FormatScopeOptions,
+  LintIssue,
+  LintOptions,
+  LintScopeOptions,
+  MarkerInfo,
+  ParsedUsfm,
+  ProjectedUsfmDocument,
+  ProjectUsfmOptions,
+  Token,
+  TokenFix,
+  TokenLintOptions,
+  TokenScopeItem,
+  TokenTransformResult,
+  UsfmMarkerCatalog,
 } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 /**
@@ -36,18 +37,18 @@ import type {
 // linebreaks are omitted so paragraph blocks flow continuously the way the
 // rendered editor surface displays them.
 const WYSIWYG_FORMAT_OPTIONS: onion.FormatOptions = {
-    insertStructuralLinebreaks: false,
+  insertStructuralLinebreaks: false,
 };
 
 class UnsupportedError extends Error {
-    constructor(message: string) {
-        super(message);
-        this.name = "UnsupportedError";
-    }
+  constructor(message: string) {
+    super(message);
+    this.name = "UnsupportedError";
+  }
 }
 
 function throwPathIoUnsupported(): never {
-    throw new UnsupportedError("Path I/O is desktop-only");
+  throw new UnsupportedError("Path I/O is desktop-only");
 }
 
 // scope is required by the library and gates the document-level rules. The
@@ -58,361 +59,354 @@ const WHOLE_BOOK_SCOPE: onion.LintScope = "book";
 // Best-effort book ref from a token stream's first sid ("GEN 1:1" → "GEN"),
 // for dev-timer labels only — the call site already holds these tokens.
 const bookOf = (tokens?: readonly Token[]): string =>
-    tokens?.find((t) => t.sid)?.sid?.split(" ")[0] ?? "?";
+  tokens?.find((t) => t.sid)?.sid?.split(" ")[0] ?? "?";
 
 function toWebTokenLintOptions(
-    options?: TokenLintOptions | null,
+  options?: TokenLintOptions | null,
 ): onion.LintOptions {
-    return {
-        scope: WHOLE_BOOK_SCOPE,
-        disabledCodes: (options?.disabledRules ?? []) as onion.LintCode[],
-        suppressed: (options?.suppressions ?? []).map((suppression) => ({
-            code: suppression.code as onion.LintCode,
-            sid: suppression.sid,
-        })),
-        allowImplicitChapterContentVerse: false,
-    };
+  return {
+    scope: WHOLE_BOOK_SCOPE,
+    disabledCodes: (options?.disabledRules ?? []) as onion.LintCode[],
+    suppressed: (options?.suppressions ?? []).map((suppression) => ({
+      code: suppression.code as onion.LintCode,
+      sid: suppression.sid,
+    })),
+    allowImplicitChapterContentVerse: false,
+  };
 }
 
 function toWebProjectLintOptions(
-    options?: LintOptions | null,
+  options?: LintOptions | null,
 ): onion.LintOptions | undefined {
-    if (!options) return undefined;
-    return {
-        scope: options.scope ?? WHOLE_BOOK_SCOPE,
-        enabledCodes: options.enabledCodes,
-        disabledCodes: options.disabledCodes ?? [],
-        suppressed: options.suppressed ?? [],
-        allowImplicitChapterContentVerse:
-            options.allowImplicitChapterContentVerse ?? false,
-    };
+  if (!options) return undefined;
+  return {
+    scope: options.scope ?? WHOLE_BOOK_SCOPE,
+    enabledCodes: options.enabledCodes,
+    disabledCodes: options.disabledCodes ?? [],
+    suppressed: options.suppressed ?? [],
+    allowImplicitChapterContentVerse:
+      options.allowImplicitChapterContentVerse ?? false,
+  };
 }
 
 function buildMarkerCatalog(raw: onion.UsfmMarkerCatalog): UsfmMarkerCatalog {
-    const allInfo = raw.all();
-    const infoByMarker = Object.fromEntries(
-        allInfo.map(
-            (info) => [info.marker, info] satisfies [string, MarkerInfo],
-        ),
-    );
-    const allMarkers: string[] = [];
-    const paragraphMarkers: string[] = [];
-    const noteMarkers: string[] = [];
-    const noteSubmarkers: string[] = [];
-    const regularCharacterMarkers: string[] = [];
-    const documentMarkers: string[] = [];
-    const chapterVerseMarkers: string[] = [];
-    for (const info of allInfo) {
-        allMarkers.push(info.marker);
-        if (info.category === "paragraph") paragraphMarkers.push(info.marker);
-        else if (info.category === "noteContainer")
-            noteMarkers.push(info.marker);
-        else if (info.category === "noteSubmarker")
-            noteSubmarkers.push(info.marker);
-        else if (info.category === "character")
-            regularCharacterMarkers.push(info.marker);
-        else if (info.category === "document")
-            documentMarkers.push(info.marker);
-        else if (info.category === "chapter" || info.category === "verse")
-            chapterVerseMarkers.push(info.marker);
-    }
+  const allInfo = raw.all();
+  const infoByMarker = Object.fromEntries(
+    allInfo.map((info) => [info.marker, info] satisfies [string, MarkerInfo]),
+  );
+  const allMarkers: string[] = [];
+  const paragraphMarkers: string[] = [];
+  const noteMarkers: string[] = [];
+  const noteSubmarkers: string[] = [];
+  const regularCharacterMarkers: string[] = [];
+  const documentMarkers: string[] = [];
+  const chapterVerseMarkers: string[] = [];
+  for (const info of allInfo) {
+    allMarkers.push(info.marker);
+    if (info.category === "paragraph") paragraphMarkers.push(info.marker);
+    else if (info.category === "noteContainer") noteMarkers.push(info.marker);
+    else if (info.category === "noteSubmarker")
+      noteSubmarkers.push(info.marker);
+    else if (info.category === "character")
+      regularCharacterMarkers.push(info.marker);
+    else if (info.category === "document") documentMarkers.push(info.marker);
+    else if (info.category === "chapter" || info.category === "verse")
+      chapterVerseMarkers.push(info.marker);
+  }
 
-    return {
-        raw,
-        allMarkers,
-        paragraphMarkers,
-        noteMarkers,
-        noteSubmarkers,
-        regularCharacterMarkers,
-        documentMarkers,
-        chapterVerseMarkers,
-        infoByMarker,
-    };
+  return {
+    raw,
+    allMarkers,
+    paragraphMarkers,
+    noteMarkers,
+    noteSubmarkers,
+    regularCharacterMarkers,
+    documentMarkers,
+    chapterVerseMarkers,
+    infoByMarker,
+  };
 }
 
 function parsedToProjectedDocument(
-    parsed: ParsedUsfm,
-    options: ProjectUsfmOptions,
+  parsed: ParsedUsfm,
+  options: ProjectUsfmOptions,
 ): ProjectedUsfmDocument {
-    const lintIssues = options.lintOptions
-        ? parsed.lint(
-              toWebProjectLintOptions(options.lintOptions) ?? {
-                  scope: WHOLE_BOOK_SCOPE,
-              },
-          ).issues
-        : null;
-    return {
-        tokens: parsed.tokens(),
-        lintIssues,
-    };
+  const lintIssues = options.lintOptions
+    ? parsed.lint(
+        toWebProjectLintOptions(options.lintOptions) ?? {
+          scope: WHOLE_BOOK_SCOPE,
+        },
+      ).issues
+    : null;
+  return {
+    tokens: parsed.tokens(),
+    lintIssues,
+  };
 }
 
 function tokensEqual(left: Token[], right: Token[]): boolean {
-    if (left.length !== right.length) return false;
-    for (let i = 0; i < left.length; i++) {
-        const a = left[i];
-        const b = right[i];
-        if (!a || !b) return false;
-        if (a.id !== b.id) return false;
-        if (a.kind !== b.kind) return false;
-        if (a.source !== b.source) return false;
-        if ((a.sid ?? null) !== (b.sid ?? null)) return false;
-        if ((a.marker ?? null) !== (b.marker ?? null)) return false;
-        if (
-            (a.span?.start ?? null) !== (b.span?.start ?? null) ||
-            (a.span?.end ?? null) !== (b.span?.end ?? null)
-        ) {
-            return false;
-        }
+  if (left.length !== right.length) return false;
+  for (let i = 0; i < left.length; i++) {
+    const a = left[i];
+    const b = right[i];
+    if (!a || !b) return false;
+    if (a.id !== b.id) return false;
+    if (a.kind !== b.kind) return false;
+    if (a.source !== b.source) return false;
+    if ((a.sid ?? null) !== (b.sid ?? null)) return false;
+    if ((a.marker ?? null) !== (b.marker ?? null)) return false;
+    if (
+      (a.span?.start ?? null) !== (b.span?.start ?? null) ||
+      (a.span?.end ?? null) !== (b.span?.end ?? null)
+    ) {
+      return false;
     }
-    return true;
+  }
+  return true;
 }
 
 function formatTokensToTransformResult(
-    originalTokens: Token[],
-    result: onion.FormatResult,
+  originalTokens: Token[],
+  result: onion.FormatResult,
 ): TokenTransformResult {
-    const nextTokens = result.tokens;
-    return {
-        tokens: nextTokens,
-        appliedChanges: tokensEqual(originalTokens, nextTokens)
-            ? []
-            : [
-                  {
-                      kind: "formatTokens",
-                      code: "format-tokens",
-                      label: "Format tokens",
-                      labelParams: {},
-                      targetTokenId: null,
-                  },
-              ],
-        skippedChanges: [],
-    };
+  const nextTokens = result.tokens;
+  return {
+    tokens: nextTokens,
+    appliedChanges: tokensEqual(originalTokens, nextTokens)
+      ? []
+      : [
+          {
+            kind: "formatTokens",
+            code: "format-tokens",
+            label: "Format tokens",
+            labelParams: {},
+            targetTokenId: null,
+          },
+        ],
+    skippedChanges: [],
+  };
 }
 
 function fromRawDiff(diff: onion.ChapterTokenDiff): Diff {
-    return {
-        blockId: diff.blockId,
-        semanticSid: diff.semanticSid,
-        status: diff.status,
-        original: diff.original,
-        current: diff.current,
-        originalText: diff.originalText,
-        currentText: diff.currentText,
-        originalTextOnly: diff.originalTextOnly,
-        currentTextOnly: diff.currentTextOnly,
-        isWhitespaceChange: diff.isWhitespaceChange,
-        isUsfmStructureChange: diff.isUsfmStructureChange,
-        originalTokens: diff.originalTokens,
-        currentTokens: diff.currentTokens,
-        originalAlignment: diff.originalAlignment ?? [],
-        currentAlignment: diff.currentAlignment ?? [],
-        undoSide: diff.undoSide,
-    };
+  return {
+    blockId: diff.blockId,
+    semanticSid: diff.semanticSid,
+    status: diff.status,
+    original: diff.original,
+    current: diff.current,
+    originalText: diff.originalText,
+    currentText: diff.currentText,
+    originalTextOnly: diff.originalTextOnly,
+    currentTextOnly: diff.currentTextOnly,
+    isWhitespaceChange: diff.isWhitespaceChange,
+    isUsfmStructureChange: diff.isUsfmStructureChange,
+    originalTokens: diff.originalTokens,
+    currentTokens: diff.currentTokens,
+    originalAlignment: diff.originalAlignment ?? [],
+    currentAlignment: diff.currentAlignment ?? [],
+    undoSide: diff.undoSide,
+  };
 }
 
 export class WebUsfmOnionService implements IUsfmOnionService {
-    readonly supportsPathIo = false;
+  readonly supportsPathIo = false;
 
-    async getMarkerCatalog(): Promise<UsfmMarkerCatalog> {
-        return buildMarkerCatalog(onion.markerCatalog());
-    }
+  async getMarkerCatalog(): Promise<UsfmMarkerCatalog> {
+    return buildMarkerCatalog(onion.markerCatalog());
+  }
 
-    async parseUsfm(
-        source: string,
-        options: ProjectUsfmOptions = {
-            tokenOptions: { mergeHorizontalWhitespace: false },
-            lintOptions: null,
-        },
-    ): Promise<ProjectedUsfmDocument> {
-        const end = devTimer(`web:parseUsfm (${source.length} chars)`);
-        const parsed = onion.parse(source);
-        const result = parsedToProjectedDocument(parsed, options);
-        end();
-        return result;
-    }
+  async parseUsfm(
+    source: string,
+    options: ProjectUsfmOptions = {
+      tokenOptions: { mergeHorizontalWhitespace: false },
+      lintOptions: null,
+    },
+  ): Promise<ProjectedUsfmDocument> {
+    const end = devTimer(`web:parseUsfm (${source.length} chars)`);
+    const parsed = onion.parse(source);
+    const result = parsedToProjectedDocument(parsed, options);
+    end();
+    return result;
+  }
 
-    async parseUsfmBatchFromPaths(
-        _paths: string[],
-        _options: ProjectUsfmOptions = {
-            tokenOptions: { mergeHorizontalWhitespace: false },
-            lintOptions: null,
-        },
-    ): Promise<ProjectedUsfmDocument[]> {
-        return throwPathIoUnsupported();
-    }
+  async parseUsfmBatchFromPaths(
+    _paths: string[],
+    _options: ProjectUsfmOptions = {
+      tokenOptions: { mergeHorizontalWhitespace: false },
+      lintOptions: null,
+    },
+  ): Promise<ProjectedUsfmDocument[]> {
+    return throwPathIoUnsupported();
+  }
 
-    async parseUsfmBatchFromContents(
-        sources: string[],
-        options: ProjectUsfmOptions = {
-            tokenOptions: { mergeHorizontalWhitespace: false },
-            lintOptions: null,
-        },
-    ): Promise<ProjectedUsfmDocument[]> {
-        const end = devTimer(
-            `web:parseUsfmBatchFromContents (${sources.length} files)`,
-        );
-        const result = Promise.all(
-            sources.map(async (source) => {
-                const doc = parsedToProjectedDocument(
-                    onion.parse(source),
-                    options,
-                );
-                // Hash the source string we already hold in JS — the single
-                // read happened upstream (loadForWeb), so no extra IO.
-                if (options.includeSourceMd5) {
-                    doc.sourceMd5 = await webMd5Service.calculateMd5(source);
-                }
-                return doc;
-            }),
-        );
-        end();
-        return result;
-    }
-
-    async lintExisting(
-        tokens: Token[],
-        options: TokenLintOptions = {},
-    ): Promise<LintIssue[]> {
-        const end = devTimer(`web:lintExisting ${bookOf(tokens)}`);
-        const result = onion.lintTokens(tokens, toWebTokenLintOptions(options));
-        end();
-        return result.issues;
-    }
-
-    async lintScope(
-        scope: TokenScopeItem[],
-        options: LintScopeOptions = {},
-    ): Promise<LintIssue[][]> {
-        if (!scope.length) return [];
-        if (scope.some((item) => item.tokens === undefined)) {
-            return throwPathIoUnsupported();
+  async parseUsfmBatchFromContents(
+    sources: string[],
+    options: ProjectUsfmOptions = {
+      tokenOptions: { mergeHorizontalWhitespace: false },
+      lintOptions: null,
+    },
+  ): Promise<ProjectedUsfmDocument[]> {
+    const end = devTimer(
+      `web:parseUsfmBatchFromContents (${sources.length} files)`,
+    );
+    const result = Promise.all(
+      sources.map(async (source) => {
+        const doc = parsedToProjectedDocument(onion.parse(source), options);
+        // Hash the source string we already hold in JS — the single
+        // read happened upstream (loadForWeb), so no extra IO.
+        if (options.includeSourceMd5) {
+          doc.sourceMd5 = await webMd5Service.calculateMd5(source);
         }
-        const end = devTimer(
-            `web:lintScope ${bookOf(scope[0]?.tokens)} (${scope.length} ch)`,
-        );
-        const lintOptions =
-            options.lintOptions?.tokenRules ?? options.tokenOptions ?? {};
-        const webLintOptions = toWebTokenLintOptions(lintOptions);
-        const result = Promise.all(
-            scope.map(
-                async (item) =>
-                    onion.lintTokens(item.tokens ?? [], webLintOptions).issues,
-            ),
-        );
-        end();
-        return result;
-    }
+        return doc;
+      }),
+    );
+    end();
+    return result;
+  }
 
-    async formatScope(
-        scope: TokenScopeItem[],
-        _options: FormatScopeOptions = {},
-    ): Promise<TokenTransformResult[]> {
-        if (!scope.length) return [];
-        if (scope.some((item) => item.tokens === undefined)) {
-            return throwPathIoUnsupported();
-        }
-        const end = devTimer(
-            `web:formatScope ${bookOf(scope[0]?.tokens)} (${scope.length} ch)`,
-        );
-        const result = Promise.all(
-            scope.map(async (item) => {
-                const tokens = item.tokens ?? [];
-                return formatTokensToTransformResult(
-                    tokens,
-                    onion.formatTokens(tokens, WYSIWYG_FORMAT_OPTIONS),
-                );
-            }),
-        );
-        end();
-        return result;
-    }
+  async lintExisting(
+    tokens: Token[],
+    options: TokenLintOptions = {},
+  ): Promise<LintIssue[]> {
+    const end = devTimer(`web:lintExisting ${bookOf(tokens)}`);
+    const result = onion.lintTokens(tokens, toWebTokenLintOptions(options));
+    end();
+    return result.issues;
+  }
 
-    async applyTokenFixes(
-        tokens: Token[],
-        fixes: TokenFix[],
-    ): Promise<TokenTransformResult> {
-        const end = devTimer(
-            `web:applyTokenFixes ${bookOf(tokens)} (${fixes.length} fix)`,
-        );
-        if (!fixes.length) {
-            end();
-            return {
-                tokens,
-                appliedChanges: [],
-                skippedChanges: [],
-            };
-        }
-        let nextTokens = tokens;
-        const appliedChanges: TokenTransformResult["appliedChanges"] = [];
-        for (const fix of fixes) {
-            nextTokens = onion.applyTokenFix(nextTokens, fix);
-            appliedChanges.push({
-                kind: "applyTokenFix",
-                code: fix.code,
-                label: fix.label,
-                labelParams: fix.labelParams,
-                targetTokenId: fix.targetTokenId ?? null,
-            });
-        }
-        end();
-        return {
-            tokens: nextTokens,
-            appliedChanges,
-            skippedChanges: [],
-        };
+  async lintScope(
+    scope: TokenScopeItem[],
+    options: LintScopeOptions = {},
+  ): Promise<LintIssue[][]> {
+    if (!scope.length) return [];
+    if (scope.some((item) => item.tokens === undefined)) {
+      return throwPathIoUnsupported();
     }
+    const end = devTimer(
+      `web:lintScope ${bookOf(scope[0]?.tokens)} (${scope.length} ch)`,
+    );
+    const lintOptions =
+      options.lintOptions?.tokenRules ?? options.tokenOptions ?? {};
+    const webLintOptions = toWebTokenLintOptions(lintOptions);
+    const result = Promise.all(
+      scope.map(
+        async (item) =>
+          onion.lintTokens(item.tokens ?? [], webLintOptions).issues,
+      ),
+    );
+    end();
+    return result;
+  }
 
-    async diffScope(
-        scope: DiffScopeItem[],
-        options: DiffScopeOptions = {},
-    ): Promise<Diff[][]> {
-        if (!scope.length) return [];
-        if (scope.some((item) => !item.baselineTokens || !item.currentTokens)) {
-            return throwPathIoUnsupported();
-        }
-        return Promise.all(
-            scope.map((item) =>
-                this.diffTokens(
-                    item.baselineTokens ?? [],
-                    item.currentTokens ?? [],
-                    options.buildOptions ?? defaultBuildSidBlocksOptions(),
-                ),
-            ),
-        );
+  async formatScope(
+    scope: TokenScopeItem[],
+    _options: FormatScopeOptions = {},
+  ): Promise<TokenTransformResult[]> {
+    if (!scope.length) return [];
+    if (scope.some((item) => item.tokens === undefined)) {
+      return throwPathIoUnsupported();
     }
+    const end = devTimer(
+      `web:formatScope ${bookOf(scope[0]?.tokens)} (${scope.length} ch)`,
+    );
+    const result = Promise.all(
+      scope.map(async (item) => {
+        const tokens = item.tokens ?? [];
+        return formatTokensToTransformResult(
+          tokens,
+          onion.formatTokens(tokens, WYSIWYG_FORMAT_OPTIONS),
+        );
+      }),
+    );
+    end();
+    return result;
+  }
 
-    async diffTokens(
-        baselineTokens: Token[],
-        currentTokens: Token[],
-        buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
-    ): Promise<Diff[]> {
-        const end = devTimer(`web:diffTokens ${bookOf(currentTokens)}`);
-        const result = onion
-            .diffTokens(baselineTokens, currentTokens, buildOptions)
-            .map(fromRawDiff);
-        end();
-        return result;
+  async applyTokenFixes(
+    tokens: Token[],
+    fixes: TokenFix[],
+  ): Promise<TokenTransformResult> {
+    const end = devTimer(
+      `web:applyTokenFixes ${bookOf(tokens)} (${fixes.length} fix)`,
+    );
+    if (!fixes.length) {
+      end();
+      return {
+        tokens,
+        appliedChanges: [],
+        skippedChanges: [],
+      };
     }
+    let nextTokens = tokens;
+    const appliedChanges: TokenTransformResult["appliedChanges"] = [];
+    for (const fix of fixes) {
+      nextTokens = onion.applyTokenFix(nextTokens, fix);
+      appliedChanges.push({
+        kind: "applyTokenFix",
+        code: fix.code,
+        label: fix.label,
+        labelParams: fix.labelParams,
+        targetTokenId: fix.targetTokenId ?? null,
+      });
+    }
+    end();
+    return {
+      tokens: nextTokens,
+      appliedChanges,
+      skippedChanges: [],
+    };
+  }
 
-    async revertDiffBlock(
-        baselineTokens: Token[],
-        currentTokens: Token[],
-        blockId: string,
-        buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
-    ): Promise<Token[]> {
-        const end = devTimer(
-            `web:revertDiffBlock ${bookOf(currentTokens)} ${blockId}`,
-        );
-        const result = onion.revertDiffBlock(
-            baselineTokens,
-            currentTokens,
-            blockId,
-            buildOptions,
-        );
-        end();
-        return result;
+  async diffScope(
+    scope: DiffScopeItem[],
+    options: DiffScopeOptions = {},
+  ): Promise<Diff[][]> {
+    if (!scope.length) return [];
+    if (scope.some((item) => !item.baselineTokens || !item.currentTokens)) {
+      return throwPathIoUnsupported();
     }
+    return Promise.all(
+      scope.map((item) =>
+        this.diffTokens(
+          item.baselineTokens ?? [],
+          item.currentTokens ?? [],
+          options.buildOptions ?? defaultBuildSidBlocksOptions(),
+        ),
+      ),
+    );
+  }
+
+  async diffTokens(
+    baselineTokens: Token[],
+    currentTokens: Token[],
+    buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
+  ): Promise<Diff[]> {
+    const end = devTimer(`web:diffTokens ${bookOf(currentTokens)}`);
+    const result = onion
+      .diffTokens(baselineTokens, currentTokens, buildOptions)
+      .map(fromRawDiff);
+    end();
+    return result;
+  }
+
+  async revertDiffBlock(
+    baselineTokens: Token[],
+    currentTokens: Token[],
+    blockId: string,
+    buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
+  ): Promise<Token[]> {
+    const end = devTimer(
+      `web:revertDiffBlock ${bookOf(currentTokens)} ${blockId}`,
+    );
+    const result = onion.revertDiffBlock(
+      baselineTokens,
+      currentTokens,
+      blockId,
+      buildOptions,
+    );
+    end();
+    return result;
+  }
 }
 
 export const webUsfmOnionService = new WebUsfmOnionService();

@@ -14,34 +14,34 @@ import type { DiskBaseline } from "@/app/state/DirtyBufferStore.ts";
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 
 export class WorkspaceBaselineStore {
-    private readonly baselines = new Map<string, DiskBaseline>();
+  private readonly baselines = new Map<string, DiskBaseline>();
 
-    constructor(private readonly md5: IMd5Service) {}
+  constructor(private readonly md5: IMd5Service) {}
 
-    /** Default `absent` for books we have never seen persisted. */
-    getBaseline(bookCode: string): DiskBaseline {
-        return this.baselines.get(bookCode) ?? { kind: "absent" };
-    }
+  /** Default `absent` for books we have never seen persisted. */
+  getBaseline(bookCode: string): DiskBaseline {
+    return this.baselines.get(bookCode) ?? { kind: "absent" };
+  }
 
-    computeMd5(content: string): Promise<string> {
-        return this.md5.calculateMd5(content);
-    }
+  computeMd5(content: string): Promise<string> {
+    return this.md5.calculateMd5(content);
+  }
 
-    /**
-     * Record that `bookCode` is persisted with the given checksum. Synchronous on
-     * purpose: callers precompute the MD5 (which can fail) before any disk write,
-     * then call this only after the write succeeds, so the baseline can never
-     * claim bytes that did not land.
-     */
-    setPresent(bookCode: string, precomputedMd5: string): void {
-        this.baselines.set(bookCode, { kind: "present", md5: precomputedMd5 });
-    }
+  /**
+   * Record that `bookCode` is persisted with the given checksum. Synchronous on
+   * purpose: callers precompute the MD5 (which can fail) before any disk write,
+   * then call this only after the write succeeds, so the baseline can never
+   * claim bytes that did not land.
+   */
+  setPresent(bookCode: string, precomputedMd5: string): void {
+    this.baselines.set(bookCode, { kind: "present", md5: precomputedMd5 });
+  }
 
-    setAbsent(bookCode: string): void {
-        this.baselines.set(bookCode, { kind: "absent" });
-    }
+  setAbsent(bookCode: string): void {
+    this.baselines.set(bookCode, { kind: "absent" });
+  }
 
-    snapshot(): ReadonlyMap<string, DiskBaseline> {
-        return new Map(this.baselines);
-    }
+  snapshot(): ReadonlyMap<string, DiskBaseline> {
+    return new Map(this.baselines);
+  }
 }

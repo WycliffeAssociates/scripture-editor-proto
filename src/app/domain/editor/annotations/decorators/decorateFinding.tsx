@@ -14,6 +14,7 @@
 
 import { t } from "@lingui/core/macro";
 import { Wand2 } from "lucide-react";
+
 import type { EditorModeSetting } from "@/app/data/editor.ts";
 import type { FindingsStore } from "@/app/state/FindingsStore.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
@@ -23,16 +24,17 @@ import { ChapterLabelPicker } from "@/app/ui/components/blocks/ChapterLabelPicke
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import { formatTokenFixLabel } from "@/app/ui/i18n/usfmOnionLocalization.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
+
 import type {
-    DecoratedFinding,
-    Finding,
-    FindingAction,
-    FindingDetails,
+  DecoratedFinding,
+  Finding,
+  FindingAction,
+  FindingDetails,
 } from "../finding.ts";
 import { formatFindingMessage } from "../formatFindingMessage.ts";
 import {
-    computeChapterLabelTally,
-    standardizeChapterLabels,
+  computeChapterLabelTally,
+  standardizeChapterLabels,
 } from "./chapterLabelStandardize.ts";
 import { fixLintFinding } from "./lintFix.ts";
 
@@ -43,46 +45,46 @@ import { fixLintFinding } from "./lintFix.ts";
  * ctx type, every assembly site, and the decorator.
  */
 export type FindingDecorationContext = {
-    workingFilesStore: WorkingFilesStore;
-    interactionGate: WorkspaceGateStore;
-    history: CustomHistoryHook;
-    usfmOnionService: IUsfmOnionService;
-    editorMode: EditorModeSetting;
-    /** For fix flows' no-op fallback publish (see lintFix.ts). */
-    findingsStore: FindingsStore;
-    /** The workspace modal outlet (see WorkspaceModalStore.ts). */
-    openModal: WorkspaceModalStore["open"];
-    closeModal: () => void;
+  workingFilesStore: WorkingFilesStore;
+  interactionGate: WorkspaceGateStore;
+  history: CustomHistoryHook;
+  usfmOnionService: IUsfmOnionService;
+  editorMode: EditorModeSetting;
+  /** For fix flows' no-op fallback publish (see lintFix.ts). */
+  findingsStore: FindingsStore;
+  /** The workspace modal outlet (see WorkspaceModalStore.ts). */
+  openModal: WorkspaceModalStore["open"];
+  closeModal: () => void;
 };
 
 type FindingDecoration = {
-    actions: FindingAction[];
-    details?: FindingDetails;
+  actions: FindingAction[];
+  details?: FindingDetails;
 };
 
 type OnionFinding = Extract<Finding, { source: "onion" }>;
 type OnionDecorator = (
-    finding: OnionFinding,
-    ctx: FindingDecorationContext,
+  finding: OnionFinding,
+  ctx: FindingDecorationContext,
 ) => FindingDecoration;
 
 // The default onion decoration: when the issue carries an upstream `fix`, one
 // primary action that applies it. onion's once-special single-`fix` model
 // stops being special here — it's just a decorator that emits one action.
 const defaultOnionDecorator: OnionDecorator = (finding, ctx) => {
-    const fix = finding.issue.fix;
-    if (!fix) return { actions: [] };
-    return {
-        actions: [
-            {
-                id: "fix",
-                label: formatTokenFixLabel(fix),
-                kind: "primary",
-                icon: <Wand2 size={14} />,
-                run: () => fixLintFinding(finding.issue, ctx),
-            },
-        ],
-    };
+  const fix = finding.issue.fix;
+  if (!fix) return { actions: [] };
+  return {
+    actions: [
+      {
+        id: "fix",
+        label: formatTokenFixLabel(fix),
+        kind: "primary",
+        icon: <Wand2 size={14} />,
+        run: () => fixLintFinding(finding.issue, ctx),
+      },
+    ],
+  };
 };
 
 /**
@@ -93,63 +95,60 @@ const defaultOnionDecorator: OnionDecorator = (finding, ctx) => {
  * same domain function any other doorway would.
  */
 const chapterLabelDecorator: OnionDecorator = (finding, ctx) => {
-    const base = defaultOnionDecorator(finding, ctx);
-    const standardize: FindingAction = {
-        id: "standardize-chapter-label",
-        label: t`Standardize across project…`,
-        kind: "default",
-        run: () => {
-            // The tally is derived from the committed working files only when
-            // the user opens the picker (a click, not a hover), so the hover
-            // path stays cheap.
-            const tally = computeChapterLabelTally(
-                ctx.workingFilesStore.read(),
-            );
-            ctx.openModal(ChapterLabelPicker, {
-                isOpen: true,
-                tally,
-                onConfirm: (targetStem: string) => {
-                    ctx.closeModal();
-                    void standardizeChapterLabels(targetStem, ctx);
-                },
-            });
+  const base = defaultOnionDecorator(finding, ctx);
+  const standardize: FindingAction = {
+    id: "standardize-chapter-label",
+    label: t`Standardize across project…`,
+    kind: "default",
+    run: () => {
+      // The tally is derived from the committed working files only when
+      // the user opens the picker (a click, not a hover), so the hover
+      // path stays cheap.
+      const tally = computeChapterLabelTally(ctx.workingFilesStore.read());
+      ctx.openModal(ChapterLabelPicker, {
+        isOpen: true,
+        tally,
+        onConfirm: (targetStem: string) => {
+          ctx.closeModal();
+          void standardizeChapterLabels(targetStem, ctx);
         },
-    };
-    return { ...base, actions: [...base.actions, standardize] };
+      });
+    },
+  };
+  return { ...base, actions: [...base.actions, standardize] };
 };
 
 /** Per-code onion overrides; the default decorator handles everything else. */
 const onionDecorators: Partial<Record<string, OnionDecorator>> = {
-    "inconsistent-chapter-label": chapterLabelDecorator,
+  "inconsistent-chapter-label": chapterLabelDecorator,
 };
 
 function decorationFor(
-    finding: Finding,
-    ctx: FindingDecorationContext,
+  finding: Finding,
+  ctx: FindingDecorationContext,
 ): FindingDecoration {
-    switch (finding.source) {
-        case "onion": {
-            const decorator =
-                onionDecorators[finding.code] ?? defaultOnionDecorator;
-            return decorator(finding, ctx);
-        }
-        case "sous-chef":
-            // sous findings are report-only today; content fixes arrive later
-            // as per-code decorators calling their own domain functions.
-            return { actions: [] };
+  switch (finding.source) {
+    case "onion": {
+      const decorator = onionDecorators[finding.code] ?? defaultOnionDecorator;
+      return decorator(finding, ctx);
     }
+    case "sous-chef":
+      // sous findings are report-only today; content fixes arrive later
+      // as per-code decorators calling their own domain functions.
+      return { actions: [] };
+  }
 }
 
 export function decorateFinding(
-    finding: Finding,
-    ctx: FindingDecorationContext,
+  finding: Finding,
+  ctx: FindingDecorationContext,
 ): DecoratedFinding {
-    return {
-        id: finding.id,
-        finding,
-        message: formatFindingMessage(finding),
-        ...decorationFor(finding, ctx),
-    };
+  return {
+    id: finding.id,
+    finding,
+    message: formatFindingMessage(finding),
+    ...decorationFor(finding, ctx),
+  };
 }
 
 /**
@@ -159,10 +158,10 @@ export function decorateFinding(
  * use `decorateFinding` instead.
  */
 export function decorateFindingInert(finding: Finding): DecoratedFinding {
-    return {
-        id: finding.id,
-        finding,
-        message: formatFindingMessage(finding),
-        actions: [],
-    };
+  return {
+    id: finding.id,
+    finding,
+    message: formatFindingMessage(finding),
+    actions: [],
+  };
 }

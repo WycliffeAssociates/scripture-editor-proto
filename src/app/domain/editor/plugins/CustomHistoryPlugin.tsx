@@ -1,6 +1,7 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { COMMAND_PRIORITY_EDITOR, REDO_COMMAND, UNDO_COMMAND } from "lexical";
 import { useEffect } from "react";
+
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 /**
@@ -13,34 +14,34 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
  * the capture-before-publish ordering.
  */
 export function CustomHistoryPlugin() {
-    const [editor] = useLexicalComposerContext();
-    const { history } = useWorkspaceContext();
-    const { undo, redo } = history;
+  const [editor] = useLexicalComposerContext();
+  const { history } = useWorkspaceContext();
+  const { undo, redo } = history;
 
-    useEffect(() => {
-        const unregisterUndo = editor.registerCommand(
-            UNDO_COMMAND,
-            () => {
-                undo();
-                return true;
-            },
-            COMMAND_PRIORITY_EDITOR,
-        );
+  useEffect(() => {
+    const unregisterUndo = editor.registerCommand(
+      UNDO_COMMAND,
+      () => {
+        undo();
+        return true;
+      },
+      COMMAND_PRIORITY_EDITOR,
+    );
 
-        const unregisterRedo = editor.registerCommand(
-            REDO_COMMAND,
-            () => {
-                redo();
-                return true;
-            },
-            COMMAND_PRIORITY_EDITOR,
-        );
+    const unregisterRedo = editor.registerCommand(
+      REDO_COMMAND,
+      () => {
+        redo();
+        return true;
+      },
+      COMMAND_PRIORITY_EDITOR,
+    );
 
-        return () => {
-            unregisterUndo();
-            unregisterRedo();
-        };
-    }, [editor, undo, redo]);
+    return () => {
+      unregisterUndo();
+      unregisterRedo();
+    };
+  }, [editor, undo, redo]);
 
-    return null;
+  return null;
 }

@@ -10,19 +10,19 @@ import type { ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
  * managed on-disk shape.
  */
 export const ImportProgressPhase = {
-    SELECT_SOURCE: "select-source",
-    READ_SOURCE: "read-source",
-    COPY_CONTENT: "copy-content",
-    EXTRACT_ARCHIVE: "extract-archive",
-    RESHAPE_RESOURCE: "reshape-resource",
-    INSPECT_RESOURCE: "inspect-resource",
-    INDEX_RESOURCE: "index-resource",
-    COMPLETE: "complete",
-    FAILED: "failed",
+  SELECT_SOURCE: "select-source",
+  READ_SOURCE: "read-source",
+  COPY_CONTENT: "copy-content",
+  EXTRACT_ARCHIVE: "extract-archive",
+  RESHAPE_RESOURCE: "reshape-resource",
+  INSPECT_RESOURCE: "inspect-resource",
+  INDEX_RESOURCE: "index-resource",
+  COMPLETE: "complete",
+  FAILED: "failed",
 } as const;
 
 export type ImportProgressPhase =
-    (typeof ImportProgressPhase)[keyof typeof ImportProgressPhase];
+  (typeof ImportProgressPhase)[keyof typeof ImportProgressPhase];
 
 /**
  * User-facing progress payload emitted while import is still shaping storage.
@@ -32,15 +32,15 @@ export type ImportProgressPhase =
  * Once import completes, callers transition to the separate load/open phase.
  */
 export type ImportProgressUpdate = {
-    phase: ImportProgressPhase;
-    message: string;
-    current?: number;
-    total?: number;
-    itemType?: IndexedLibraryItemType;
+  phase: ImportProgressPhase;
+  message: string;
+  current?: number;
+  total?: number;
+  itemType?: IndexedLibraryItemType;
 };
 
 export type ImportProgressReporter = (
-    update: ImportProgressUpdate,
+  update: ImportProgressUpdate,
 ) => void | Promise<void>;
 
 /**
@@ -50,15 +50,15 @@ export type ImportProgressReporter = (
  * turning a managed path into a typed item.
  */
 export type ImportProjectResult = {
-    project: ProjectListItem;
-    gitReady: boolean;
-    isEditableProject: boolean;
-    requiresMetadataReview?: boolean;
-    warning?: string;
+  project: ProjectListItem;
+  gitReady: boolean;
+  isEditableProject: boolean;
+  requiresMetadataReview?: boolean;
+  warning?: string;
 };
 
 export type ImportProjectOptions = {
-    onProgress?: ImportProgressReporter;
+  onProgress?: ImportProgressReporter;
 };
 
 /**
@@ -67,7 +67,7 @@ export type ImportProjectOptions = {
  * Web ignores these because source selection is browser-driven there.
  */
 export type NativeImportSelectionOptions = {
-    title?: string;
+  title?: string;
 };
 
 /**
@@ -77,8 +77,8 @@ export type NativeImportSelectionOptions = {
  * file work without pushing bytes back through the webview.
  */
 export type ImportPathSource = {
-    kind: "path";
-    path: string;
+  kind: "path";
+  path: string;
 };
 
 /**
@@ -88,22 +88,22 @@ export type ImportPathSource = {
  * still in memory, then writes the final managed disk shape.
  */
 export type ImportBrowserDirectorySource = {
-    kind: "files";
-    folderName: string;
-    files: FileList;
+  kind: "files";
+  folderName: string;
+  files: FileList;
 };
 
 /**
  * Source represented by a single browser-provided archive file.
  */
 export type ImportBrowserFileSource = {
-    kind: "file";
-    file: File;
+  kind: "file";
+  file: File;
 };
 
 export type ImportFolderSource =
-    | ImportPathSource
-    | ImportBrowserDirectorySource;
+  | ImportPathSource
+  | ImportBrowserDirectorySource;
 export type ImportZipSource = ImportPathSource | ImportBrowserFileSource;
 
 export type ImportSourceResult = ImportProjectResult;
@@ -118,24 +118,24 @@ export type ImportOptions = ImportProjectOptions;
  * contract.
  */
 export function createImportProgressUpdate(
-    phase: ImportProgressPhase,
-    message: string,
-    details?: Omit<ImportProgressUpdate, "phase" | "message">,
+  phase: ImportProgressPhase,
+  message: string,
+  details?: Omit<ImportProgressUpdate, "phase" | "message">,
 ): ImportProgressUpdate {
-    return {
-        phase,
-        message,
-        ...details,
-    };
+  return {
+    phase,
+    message,
+    ...details,
+  };
 }
 
 export async function emitImportProgress(
-    onProgress: ImportProgressReporter | undefined,
-    phase: ImportProgressPhase,
-    message: string,
-    details?: Omit<ImportProgressUpdate, "phase" | "message">,
+  onProgress: ImportProgressReporter | undefined,
+  phase: ImportProgressPhase,
+  message: string,
+  details?: Omit<ImportProgressUpdate, "phase" | "message">,
 ): Promise<void> {
-    await onProgress?.(createImportProgressUpdate(phase, message, details));
+  await onProgress?.(createImportProgressUpdate(phase, message, details));
 }
 
 /**
@@ -143,12 +143,12 @@ export async function emitImportProgress(
  * showing a progress affordance.
  */
 export function isTerminalImportProgressPhase(
-    phase: ImportProgressPhase,
+  phase: ImportProgressPhase,
 ): boolean {
-    return (
-        phase === ImportProgressPhase.COMPLETE ||
-        phase === ImportProgressPhase.FAILED
-    );
+  return (
+    phase === ImportProgressPhase.COMPLETE ||
+    phase === ImportProgressPhase.FAILED
+  );
 }
 
 /**
@@ -159,44 +159,44 @@ export function isTerminalImportProgressPhase(
  * incoming, write managed disk shape, and return stable metadata.
  */
 export interface ImportService {
-    /**
-     * Ask the host platform to select a directory, if that platform supports
-     * native path picking.
-     */
-    pickDirectory?(
-        options?: NativeImportSelectionOptions,
-    ): Promise<string | null>;
-    /**
-     * Ask the host platform to select a zip file, if that platform supports
-     * native path picking.
-     */
-    pickZip?(options?: NativeImportSelectionOptions): Promise<string | null>;
+  /**
+   * Ask the host platform to select a directory, if that platform supports
+   * native path picking.
+   */
+  pickDirectory?(
+    options?: NativeImportSelectionOptions,
+  ): Promise<string | null>;
+  /**
+   * Ask the host platform to select a zip file, if that platform supports
+   * native path picking.
+   */
+  pickZip?(options?: NativeImportSelectionOptions): Promise<string | null>;
 
-    /**
-     * Import a directory-like source into managed storage.
-     *
-     * This is the point where import must branch by app-facing type and write
-     * final disk shape, not merely copy bytes blindly.
-     */
-    importFolder(
-        source: ImportFolderSource,
-        options?: ImportProjectOptions,
-    ): Promise<ImportSourceResult>;
-    /**
-     * Import an archive-like source into managed storage.
-     */
-    importZip(
-        source: ImportZipSource,
-        options?: ImportProjectOptions,
-    ): Promise<ImportSourceResult>;
-    /**
-     * Import a remote archive source into managed storage.
-     *
-     * The remote fetch/download still belongs to import because the caller has
-     * not crossed into the load phase yet.
-     */
-    importRemoteZip(
-        source: ImportSource,
-        options?: ImportProjectOptions,
-    ): Promise<ImportSourceResult>;
+  /**
+   * Import a directory-like source into managed storage.
+   *
+   * This is the point where import must branch by app-facing type and write
+   * final disk shape, not merely copy bytes blindly.
+   */
+  importFolder(
+    source: ImportFolderSource,
+    options?: ImportProjectOptions,
+  ): Promise<ImportSourceResult>;
+  /**
+   * Import an archive-like source into managed storage.
+   */
+  importZip(
+    source: ImportZipSource,
+    options?: ImportProjectOptions,
+  ): Promise<ImportSourceResult>;
+  /**
+   * Import a remote archive source into managed storage.
+   *
+   * The remote fetch/download still belongs to import because the caller has
+   * not crossed into the load phase yet.
+   */
+  importRemoteZip(
+    source: ImportSource,
+    options?: ImportProjectOptions,
+  ): Promise<ImportSourceResult>;
 }

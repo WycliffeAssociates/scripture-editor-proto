@@ -1,22 +1,23 @@
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
+
 import type { PlatformAndWeb } from "@/app/data/constants.ts";
 import { App } from "@/app/entrypoint.tsx";
 import { DefaultLibraryService } from "@/app/library/DefaultLibraryService.ts";
 import {
-    buildProjectIndexDbName,
-    DexieProjectIndex,
+  buildProjectIndexDbName,
+  DexieProjectIndex,
 } from "@/app/persistence/DexieProjectIndex.ts";
 import { installDevTimerLogger } from "@/app/ui/hooks/utils/domUtils.ts";
 import { applyColorSchemeToDocument } from "@/app/ui/theme/appTheme.ts";
 import { webMd5Service } from "@/core/domain/md5/webMd5.ts";
 import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
 import { FsBackedAuthSessionProvider } from "@/core/persistence/FsBackedAuthSessionProvider.ts";
-import { GiteaRemoteRepoProvider } from "@/core/persistence/GiteaRemoteRepoProvider.ts";
 import {
-    normalizeGiteaHostBaseUrl,
-    normalizeOptionalHeaderValue,
+  normalizeGiteaHostBaseUrl,
+  normalizeOptionalHeaderValue,
 } from "@/core/persistence/giteaConfig.ts";
+import { GiteaRemoteRepoProvider } from "@/core/persistence/GiteaRemoteRepoProvider.ts";
 import { OpfsGitFs } from "@/web/adapters/git/OpfsGitFs.ts";
 import { WebGitProvider } from "@/web/adapters/git/WebGitProvider.ts";
 import { createBrowserSettingsManager } from "@/web/domain/settings.ts";
@@ -39,74 +40,79 @@ import { WebOpener } from "@/web/persistence/WebOpener.ts";
 const settingsManager = createBrowserSettingsManager();
 applyColorSchemeToDocument(settingsManager.get("colorScheme") ?? "light");
 installDevTimerLogger();
+// Dev-only: attach window.grab DevTools helpers (copy selectors / element info
+// from the console). Dynamic import keeps it out of the production bundle.
+if (import.meta.env.DEV) {
+  void import("@/app/ui/dev/domGrab.ts");
+}
 
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Root element not found");
 const root = ReactDOM.createRoot(rootElement);
 const platform: PlatformAndWeb = "web";
 const giteaHostBaseUrl = normalizeGiteaHostBaseUrl(
-    import.meta.env.VITE_GITEA_WEB_HOST,
+  import.meta.env.VITE_GITEA_WEB_HOST,
 );
 const gitCorsProxyUrl = normalizeGiteaHostBaseUrl(
-    import.meta.env.VITE_GIT_CORS_PROXY_URL,
+  import.meta.env.VITE_GIT_CORS_PROXY_URL,
 );
 const gitProxyRequestedWithHeaderValue = normalizeOptionalHeaderValue(
-    import.meta.env.VITE_GIT_PROXY_X_REQUESTED_WITH,
+  import.meta.env.VITE_GIT_PROXY_X_REQUESTED_WITH,
 );
 const storageRoots = new OpfsStorageRoots();
 const fileSystem = new OpfsFileSystem(storageRoots);
 const authSessionProvider = new FsBackedAuthSessionProvider(
-    fileSystem,
-    storageRoots,
-    undefined,
-    platform,
+  fileSystem,
+  storageRoots,
+  undefined,
+  platform,
 );
 const gitProvider = new WebGitProvider(new OpfsGitFs(), {
-    corsProxyUrl: gitCorsProxyUrl,
-    requestedWithHeaderValue: gitProxyRequestedWithHeaderValue,
+  corsProxyUrl: gitCorsProxyUrl,
+  requestedWithHeaderValue: gitProxyRequestedWithHeaderValue,
 });
 const remoteRepoProvider = new GiteaRemoteRepoProvider();
 const sousService = new WebSousService();
 const opener = new WebOpener(fileSystem);
 const projectIndex = new DexieProjectIndex(
-    buildProjectIndexDbName(resolveWebStorageNamespace()),
+  buildProjectIndexDbName(resolveWebStorageNamespace()),
 );
 const libraryService = new DefaultLibraryService({
-    fileSystem,
-    roots: storageRoots,
-    projectIndex,
-    md5Service: webMd5Service,
-    gitProvider,
-    remote: {
-        authSessionProvider,
-        remoteRepoProvider,
-    },
+  fileSystem,
+  roots: storageRoots,
+  projectIndex,
+  md5Service: webMd5Service,
+  gitProvider,
+  remote: {
+    authSessionProvider,
+    remoteRepoProvider,
+  },
 });
 const projectsService = libraryService;
 const importService = new WebImportService(
-    storageRoots,
-    projectsService,
-    fileSystem,
+  storageRoots,
+  projectsService,
+  fileSystem,
 );
 initializeUsfmMarkerCatalog(await webUsfmOnionService.getMarkerCatalog());
 root.render(
-    <StrictMode>
-        <App
-            settingsManager={settingsManager}
-            fileSystem={fileSystem}
-            md5Service={webMd5Service}
-            authSessionProvider={authSessionProvider}
-            giteaHostBaseUrl={giteaHostBaseUrl}
-            storageRoots={storageRoots}
-            usfmOnionService={webUsfmOnionService}
-            sousService={sousService}
-            gitProvider={gitProvider}
-            opener={opener}
-            platform={platform}
-            projectsService={projectsService}
-            libraryService={libraryService}
-            importService={importService}
-            updaterService={null}
-        />
-    </StrictMode>,
+  <StrictMode>
+    <App
+      settingsManager={settingsManager}
+      fileSystem={fileSystem}
+      md5Service={webMd5Service}
+      authSessionProvider={authSessionProvider}
+      giteaHostBaseUrl={giteaHostBaseUrl}
+      storageRoots={storageRoots}
+      usfmOnionService={webUsfmOnionService}
+      sousService={sousService}
+      gitProvider={gitProvider}
+      opener={opener}
+      platform={platform}
+      projectsService={projectsService}
+      libraryService={libraryService}
+      importService={importService}
+      updaterService={null}
+    />
+  </StrictMode>,
 );

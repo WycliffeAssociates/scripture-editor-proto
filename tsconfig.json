@@ -1,42 +1,42 @@
 {
-    "compilerOptions": {
-        "target": "ES2020",
-        "useDefineForClassFields": true,
-        "lib": [
-            "es2022",
-            "es2023.array",
-            "esnext.disposable",
-            "DOM",
-            "DOM.Iterable",
-            "DOM.AsyncIterable"
-        ],
-        "module": "ESNext",
-        "skipLibCheck": true,
-        // TS 6 no longer auto-discovers all @types/* packages; list the ones
-        // we rely on for ambient globals explicitly. (React/DOM types arrive
-        // via imports + lib.)
-        "types": ["node"],
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": [
+      "es2022",
+      "es2023.array",
+      "esnext.disposable",
+      "DOM",
+      "DOM.Iterable",
+      "DOM.AsyncIterable"
+    ],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    // TS 6 no longer auto-discovers all @types/* packages; list the ones
+    // we rely on for ambient globals explicitly. (React/DOM types arrive
+    // via imports + lib.)
+    "types": ["node"],
 
-        /* Bundler mode */
-        "moduleResolution": "bundler",
-        "allowImportingTsExtensions": true,
-        "resolveJsonModule": true,
-        "isolatedModules": true,
-        "noEmit": true,
-        "jsx": "react-jsx",
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
 
-        /* Linting */
-        "strict": true,
-        "noUnusedLocals": true,
-        "noUnusedParameters": true,
-        "noFallthroughCasesInSwitch": true,
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
 
-        "paths": {
-            "@/*": ["./src/*"],
-            "@tests/*": ["./tests/*"]
-        }
-    },
-    "include": ["src", "tests", "src/tauri/persistence/.ts"],
-    "exclude": ["node_modules", "dist", "dist-web"],
-    "references": [{ "path": "./tsconfig.node.json" }]
+    "paths": {
+      "@/*": ["./src/*"],
+      "@tests/*": ["./tests/*"]
+    }
+  },
+  "include": ["src", "tests", "src/tauri/persistence/.ts"],
+  "exclude": ["node_modules", "dist", "dist-web"],
+  "references": [{ "path": "./tsconfig.node.json" }]
 }

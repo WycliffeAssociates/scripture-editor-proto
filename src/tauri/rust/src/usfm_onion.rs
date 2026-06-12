@@ -152,27 +152,6 @@ pub struct ProjectedUsfmDocumentDto {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MarkerInfoDto {
-    pub marker: String,
-    pub canonical: Option<String>,
-    pub known: bool,
-    pub deprecated: bool,
-    pub category: String,
-    pub kind: String,
-    pub family: Option<String>,
-    pub family_role: Option<String>,
-    pub note_family: Option<String>,
-    pub note_subkind: Option<String>,
-    pub inline_context: Option<String>,
-    pub default_attribute: Option<String>,
-    pub contexts: Vec<String>,
-    pub block_behavior: Option<String>,
-    pub closing_behavior: Option<String>,
-    pub source: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct MarkerCatalogDto {
     pub all_markers: Vec<String>,
     pub paragraph_markers: Vec<String>,
@@ -181,7 +160,10 @@ pub struct MarkerCatalogDto {
     pub regular_character_markers: Vec<String>,
     pub document_markers: Vec<String>,
     pub chapter_verse_markers: Vec<String>,
-    pub info_by_marker: BTreeMap<String, MarkerInfoDto>,
+    // Per-marker info comes from the shared `usfm_onion_dto` crate — the SAME
+    // serde types the web bindings serialize, so the JSON string values match
+    // the wasm catalog by construction (no hand-mirrored enum strings to drift).
+    pub info_by_marker: BTreeMap<String, usfm_onion_dto::MarkerInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -661,77 +643,6 @@ fn map_diff(diff: &onion::ChapterTokenDiff<onion::FormatToken>) -> DiffDto {
     }
 }
 
-fn marker_category_string(category: onion::MarkerCategory) -> String {
-    match category {
-        onion::MarkerCategory::Document => "document",
-        onion::MarkerCategory::Paragraph => "paragraph",
-        onion::MarkerCategory::Character => "character",
-        onion::MarkerCategory::NoteContainer => "noteContainer",
-        onion::MarkerCategory::NoteSubmarker => "noteSubmarker",
-        onion::MarkerCategory::Chapter => "chapter",
-        onion::MarkerCategory::Verse => "verse",
-        onion::MarkerCategory::MilestoneStart => "milestoneStart",
-        onion::MarkerCategory::MilestoneEnd => "milestoneEnd",
-        onion::MarkerCategory::Figure => "figure",
-        onion::MarkerCategory::SidebarStart => "sidebarStart",
-        onion::MarkerCategory::SidebarEnd => "sidebarEnd",
-        onion::MarkerCategory::Periph => "periph",
-        onion::MarkerCategory::Meta => "meta",
-        onion::MarkerCategory::TableRow => "tableRow",
-        onion::MarkerCategory::TableCell => "tableCell",
-        onion::MarkerCategory::Header => "header",
-        onion::MarkerCategory::Unknown => "unknown",
-    }
-    .to_string()
-}
-
-fn marker_kind_string(kind: onion::MarkerKind) -> String {
-    match kind {
-        onion::MarkerKind::Paragraph => "paragraph",
-        onion::MarkerKind::Note => "note",
-        onion::MarkerKind::Character => "character",
-        onion::MarkerKind::Header => "header",
-        onion::MarkerKind::Chapter => "chapter",
-        onion::MarkerKind::Verse => "verse",
-        onion::MarkerKind::MilestoneStart => "milestoneStart",
-        onion::MarkerKind::MilestoneEnd => "milestoneEnd",
-        onion::MarkerKind::SidebarStart => "sidebarStart",
-        onion::MarkerKind::SidebarEnd => "sidebarEnd",
-        onion::MarkerKind::Figure => "figure",
-        onion::MarkerKind::Meta => "meta",
-        onion::MarkerKind::Periph => "periph",
-        onion::MarkerKind::TableRow => "tableRow",
-        onion::MarkerKind::TableCell => "tableCell",
-        onion::MarkerKind::Unknown => "unknown",
-    }
-    .to_string()
-}
-
-fn map_marker_info(info: &onion::UsfmMarkerInfo) -> MarkerInfoDto {
-    MarkerInfoDto {
-        marker: info.marker.clone(),
-        canonical: info.canonical.clone(),
-        known: info.known,
-        deprecated: info.deprecated,
-        category: marker_category_string(info.category),
-        kind: marker_kind_string(info.kind),
-        family: info.family.map(|value| format!("{value:?}")),
-        family_role: info.family_role.map(|value| format!("{value:?}")),
-        note_family: info.note_family.map(|value| format!("{value:?}")),
-        note_subkind: info.note_subkind.map(|value| format!("{value:?}")),
-        inline_context: info.inline_context.map(|value| format!("{value:?}")),
-        default_attribute: info.default_attribute.clone(),
-        contexts: info
-            .contexts
-            .iter()
-            .map(|value| format!("{value:?}"))
-            .collect(),
-        block_behavior: info.block_behavior.map(|value| format!("{value:?}")),
-        closing_behavior: info.closing_behavior.map(|value| format!("{value:?}")),
-        source: info.source.clone(),
-    }
-}
-
 #[tauri::command]
 pub fn usfm_onion_marker_catalog() -> MarkerCatalogDto {
     let catalog = onion::marker_catalog();
@@ -742,7 +653,12 @@ pub fn usfm_onion_marker_catalog() -> MarkerCatalogDto {
         .collect::<Vec<_>>();
     let info_by_marker = all
         .iter()
-        .map(|info| (info.marker.clone(), map_marker_info(info)))
+        .map(|info| {
+            (
+                info.marker.clone(),
+                usfm_onion_dto::map_marker_info(info.clone()),
+            )
+        })
         .collect::<BTreeMap<_, _>>();
 
     MarkerCatalogDto {
@@ -1019,4 +935,29 @@ pub fn usfm_onion_apply_token_fix(
     let fix = parse_token_fix_dto(fix).ok_or_else(|| "invalid token fix".to_string())?;
     let next = onion::apply_token_fix(&tokens, &fix);
     Ok(map_format_tokens(&next))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Integration guard at the command seam: the editor's `buildRegistry`
+    // (src/core/domain/usfm/onionMarkers.ts) reads `infoByMarker[m].paragraphCategory`
+    // / `.payload` and compares the strings by value. A desktop-only regression
+    // where these were absent/PascalCase collapsed form mode to just the chapter
+    // badge. This asserts the catalog the command actually emits carries the same
+    // camelCase wire strings the wasm catalog does.
+    #[test]
+    fn marker_catalog_emits_web_wire_strings() {
+        let catalog = usfm_onion_marker_catalog();
+        let json = serde_json::to_value(&catalog).expect("catalog serializes");
+        let info = &json["infoByMarker"];
+
+        assert_eq!(info["p"]["paragraphCategory"], "body");
+        assert_eq!(info["q1"]["paragraphCategory"], "poetry");
+        assert_eq!(info["s1"]["paragraphCategory"], "section");
+        assert_eq!(info["li1"]["paragraphCategory"], "list");
+        assert_eq!(info["v"]["payload"], "numberRange");
+        assert_eq!(info["id"]["payload"], "bookCode");
+    }
 }

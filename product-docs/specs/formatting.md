@@ -1,6 +1,7 @@
 # Formatting (Format)
 
 ## What this feature does
+
 - Applies best-effort USFM normalization to reduce noisy formatting inconsistencies.
 - Available scopes:
   - Chapter
@@ -16,10 +17,12 @@
   - Insertion of default paragraph markers in specific intro-to-verse cases
 
 ## How to access it in the app
+
 - Toolbar: click the `Format Project` icon.
 - Editor action palette: `Format Chapter`, `Format Book`, `Format Project`.
 
 ## Typical user flow
+
 1. Trigger format at desired scope.
 2. App converts current serialized editor content to a flat token stream envelope.
 3. Core format transforms run on tokens.
@@ -54,11 +57,13 @@ to keep a separate pre-draft rollback snapshot synchronous, because an abort
 never commits.
 
 ## Current limits and non-goals
+
 - Format is best-effort normalization, not full semantic rewriting of complex USFM.
 - It does not auto-save; user still saves through diff/save flow.
 - Unknown/unsupported serialized nodes are preserved when possible rather than aggressively rewritten.
 
 ## Key modules (for agents)
+
 - `src/app/ui/hooks/usePrettifyOperations.tsx`
 - `src/app/ui/hooks/useFormatMatching.tsx`
 - `src/app/domain/editor/annotations/decorators/lintFix.ts` — `fixLintFinding` (lint autofix; called from `decorateFinding.tsx`)

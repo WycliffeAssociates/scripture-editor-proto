@@ -9,38 +9,40 @@
 // decorator contract (decorateFinding.test.ts).
 
 import { describe, expect, it, vi } from "vitest";
+
 import {
-    standardizeChapterLabels,
-    type StandardizeChapterLabelsDeps,
+  standardizeChapterLabels,
+  type StandardizeChapterLabelsDeps,
 } from "@/app/domain/editor/annotations/decorators/chapterLabelStandardize.ts";
 import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
 
 function makeDeps(
-    gate: WorkspaceGateStore,
+  gate: WorkspaceGateStore,
 ): StandardizeChapterLabelsDeps & { runTransaction: ReturnType<typeof vi.fn> } {
-    const runTransaction = vi.fn();
-    return {
-        workingFilesStore: new WorkingFilesStore([]),
-        interactionGate: gate,
-        history: { runTransaction } as unknown as
-            StandardizeChapterLabelsDeps["history"],
-        usfmOnionService: {} as StandardizeChapterLabelsDeps["usfmOnionService"],
-        editorMode: "regular",
-        runTransaction,
-    };
+  const runTransaction = vi.fn();
+  return {
+    workingFilesStore: new WorkingFilesStore([]),
+    interactionGate: gate,
+    history: {
+      runTransaction,
+    } as unknown as StandardizeChapterLabelsDeps["history"],
+    usfmOnionService: {} as StandardizeChapterLabelsDeps["usfmOnionService"],
+    editorMode: "regular",
+    runTransaction,
+  };
 }
 
 describe("standardizeChapterLabels (domain doorway)", () => {
-    it("is a no-op while the interaction gate is closed", async () => {
-        const deps = makeDeps(new WorkspaceGateStore({ kind: "saving" }));
-        await standardizeChapterLabels("Wase", deps);
-        expect(deps.runTransaction).not.toHaveBeenCalled();
-    });
+  it("is a no-op while the interaction gate is closed", async () => {
+    const deps = makeDeps(new WorkspaceGateStore({ kind: "saving" }));
+    await standardizeChapterLabels("Wase", deps);
+    expect(deps.runTransaction).not.toHaveBeenCalled();
+  });
 
-    it("bails before the history transaction when no book carries an off-target label", async () => {
-        const deps = makeDeps(new WorkspaceGateStore({ kind: "open" }));
-        await standardizeChapterLabels("Wase", deps);
-        expect(deps.runTransaction).not.toHaveBeenCalled();
-    });
+  it("bails before the history transaction when no book carries an off-target label", async () => {
+    const deps = makeDeps(new WorkspaceGateStore({ kind: "open" }));
+    await standardizeChapterLabels("Wase", deps);
+    expect(deps.runTransaction).not.toHaveBeenCalled();
+  });
 });

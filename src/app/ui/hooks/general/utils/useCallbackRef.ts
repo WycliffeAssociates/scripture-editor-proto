@@ -1,13 +1,13 @@
 import { useCallback, useRef } from "react";
 
 export function useCallbackRef<T extends (...args: unknown[]) => unknown>(
-    callback: T,
+  callback: T,
 ) {
-    const callbackRef = useRef(callback);
-    callbackRef.current = callback;
+  const callbackRef = useRef(callback);
+  callbackRef.current = callback;
 
-    return useCallback(
-        (...args: Parameters<T>) => callbackRef.current(...args),
-        [],
-    );
+  return useCallback(
+    (...args: Parameters<T>) => callbackRef.current(...args),
+    [],
+  );
 }

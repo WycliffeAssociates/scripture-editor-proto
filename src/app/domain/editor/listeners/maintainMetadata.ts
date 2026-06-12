@@ -1,20 +1,21 @@
 import { $dfsIterator } from "@lexical/utils";
 import { $getNodeByKey, type EditorState, type LexicalEditor } from "lexical";
+
 import { EDITOR_TAGS_USED, UsfmTokenTypes } from "@/app/data/editor.ts";
 import type { Settings } from "@/app/data/settings.ts";
 import {
-    $isUSFMParagraphNode,
-    type USFMParagraphNode,
+  $isUSFMParagraphNode,
+  type USFMParagraphNode,
 } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
-    $isUSFMTextNode,
-    type USFMTextNode,
+  $isUSFMTextNode,
+  type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { markerTrimNoSlash } from "@/core/domain/usfm/lex.ts";
 import { isValidParaMarker } from "@/core/domain/usfm/onionMarkers.ts";
 import {
-    mutAddSids,
-    type TokenForSidCalculation,
+  mutAddSids,
+  type TokenForSidCalculation,
 } from "@/core/domain/usfm/parseUtils.ts";
 
 /**
@@ -26,215 +27,211 @@ import {
  * and whether a paragraph marker is only structural UI scaffolding.
  */
 export function maintainDocumentMetaData(
-    _editorState: EditorState,
-    editor: LexicalEditor,
-    bookCode: string,
-    _appSettings: Settings,
+  _editorState: EditorState,
+  editor: LexicalEditor,
+  bookCode: string,
+  _appSettings: Settings,
 ) {
-    // NOTE: This function is often invoked from an update listener that also runs
-    // structural fixes (which call `editor.update`). Computing metadata using the
-    // passed `editorState` snapshot can therefore become stale. We always compute
-    // against the editor's latest state, and apply changes by re-fetching nodes by key.
+  // NOTE: This function is often invoked from an update listener that also runs
+  // structural fixes (which call `editor.update`). Computing metadata using the
+  // passed `editorState` snapshot can therefore become stale. We always compute
+  // against the editor's latest state, and apply changes by re-fetching nodes by key.
 
-    const markerUpdates: Array<{ key: string; marker: string | undefined }> =
-        [];
-    const inParaUpdates: Array<{ key: string; inPara: string }> = [];
-    const sidUpdates: Array<{ key: string; sid: string }> = [];
-    const structuralEmptyUpdates: Array<{
-        key: string;
-        isStructuralEmpty: boolean;
-    }> = [];
+  const markerUpdates: Array<{ key: string; marker: string | undefined }> = [];
+  const inParaUpdates: Array<{ key: string; inPara: string }> = [];
+  const sidUpdates: Array<{ key: string; sid: string }> = [];
+  const structuralEmptyUpdates: Array<{
+    key: string;
+    isStructuralEmpty: boolean;
+  }> = [];
 
-    const derivedMarkerByKey = new Map<string, string | undefined>();
+  const derivedMarkerByKey = new Map<string, string | undefined>();
 
-    editor.getEditorState().read(() => {
-        const allNodes = [...$dfsIterator()].map((n) => n.node);
-        const filteredNodes = allNodes.filter($isUSFMTextNode);
+  editor.getEditorState().read(() => {
+    const allNodes = [...$dfsIterator()].map((n) => n.node);
+    const filteredNodes = allNodes.filter($isUSFMTextNode);
 
-        // Normalize markers first so later metadata passes can trust the marker
-        // inferred from visible token text instead of stale node state.
-        for (const node of filteredNodes) {
-            const tokenType = node.getTokenType();
-            const rawText = node.getTextContent();
+    // Normalize markers first so later metadata passes can trust the marker
+    // inferred from visible token text instead of stale node state.
+    for (const node of filteredNodes) {
+      const tokenType = node.getTokenType();
+      const rawText = node.getTextContent();
 
-            let expectedMarker = node.getMarker();
-            if (tokenType === UsfmTokenTypes.marker) {
-                const candidateMarker = markerTrimNoSlash(rawText);
-                expectedMarker =
-                    candidateMarker.split(" ")[0] || expectedMarker;
-            }
+      let expectedMarker = node.getMarker();
+      if (tokenType === UsfmTokenTypes.marker) {
+        const candidateMarker = markerTrimNoSlash(rawText);
+        expectedMarker = candidateMarker.split(" ")[0] || expectedMarker;
+      }
 
-            derivedMarkerByKey.set(node.getKey(), expectedMarker);
+      derivedMarkerByKey.set(node.getKey(), expectedMarker);
 
-            const currentMarker = node.getMarker();
-            if (expectedMarker && currentMarker !== expectedMarker) {
-                markerUpdates.push({
-                    key: node.getKey(),
-                    marker: expectedMarker,
-                });
-            }
-        }
-
-        // Carry paragraph context forward so inline tokens know which
-        // paragraph run they currently belong to. Paragraph-ness answers
-        // from the catalog registry; number validity is lint's job.
-        //
-        // Two shapes feed this pass. In source/plain mode paragraph markers
-        // are flat `marker` tokens, so context flows left-to-right via
-        // `lastPara`. In regular mode paragraphs are `USFMParagraphNode`
-        // containers and the chapter/verse markers are numbered nodes — there
-        // is no inline para marker to pick up — so the enclosing container IS
-        // the paragraph context. Prefer container ancestry when present; the
-        // byte-less chapter shell carries marker "c", which isValidParaMarker
-        // rejects, so chapter-line nodes correctly fall back to lastPara.
-        let lastPara: string | null = null;
-        for (const node of filteredNodes) {
-            const tokenType = node.getTokenType();
-            const marker = derivedMarkerByKey.get(node.getKey());
-
-            if (
-                tokenType === UsfmTokenTypes.marker &&
-                marker &&
-                isValidParaMarker(marker)
-            ) {
-                lastPara = marker;
-            }
-
-            let containerPara: string | null = null;
-            for (
-                let ancestor = node.getParent();
-                ancestor;
-                ancestor = ancestor.getParent()
-            ) {
-                if ($isUSFMParagraphNode(ancestor)) {
-                    const containerMarker = ancestor.getMarker() ?? "";
-                    if (isValidParaMarker(containerMarker)) {
-                        containerPara = containerMarker;
-                        break;
-                    }
-                }
-            }
-
-            const targetInPara = containerPara || lastPara || "";
-            const currentInPara = node.getInPara() ?? "";
-            if (currentInPara !== targetInPara) {
-                inParaUpdates.push({
-                    key: node.getKey(),
-                    inPara: targetInPara,
-                });
-            }
-        }
-
-        // Recompute scripture identifiers after edits so reference syncing,
-        // lint, and navigation continue to point at the correct verse.
-        const sidNodes: Array<USFMParagraphNode | USFMTextNode> =
-            allNodes.filter(
-                (n) => $isUSFMTextNode(n) || $isUSFMParagraphNode(n),
-            );
-
-        const tokenLikes: TokenForSidCalculation[] = sidNodes.map((n) => {
-            if ($isUSFMTextNode(n)) {
-                return {
-                    tokenType: n.getTokenType(),
-                    text: n.getTextContent(),
-                    marker: derivedMarkerByKey.get(n.getKey()) ?? n.getMarker(),
-                };
-            }
-            return {
-                tokenType: n.getTokenType(),
-                text: n.getTextContent(),
-                marker: n.getMarker(),
-            };
+      const currentMarker = node.getMarker();
+      if (expectedMarker && currentMarker !== expectedMarker) {
+        markerUpdates.push({
+          key: node.getKey(),
+          marker: expectedMarker,
         });
-
-        mutAddSids(tokenLikes, bookCode);
-        for (let i = 0; i < sidNodes.length; i++) {
-            const node = sidNodes[i];
-            const currentSid = node.getSid();
-            const targetSid = tokenLikes[i]?.sid ?? "";
-            if (currentSid !== targetSid) {
-                sidUpdates.push({ key: node.getKey(), sid: targetSid });
-            }
-        }
-        // Mark paragraph nodes that exist only as structural scaffolding so the
-        // regular-mode UI can render them differently from real prose.
-        const paraNodes = allNodes.filter($isUSFMParagraphNode);
-
-        for (const para of paraNodes) {
-            const children = para.getChildren();
-            let hasMeaningfulContent = false;
-
-            for (const child of children) {
-                if ($isUSFMTextNode(child)) {
-                    const tt = child.getTokenType();
-                    if (tt !== UsfmTokenTypes.text) {
-                        hasMeaningfulContent = true;
-                        break;
-                    }
-                    if (child.getTextContent().trim().length > 0) {
-                        hasMeaningfulContent = true;
-                        break;
-                    }
-                }
-            }
-
-            const isStructuralEmpty = !hasMeaningfulContent;
-            if (para.getIsStructuralEmpty() !== isStructuralEmpty) {
-                structuralEmptyUpdates.push({
-                    key: para.getKey(),
-                    isStructuralEmpty,
-                });
-            }
-        }
-    });
-
-    if (
-        !markerUpdates.length &&
-        !inParaUpdates.length &&
-        !sidUpdates.length &&
-        !structuralEmptyUpdates.length
-    ) {
-        return;
+      }
     }
 
-    editor.update(
-        () => {
-            for (const u of markerUpdates) {
-                const node = $getNodeByKey(u.key);
-                if (!node || !node.isAttached()) continue;
-                if (!$isUSFMTextNode(node)) continue;
-                node.setMarker(u.marker);
-            }
+    // Carry paragraph context forward so inline tokens know which
+    // paragraph run they currently belong to. Paragraph-ness answers
+    // from the catalog registry; number validity is lint's job.
+    //
+    // Two shapes feed this pass. In source/plain mode paragraph markers
+    // are flat `marker` tokens, so context flows left-to-right via
+    // `lastPara`. In regular mode paragraphs are `USFMParagraphNode`
+    // containers and the chapter/verse markers are numbered nodes — there
+    // is no inline para marker to pick up — so the enclosing container IS
+    // the paragraph context. Prefer container ancestry when present; the
+    // byte-less chapter shell carries marker "c", which isValidParaMarker
+    // rejects, so chapter-line nodes correctly fall back to lastPara.
+    let lastPara: string | null = null;
+    for (const node of filteredNodes) {
+      const tokenType = node.getTokenType();
+      const marker = derivedMarkerByKey.get(node.getKey());
 
-            for (const u of inParaUpdates) {
-                const node = $getNodeByKey(u.key);
-                if (!node || !node.isAttached()) continue;
-                if (!$isUSFMTextNode(node)) continue;
-                node.setInPara(u.inPara);
-            }
+      if (
+        tokenType === UsfmTokenTypes.marker &&
+        marker &&
+        isValidParaMarker(marker)
+      ) {
+        lastPara = marker;
+      }
 
-            for (const u of sidUpdates) {
-                const node = $getNodeByKey(u.key);
-                if (!node || !node.isAttached()) continue;
-                if (!$isUSFMTextNode(node) && !$isUSFMParagraphNode(node))
-                    continue;
-                node.setSid(u.sid);
-            }
+      let containerPara: string | null = null;
+      for (
+        let ancestor = node.getParent();
+        ancestor;
+        ancestor = ancestor.getParent()
+      ) {
+        if ($isUSFMParagraphNode(ancestor)) {
+          const containerMarker = ancestor.getMarker() ?? "";
+          if (isValidParaMarker(containerMarker)) {
+            containerPara = containerMarker;
+            break;
+          }
+        }
+      }
 
-            for (const u of structuralEmptyUpdates) {
-                const node = $getNodeByKey(u.key);
-                if (!node || !node.isAttached()) continue;
-                if (!$isUSFMParagraphNode(node)) continue;
-                node.setIsStructuralEmpty(u.isStructuralEmpty);
-            }
-        },
-        {
-            // The bridge classifies this as `kind: "structuralFixup"`; the
-            // historyMerge tag keeps these writebacks out of the undo stack.
-            tag: [
-                EDITOR_TAGS_USED.historyMerge,
-                EDITOR_TAGS_USED.programmaticStructuralFix,
-            ],
-        },
+      const targetInPara = containerPara || lastPara || "";
+      const currentInPara = node.getInPara() ?? "";
+      if (currentInPara !== targetInPara) {
+        inParaUpdates.push({
+          key: node.getKey(),
+          inPara: targetInPara,
+        });
+      }
+    }
+
+    // Recompute scripture identifiers after edits so reference syncing,
+    // lint, and navigation continue to point at the correct verse.
+    const sidNodes: Array<USFMParagraphNode | USFMTextNode> = allNodes.filter(
+      (n) => $isUSFMTextNode(n) || $isUSFMParagraphNode(n),
     );
+
+    const tokenLikes: TokenForSidCalculation[] = sidNodes.map((n) => {
+      if ($isUSFMTextNode(n)) {
+        return {
+          tokenType: n.getTokenType(),
+          text: n.getTextContent(),
+          marker: derivedMarkerByKey.get(n.getKey()) ?? n.getMarker(),
+        };
+      }
+      return {
+        tokenType: n.getTokenType(),
+        text: n.getTextContent(),
+        marker: n.getMarker(),
+      };
+    });
+
+    mutAddSids(tokenLikes, bookCode);
+    for (let i = 0; i < sidNodes.length; i++) {
+      const node = sidNodes[i];
+      const currentSid = node.getSid();
+      const targetSid = tokenLikes[i]?.sid ?? "";
+      if (currentSid !== targetSid) {
+        sidUpdates.push({ key: node.getKey(), sid: targetSid });
+      }
+    }
+    // Mark paragraph nodes that exist only as structural scaffolding so the
+    // regular-mode UI can render them differently from real prose.
+    const paraNodes = allNodes.filter($isUSFMParagraphNode);
+
+    for (const para of paraNodes) {
+      const children = para.getChildren();
+      let hasMeaningfulContent = false;
+
+      for (const child of children) {
+        if ($isUSFMTextNode(child)) {
+          const tt = child.getTokenType();
+          if (tt !== UsfmTokenTypes.text) {
+            hasMeaningfulContent = true;
+            break;
+          }
+          if (child.getTextContent().trim().length > 0) {
+            hasMeaningfulContent = true;
+            break;
+          }
+        }
+      }
+
+      const isStructuralEmpty = !hasMeaningfulContent;
+      if (para.getIsStructuralEmpty() !== isStructuralEmpty) {
+        structuralEmptyUpdates.push({
+          key: para.getKey(),
+          isStructuralEmpty,
+        });
+      }
+    }
+  });
+
+  if (
+    !markerUpdates.length &&
+    !inParaUpdates.length &&
+    !sidUpdates.length &&
+    !structuralEmptyUpdates.length
+  ) {
+    return;
+  }
+
+  editor.update(
+    () => {
+      for (const u of markerUpdates) {
+        const node = $getNodeByKey(u.key);
+        if (!node || !node.isAttached()) continue;
+        if (!$isUSFMTextNode(node)) continue;
+        node.setMarker(u.marker);
+      }
+
+      for (const u of inParaUpdates) {
+        const node = $getNodeByKey(u.key);
+        if (!node || !node.isAttached()) continue;
+        if (!$isUSFMTextNode(node)) continue;
+        node.setInPara(u.inPara);
+      }
+
+      for (const u of sidUpdates) {
+        const node = $getNodeByKey(u.key);
+        if (!node || !node.isAttached()) continue;
+        if (!$isUSFMTextNode(node) && !$isUSFMParagraphNode(node)) continue;
+        node.setSid(u.sid);
+      }
+
+      for (const u of structuralEmptyUpdates) {
+        const node = $getNodeByKey(u.key);
+        if (!node || !node.isAttached()) continue;
+        if (!$isUSFMParagraphNode(node)) continue;
+        node.setIsStructuralEmpty(u.isStructuralEmpty);
+      }
+    },
+    {
+      // The bridge classifies this as `kind: "structuralFixup"`; the
+      // historyMerge tag keeps these writebacks out of the undo stack.
+      tag: [
+        EDITOR_TAGS_USED.historyMerge,
+        EDITOR_TAGS_USED.programmaticStructuralFix,
+      ],
+    },
+  );
 }

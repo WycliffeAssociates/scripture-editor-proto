@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
 import {
   type ConsolidatedRepo,
   fetchConsolidatedRepos,
@@ -21,7 +22,9 @@ describe("LanguageApiImporter", () => {
         status: 500,
       });
 
-      await expect(fetchConsolidatedRepos()).rejects.toThrow("Language API error: 500");
+      await expect(fetchConsolidatedRepos()).rejects.toThrow(
+        "Language API error: 500",
+      );
     });
 
     it("should use VITE_LANGUAGE_API_URL when set", async () => {
@@ -115,7 +118,8 @@ describe("LanguageApiImporter", () => {
     const mockRepo: ConsolidatedRepo = {
       language_ietf: "abz",
       language_name: "Abui",
-      repo_url: "https://content.bibletranslationtools.org/rbnswartz/merged-abz",
+      repo_url:
+        "https://content.bibletranslationtools.org/rbnswartz/merged-abz",
       title: null,
       language_english_name: "Abui",
       repo_name: "merged-abz",
@@ -135,9 +139,11 @@ describe("LanguageApiImporter", () => {
     });
 
     it("should fallback to main branch when master fails", async () => {
-      mockFetch.mockRejectedValueOnce(new Error("Network error")).mockResolvedValueOnce({
-        ok: true,
-      });
+      mockFetch
+        .mockRejectedValueOnce(new Error("Network error"))
+        .mockResolvedValueOnce({
+          ok: true,
+        });
 
       const result = await getZipUrl(mockRepo);
 

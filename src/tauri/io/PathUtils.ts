@@ -5,7 +5,7 @@
  * native desktop paths coming from dialogs or Rust commands.
  */
 export const normalizeManagedDesktopPath = (p: string) =>
-    p.replace(/\\/g, "/").replace(/\/+$/, "");
+  p.replace(/\\/g, "/").replace(/\/+$/, "");
 
 /**
  * Normalize native desktop path strings crossing the Tauri boundary before app
@@ -16,17 +16,17 @@ export const normalizeManagedDesktopPath = (p: string) =>
  * layers that assume slash-delimited paths.
  */
 export function normalizeDesktopPath(path: string): string {
-    const normalized = (path || "/").replace(/\\/g, "/");
+  const normalized = (path || "/").replace(/\\/g, "/");
 
-    if (normalized.startsWith("//")) {
-        return normalized.replace(/\/+$/u, "") || "//";
-    }
+  if (normalized.startsWith("//")) {
+    return normalized.replace(/\/+$/u, "") || "//";
+  }
 
-    const trimmed = normalized.replace(/\/+$/u, "");
-    if (/^[A-Za-z]:$/u.test(trimmed)) {
-        return `${trimmed}/`;
-    }
-    return trimmed || "/";
+  const trimmed = normalized.replace(/\/+$/u, "");
+  if (/^[A-Za-z]:$/u.test(trimmed)) {
+    return `${trimmed}/`;
+  }
+  return trimmed || "/";
 }
 // const splitPath = (p: string) =>
 //     normalizeManagedDesktopPath(p).split("/").filter(Boolean);

@@ -1,6 +1,7 @@
 # Save, Diff, and Revert
 
 ## What this feature does
+
 - Tracks unsaved chapter edits in working state.
 - Generates reviewable diffs before saving.
 - Diffs are computed by SID block runs over flattened token streams (not raw paragraph containers).
@@ -24,6 +25,7 @@
 - Keeps local save authoritative: linked projects save locally first, then optionally publish to cloud as follow-on behavior.
 
 ## How to access it in the app
+
 - In a project toolbar, click `Review & Save` (or save icon on smaller screens).
 - Diff modal actions:
   - `Save all changes`
@@ -41,6 +43,7 @@
     - Per-hunk `Undo` overlays in the Current pane
 
 ## Typical user flow
+
 1. Make edits.
 2. Open `Review & Save`.
 3. Choose `List view` for SID-level entries or `Chapter view` for side-by-side chapter context.
@@ -50,6 +53,7 @@
 7. Save all changes to persist to disk.
 
 ## Linked cloud project behavior
+
 - `Review & Save` still means local save first.
 - If the project is cloud-linked and auto-publish is enabled, publish happens after the local save completes.
 - Advanced save policy settings can relax how much review is shown:
@@ -108,7 +112,7 @@ It returns one `SaveResult`:
   (unreviewed recovered conflicts without attestation).
 
 **Invariant — "saved to disk" ≠ "versioned" ≠ "published."** A git-checkpoint
-or publish failure is a *warning*, not a save failure: the bytes are on disk
+or publish failure is a _warning_, not a save failure: the bytes are on disk
 and the persisted books are marked clean regardless. That's why checkpoint and
 publish are independent substates inside the `saved` result rather than things
 that can fail the save.
@@ -123,7 +127,7 @@ The save command cooperates with the crash-recovery autosave feature
   non-empty and the option isn't `true`, the precondition check returns
   `{ kind: "blocked", reason: "recovered-review-required" }` without touching
   disk. `useSave.saveReview.open` forces the diff modal (bypassing `Auto
-  Accept My Work on Save`) while the tracker holds entries; the modal's
+Accept My Work on Save`) while the tracker holds entries; the modal's
   local-review Save action passes the attestation. The attestation is **only**
   issued from the local-unsaved-review modal path — never from
   external-compare-review — which is enforced by blocking external-compare
@@ -135,7 +139,7 @@ The save command cooperates with the crash-recovery autosave feature
   `{ tokens }` per chapter at the save snapshot (the same synchronous instant
   the payload is built) and, after successful per-book persistence,
   `rebaseChapterToCapturedSave` advances `sourceTokens` and reconstructs
-  `loadedLexicalState` from the *captured* tokens — not live `currentTokens`,
+  `loadedLexicalState` from the _captured_ tokens — not live `currentTokens`,
   so a keystroke mid-save stays dirty rather than being silently swallowed.
   This is what makes the per-chapter `dirty` flag honest under concurrent
   mutation during a save, and what lets the
@@ -147,6 +151,7 @@ successful book write so the dirty-buffer pipeline's next backup wrapper
 records the freshly-saved disk content as the new baseline.
 
 ## Current limits and non-goals
+
 - Saving writes changed books as full USFM book content assembled from chapter state. `serializeChaptersToUsfm` emits chapters in their stored order (no sorting) and re-applies each chapter's original `eol` (`\n` or `\r\n`) so CRLF files round-trip as CRLF rather than producing phantom whitespace-only diffs.
 - The project file itself is never autosaved; explicit save is the only thing that changes disk. Background dirty-buffer backups are a separate safety-net file (`crash-recovery-autosave.md`).
 - Diff UI only shows chapters currently marked dirty.
@@ -187,6 +192,7 @@ fresh snapshot from the editor each time. The relevant paths:
 - **Revert all** uses the same pattern with the original loaded source.
 
 ## Key modules (for agents)
+
 - `src/app/domain/project/savePipeline.ts` (`runSavePipeline`, `SaveResult`)
 - `src/app/ui/hooks/useSave.tsx`
 - `src/app/ui/hooks/save/useSaveAndRevert.ts`
@@ -206,6 +212,7 @@ fresh snapshot from the editor each time. The relevant paths:
 - `src/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts`
 
 ## Validation references
+
 - `tests/e2e/save.spec.ts`
   - List view review + chapter navigation + single-diff revert
   - Save persistence after reload

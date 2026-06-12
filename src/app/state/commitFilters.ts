@@ -29,9 +29,9 @@ export type ConsumerBookScope = ReadonlySet<string> | "all";
 const NO_BOOKS: ReadonlySet<string> = new Set();
 
 function scopeBooks(event: CommitEvent): ConsumerBookScope {
-    const scope = event.meta.scope;
-    if ("project" in scope) return "all";
-    return new Set(scope.chapters.map((ref) => ref.bookCode));
+  const scope = event.meta.scope;
+  if ("project" in scope) return "all";
+  return new Set(scope.chapters.map((ref) => ref.bookCode));
 }
 
 /**
@@ -46,16 +46,16 @@ function scopeBooks(event: CommitEvent): ConsumerBookScope {
  * books.
  */
 export function lintScopeFor(event: CommitEvent): ConsumerBookScope {
-    if (!event.meta.dirtyTextContent) return NO_BOOKS;
-    const kind = event.meta.kind;
-    if (
-        kind === "metadataOnly" ||
-        kind === "structuralFixup" ||
-        kind === "load"
-    ) {
-        return NO_BOOKS;
-    }
-    return scopeBooks(event);
+  if (!event.meta.dirtyTextContent) return NO_BOOKS;
+  const kind = event.meta.kind;
+  if (
+    kind === "metadataOnly" ||
+    kind === "structuralFixup" ||
+    kind === "load"
+  ) {
+    return NO_BOOKS;
+  }
+  return scopeBooks(event);
 }
 
 /**
@@ -65,16 +65,16 @@ export function lintScopeFor(event: CommitEvent): ConsumerBookScope {
  * to `"all"` once a sous rule actually consumes corpus-level state.
  */
 export function sousScopeFor(event: CommitEvent): ConsumerBookScope {
-    if (!event.meta.dirtyTextContent) return NO_BOOKS;
-    const kind = event.meta.kind;
-    if (
-        kind === "metadataOnly" ||
-        kind === "structuralFixup" ||
-        kind === "load"
-    ) {
-        return NO_BOOKS;
-    }
-    return scopeBooks(event);
+  if (!event.meta.dirtyTextContent) return NO_BOOKS;
+  const kind = event.meta.kind;
+  if (
+    kind === "metadataOnly" ||
+    kind === "structuralFixup" ||
+    kind === "load"
+  ) {
+    return NO_BOOKS;
+  }
+  return scopeBooks(event);
 }
 
 /** A consumer's chapter-granular reaction scope. Empty array = not relevant. */
@@ -89,18 +89,18 @@ const NO_CHAPTERS: ReadonlyArray<CommitChapterRef> = [];
  * subscription at all and `open()` rebuilds from the dirty set.
  */
 export function diffScopeFor(event: CommitEvent): ConsumerChapterScope {
-    if (!event.meta.dirtyTextContent) return NO_CHAPTERS;
-    const kind = event.meta.kind;
-    if (
-        kind === "metadataOnly" ||
-        kind === "structuralFixup" ||
-        kind === "load"
-    ) {
-        return NO_CHAPTERS;
-    }
-    const scope = event.meta.scope;
-    if ("project" in scope) return "all";
-    return scope.chapters;
+  if (!event.meta.dirtyTextContent) return NO_CHAPTERS;
+  const kind = event.meta.kind;
+  if (
+    kind === "metadataOnly" ||
+    kind === "structuralFixup" ||
+    kind === "load"
+  ) {
+    return NO_CHAPTERS;
+  }
+  const scope = event.meta.scope;
+  if ("project" in scope) return "all";
+  return scope.chapters;
 }
 
 /**
@@ -112,24 +112,24 @@ export function diffScopeFor(event: CommitEvent): ConsumerChapterScope {
  * fire time.
  */
 export function editorSyncScopeFor(event: CommitEvent): ConsumerChapterScope {
-    if (!event.meta.dirtyTextContent) return NO_CHAPTERS;
-    const kind = event.meta.kind;
-    if (kind !== "programmaticFix" && kind !== "import") return NO_CHAPTERS;
-    const scope = event.meta.scope;
-    if ("project" in scope) return "all";
-    return scope.chapters;
+  if (!event.meta.dirtyTextContent) return NO_CHAPTERS;
+  const kind = event.meta.kind;
+  if (kind !== "programmaticFix" && kind !== "import") return NO_CHAPTERS;
+  const scope = event.meta.scope;
+  if ("project" in scope) return "all";
+  return scope.chapters;
 }
 
 export function isSaveStatusRelevant(event: CommitEvent): boolean {
-    if (!event.meta.dirtyTextContent) return false;
-    const kind = event.meta.kind;
-    return (
-        kind !== "metadataOnly" && kind !== "structuralFixup" && kind !== "load"
-    );
+  if (!event.meta.dirtyTextContent) return false;
+  const kind = event.meta.kind;
+  return (
+    kind !== "metadataOnly" && kind !== "structuralFixup" && kind !== "load"
+  );
 }
 
 export function isStructureMaintenanceRelevant(event: CommitEvent): boolean {
-    return event.meta.kind === "userEdit" && event.meta.dirtyTextContent;
+  return event.meta.kind === "userEdit" && event.meta.dirtyTextContent;
 }
 
 /**
@@ -151,7 +151,7 @@ export function isStructureMaintenanceRelevant(event: CommitEvent): boolean {
  *    dirty flags and must be reconciled.)
  */
 export function isDirtyBufferRelevant(event: CommitEvent): boolean {
-    if (event.meta.kind === "load") return false;
-    if (event.patch.kind === "selectionOnly") return false;
-    return true;
+  if (event.meta.kind === "load") return false;
+  if (event.patch.kind === "selectionOnly") return false;
+  return true;
 }

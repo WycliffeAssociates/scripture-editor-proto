@@ -1,287 +1,276 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DefaultLibraryService } from "@/app/library/DefaultLibraryService.ts";
-import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
-import { ProjectImporter } from "@/core/domain/project/import/ProjectImporter.ts";
-import { isRemoteSyncCapable } from "@/core/library/ReferenceItemSupport.ts";
-import {
-    GIT_REMOTE_PUBLISH_PUBLISHED,
-} from "@/core/persistence/GitProvider.ts";
-import type { GitProvider } from "@/core/persistence/GitProvider.ts";
-import type { ProjectIndex } from "@/core/library/ProjectIndex.ts";
-import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 import { InMemoryFileSystem } from "@tests/helpers/InMemoryFileSystem.ts";
 import { seedEnTnCondensedFixture } from "@tests/helpers/mockData/enTnCondensed.ts";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { DefaultLibraryService } from "@/app/library/DefaultLibraryService.ts";
 import { loadTranslationNotesForAnchor } from "@/app/reference/translationNotes.ts";
+import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
+import { ProjectImporter } from "@/core/domain/project/import/ProjectImporter.ts";
+import type { ProjectIndex } from "@/core/library/ProjectIndex.ts";
+import { isRemoteSyncCapable } from "@/core/library/ReferenceItemSupport.ts";
+import { GIT_REMOTE_PUBLISH_PUBLISHED } from "@/core/persistence/GitProvider.ts";
+import type { GitProvider } from "@/core/persistence/GitProvider.ts";
+import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 
 const mockMd5Service: IMd5Service = {
-    calculateMd5: vi.fn(async (text: string) => `mock-md5-${text}`),
+  calculateMd5: vi.fn(async (text: string) => `mock-md5-${text}`),
 };
 
 const mockGitProvider: GitProvider = {
-    ensureRepo: vi.fn(async () => {}),
-    getBranchInfo: vi.fn(async () => ({
-        current: "main",
-        hasMaster: false,
-        defaultBranch: "main",
-        detached: false,
-    })),
-    checkoutPreferredBranch: vi.fn(async () => {}),
-    listHistory: vi.fn(async () => []),
-    readCommitDetails: vi.fn(async () => ({
-        hash: "abc123",
-        authorName: "alice",
-        authoredAtIso: "2026-03-31T10:00:00.000Z",
-        subject: "save:2026-03-31T10:00:00.000Z",
-    })),
-    readProjectSnapshotAtCommit: vi.fn(async () => new Map()),
-    restoreTrackedFilesFromCommit: vi.fn(async () => {}),
-    commitAll: vi.fn(async () => ({ hash: "abc123" })),
-    cloneRemoteRepo: vi.fn(async () => ({ head: "abc123" })),
-    ensureRemote: vi.fn(async () => {}),
-    inspectRemoteHeads: vi.fn(async () => {
-        throw new Error("not used in test");
-    }),
-    fetchRemoteHeads: vi.fn(async () => {
-        throw new Error("not used in test");
-    }),
-    pushCurrentBranch: vi.fn(async () => ({
-        outcome: GIT_REMOTE_PUBLISH_PUBLISHED,
-        localHead: null,
-        remoteHead: null,
-    })),
-    planReplayOntoRemote: vi.fn(async () => {
-        throw new Error("not used in test");
-    }),
-    applyReplayPlanOntoRemote: vi.fn(async () => ({
-        head: null,
-        replayedCommitHashes: [],
-    })),
-    isRepoHealthy: vi.fn(async () => true),
+  ensureRepo: vi.fn(async () => {}),
+  getBranchInfo: vi.fn(async () => ({
+    current: "main",
+    hasMaster: false,
+    defaultBranch: "main",
+    detached: false,
+  })),
+  checkoutPreferredBranch: vi.fn(async () => {}),
+  listHistory: vi.fn(async () => []),
+  readCommitDetails: vi.fn(async () => ({
+    hash: "abc123",
+    authorName: "alice",
+    authoredAtIso: "2026-03-31T10:00:00.000Z",
+    subject: "save:2026-03-31T10:00:00.000Z",
+  })),
+  readProjectSnapshotAtCommit: vi.fn(async () => new Map()),
+  restoreTrackedFilesFromCommit: vi.fn(async () => {}),
+  commitAll: vi.fn(async () => ({ hash: "abc123" })),
+  cloneRemoteRepo: vi.fn(async () => ({ head: "abc123" })),
+  ensureRemote: vi.fn(async () => {}),
+  inspectRemoteHeads: vi.fn(async () => {
+    throw new Error("not used in test");
+  }),
+  fetchRemoteHeads: vi.fn(async () => {
+    throw new Error("not used in test");
+  }),
+  pushCurrentBranch: vi.fn(async () => ({
+    outcome: GIT_REMOTE_PUBLISH_PUBLISHED,
+    localHead: null,
+    remoteHead: null,
+  })),
+  planReplayOntoRemote: vi.fn(async () => {
+    throw new Error("not used in test");
+  }),
+  applyReplayPlanOntoRemote: vi.fn(async () => ({
+    head: null,
+    replayedCommitHashes: [],
+  })),
+  isRepoHealthy: vi.fn(async () => true),
 };
 
 const roots: StorageRoots = {
-    appDataRoot: "/appData",
-    projectsRoot: "/userData/projects",
-    tempRoot: "/appData/temp",
-    cacheRoot: "/appData/cache",
-    logsRoot: "/appData/logs",
-    databaseRoot: "/appData/database",
+  appDataRoot: "/appData",
+  projectsRoot: "/userData/projects",
+  tempRoot: "/appData/temp",
+  cacheRoot: "/appData/cache",
+  logsRoot: "/appData/logs",
+  databaseRoot: "/appData/database",
 };
 
 function makeProjectIndex(): ProjectIndex {
-    return {
-        listProjects: vi.fn(async () => []),
-        listLibraryItems: vi.fn(async () => []),
-        getProjectByPath: vi.fn(async () => null),
-        getLibraryItemByPath: vi.fn(async () => null),
-        indexItem: vi.fn(async () => {}),
-        renameDisplayName: vi.fn(async () => {}),
-        deleteProject: vi.fn(async () => {}),
-    };
+  return {
+    listProjects: vi.fn(async () => []),
+    listLibraryItems: vi.fn(async () => []),
+    getProjectByPath: vi.fn(async () => null),
+    getLibraryItemByPath: vi.fn(async () => null),
+    indexItem: vi.fn(async () => {}),
+    renameDisplayName: vi.fn(async () => {}),
+    deleteProject: vi.fn(async () => {}),
+  };
 }
 
 describe("DefaultProjectsService translation notes import", () => {
-    let fileSystem: InMemoryFileSystem;
-    let projectIndex: ProjectIndex;
-    let projectsService: DefaultLibraryService;
-    const importedPath = "/userData/projects/en_tn_condensed";
+  let fileSystem: InMemoryFileSystem;
+  let projectIndex: ProjectIndex;
+  let projectsService: DefaultLibraryService;
+  const importedPath = "/userData/projects/en_tn_condensed";
 
-    beforeEach(() => {
-        fileSystem = new InMemoryFileSystem({
-            [importedPath + "/manifest.yaml"]: "projects: []",
-        });
-        projectIndex = makeProjectIndex();
-        projectsService = new DefaultLibraryService(
-            {
-                fileSystem,
-                roots,
-                projectIndex,
-                md5Service: mockMd5Service,
-                gitProvider: mockGitProvider,
-            },
-        );
+  beforeEach(() => {
+    fileSystem = new InMemoryFileSystem({
+      [importedPath + "/manifest.yaml"]: "projects: []",
+    });
+    projectIndex = makeProjectIndex();
+    projectsService = new DefaultLibraryService({
+      fileSystem,
+      roots,
+      projectIndex,
+      md5Service: mockMd5Service,
+      gitProvider: mockGitProvider,
+    });
+  });
+
+  it("packs imported TN resources into per-book JSON before indexing", async () => {
+    await seedEnTnCondensedFixture(fileSystem, importedPath);
+
+    const result = await projectsService.importProject({
+      type: "fromPreparedDir",
+      directoryPath: importedPath,
     });
 
-    it("packs imported TN resources into per-book JSON before indexing", async () => {
+    expect(projectIndex.indexItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        managedPath: importedPath,
+        type: "translationNotes",
+      }),
+    );
+    expect(result.isEditableProject).toBe(false);
+    expect(result.project.projectPath).toBe(importedPath);
+    expect(await fileSystem.exists(`${importedPath}/luk.json`)).toBe(true);
+    expect(await fileSystem.exists(`${importedPath}/luk/22/71.md`)).toBe(false);
+
+    const resource = await projectsService.openItem(importedPath);
+    if (!resource || resource.type !== "translationNotes") {
+      throw new Error("Expected packed translation notes resource to reopen");
+    }
+    await expect(resource.listBookCodes()).resolves.toEqual(
+      expect.arrayContaining(["COL", "DAN", "LUK"]),
+    );
+
+    const notes = await loadTranslationNotesForAnchor({
+      resource,
+      anchor: {
+        bookCode: "LUK",
+        chapterNumber: 22,
+      },
+    });
+
+    expect(notes).toHaveLength(1);
+    expect(notes[0].rawMarkdown).toContain("Why do we still need a witness?");
+    expect(notes[0].rawMarkdown).toContain(
+      '"We have no further need for witnesses!"',
+    );
+  });
+
+  it("reimports and repacks remote TN resources in place when applyUpdates is called", async () => {
+    vi.spyOn(ProjectImporter.prototype, "import").mockImplementationOnce(
+      async (source) => {
+        expect(source).toEqual({
+          type: "fromGitRepo",
+          url: "https://example.com/en_tn_condensed.git",
+        });
         await seedEnTnCondensedFixture(fileSystem, importedPath);
-
-        const result = await projectsService.importProject({
-            type: "fromPreparedDir",
-            directoryPath: importedPath,
-        });
-
-        expect(projectIndex.indexItem).toHaveBeenCalledWith(
-            expect.objectContaining({
-                managedPath: importedPath,
-                type: "translationNotes",
-            }),
-        );
-        expect(result.isEditableProject).toBe(false);
-        expect(result.project.projectPath).toBe(importedPath);
-        expect(await fileSystem.exists(`${importedPath}/luk.json`)).toBe(true);
-        expect(await fileSystem.exists(`${importedPath}/luk/22/71.md`)).toBe(
-            false,
-        );
-
-        const resource = await projectsService.openItem(importedPath);
-        if (!resource || resource.type !== "translationNotes") {
-            throw new Error("Expected packed translation notes resource to reopen");
-        }
-        await expect(resource.listBookCodes()).resolves.toEqual(
-            expect.arrayContaining(["COL", "DAN", "LUK"]),
-        );
-
-        const notes = await loadTranslationNotesForAnchor({
-            resource,
-            anchor: {
-                bookCode: "LUK",
-                chapterNumber: 22,
-            },
-        });
-
-        expect(notes).toHaveLength(1);
-        expect(notes[0].rawMarkdown).toContain(
-            "Why do we still need a witness?",
-        );
-        expect(notes[0].rawMarkdown).toContain(
-            '"We have no further need for witnesses!"',
-        );
+        return importedPath;
+      },
+    );
+    await projectsService.importProject({
+      type: "fromGitRepo",
+      url: "https://example.com/en_tn_condensed.git",
     });
 
-    it("reimports and repacks remote TN resources in place when applyUpdates is called", async () => {
-        vi.spyOn(ProjectImporter.prototype, "import").mockImplementationOnce(
-            async (source) => {
-                expect(source).toEqual({
-                    type: "fromGitRepo",
-                    url: "https://example.com/en_tn_condensed.git",
-                });
-                await seedEnTnCondensedFixture(fileSystem, importedPath);
-                return importedPath;
-            },
-        );
-        await projectsService.importProject({
-            type: "fromGitRepo",
-            url: "https://example.com/en_tn_condensed.git",
+    const updatedImportPath = "/userData/projects/en_tn_condensed_update";
+    vi.spyOn(ProjectImporter.prototype, "import").mockImplementationOnce(
+      async (source) => {
+        expect(source).toEqual({
+          type: "fromGitRepo",
+          url: "https://example.com/en_tn_condensed.git",
         });
+        await seedEnTnCondensedFixture(fileSystem, updatedImportPath);
+        await fileSystem.writeText(
+          `${updatedImportPath}/luk/22/71.md`,
+          '# Updated witness note\n\n"Updated remote content"\n',
+        );
+        return updatedImportPath;
+      },
+    );
 
+    const resource = await projectsService.openResource(importedPath);
+    if (!resource || !isRemoteSyncCapable(resource)) {
+      throw new Error("Expected remote-sync-capable TN resource.");
+    }
+
+    await resource.applyUpdates();
+
+    expect(await fileSystem.exists(`${importedPath}/luk.json`)).toBe(true);
+    expect(await fileSystem.exists(`${updatedImportPath}`)).toBe(false);
+    expect(
+      [...fileSystem.directories].some((path) =>
+        path.includes(".update-backup-"),
+      ),
+    ).toBe(false);
+
+    const reloaded = await projectsService.openItem(importedPath);
+    if (!reloaded || reloaded.type !== "translationNotes") {
+      throw new Error("Expected updated TN resource to reload.");
+    }
+
+    const notes = await loadTranslationNotesForAnchor({
+      resource: reloaded,
+      anchor: {
+        bookCode: "LUK",
+        chapterNumber: 22,
+      },
+    });
+
+    expect(notes[0].rawMarkdown).toContain("Updated witness note");
+    expect(notes[0].rawMarkdown).toContain('"Updated remote content"');
+    expect(projectIndex.indexItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        managedPath: importedPath,
+      }),
+    );
+  });
+
+  it("restores the previous packed TN resource if replace-in-place update fails", async () => {
+    vi.spyOn(ProjectImporter.prototype, "import").mockImplementationOnce(
+      async () => {
+        await seedEnTnCondensedFixture(fileSystem, importedPath);
+        return importedPath;
+      },
+    );
+    await projectsService.importProject({
+      type: "fromGitRepo",
+      url: "https://example.com/en_tn_condensed.git",
+    });
+
+    const originalMove = fileSystem.move.bind(fileSystem);
+    const moveSpy = vi
+      .spyOn(fileSystem, "move")
+      .mockImplementation(async (from, to) => {
+        if (
+          from === "/userData/projects/en_tn_condensed_update" &&
+          to === importedPath
+        ) {
+          throw new Error("replace failed");
+        }
+        return originalMove(from, to);
+      });
+
+    vi.spyOn(ProjectImporter.prototype, "import").mockImplementationOnce(
+      async () => {
         const updatedImportPath = "/userData/projects/en_tn_condensed_update";
-        vi.spyOn(ProjectImporter.prototype, "import").mockImplementationOnce(
-            async (source) => {
-                expect(source).toEqual({
-                    type: "fromGitRepo",
-                    url: "https://example.com/en_tn_condensed.git",
-                });
-                await seedEnTnCondensedFixture(fileSystem, updatedImportPath);
-                await fileSystem.writeText(
-                    `${updatedImportPath}/luk/22/71.md`,
-                    '# Updated witness note\n\n"Updated remote content"\n',
-                );
-                return updatedImportPath;
-            },
+        await seedEnTnCondensedFixture(fileSystem, updatedImportPath);
+        await fileSystem.writeText(
+          `${updatedImportPath}/luk/22/71.md`,
+          '# Updated witness note\n\n"Updated remote content"\n',
         );
+        return updatedImportPath;
+      },
+    );
 
-        const resource = await projectsService.openResource(importedPath);
-        if (!resource || !isRemoteSyncCapable(resource)) {
-            throw new Error("Expected remote-sync-capable TN resource.");
-        }
+    const resource = await projectsService.openResource(importedPath);
+    if (!resource || !isRemoteSyncCapable(resource)) {
+      throw new Error("Expected remote-sync-capable TN resource.");
+    }
 
-        await resource.applyUpdates();
+    await expect(resource.applyUpdates()).rejects.toThrow("replace failed");
 
-        expect(await fileSystem.exists(`${importedPath}/luk.json`)).toBe(true);
-        expect(await fileSystem.exists(`${updatedImportPath}`)).toBe(false);
-        expect(
-            [...fileSystem.directories].some((path) =>
-                path.includes(".update-backup-"),
-            ),
-        ).toBe(false);
+    const restored = await projectsService.openItem(importedPath);
+    if (!restored || restored.type !== "translationNotes") {
+      throw new Error("Expected original TN resource to be restored.");
+    }
 
-        const reloaded = await projectsService.openItem(importedPath);
-        if (!reloaded || reloaded.type !== "translationNotes") {
-            throw new Error("Expected updated TN resource to reload.");
-        }
-
-        const notes = await loadTranslationNotesForAnchor({
-            resource: reloaded,
-            anchor: {
-                bookCode: "LUK",
-                chapterNumber: 22,
-            },
-        });
-
-        expect(notes[0].rawMarkdown).toContain("Updated witness note");
-        expect(notes[0].rawMarkdown).toContain(
-            '"Updated remote content"',
-        );
-        expect(projectIndex.indexItem).toHaveBeenCalledWith(
-            expect.objectContaining({
-                managedPath: importedPath,
-            }),
-        );
+    const notes = await loadTranslationNotesForAnchor({
+      resource: restored,
+      anchor: {
+        bookCode: "LUK",
+        chapterNumber: 22,
+      },
     });
 
-    it("restores the previous packed TN resource if replace-in-place update fails", async () => {
-        vi.spyOn(ProjectImporter.prototype, "import").mockImplementationOnce(
-            async () => {
-                await seedEnTnCondensedFixture(fileSystem, importedPath);
-                return importedPath;
-            },
-        );
-        await projectsService.importProject({
-            type: "fromGitRepo",
-            url: "https://example.com/en_tn_condensed.git",
-        });
-
-        const originalMove = fileSystem.move.bind(fileSystem);
-        const moveSpy = vi
-            .spyOn(fileSystem, "move")
-            .mockImplementation(async (from, to) => {
-                if (
-                    from === "/userData/projects/en_tn_condensed_update" &&
-                    to === importedPath
-                ) {
-                    throw new Error("replace failed");
-                }
-                return originalMove(from, to);
-            });
-
-        vi.spyOn(ProjectImporter.prototype, "import").mockImplementationOnce(
-            async () => {
-                const updatedImportPath = "/userData/projects/en_tn_condensed_update";
-                await seedEnTnCondensedFixture(fileSystem, updatedImportPath);
-                await fileSystem.writeText(
-                    `${updatedImportPath}/luk/22/71.md`,
-                    '# Updated witness note\n\n"Updated remote content"\n',
-                );
-                return updatedImportPath;
-            },
-        );
-
-        const resource = await projectsService.openResource(importedPath);
-        if (!resource || !isRemoteSyncCapable(resource)) {
-            throw new Error("Expected remote-sync-capable TN resource.");
-        }
-
-        await expect(resource.applyUpdates()).rejects.toThrow("replace failed");
-
-        const restored = await projectsService.openItem(importedPath);
-        if (!restored || restored.type !== "translationNotes") {
-            throw new Error("Expected original TN resource to be restored.");
-        }
-
-        const notes = await loadTranslationNotesForAnchor({
-            resource: restored,
-            anchor: {
-                bookCode: "LUK",
-                chapterNumber: 22,
-            },
-        });
-
-        expect(notes[0].rawMarkdown).toContain(
-            "Why do we still need a witness?",
-        );
-        expect(notes[0].rawMarkdown).toContain(
-            '"We have no further need for witnesses!"',
-        );
-        moveSpy.mockRestore();
-    });
+    expect(notes[0].rawMarkdown).toContain("Why do we still need a witness?");
+    expect(notes[0].rawMarkdown).toContain(
+      '"We have no further need for witnesses!"',
+    );
+    moveSpy.mockRestore();
+  });
 });

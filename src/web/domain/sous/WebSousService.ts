@@ -1,11 +1,12 @@
 import * as ssc from "scripture-sous-chef-web";
 import * as onion from "usfm-onion-web";
+
 import { devTimer } from "@/app/ui/hooks/utils/domUtils.ts";
 import type { ISousService } from "@/core/domain/sous/ISousService.ts";
 import type {
-    SousAnalyzeResult,
-    SousFinding,
-    SousSeverity,
+  SousAnalyzeResult,
+  SousFinding,
+  SousSeverity,
 } from "@/core/domain/sous/sousTypes.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { SegmentsBySid } from "@/core/domain/usfm/vrefTypes.ts";
@@ -13,7 +14,7 @@ import type { SegmentsBySid } from "@/core/domain/usfm/vrefTypes.ts";
 // Best-effort book ref from the tokens' first sid ("GEN 1:1" → "GEN"), for the
 // dev-timer label only — the call site already holds these tokens.
 const bookOf = (tokens: readonly Token[]): string =>
-    tokens.find((t) => t.sid)?.sid?.split(" ")[0] ?? "?";
+  tokens.find((t) => t.sid)?.sid?.split(" ")[0] ?? "?";
 
 /**
  * Web/wasm sous service — the browser twin of {@link TauriSousService}, against
@@ -32,38 +33,38 @@ const bookOf = (tokens: readonly Token[]): string =>
  * Rust before serializing.
  */
 export class WebSousService implements ISousService {
-    async analyze(tokens: Token[]): Promise<SousAnalyzeResult> {
-        const endTimer = devTimer(`web:sousAnalyze ${bookOf(tokens)}`);
-        const index = onion.vrefIndexTokens(tokens);
+  async analyze(tokens: Token[]): Promise<SousAnalyzeResult> {
+    const endTimer = devTimer(`web:sousAnalyze ${bookOf(tokens)}`);
+    const index = onion.vrefIndexTokens(tokens);
 
-        const segments: SegmentsBySid = {};
-        const vrefMap: Record<string, string> = {};
-        for (const [sid, projection] of Object.entries(index)) {
-            // Strip onion's `sourceSpan` (raw-buffer anchor) — the editor
-            // resolves ranges by `tokenId` + `textSpan`, matching the
-            // SegmentDto the native command serializes.
-            segments[sid] = projection.segments.map((segment) => ({
-                tokenId: segment.tokenId,
-                textSpan: segment.textSpan,
-            }));
-            // Pass every sid through; `analyze_vref` parses sids and skips
-            // any that don't resolve, exactly as sous.rs does.
-            vrefMap[sid] = projection.text;
-        }
-
-        const findings: SousFinding[] = ssc
-            .analyze_vref(vrefMap, null)
-            .map((finding) => ({
-                sid: finding.sid,
-                code: finding.code,
-                severity: finding.severity as SousSeverity,
-                start: finding.start,
-                end: finding.end,
-                // wasm scores null for binary rules; the JS shape omits it.
-                score: finding.score ?? undefined,
-            }));
-
-        endTimer();
-        return { segments, findings };
+    const segments: SegmentsBySid = {};
+    const vrefMap: Record<string, string> = {};
+    for (const [sid, projection] of Object.entries(index)) {
+      // Strip onion's `sourceSpan` (raw-buffer anchor) — the editor
+      // resolves ranges by `tokenId` + `textSpan`, matching the
+      // SegmentDto the native command serializes.
+      segments[sid] = projection.segments.map((segment) => ({
+        tokenId: segment.tokenId,
+        textSpan: segment.textSpan,
+      }));
+      // Pass every sid through; `analyze_vref` parses sids and skips
+      // any that don't resolve, exactly as sous.rs does.
+      vrefMap[sid] = projection.text;
     }
+
+    const findings: SousFinding[] = ssc
+      .analyze_vref(vrefMap, null)
+      .map((finding) => ({
+        sid: finding.sid,
+        code: finding.code,
+        severity: finding.severity as SousSeverity,
+        start: finding.start,
+        end: finding.end,
+        // wasm scores null for binary rules; the JS shape omits it.
+        score: finding.score ?? undefined,
+      }));
+
+    endTimer();
+    return { segments, findings };
+  }
 }

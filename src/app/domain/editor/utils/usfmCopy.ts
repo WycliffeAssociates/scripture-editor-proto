@@ -1,17 +1,18 @@
 import {
-    $generateJSONFromSelectedNodes,
-    $getClipboardDataFromSelection,
-    setLexicalClipboardDataTransfer,
+  $generateJSONFromSelectedNodes,
+  $getClipboardDataFromSelection,
+  setLexicalClipboardDataTransfer,
 } from "@lexical/clipboard";
 import {
-    $getSelection,
-    $isRangeSelection,
-    COMMAND_PRIORITY_HIGH,
-    COPY_COMMAND,
-    CUT_COMMAND,
-    type LexicalEditor,
-    type SerializedLexicalNode,
+  $getSelection,
+  $isRangeSelection,
+  COMMAND_PRIORITY_HIGH,
+  COPY_COMMAND,
+  CUT_COMMAND,
+  type LexicalEditor,
+  type SerializedLexicalNode,
 } from "lexical";
+
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 
@@ -28,64 +29,64 @@ import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializ
  * copy IS the bytes.
  */
 function $usfmBytesFromSelection(editor: LexicalEditor): string | null {
-    const selection = $getSelection();
-    if (!$isRangeSelection(selection) || selection.isCollapsed()) return null;
-    const { nodes } = $generateJSONFromSelectedNodes(editor, selection);
-    const flat = materializeFlatTokensArray(nodes as SerializedLexicalNode[]);
-    let bytes = "";
-    for (const node of flat) {
-        if (node.type === "linebreak") {
-            bytes += "\n";
-            continue;
-        }
-        if (isSerializedUSFMTextNode(node)) {
-            bytes += node.text ?? "";
-        }
+  const selection = $getSelection();
+  if (!$isRangeSelection(selection) || selection.isCollapsed()) return null;
+  const { nodes } = $generateJSONFromSelectedNodes(editor, selection);
+  const flat = materializeFlatTokensArray(nodes as SerializedLexicalNode[]);
+  let bytes = "";
+  for (const node of flat) {
+    if (node.type === "linebreak") {
+      bytes += "\n";
+      continue;
     }
-    return bytes;
+    if (isSerializedUSFMTextNode(node)) {
+      bytes += node.text ?? "";
+    }
+  }
+  return bytes;
 }
 
 function $writeUsfmClipboard(
-    editor: LexicalEditor,
-    event: ClipboardEvent,
+  editor: LexicalEditor,
+  event: ClipboardEvent,
 ): boolean {
-    const selection = $getSelection();
-    if (!$isRangeSelection(selection) || selection.isCollapsed()) return false;
-    if (!event.clipboardData) return false;
-    const bytes = $usfmBytesFromSelection(editor);
-    if (bytes === null) return false;
+  const selection = $getSelection();
+  if (!$isRangeSelection(selection) || selection.isCollapsed()) return false;
+  if (!event.clipboardData) return false;
+  const bytes = $usfmBytesFromSelection(editor);
+  if (bytes === null) return false;
 
-    const data = $getClipboardDataFromSelection(selection);
-    data["text/plain"] = bytes;
-    setLexicalClipboardDataTransfer(event.clipboardData, data);
-    event.preventDefault();
-    return true;
+  const data = $getClipboardDataFromSelection(selection);
+  data["text/plain"] = bytes;
+  setLexicalClipboardDataTransfer(event.clipboardData, data);
+  event.preventDefault();
+  return true;
 }
 
 export function registerUsfmCopy(editor: LexicalEditor) {
-    const unregisterCopy = editor.registerCommand(
-        COPY_COMMAND,
-        (payload) => {
-            const event = payload instanceof ClipboardEvent ? payload : null;
-            if (!event) return false;
-            return $writeUsfmClipboard(editor, event);
-        },
-        COMMAND_PRIORITY_HIGH,
-    );
-    const unregisterCut = editor.registerCommand(
-        CUT_COMMAND,
-        (payload) => {
-            const event = payload instanceof ClipboardEvent ? payload : null;
-            if (!event) return false;
-            if (!$writeUsfmClipboard(editor, event)) return false;
-            const selection = $getSelection();
-            if ($isRangeSelection(selection)) selection.removeText();
-            return true;
-        },
-        COMMAND_PRIORITY_HIGH,
-    );
-    return () => {
-        unregisterCopy();
-        unregisterCut();
-    };
+  const unregisterCopy = editor.registerCommand(
+    COPY_COMMAND,
+    (payload) => {
+      const event = payload instanceof ClipboardEvent ? payload : null;
+      if (!event) return false;
+      return $writeUsfmClipboard(editor, event);
+    },
+    COMMAND_PRIORITY_HIGH,
+  );
+  const unregisterCut = editor.registerCommand(
+    CUT_COMMAND,
+    (payload) => {
+      const event = payload instanceof ClipboardEvent ? payload : null;
+      if (!event) return false;
+      if (!$writeUsfmClipboard(editor, event)) return false;
+      const selection = $getSelection();
+      if ($isRangeSelection(selection)) selection.removeText();
+      return true;
+    },
+    COMMAND_PRIORITY_HIGH,
+  );
+  return () => {
+    unregisterCopy();
+    unregisterCut();
+  };
 }

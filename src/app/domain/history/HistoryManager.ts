@@ -1,55 +1,55 @@
 export type HistoryChapterRef = {
-    bookCode: string;
-    chapterNum: number;
+  bookCode: string;
+  chapterNum: number;
 };
 
 export type HistorySnapshotChange<TSnapshot, TSelection> = {
-    chapter: HistoryChapterRef;
-    before: TSnapshot;
-    after: TSnapshot;
-    selectionBefore?: TSelection;
-    selectionAfter?: TSelection;
+  chapter: HistoryChapterRef;
+  before: TSnapshot;
+  after: TSnapshot;
+  selectionBefore?: TSelection;
+  selectionAfter?: TSelection;
 };
 
 type HistoryEntrySource = "typing" | "transaction";
 
 export type HistoryEntry<TSnapshot, TSelection> = {
-    id: string;
-    label: string;
-    source: HistoryEntrySource;
-    timestamp: number;
-    changes: HistorySnapshotChange<TSnapshot, TSelection>[];
+  id: string;
+  label: string;
+  source: HistoryEntrySource;
+  timestamp: number;
+  changes: HistorySnapshotChange<TSnapshot, TSelection>[];
 };
 
 type HistoryManagerOptions<TSelection> = {
-    maxEntries: number;
-    coalesceWindowMs: number;
-    now?: () => number;
-    /**
-     * Decides whether an incoming typing change continues the latest entry's
-     * run: given the entry's `selectionAfter` and the incoming change's
-     * `selectionBefore`/`selectionAfter`, return false to seal the entry and
-     * start a new one. Contiguous keystrokes match by construction (each
-     * keystroke's before-cursor is the previous one's after-cursor), so this
-     * breaks runs exactly when the user repositioned between edits. Omitted =
-     * the time window alone decides (selections stay opaque to this class).
-     */
-    selectionsContiguous?: (
-        latestSelectionAfter: TSelection | undefined,
-        nextSelectionBefore: TSelection | undefined,
-        nextSelectionAfter: TSelection | undefined,
-    ) => boolean;
+  maxEntries: number;
+  coalesceWindowMs: number;
+  now?: () => number;
+  /**
+   * Decides whether an incoming typing change continues the latest entry's
+   * run: given the entry's `selectionAfter` and the incoming change's
+   * `selectionBefore`/`selectionAfter`, return false to seal the entry and
+   * start a new one. Contiguous keystrokes match by construction (each
+   * keystroke's before-cursor is the previous one's after-cursor), so this
+   * breaks runs exactly when the user repositioned between edits. Omitted =
+   * the time window alone decides (selections stay opaque to this class).
+   */
+  selectionsContiguous?: (
+    latestSelectionAfter: TSelection | undefined,
+    nextSelectionBefore: TSelection | undefined,
+    nextSelectionAfter: TSelection | undefined,
+  ) => boolean;
 };
 
 type RecordTypingChangeArgs<TSnapshot, TSelection> = {
-    label: string;
-    change: HistorySnapshotChange<TSnapshot, TSelection>;
-    forceNewEntry?: boolean;
+  label: string;
+  change: HistorySnapshotChange<TSnapshot, TSelection>;
+  forceNewEntry?: boolean;
 };
 
 type PushTransactionArgs<TSnapshot, TSelection> = {
-    label: string;
-    changes: HistorySnapshotChange<TSnapshot, TSelection>[];
+  label: string;
+  changes: HistorySnapshotChange<TSnapshot, TSelection>[];
 };
 
 /**
@@ -61,161 +61,160 @@ type PushTransactionArgs<TSnapshot, TSelection> = {
  * any one snapshot format.
  */
 export class HistoryManager<TSnapshot, TSelection> {
-    private readonly maxEntries: number;
-    private readonly coalesceWindowMs: number;
-    private readonly now: () => number;
-    private readonly selectionsContiguous?: (
-        latestSelectionAfter: TSelection | undefined,
-        nextSelectionBefore: TSelection | undefined,
-        nextSelectionAfter: TSelection | undefined,
-    ) => boolean;
-    private entries: HistoryEntry<TSnapshot, TSelection>[] = [];
-    private cursor = 0;
-    private idCounter = 0;
+  private readonly maxEntries: number;
+  private readonly coalesceWindowMs: number;
+  private readonly now: () => number;
+  private readonly selectionsContiguous?: (
+    latestSelectionAfter: TSelection | undefined,
+    nextSelectionBefore: TSelection | undefined,
+    nextSelectionAfter: TSelection | undefined,
+  ) => boolean;
+  private entries: HistoryEntry<TSnapshot, TSelection>[] = [];
+  private cursor = 0;
+  private idCounter = 0;
 
-    constructor(options: HistoryManagerOptions<TSelection>) {
-        this.maxEntries = options.maxEntries;
-        this.coalesceWindowMs = options.coalesceWindowMs;
-        this.now = options.now ?? Date.now;
-        this.selectionsContiguous = options.selectionsContiguous;
+  constructor(options: HistoryManagerOptions<TSelection>) {
+    this.maxEntries = options.maxEntries;
+    this.coalesceWindowMs = options.coalesceWindowMs;
+    this.now = options.now ?? Date.now;
+    this.selectionsContiguous = options.selectionsContiguous;
+  }
+
+  canUndo() {
+    return this.cursor > 0;
+  }
+
+  canRedo() {
+    return this.cursor < this.entries.length;
+  }
+
+  peekUndoLabel() {
+    if (!this.canUndo()) return null;
+    return this.entries[this.cursor - 1]?.label ?? null;
+  }
+
+  peekRedoLabel() {
+    if (!this.canRedo()) return null;
+    return this.entries[this.cursor]?.label ?? null;
+  }
+
+  recordTypingChange(args: RecordTypingChangeArgs<TSnapshot, TSelection>) {
+    this.truncateRedoBranch();
+    const timestamp = this.now();
+    const latest = this.entries[this.cursor - 1];
+    const canMerge =
+      !args.forceNewEntry &&
+      latest &&
+      latest.source === "typing" &&
+      latest.label === args.label &&
+      timestamp - latest.timestamp <= this.coalesceWindowMs &&
+      latest.changes.length === 1 &&
+      latest.changes[0]?.chapter.bookCode === args.change.chapter.bookCode &&
+      latest.changes[0]?.chapter.chapterNum ===
+        args.change.chapter.chapterNum &&
+      (this.selectionsContiguous?.(
+        latest.changes[0]?.selectionAfter,
+        args.change.selectionBefore,
+        args.change.selectionAfter,
+      ) ??
+        true);
+
+    if (canMerge && latest) {
+      latest.timestamp = timestamp;
+      latest.changes[0] = {
+        ...latest.changes[0],
+        after: args.change.after,
+        selectionAfter: args.change.selectionAfter,
+      };
+      return latest;
     }
 
-    canUndo() {
-        return this.cursor > 0;
+    return this.pushEntry({
+      label: args.label,
+      source: "typing",
+      timestamp,
+      changes: [args.change],
+    });
+  }
+
+  mergeLatestChapterAfter(
+    chapter: HistoryChapterRef,
+    after: TSnapshot,
+    selectionAfter?: TSelection,
+  ): boolean {
+    if (!this.canUndo()) return false;
+    const latest = this.entries[this.cursor - 1];
+    if (!latest) return false;
+    const match = latest.changes.find(
+      (c) =>
+        c.chapter.bookCode === chapter.bookCode &&
+        c.chapter.chapterNum === chapter.chapterNum,
+    );
+    if (!match) return false;
+    match.after = after;
+    match.selectionAfter = selectionAfter;
+    latest.timestamp = this.now();
+    return true;
+  }
+
+  pushTransaction(args: PushTransactionArgs<TSnapshot, TSelection>) {
+    if (!args.changes.length) return null;
+    this.truncateRedoBranch();
+    return this.pushEntry({
+      label: args.label,
+      source: "transaction",
+      timestamp: this.now(),
+      changes: args.changes,
+    });
+  }
+
+  undo(): HistoryEntry<TSnapshot, TSelection> | null {
+    if (!this.canUndo()) return null;
+    this.cursor -= 1;
+    return this.entries[this.cursor] ?? null;
+  }
+
+  redo(): HistoryEntry<TSnapshot, TSelection> | null {
+    if (!this.canRedo()) return null;
+    const entry = this.entries[this.cursor] ?? null;
+    if (entry) {
+      this.cursor += 1;
     }
+    return entry;
+  }
 
-    canRedo() {
-        return this.cursor < this.entries.length;
+  reset() {
+    this.entries = [];
+    this.cursor = 0;
+  }
+
+  private truncateRedoBranch() {
+    if (!this.canRedo()) return;
+    this.entries = this.entries.slice(0, this.cursor);
+  }
+
+  private pushEntry(args: {
+    label: string;
+    source: HistoryEntrySource;
+    timestamp: number;
+    changes: HistorySnapshotChange<TSnapshot, TSelection>[];
+  }): HistoryEntry<TSnapshot, TSelection> {
+    const entry: HistoryEntry<TSnapshot, TSelection> = {
+      id: `history-entry-${this.idCounter++}`,
+      label: args.label,
+      source: args.source,
+      timestamp: args.timestamp,
+      changes: args.changes,
+    };
+    this.entries.push(entry);
+    if (this.entries.length > this.maxEntries) {
+      this.entries.shift();
+    } else {
+      this.cursor += 1;
     }
-
-    peekUndoLabel() {
-        if (!this.canUndo()) return null;
-        return this.entries[this.cursor - 1]?.label ?? null;
+    if (this.cursor > this.entries.length) {
+      this.cursor = this.entries.length;
     }
-
-    peekRedoLabel() {
-        if (!this.canRedo()) return null;
-        return this.entries[this.cursor]?.label ?? null;
-    }
-
-    recordTypingChange(args: RecordTypingChangeArgs<TSnapshot, TSelection>) {
-        this.truncateRedoBranch();
-        const timestamp = this.now();
-        const latest = this.entries[this.cursor - 1];
-        const canMerge =
-            !args.forceNewEntry &&
-            latest &&
-            latest.source === "typing" &&
-            latest.label === args.label &&
-            timestamp - latest.timestamp <= this.coalesceWindowMs &&
-            latest.changes.length === 1 &&
-            latest.changes[0]?.chapter.bookCode ===
-                args.change.chapter.bookCode &&
-            latest.changes[0]?.chapter.chapterNum ===
-                args.change.chapter.chapterNum &&
-            (this.selectionsContiguous?.(
-                latest.changes[0]?.selectionAfter,
-                args.change.selectionBefore,
-                args.change.selectionAfter,
-            ) ??
-                true);
-
-        if (canMerge && latest) {
-            latest.timestamp = timestamp;
-            latest.changes[0] = {
-                ...latest.changes[0],
-                after: args.change.after,
-                selectionAfter: args.change.selectionAfter,
-            };
-            return latest;
-        }
-
-        return this.pushEntry({
-            label: args.label,
-            source: "typing",
-            timestamp,
-            changes: [args.change],
-        });
-    }
-
-    mergeLatestChapterAfter(
-        chapter: HistoryChapterRef,
-        after: TSnapshot,
-        selectionAfter?: TSelection,
-    ): boolean {
-        if (!this.canUndo()) return false;
-        const latest = this.entries[this.cursor - 1];
-        if (!latest) return false;
-        const match = latest.changes.find(
-            (c) =>
-                c.chapter.bookCode === chapter.bookCode &&
-                c.chapter.chapterNum === chapter.chapterNum,
-        );
-        if (!match) return false;
-        match.after = after;
-        match.selectionAfter = selectionAfter;
-        latest.timestamp = this.now();
-        return true;
-    }
-
-    pushTransaction(args: PushTransactionArgs<TSnapshot, TSelection>) {
-        if (!args.changes.length) return null;
-        this.truncateRedoBranch();
-        return this.pushEntry({
-            label: args.label,
-            source: "transaction",
-            timestamp: this.now(),
-            changes: args.changes,
-        });
-    }
-
-    undo(): HistoryEntry<TSnapshot, TSelection> | null {
-        if (!this.canUndo()) return null;
-        this.cursor -= 1;
-        return this.entries[this.cursor] ?? null;
-    }
-
-    redo(): HistoryEntry<TSnapshot, TSelection> | null {
-        if (!this.canRedo()) return null;
-        const entry = this.entries[this.cursor] ?? null;
-        if (entry) {
-            this.cursor += 1;
-        }
-        return entry;
-    }
-
-    reset() {
-        this.entries = [];
-        this.cursor = 0;
-    }
-
-    private truncateRedoBranch() {
-        if (!this.canRedo()) return;
-        this.entries = this.entries.slice(0, this.cursor);
-    }
-
-    private pushEntry(args: {
-        label: string;
-        source: HistoryEntrySource;
-        timestamp: number;
-        changes: HistorySnapshotChange<TSnapshot, TSelection>[];
-    }): HistoryEntry<TSnapshot, TSelection> {
-        const entry: HistoryEntry<TSnapshot, TSelection> = {
-            id: `history-entry-${this.idCounter++}`,
-            label: args.label,
-            source: args.source,
-            timestamp: args.timestamp,
-            changes: args.changes,
-        };
-        this.entries.push(entry);
-        if (this.entries.length > this.maxEntries) {
-            this.entries.shift();
-        } else {
-            this.cursor += 1;
-        }
-        if (this.cursor > this.entries.length) {
-            this.cursor = this.entries.length;
-        }
-        return entry;
-    }
+    return entry;
+  }
 }

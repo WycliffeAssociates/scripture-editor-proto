@@ -11,38 +11,38 @@ import type { DiffsByChapterMap } from "@/core/domain/usfm/usfmOnionDiffMap.ts";
 export type CompareMode = "unsaved" | "external";
 
 export const COMPARE_SOURCE_KIND = {
-    EXISTING_PROJECT: "existingProject",
-    ZIP_FILE: "zipFile",
-    DIRECTORY: "directory",
-    PREVIOUS_VERSION: "previousVersion",
-    REMOTE_LATEST: "remoteLatest",
+  EXISTING_PROJECT: "existingProject",
+  ZIP_FILE: "zipFile",
+  DIRECTORY: "directory",
+  PREVIOUS_VERSION: "previousVersion",
+  REMOTE_LATEST: "remoteLatest",
 } as const;
 
 export type CompareSourceKind =
-    (typeof COMPARE_SOURCE_KIND)[keyof typeof COMPARE_SOURCE_KIND];
+  (typeof COMPARE_SOURCE_KIND)[keyof typeof COMPARE_SOURCE_KIND];
 
 export type CompareWarningCode =
-    | "language_id_mismatch"
-    | "direction_mismatch"
-    | "project_id_mismatch"
-    | "book_coverage_diff";
+  | "language_id_mismatch"
+  | "direction_mismatch"
+  | "project_id_mismatch"
+  | "book_coverage_diff";
 
 export type CompareWarning = {
-    code: CompareWarningCode;
-    message: string;
+  code: CompareWarningCode;
+  message: string;
 };
 
 export type CompareCoverageSummary = {
-    baselineOnly: Array<{ bookCode: string; chapterNum: number }>;
-    sourceOnly: Array<{ bookCode: string; chapterNum: number }>;
-    overlapping: Array<{ bookCode: string; chapterNum: number }>;
+  baselineOnly: Array<{ bookCode: string; chapterNum: number }>;
+  sourceOnly: Array<{ bookCode: string; chapterNum: number }>;
+  overlapping: Array<{ bookCode: string; chapterNum: number }>;
 };
 
 export type CompareDiff = ProjectDiff;
 
 export type CompareResult = {
-    diffsByChapter: DiffsByChapterMap<CompareDiff>;
-    diffs: CompareDiff[];
-    warnings: CompareWarning[];
-    coverage: CompareCoverageSummary;
+  diffsByChapter: DiffsByChapterMap<CompareDiff>;
+  diffs: CompareDiff[];
+  warnings: CompareWarning[];
+  coverage: CompareCoverageSummary;
 };

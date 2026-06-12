@@ -9,16 +9,17 @@
 
 import { localizeSousFindingMessage } from "@/app/ui/i18n/sousLocalization.ts";
 import { formatLintIssueMessage } from "@/app/ui/i18n/usfmOnionLocalization.ts";
+
 import type { Finding } from "./finding.ts";
 
 export function formatFindingMessage(finding: Finding): string {
-    switch (finding.source) {
-        case "onion":
-            // Localizes by code + messageParams; the issue's raw engine
-            // `message` is the locale-independent fallback for unknown codes.
-            return formatLintIssueMessage(finding.issue);
-        case "sous-chef":
-            // Localizes by code; humanizes unmapped rule ids.
-            return localizeSousFindingMessage(finding.code);
-    }
+  switch (finding.source) {
+    case "onion":
+      // Localizes by code + messageParams; the issue's raw engine
+      // `message` is the locale-independent fallback for unknown codes.
+      return formatLintIssueMessage(finding.issue);
+    case "sous-chef":
+      // Localizes by code; humanizes unmapped rule ids.
+      return localizeSousFindingMessage(finding.code);
+  }
 }

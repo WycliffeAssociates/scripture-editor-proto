@@ -7,47 +7,48 @@
 
 import { useRouter } from "@tanstack/react-router";
 import { useMemo } from "react";
+
 import {
-    decorateFinding,
-    type FindingDecorationContext,
+  decorateFinding,
+  type FindingDecorationContext,
 } from "@/app/domain/editor/annotations/decorators/decorateFinding.tsx";
 import type {
-    DecoratedFinding,
-    Finding,
+  DecoratedFinding,
+  Finding,
 } from "@/app/domain/editor/annotations/finding.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 export function useDecorateFindings(): (finding: Finding) => DecoratedFinding {
-    const {
-        workingFilesStore,
-        interactionGate,
-        history,
-        findingsStore,
-        project,
-        workspaceModalStore,
-    } = useWorkspaceContext();
-    const { usfmOnionService } = useRouter().options.context;
-    const editorMode = project.appSettings.editorMode;
+  const {
+    workingFilesStore,
+    interactionGate,
+    history,
+    findingsStore,
+    project,
+    workspaceModalStore,
+  } = useWorkspaceContext();
+  const { usfmOnionService } = useRouter().options.context;
+  const editorMode = project.appSettings.editorMode;
 
-    return useMemo(() => {
-        const ctx: FindingDecorationContext = {
-            workingFilesStore,
-            interactionGate,
-            history,
-            usfmOnionService,
-            editorMode,
-            findingsStore,
-            openModal: workspaceModalStore.open,
-            closeModal: workspaceModalStore.close,
-        };
-        return (finding: Finding) => decorateFinding(finding, ctx);
-    }, [
-        workingFilesStore,
-        interactionGate,
-        history,
-        usfmOnionService,
-        editorMode,
-        findingsStore,
-        workspaceModalStore,
-    ]);
+  return useMemo(() => {
+    const ctx: FindingDecorationContext = {
+      workingFilesStore,
+      interactionGate,
+      history,
+      usfmOnionService,
+      editorMode,
+      findingsStore,
+      openModal: workspaceModalStore.open,
+      closeModal: workspaceModalStore.close,
+    };
+    return (finding: Finding) => decorateFinding(finding, ctx);
+  }, [
+    workingFilesStore,
+    interactionGate,
+    history,
+    usfmOnionService,
+    editorMode,
+    findingsStore,
+    workspaceModalStore,
+  ]);
 }

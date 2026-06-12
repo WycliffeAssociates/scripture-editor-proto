@@ -9,15 +9,15 @@ const APP_LOCALE_CHANGE_EVENT = "app:locale-change";
  * so there is one place responsible for loading Lingui message catalogs.
  */
 export async function loadLocale(locale: string) {
-    const { messages } = await import(`./locales/${locale}/messages.ts`);
-    i18n.load(locale, messages);
-    i18n.activate(locale);
+  const { messages } = await import(`./locales/${locale}/messages.ts`);
+  i18n.load(locale, messages);
+  i18n.activate(locale);
 
-    if (typeof window !== "undefined") {
-        window.dispatchEvent(
-            new CustomEvent(APP_LOCALE_CHANGE_EVENT, {
-                detail: { locale },
-            }),
-        );
-    }
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent(APP_LOCALE_CHANGE_EVENT, {
+        detail: { locale },
+      }),
+    );
+  }
 }

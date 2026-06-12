@@ -3,8 +3,8 @@
 This spec describes how a single keystroke (or programmatic action) travels
 through the system: Lexical → bridge plugin → `WorkingFilesStore` →
 pipelines → satellite stores → React. It is the companion to
-`state-architecture.md`, which describes *what* the pieces are; this one
-describes *how data moves between them*.
+`state-architecture.md`, which describes _what_ the pieces are; this one
+describes _how data moves between them_.
 
 ## The three producers
 
@@ -73,12 +73,12 @@ Stream<CommitEvent>
 
 Latency budget (typical chapter):
 
-| Stage                            | Cost      |
-| -------------------------------- | --------- |
+| Stage                            | Cost                          |
+| -------------------------------- | ----------------------------- |
 | `editorState.toJSON()`           | ~2-6 ms (Psalm 119, measured) |
-| `applyPatch` (`lexicalToTokens`) | ~5 ms     |
-| React listener fan-out           | synchronous, sub-ms |
-| `PubSub.publish` fork            | sub-ms    |
+| `applyPatch` (`lexicalToTokens`) | ~5 ms                         |
+| React listener fan-out           | synchronous, sub-ms           |
+| `PubSub.publish` fork            | sub-ms                        |
 
 Selection-only commits skip everything but the no-op patch and PubSub
 publish (no `toJSON`, no token recompute).
@@ -94,28 +94,35 @@ post-commit hook:
 
 ```ts
 const result = await withWorkingFilesDraft({
-    workingFilesStore,
-    interactionGate,
-    draftRefs: refs,              // chapters to make writable in the scratch
-    commitMeta: { kind: "programmaticFix", scope: { project: true },
-                  dirtyTextContent: true },
-    // scope?: "chapters" (default, overlay only affected) | "workspace"
-    mutate: async (scratch) => {
-        // Compute ONLY — no UI/lint/editor side effects (the commit is not
-        // validated yet). Return the chapters changed + a value.
-        const affected = [];
-        for (const ref of refs) {
-            const chapter = findChapterInDraft(scratch, ref.bookCode, ref.chapterNum)!;
-            chapter.lexicalState = await transform(chapter.lexicalState);
-            chapter.currentTokens = recompute(chapter);
-            affected.push(ref);
-        }
-        return { affected, value: report };
-    },
-    invalidate: ({ committedChapters, value }) => {
-        // Runs ONLY after a validated commit: diff/lint refresh, editor sync,
-        // toast. Never runs on abort.
-    },
+  workingFilesStore,
+  interactionGate,
+  draftRefs: refs, // chapters to make writable in the scratch
+  commitMeta: {
+    kind: "programmaticFix",
+    scope: { project: true },
+    dirtyTextContent: true,
+  },
+  // scope?: "chapters" (default, overlay only affected) | "workspace"
+  mutate: async (scratch) => {
+    // Compute ONLY — no UI/lint/editor side effects (the commit is not
+    // validated yet). Return the chapters changed + a value.
+    const affected = [];
+    for (const ref of refs) {
+      const chapter = findChapterInDraft(
+        scratch,
+        ref.bookCode,
+        ref.chapterNum,
+      )!;
+      chapter.lexicalState = await transform(chapter.lexicalState);
+      chapter.currentTokens = recompute(chapter);
+      affected.push(ref);
+    }
+    return { affected, value: report };
+  },
+  invalidate: ({ committedChapters, value }) => {
+    // Runs ONLY after a validated commit: diff/lint refresh, editor sync,
+    // toast. Never runs on abort.
+  },
 });
 // result.kind: "committed" | "unchanged" | "aborted"
 ```
@@ -149,7 +156,7 @@ The reason the seam validates rather than just drafting-and-committing in one
 stack frame: `mutate` is allowed to `await`. A raw `draft → mutate → commit`
 that awaited between draft and commit would let another commit (a keystroke, a
 structure-maintenance writeback, an incoming apply) land in the store, and the
-draft — still aliasing the *old* untouched chapters — would clobber it on
+draft — still aliasing the _old_ untouched chapters — would clobber it on
 bulk-commit. The seam's identity re-check after the await is what makes the
 async mutator safe.
 
@@ -221,15 +228,15 @@ See `custom-history.md` for the full history model.
 `WorkingFilesBridgePlugin` classifies a Lexical update by inspecting tags on
 the update. The taxonomy is defined in `src/app/data/editor.ts`:
 
-| Tag                              | Set by                                  | Bridge behavior                            |
-| -------------------------------- | --------------------------------------- | ------------------------------------------ |
-| `programatic-ignore`             | Any code calling `setEditorContent`     | Skip — the store produced this state       |
-| `programmatic-do-run-changes`    | Fix-it / autofix write-backs            | Classify as `programmaticFix`              |
+| Tag                              | Set by                                   | Bridge behavior                                                                                         |
+| -------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `programatic-ignore`             | Any code calling `setEditorContent`      | Skip — the store produced this state                                                                    |
+| `programmatic-do-run-changes`    | Fix-it / autofix write-backs             | Classify as `programmaticFix`                                                                           |
 | `programmatic-structural-fix`    | Structure-maintenance pipeline writeback | Classify as `structuralFixup` (still published — co-occurs with `HISTORY_MERGE_TAG` for undo exclusion) |
-| `HISTORY_MERGE_TAG` (Lexical)    | History glue, structural-fixup          | Skip *unless* structural-fixup is also set |
-| `HISTORIC_TAG` (Lexical)         | Undo/redo replay                        | Classify as `undo`                         |
-| (none of the above, dirty)       | User typing / paste                     | Classify as `userEdit`                     |
-| (none, no dirty elements/leaves) | Cursor movement                         | Publish `selectionOnly` / `metadataOnly`   |
+| `HISTORY_MERGE_TAG` (Lexical)    | History glue, structural-fixup           | Skip _unless_ structural-fixup is also set                                                              |
+| `HISTORIC_TAG` (Lexical)         | Undo/redo replay                         | Classify as `undo`                                                                                      |
+| (none of the above, dirty)       | User typing / paste                      | Classify as `userEdit`                                                                                  |
+| (none, no dirty elements/leaves) | Cursor movement                          | Publish `selectionOnly` / `metadataOnly`                                                                |
 
 The order of checks in `getCommitKind` matters: `programmaticStructuralFix`
 first (it's the only one that publishes despite `HISTORY_MERGE_TAG`), then

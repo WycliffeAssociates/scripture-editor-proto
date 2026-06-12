@@ -11,13 +11,13 @@ import { basenameStoragePath } from "@/core/persistence/pathUtils.ts";
  * orchestration.
  */
 export async function loadScriptureBurrito(
-    loader: ScriptureBurritoProjectLoader,
-    args: ManagedPathLoadArgs,
+  loader: ScriptureBurritoProjectLoader,
+  args: ManagedPathLoadArgs,
 ): Promise<LoadedReferenceItem | null> {
-    return loader.openResource({
-        fs: args.fs,
-        projectRootPath: args.managedPath,
-        folderName: basenameStoragePath(args.managedPath) || args.managedPath,
-        displayName: args.displayName,
-    });
+  return loader.openResource({
+    fs: args.fs,
+    projectRootPath: args.managedPath,
+    folderName: basenameStoragePath(args.managedPath) || args.managedPath,
+    displayName: args.displayName,
+  });
 }

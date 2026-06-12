@@ -14,20 +14,20 @@
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 function syntheticIssue(
-    code: string,
-    message: string,
-    sid: string | undefined,
+  code: string,
+  message: string,
+  sid: string | undefined,
 ): LintIssue {
-    return {
-        code,
-        category: "structure",
-        severity: "error",
-        issueType: "content",
-        template: "",
-        message,
-        messageParams: {},
-        sid: sid || undefined,
-    } as LintIssue;
+  return {
+    code,
+    category: "structure",
+    severity: "error",
+    issueType: "content",
+    template: "",
+    message,
+    messageParams: {},
+    sid: sid || undefined,
+  } as LintIssue;
 }
 
 /**
@@ -36,5 +36,5 @@ function syntheticIssue(
  * pipeline case is ever removed).
  */
 export function emptyVerseSyntheticIssue(sid: string | undefined): LintIssue {
-    return syntheticIssue("verse-is-empty", "This verse has no content.", sid);
+  return syntheticIssue("verse-is-empty", "This verse has no content.", sid);
 }

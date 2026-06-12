@@ -2,6 +2,7 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { Deferred, Effect, Fiber, Stream } from "effect";
 import { HISTORIC_TAG, HISTORY_MERGE_TAG } from "lexical";
 import { useEffect } from "react";
+
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import { $captureCurrentSelection } from "@/app/domain/history/historySelection.ts";
 import type { CommitKind } from "@/app/state/types.ts";
@@ -53,134 +54,127 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
  * surface every commit on the console; tree-shaken from prod.
  */
 export function WorkingFilesBridgePlugin() {
-    const [editor] = useLexicalComposerContext();
-    const {
-        workingFilesStore,
-        project,
-        mainEditorDeferred,
-        interactionGate,
-        history,
-    } = useWorkspaceContext();
-    const { captureEditorUpdate } = history;
+  const [editor] = useLexicalComposerContext();
+  const {
+    workingFilesStore,
+    project,
+    mainEditorDeferred,
+    interactionGate,
+    history,
+  } = useWorkspaceContext();
+  const { captureEditorUpdate } = history;
 
-    // Resolve the workspace-scoped Deferred<LexicalEditor> as soon as the
-    // editor is available. Effect-side pipelines that write back to the
-    // editor (structure-maintenance, future chapter-swap command) await this
-    // Deferred so they don't race the mount.
-    useEffect(() => {
-        Effect.runFork(Deferred.succeed(mainEditorDeferred, editor));
-    }, [editor, mainEditorDeferred]);
+  // Resolve the workspace-scoped Deferred<LexicalEditor> as soon as the
+  // editor is available. Effect-side pipelines that write back to the
+  // editor (structure-maintenance, future chapter-swap command) await this
+  // Deferred so they don't race the mount.
+  useEffect(() => {
+    Effect.runFork(Deferred.succeed(mainEditorDeferred, editor));
+  }, [editor, mainEditorDeferred]);
 
-    useEffect(() => {
-        // Dev-only commit logger — subscribes to the store's commit Stream.
-        // In prod this whole block tree-shakes out.
-        const loggerFiber = import.meta.env.DEV
-            ? Effect.runFork(
-                  Stream.runForEach(workingFilesStore.changes, (event) =>
-                      Effect.sync(() => {
-                          console.log("[workingFilesStore commit]", {
-                              generation: event.meta.generation,
-                              kind: event.meta.kind,
-                              scope: event.meta.scope,
-                              dirtyTextContent: event.meta.dirtyTextContent,
-                          });
-                      }),
-                  ),
-              )
-            : null;
+  useEffect(() => {
+    // Dev-only commit logger — subscribes to the store's commit Stream.
+    // In prod this whole block tree-shakes out.
+    const loggerFiber = import.meta.env.DEV
+      ? Effect.runFork(
+          Stream.runForEach(workingFilesStore.changes, (event) =>
+            Effect.sync(() => {
+              console.log("[workingFilesStore commit]", {
+                generation: event.meta.generation,
+                kind: event.meta.kind,
+                scope: event.meta.scope,
+                dirtyTextContent: event.meta.dirtyTextContent,
+              });
+            }),
+          ),
+        )
+      : null;
 
-        const unregisterUpdate = editor.registerUpdateListener(
-            ({
-                editorState,
-                prevEditorState,
-                dirtyElements,
-                dirtyLeaves,
-                tags,
-            }) => {
-                // Step 1 — one capture, shared below.
-                const selection = editorState.read($captureCurrentSelection);
+    const unregisterUpdate = editor.registerUpdateListener(
+      ({ editorState, prevEditorState, dirtyElements, dirtyLeaves, tags }) => {
+        // Step 1 — one capture, shared below.
+        const selection = editorState.read($captureCurrentSelection);
 
-                // Step 2 — history capture, before publish (see header).
-                captureEditorUpdate({
-                    editorState,
-                    prevEditorState,
-                    dirtyElements,
-                    dirtyLeaves,
-                    tags,
-                    nextSelection: selection,
-                });
+        // Step 2 — history capture, before publish (see header).
+        captureEditorUpdate({
+          editorState,
+          prevEditorState,
+          dirtyElements,
+          dirtyLeaves,
+          tags,
+          nextSelection: selection,
+        });
 
-                // Step 3 — publish decision.
-                if (tags.has(EDITOR_TAGS_USED.programaticIgnore)) return;
-                if (!requireGateOpen(interactionGate.get())) return;
-                // structuralFixup classifies before HISTORY_MERGE_TAG so the
-                // structure pipeline's writebacks still publish — the
-                // historyMerge tag is also present to keep them out of undo.
-                const isStructuralFix = tags.has(
-                    EDITOR_TAGS_USED.programmaticStructuralFix,
-                );
-                if (!isStructuralFix && tags.has(HISTORY_MERGE_TAG)) return;
-
-                const bookCode = project.pickedFile.bookCode;
-                const chapter =
-                    project.pickedChapter?.chapterNumber ??
-                    project.currentChapter;
-
-                const dirty = dirtyElements.size > 0 || dirtyLeaves.size > 0;
-                if (!dirty) {
-                    workingFilesStore.commit({
-                        patch: {
-                            kind: "selectionOnly",
-                            bookCode,
-                            chapter,
-                            selection,
-                        },
-                        meta: {
-                            kind: "metadataOnly",
-                            scope: {
-                                chapters: [{ bookCode, chapterNum: chapter }],
-                            },
-                            dirtyTextContent: false,
-                        },
-                    });
-                    return;
-                }
-
-                const kind = getCommitKind(tags);
-                const lexicalState = editorState.toJSON();
-
-                workingFilesStore.commit({
-                    patch: {
-                        kind: "chapter",
-                        bookCode,
-                        chapter,
-                        lexicalState,
-                        selection,
-                    },
-                    meta: {
-                        kind,
-                        scope: {
-                            chapters: [{ bookCode, chapterNum: chapter }],
-                        },
-                        dirtyTextContent: true,
-                    },
-                });
-            },
+        // Step 3 — publish decision.
+        if (tags.has(EDITOR_TAGS_USED.programaticIgnore)) return;
+        if (!requireGateOpen(interactionGate.get())) return;
+        // structuralFixup classifies before HISTORY_MERGE_TAG so the
+        // structure pipeline's writebacks still publish — the
+        // historyMerge tag is also present to keep them out of undo.
+        const isStructuralFix = tags.has(
+          EDITOR_TAGS_USED.programmaticStructuralFix,
         );
+        if (!isStructuralFix && tags.has(HISTORY_MERGE_TAG)) return;
 
-        return () => {
-            unregisterUpdate();
-            if (loggerFiber) Effect.runFork(Fiber.interrupt(loggerFiber));
-        };
-    }, [
-        editor,
-        workingFilesStore,
-        project,
-        interactionGate,
-        captureEditorUpdate,
-    ]);
+        const bookCode = project.pickedFile.bookCode;
+        const chapter =
+          project.pickedChapter?.chapterNumber ?? project.currentChapter;
 
-    return null;
+        const dirty = dirtyElements.size > 0 || dirtyLeaves.size > 0;
+        if (!dirty) {
+          workingFilesStore.commit({
+            patch: {
+              kind: "selectionOnly",
+              bookCode,
+              chapter,
+              selection,
+            },
+            meta: {
+              kind: "metadataOnly",
+              scope: {
+                chapters: [{ bookCode, chapterNum: chapter }],
+              },
+              dirtyTextContent: false,
+            },
+          });
+          return;
+        }
+
+        const kind = getCommitKind(tags);
+        const lexicalState = editorState.toJSON();
+
+        workingFilesStore.commit({
+          patch: {
+            kind: "chapter",
+            bookCode,
+            chapter,
+            lexicalState,
+            selection,
+          },
+          meta: {
+            kind,
+            scope: {
+              chapters: [{ bookCode, chapterNum: chapter }],
+            },
+            dirtyTextContent: true,
+          },
+        });
+      },
+    );
+
+    return () => {
+      unregisterUpdate();
+      if (loggerFiber) Effect.runFork(Fiber.interrupt(loggerFiber));
+    };
+  }, [
+    editor,
+    workingFilesStore,
+    project,
+    interactionGate,
+    captureEditorUpdate,
+  ]);
+
+  return null;
 }
 
 /**
@@ -196,10 +190,10 @@ export function WorkingFilesBridgePlugin() {
  * but the shape lets future tags slot in without rewriting the call site.
  */
 function getCommitKind(tags: Set<string>): CommitKind {
-    if (tags.has(EDITOR_TAGS_USED.programmaticStructuralFix))
-        return "structuralFixup";
-    if (tags.has(HISTORIC_TAG)) return "undo";
-    if (tags.has(EDITOR_TAGS_USED.programmaticDoRunChanges))
-        return "programmaticFix";
-    return "userEdit";
+  if (tags.has(EDITOR_TAGS_USED.programmaticStructuralFix))
+    return "structuralFixup";
+  if (tags.has(HISTORIC_TAG)) return "undo";
+  if (tags.has(EDITOR_TAGS_USED.programmaticDoRunChanges))
+    return "programmaticFix";
+  return "userEdit";
 }

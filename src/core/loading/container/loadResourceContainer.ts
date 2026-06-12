@@ -4,9 +4,9 @@ import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import { basenameStoragePath } from "@/core/persistence/pathUtils.ts";
 
 export type ManagedPathLoadArgs = {
-    fs: FileSystem;
-    managedPath: string;
-    displayName: string;
+  fs: FileSystem;
+  managedPath: string;
+  displayName: string;
 };
 
 /**
@@ -17,13 +17,13 @@ export type ManagedPathLoadArgs = {
  * than reaching directly into older project-era loader classes.
  */
 export async function loadResourceContainer(
-    loader: ResourceContainerProjectLoader,
-    args: ManagedPathLoadArgs,
+  loader: ResourceContainerProjectLoader,
+  args: ManagedPathLoadArgs,
 ): Promise<LoadedReferenceItem | null> {
-    return loader.openResource({
-        fs: args.fs,
-        projectRootPath: args.managedPath,
-        folderName: basenameStoragePath(args.managedPath) || args.managedPath,
-        displayName: args.displayName,
-    });
+  return loader.openResource({
+    fs: args.fs,
+    projectRootPath: args.managedPath,
+    folderName: basenameStoragePath(args.managedPath) || args.managedPath,
+    displayName: args.displayName,
+  });
 }

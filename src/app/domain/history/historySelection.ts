@@ -9,18 +9,19 @@
 
 import { $dfsIterator } from "@lexical/utils";
 import {
-    $createRangeSelection,
-    $getRoot,
-    $getSelection,
-    $isElementNode,
-    $isRangeSelection,
-    $setSelection,
-    type LexicalNode,
-    type PointType,
+  $createRangeSelection,
+  $getRoot,
+  $getSelection,
+  $isElementNode,
+  $isRangeSelection,
+  $setSelection,
+  type LexicalNode,
+  type PointType,
 } from "lexical";
+
 import {
-    $isUSFMTextNode,
-    type USFMTextNode,
+  $isUSFMTextNode,
+  type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import type { CanonicalChapterSnapshot } from "@/app/domain/history/canonicalChapterState.ts";
 import type { CapturedSelection } from "@/app/state/types.ts";
@@ -30,13 +31,13 @@ export type { CapturedSelection };
 export type ChapterCursor = CapturedSelection | null;
 
 function cursorsEqual(a: ChapterCursor, b: ChapterCursor): boolean {
-    if (a === null || b === null) return a === b;
-    return (
-        a.anchorId === b.anchorId &&
-        a.anchorOffset === b.anchorOffset &&
-        a.focusId === b.focusId &&
-        a.focusOffset === b.focusOffset
-    );
+  if (a === null || b === null) return a === b;
+  return (
+    a.anchorId === b.anchorId &&
+    a.anchorOffset === b.anchorOffset &&
+    a.focusId === b.focusId &&
+    a.focusOffset === b.focusOffset
+  );
 }
 
 /**
@@ -55,29 +56,29 @@ function cursorsEqual(a: ChapterCursor, b: ChapterCursor): boolean {
  * to the time window alone rather than fragmenting runs on capture gaps.
  */
 export function typingRunContiguous(
-    latestSelectionAfter: ChapterCursor | undefined,
-    nextSelectionBefore: ChapterCursor | undefined,
-    nextSelectionAfter: ChapterCursor | undefined,
+  latestSelectionAfter: ChapterCursor | undefined,
+  nextSelectionBefore: ChapterCursor | undefined,
+  nextSelectionAfter: ChapterCursor | undefined,
 ): boolean {
-    const runEnd = latestSelectionAfter ?? null;
-    const before = nextSelectionBefore ?? null;
-    if (runEnd === null) {
-        // An entry that doesn't know where it left the cursor can't claim a
-        // keystroke that knows where it began. This covers EVERY
-        // selectionless run-end, deliberately: load-time fixup write-backs
-        // that record selectionless entries, and mid-run capture failures
-        // (IME/composition states). Sealing costs at most a finer undo
-        // unit; merging would leave the combined run's selectionBefore
-        // unknown — the asymmetry favors sealing. Only when BOTH sides are
-        // unreadable does the time window alone decide.
-        return before === null;
-    }
-    if (before !== null && !cursorsEqual(runEnd, before)) return false;
-    const editSite = nextSelectionAfter ?? null;
-    if (editSite !== null && editSite.anchorId !== runEnd.anchorId) {
-        return false;
-    }
-    return true;
+  const runEnd = latestSelectionAfter ?? null;
+  const before = nextSelectionBefore ?? null;
+  if (runEnd === null) {
+    // An entry that doesn't know where it left the cursor can't claim a
+    // keystroke that knows where it began. This covers EVERY
+    // selectionless run-end, deliberately: load-time fixup write-backs
+    // that record selectionless entries, and mid-run capture failures
+    // (IME/composition states). Sealing costs at most a finer undo
+    // unit; merging would leave the combined run's selectionBefore
+    // unknown — the asymmetry favors sealing. Only when BOTH sides are
+    // unreadable does the time window alone decide.
+    return before === null;
+  }
+  if (before !== null && !cursorsEqual(runEnd, before)) return false;
+  const editSite = nextSelectionAfter ?? null;
+  if (editSite !== null && editSite.anchorId !== runEnd.anchorId) {
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -86,18 +87,18 @@ export function typingRunContiguous(
  * state swap.
  */
 export function findScrollAncestor(
-    start: HTMLElement | null,
+  start: HTMLElement | null,
 ): HTMLElement | null {
-    let current: HTMLElement | null = start;
-    while (current) {
-        const cs = window.getComputedStyle(current);
-        const canScrollY =
-            /(auto|scroll|overlay)/.test(cs.overflowY) &&
-            current.scrollHeight > current.clientHeight;
-        if (canScrollY) return current;
-        current = current.parentElement;
-    }
-    return null;
+  let current: HTMLElement | null = start;
+  while (current) {
+    const cs = window.getComputedStyle(current);
+    const canScrollY =
+      /(auto|scroll|overlay)/.test(cs.overflowY) &&
+      current.scrollHeight > current.clientHeight;
+    if (canScrollY) return current;
+    current = current.parentElement;
+  }
+  return null;
 }
 
 /**
@@ -106,10 +107,10 @@ export function findScrollAncestor(
  * builds log which selection shape failed to resolve.
  */
 function debugCaptureNull(reason: string): null {
-    if (import.meta.env.DEV) {
-        console.debug(`[historySelection] capture returned null: ${reason}`);
-    }
-    return null;
+  if (import.meta.env.DEV) {
+    console.debug(`[historySelection] capture returned null: ${reason}`);
+  }
+  return null;
 }
 
 /**
@@ -118,31 +119,31 @@ function debugCaptureNull(reason: string): null {
  * at chapter start, and without this log there is no trace of why.
  */
 export function debugRestoreGaveUp(reason: string): void {
-    if (import.meta.env.DEV) {
-        console.debug(`[historySelection] restore gave up: ${reason}`);
-    }
+  if (import.meta.env.DEV) {
+    console.debug(`[historySelection] restore gave up: ${reason}`);
+  }
 }
 
 function $lastUsfmTextWithin(node: LexicalNode): USFMTextNode | null {
-    if ($isUSFMTextNode(node)) return node;
-    if (!$isElementNode(node)) return null;
-    for (let i = node.getChildrenSize() - 1; i >= 0; i--) {
-        const child = node.getChildAtIndex(i);
-        const found = child ? $lastUsfmTextWithin(child) : null;
-        if (found) return found;
-    }
-    return null;
+  if ($isUSFMTextNode(node)) return node;
+  if (!$isElementNode(node)) return null;
+  for (let i = node.getChildrenSize() - 1; i >= 0; i--) {
+    const child = node.getChildAtIndex(i);
+    const found = child ? $lastUsfmTextWithin(child) : null;
+    if (found) return found;
+  }
+  return null;
 }
 
 function $firstUsfmTextWithin(node: LexicalNode): USFMTextNode | null {
-    if ($isUSFMTextNode(node)) return node;
-    if (!$isElementNode(node)) return null;
-    for (let i = 0; i < node.getChildrenSize(); i++) {
-        const child = node.getChildAtIndex(i);
-        const found = child ? $firstUsfmTextWithin(child) : null;
-        if (found) return found;
-    }
-    return null;
+  if ($isUSFMTextNode(node)) return node;
+  if (!$isElementNode(node)) return null;
+  for (let i = 0; i < node.getChildrenSize(); i++) {
+    const child = node.getChildAtIndex(i);
+    const found = child ? $firstUsfmTextWithin(child) : null;
+    if (found) return found;
+  }
+  return null;
 }
 
 /**
@@ -152,23 +153,23 @@ function $firstUsfmTextWithin(node: LexicalNode): USFMTextNode | null {
  * before the point, else start of the content after it.
  */
 function $resolvePointToUsfmText(
-    point: PointType,
+  point: PointType,
 ): { node: USFMTextNode; offset: number } | null {
-    const node = point.getNode();
-    if ($isUSFMTextNode(node)) return { node, offset: point.offset };
-    if (!$isElementNode(node)) return null;
-    const childCount = node.getChildrenSize();
-    for (let i = Math.min(point.offset, childCount) - 1; i >= 0; i--) {
-        const child = node.getChildAtIndex(i);
-        const found = child ? $lastUsfmTextWithin(child) : null;
-        if (found) return { node: found, offset: found.getTextContentSize() };
-    }
-    for (let i = point.offset; i < childCount; i++) {
-        const child = node.getChildAtIndex(i);
-        const found = child ? $firstUsfmTextWithin(child) : null;
-        if (found) return { node: found, offset: 0 };
-    }
-    return null;
+  const node = point.getNode();
+  if ($isUSFMTextNode(node)) return { node, offset: point.offset };
+  if (!$isElementNode(node)) return null;
+  const childCount = node.getChildrenSize();
+  for (let i = Math.min(point.offset, childCount) - 1; i >= 0; i--) {
+    const child = node.getChildAtIndex(i);
+    const found = child ? $lastUsfmTextWithin(child) : null;
+    if (found) return { node: found, offset: found.getTextContentSize() };
+  }
+  for (let i = point.offset; i < childCount; i++) {
+    const child = node.getChildAtIndex(i);
+    const found = child ? $firstUsfmTextWithin(child) : null;
+    if (found) return { node: found, offset: 0 };
+  }
+  return null;
 }
 
 /**
@@ -180,22 +181,22 @@ function $resolvePointToUsfmText(
  * `editor.read` or `editor.update`.
  */
 export function $captureCurrentSelection(): CapturedSelection | null {
-    const sel = $getSelection();
-    if (!$isRangeSelection(sel)) {
-        return sel === null ? null : debugCaptureNull("non-range selection");
-    }
-    const anchor = $resolvePointToUsfmText(sel.anchor);
-    const focus = $resolvePointToUsfmText(sel.focus);
-    if (!anchor || !focus) return debugCaptureNull("unresolvable point");
-    const anchorId = anchor.node.getId();
-    const focusId = focus.node.getId();
-    if (!anchorId || !focusId) return debugCaptureNull("missing data-id");
-    return {
-        anchorId,
-        anchorOffset: anchor.offset,
-        focusId,
-        focusOffset: focus.offset,
-    };
+  const sel = $getSelection();
+  if (!$isRangeSelection(sel)) {
+    return sel === null ? null : debugCaptureNull("non-range selection");
+  }
+  const anchor = $resolvePointToUsfmText(sel.anchor);
+  const focus = $resolvePointToUsfmText(sel.focus);
+  if (!anchor || !focus) return debugCaptureNull("unresolvable point");
+  const anchorId = anchor.node.getId();
+  const focusId = focus.node.getId();
+  if (!anchorId || !focusId) return debugCaptureNull("missing data-id");
+  return {
+    anchorId,
+    anchorOffset: anchor.offset,
+    focusId,
+    focusOffset: focus.offset,
+  };
 }
 
 /**
@@ -204,20 +205,20 @@ export function $captureCurrentSelection(): CapturedSelection | null {
  * MUST be called from inside `editor.read` or `editor.update`.
  */
 function $findUsfmTextNodesById(
-    anchorId: string,
-    focusId: string,
+  anchorId: string,
+  focusId: string,
 ): { anchorNode: USFMTextNode | null; focusNode: USFMTextNode | null } {
-    let anchorNode: USFMTextNode | null = null;
-    let focusNode: USFMTextNode | null = null;
-    for (const dfsNode of $dfsIterator($getRoot())) {
-        const node = dfsNode.node;
-        if (!$isUSFMTextNode(node)) continue;
-        const id = node.getId();
-        if (anchorNode === null && id === anchorId) anchorNode = node;
-        if (focusNode === null && id === focusId) focusNode = node;
-        if (anchorNode && focusNode) break;
-    }
-    return { anchorNode, focusNode };
+  let anchorNode: USFMTextNode | null = null;
+  let focusNode: USFMTextNode | null = null;
+  for (const dfsNode of $dfsIterator($getRoot())) {
+    const node = dfsNode.node;
+    if (!$isUSFMTextNode(node)) continue;
+    const id = node.getId();
+    if (anchorNode === null && id === anchorId) anchorNode = node;
+    if (focusNode === null && id === focusId) focusNode = node;
+    if (anchorNode && focusNode) break;
+  }
+  return { anchorNode, focusNode };
 }
 
 /**
@@ -229,26 +230,26 @@ function $findUsfmTextNodesById(
  * from inside `editor.update`.
  */
 export function $restoreSelectionById(captured: CapturedSelection): boolean {
-    const { anchorNode, focusNode } = $findUsfmTextNodesById(
-        captured.anchorId,
-        captured.focusId,
-    );
-    if (!anchorNode || !focusNode) return false;
-    const sel = $createRangeSelection();
-    const anchorTextLen = anchorNode.getTextContentSize();
-    const focusTextLen = focusNode.getTextContentSize();
-    sel.anchor.set(
-        anchorNode.getKey(),
-        Math.min(captured.anchorOffset, anchorTextLen),
-        "text",
-    );
-    sel.focus.set(
-        focusNode.getKey(),
-        Math.min(captured.focusOffset, focusTextLen),
-        "text",
-    );
-    $setSelection(sel);
-    return true;
+  const { anchorNode, focusNode } = $findUsfmTextNodesById(
+    captured.anchorId,
+    captured.focusId,
+  );
+  if (!anchorNode || !focusNode) return false;
+  const sel = $createRangeSelection();
+  const anchorTextLen = anchorNode.getTextContentSize();
+  const focusTextLen = focusNode.getTextContentSize();
+  sel.anchor.set(
+    anchorNode.getKey(),
+    Math.min(captured.anchorOffset, anchorTextLen),
+    "text",
+  );
+  sel.focus.set(
+    focusNode.getKey(),
+    Math.min(captured.focusOffset, focusTextLen),
+    "text",
+  );
+  $setSelection(sel);
+  return true;
 }
 
 /**
@@ -260,30 +261,30 @@ export function $restoreSelectionById(captured: CapturedSelection): boolean {
  * which surviving ids were its neighbors.
  */
 export function orderedTextIdsFromSnapshot(
-    snapshot: CanonicalChapterSnapshot,
+  snapshot: CanonicalChapterSnapshot,
 ): string[] {
-    const ids: string[] = [];
-    const visit = (node: object) => {
-        const candidate = node as {
-            id?: unknown;
-            text?: unknown;
-            children?: unknown;
-        };
-        if (
-            typeof candidate.id === "string" &&
-            candidate.id.length > 0 &&
-            typeof candidate.text === "string"
-        ) {
-            ids.push(candidate.id);
-        }
-        if (Array.isArray(candidate.children)) {
-            for (const child of candidate.children) {
-                if (child && typeof child === "object") visit(child);
-            }
-        }
+  const ids: string[] = [];
+  const visit = (node: object) => {
+    const candidate = node as {
+      id?: unknown;
+      text?: unknown;
+      children?: unknown;
     };
-    for (const node of snapshot.flatNodes) visit(node);
-    return ids;
+    if (
+      typeof candidate.id === "string" &&
+      candidate.id.length > 0 &&
+      typeof candidate.text === "string"
+    ) {
+      ids.push(candidate.id);
+    }
+    if (Array.isArray(candidate.children)) {
+      for (const child of candidate.children) {
+        if (child && typeof child === "object") visit(child);
+      }
+    }
+  };
+  for (const node of snapshot.flatNodes) visit(node);
+  return ids;
 }
 
 /**
@@ -296,35 +297,35 @@ export function orderedTextIdsFromSnapshot(
  * no neighbor survives. MUST be called from inside `editor.update`.
  */
 export function $restoreSelectionNearId(
-    deadId: string,
-    orderedIds: string[],
+  deadId: string,
+  orderedIds: string[],
 ): boolean {
-    const deadIndex = orderedIds.indexOf(deadId);
-    if (deadIndex === -1) return false;
-    const live = new Map<string, USFMTextNode>();
-    for (const dfsNode of $dfsIterator($getRoot())) {
-        const node = dfsNode.node;
-        if (!$isUSFMTextNode(node)) continue;
-        const id = node.getId();
-        if (id && !live.has(id)) live.set(id, node);
+  const deadIndex = orderedIds.indexOf(deadId);
+  if (deadIndex === -1) return false;
+  const live = new Map<string, USFMTextNode>();
+  for (const dfsNode of $dfsIterator($getRoot())) {
+    const node = dfsNode.node;
+    if (!$isUSFMTextNode(node)) continue;
+    const id = node.getId();
+    if (id && !live.has(id)) live.set(id, node);
+  }
+  for (let distance = 1; distance < orderedIds.length; distance++) {
+    const beforeId = orderedIds[deadIndex - distance];
+    const beforeNode = beforeId ? live.get(beforeId) : undefined;
+    if (beforeNode) {
+      return $setCaret(beforeNode, beforeNode.getTextContentSize());
     }
-    for (let distance = 1; distance < orderedIds.length; distance++) {
-        const beforeId = orderedIds[deadIndex - distance];
-        const beforeNode = beforeId ? live.get(beforeId) : undefined;
-        if (beforeNode) {
-            return $setCaret(beforeNode, beforeNode.getTextContentSize());
-        }
-        const afterId = orderedIds[deadIndex + distance];
-        const afterNode = afterId ? live.get(afterId) : undefined;
-        if (afterNode) return $setCaret(afterNode, 0);
-    }
-    return false;
+    const afterId = orderedIds[deadIndex + distance];
+    const afterNode = afterId ? live.get(afterId) : undefined;
+    if (afterNode) return $setCaret(afterNode, 0);
+  }
+  return false;
 }
 
 function $setCaret(node: USFMTextNode, offset: number): boolean {
-    const sel = $createRangeSelection();
-    sel.anchor.set(node.getKey(), offset, "text");
-    sel.focus.set(node.getKey(), offset, "text");
-    $setSelection(sel);
-    return true;
+  const sel = $createRangeSelection();
+  sel.anchor.set(node.getKey(), offset, "text");
+  sel.focus.set(node.getKey(), offset, "text");
+  $setSelection(sel);
+  return true;
 }

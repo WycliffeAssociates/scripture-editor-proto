@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
+
 import { projectParamToParsedScripture } from "@/app/domain/api/projectToParsed.tsx";
 import { scriptureProjectToParsedFiles } from "@/app/domain/api/scriptureProjectToParsedFiles.ts";
 import type { LibraryService } from "@/app/library/LibraryService.ts";
-import type { UsfmScriptureItem } from "@/core/library/LibraryItem.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
+import type { UsfmScriptureItem } from "@/core/library/LibraryItem.ts";
 import { ensureProjectGitReady } from "@/core/persistence/ensureProjectGitReady.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";

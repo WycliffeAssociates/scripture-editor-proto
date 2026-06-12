@@ -1,31 +1,32 @@
 import * as git from "isomorphic-git";
 import http from "isomorphic-git/http/web";
+
 import type {
-    BranchInfo,
-    CommitRequest,
-    GitCommitDetails,
-    GitProvider,
-    GitRemoteAuth,
-    GitRemoteInspection,
-    GitRemotePublishResult,
-    GitRemoteReplayPlan,
-    GitRemoteReplayResult,
-    VersionEntry,
+  BranchInfo,
+  CommitRequest,
+  GitCommitDetails,
+  GitProvider,
+  GitRemoteAuth,
+  GitRemoteInspection,
+  GitRemotePublishResult,
+  GitRemoteReplayPlan,
+  GitRemoteReplayResult,
+  VersionEntry,
 } from "@/core/persistence/GitProvider.ts";
 import {
-    GIT_REMOTE_PUBLISH_AUTH_FAILED,
-    GIT_REMOTE_PUBLISH_OFFLINE,
-    GIT_REMOTE_PUBLISH_PUBLISHED,
-    GIT_REMOTE_PUBLISH_REMOTE_ADVANCED,
+  GIT_REMOTE_PUBLISH_AUTH_FAILED,
+  GIT_REMOTE_PUBLISH_OFFLINE,
+  GIT_REMOTE_PUBLISH_PUBLISHED,
+  GIT_REMOTE_PUBLISH_REMOTE_ADVANCED,
 } from "@/core/persistence/GitProvider.ts";
 import {
-    chooseCommittedHistoryReplayStrategy,
-    classifyGitRemoteRelationship,
+  chooseCommittedHistoryReplayStrategy,
+  classifyGitRemoteRelationship,
 } from "@/core/persistence/gitRemoteRelationship.ts";
 import {
-    buildCommitMessage,
-    parseAppCommitMetadata,
-    resolvePreferredBranch,
+  buildCommitMessage,
+  parseAppCommitMetadata,
+  resolvePreferredBranch,
 } from "@/core/persistence/gitVersionUtils.ts";
 import { boundedConcurrent } from "@/core/utils/boundedConcurrent.ts";
 import { OpfsGitFs } from "@/web/adapters/git/OpfsGitFs.ts";
@@ -38,890 +39,868 @@ import { OpfsGitFs } from "@/web/adapters/git/OpfsGitFs.ts";
  * driven by `isomorphic-git` rather than desktop-native git.
  */
 type WebGitRuntime = {
-    ensureReady(): Promise<void>;
-    fs: {
-        promises: {
-            lstat: (path: string) => Promise<unknown>;
-            mkdir: (path: string, options?: unknown) => Promise<void>;
-            readFile: (path: string, options?: unknown) => Promise<unknown>;
-            readlink: (path: string, options?: unknown) => Promise<unknown>;
-            readdir: (path: string, options?: unknown) => Promise<unknown>;
-            rm: (path: string, options?: unknown) => Promise<void>;
-            rmdir: (path: string, options?: unknown) => Promise<void>;
-            stat: (path: string) => Promise<unknown>;
-            symlink: (
-                target: string,
-                path: string,
-                type?: unknown,
-            ) => Promise<void>;
-            unlink: (path: string) => Promise<void>;
-            writeFile: (
-                path: string,
-                content: Uint8Array | string,
-                options?: unknown,
-            ) => Promise<void>;
-        };
+  ensureReady(): Promise<void>;
+  fs: {
+    promises: {
+      lstat: (path: string) => Promise<unknown>;
+      mkdir: (path: string, options?: unknown) => Promise<void>;
+      readFile: (path: string, options?: unknown) => Promise<unknown>;
+      readlink: (path: string, options?: unknown) => Promise<unknown>;
+      readdir: (path: string, options?: unknown) => Promise<unknown>;
+      rm: (path: string, options?: unknown) => Promise<void>;
+      rmdir: (path: string, options?: unknown) => Promise<void>;
+      stat: (path: string) => Promise<unknown>;
+      symlink: (target: string, path: string, type?: unknown) => Promise<void>;
+      unlink: (path: string) => Promise<void>;
+      writeFile: (
+        path: string,
+        content: Uint8Array | string,
+        options?: unknown,
+      ) => Promise<void>;
     };
+  };
 };
 
 type WebGitProviderOptions = {
-    requestedWithHeaderValue?: string | null;
-    corsProxyUrl?: string | null;
+  requestedWithHeaderValue?: string | null;
+  corsProxyUrl?: string | null;
 };
 
 function normalizeDir(path: string): string {
-    return path.startsWith("/") ? path : `/${path}`;
+  return path.startsWith("/") ? path : `/${path}`;
 }
 
 function dirname(path: string): string {
-    const idx = path.lastIndexOf("/");
-    if (idx <= 0) return "/";
-    return path.slice(0, idx);
+  const idx = path.lastIndexOf("/");
+  if (idx <= 0) return "/";
+  return path.slice(0, idx);
 }
 
 function isMissingHeadError(error: unknown): boolean {
-    const message =
-        error instanceof Error ? error.message : String(error ?? "");
-    return (
-        message.includes("Could not find refs/heads/") ||
-        message.includes("Could not find HEAD") ||
-        message.includes("reference 'refs/heads/") ||
-        message.includes("headContent is null") ||
-        (message.includes("startsWith") && message.includes("null")) ||
-        message.includes("not found")
-    );
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return (
+    message.includes("Could not find refs/heads/") ||
+    message.includes("Could not find HEAD") ||
+    message.includes("reference 'refs/heads/") ||
+    message.includes("headContent is null") ||
+    (message.includes("startsWith") && message.includes("null")) ||
+    message.includes("not found")
+  );
 }
 
 function isMissingRefError(error: unknown): boolean {
-    const message =
-        error instanceof Error ? error.message : String(error ?? "");
-    return (
-        isMissingHeadError(error) ||
-        message.includes("Could not find refs/remotes/") ||
-        message.includes("Could not find") ||
-        /ENOENT|No such file or directory/i.test(message)
-    );
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return (
+    isMissingHeadError(error) ||
+    message.includes("Could not find refs/remotes/") ||
+    message.includes("Could not find") ||
+    /ENOENT|No such file or directory/i.test(message)
+  );
 }
 
 function isLikelyGitDirRace(error: unknown): boolean {
-    const message =
-        error instanceof Error ? error.message : String(error ?? "");
-    return /ENOENT/i.test(message) && message.includes(".git/");
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /ENOENT/i.test(message) && message.includes(".git/");
 }
 
 function isNoEntryError(error: unknown): boolean {
-    const message =
-        error instanceof Error ? error.message : String(error ?? "");
-    return /ENOENT|No such file or directory/i.test(message);
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /ENOENT|No such file or directory/i.test(message);
 }
 
 function isGitNotFoundError(error: unknown): boolean {
-    const message =
-        error instanceof Error ? error.message : String(error ?? "");
-    return (
-        message.includes("Could not find") ||
-        message.includes("NotFoundError") ||
-        /ENOENT|No such file or directory/i.test(message)
-    );
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return (
+    message.includes("Could not find") ||
+    message.includes("NotFoundError") ||
+    /ENOENT|No such file or directory/i.test(message)
+  );
 }
 
 function isGitAuthError(error: unknown): boolean {
-    const message =
-        error instanceof Error ? error.message : String(error ?? "");
-    return /401|403|authentication|authorization|access denied|forbidden/i.test(
-        message,
-    );
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /401|403|authentication|authorization|access denied|forbidden/i.test(
+    message,
+  );
 }
 
 function isGitPushRejectedError(error: unknown): boolean {
-    const message =
-        error instanceof Error ? error.message : String(error ?? "");
-    return (
-        /non-fast-forward|fetch first|failed to push some refs|push rejected/i.test(
-            message,
-        ) || message.includes("PushRejectedError")
-    );
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return (
+    /non-fast-forward|fetch first|failed to push some refs|push rejected/i.test(
+      message,
+    ) || message.includes("PushRejectedError")
+  );
 }
 
 function isGitOfflineError(error: unknown): boolean {
-    const message =
-        error instanceof Error ? error.message : String(error ?? "");
-    return /network|offline|enotfound|econn|cors|failed to fetch/i.test(
-        message,
-    );
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /network|offline|enotfound|econn|cors|failed to fetch/i.test(message);
 }
 
 function delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export class WebGitProvider implements GitProvider {
-    private readonly ensureRepoInFlight = new Map<string, Promise<void>>();
-    private readonly commitAllInFlight = new Map<
-        string,
-        Promise<{ hash: string }>
-    >();
+  private readonly ensureRepoInFlight = new Map<string, Promise<void>>();
+  private readonly commitAllInFlight = new Map<
+    string,
+    Promise<{ hash: string }>
+  >();
 
-    constructor(
-        private readonly runtime: WebGitRuntime = new OpfsGitFs(),
-        private readonly options: WebGitProviderOptions = {},
-    ) {}
+  constructor(
+    private readonly runtime: WebGitRuntime = new OpfsGitFs(),
+    private readonly options: WebGitProviderOptions = {},
+  ) {}
 
-    private async getFs() {
-        await this.runtime.ensureReady();
-        return this.runtime.fs;
+  private async getFs() {
+    await this.runtime.ensureReady();
+    return this.runtime.fs;
+  }
+
+  private buildGitTransportHeaders(): Record<string, string> | undefined {
+    const requestedWithHeaderValue =
+      this.options.requestedWithHeaderValue?.trim();
+    if (!requestedWithHeaderValue) {
+      return undefined;
     }
+    return {
+      "X-Requested-With": requestedWithHeaderValue,
+    };
+  }
 
-    private buildGitTransportHeaders(): Record<string, string> | undefined {
-        const requestedWithHeaderValue =
-            this.options.requestedWithHeaderValue?.trim();
-        if (!requestedWithHeaderValue) {
-            return undefined;
-        }
-        return {
-            "X-Requested-With": requestedWithHeaderValue,
-        };
-    }
+  private buildGitCorsProxy(): string | undefined {
+    const corsProxyUrl = this.options.corsProxyUrl?.trim();
+    return corsProxyUrl || undefined;
+  }
 
-    private buildGitCorsProxy(): string | undefined {
-        const corsProxyUrl = this.options.corsProxyUrl?.trim();
-        return corsProxyUrl || undefined;
-    }
-
-    private async fileExists(path: string): Promise<boolean> {
-        const fs = await this.getFs();
-        try {
-            await fs.promises.stat(path);
-            return true;
-        } catch (error) {
-            if (isNoEntryError(error)) {
-                return false;
-            }
-            console.error("Error checking if file exists:", error);
-            return false;
-        }
-    }
-
-    private async isHealthy(dir: string): Promise<boolean> {
-        const fs = await this.getFs();
-        if (!(await this.fileExists(`${dir}/.git`))) return false;
-        try {
-            await git.listBranches({ fs, dir });
-            await git.statusMatrix({ fs, dir });
-            return true;
-        } catch (error) {
-            console.error("Error checking if repo is healthy:", error);
-            return false;
-        }
-    }
-
-    async ensureRepo(
-        projectPath: string,
-        opts: { defaultBranch: "main" | "master" },
-    ): Promise<void> {
-        const dir = normalizeDir(projectPath);
-        const inFlight = this.ensureRepoInFlight.get(dir);
-        if (inFlight) {
-            await inFlight;
-            return;
-        }
-
-        const work = this.ensureRepoInternal(dir, opts).finally(() => {
-            this.ensureRepoInFlight.delete(dir);
-        });
-        this.ensureRepoInFlight.set(dir, work);
-        await work;
-    }
-
-    private async ensureRepoInternal(
-        dir: string,
-        opts: { defaultBranch: "main" | "master" },
-    ): Promise<void> {
-        const fs = await this.getFs();
-        const gitDir = `${dir}/.git`;
-        if (await this.fileExists(gitDir)) {
-            if (await this.isHealthy(dir)) return;
-            await this.tryRemoveDir(fs, gitDir);
-        }
-
-        await fs.promises.mkdir(dir, { recursive: true });
-        await this.initRepoWithRetry(fs, dir, opts.defaultBranch);
-        if (!(await this.waitForHealthyRepo(dir))) {
-            throw new Error(
-                `Repository init did not become healthy for ${dir}`,
-            );
-        }
-    }
-
-    private async initRepoWithRetry(
-        fs: Awaited<ReturnType<WebGitProvider["getFs"]>>,
-        dir: string,
-        defaultBranch: "main" | "master",
-    ): Promise<void> {
-        const gitDir = `${dir}/.git`;
-        const attempts = [0, 50, 250, 1000];
-        let lastError: unknown = null;
-
-        for (const waitMs of attempts) {
-            if (waitMs > 0) {
-                await delay(waitMs);
-            }
-            try {
-                await git.init({ fs, dir, defaultBranch });
-                return;
-            } catch (error) {
-                lastError = error;
-                if (!isLikelyGitDirRace(error)) {
-                    throw error;
-                }
-                await this.tryRemoveDir(fs, gitDir);
-            }
-        }
-
-        throw lastError;
-    }
-
-    private async waitForHealthyRepo(dir: string): Promise<boolean> {
-        const attempts = [0, 50, 250, 1000];
-
-        for (const waitMs of attempts) {
-            if (waitMs > 0) {
-                await delay(waitMs);
-            }
-            if (await this.isHealthy(dir)) {
-                return true;
-            }
-        }
-
+  private async fileExists(path: string): Promise<boolean> {
+    const fs = await this.getFs();
+    try {
+      await fs.promises.stat(path);
+      return true;
+    } catch (error) {
+      if (isNoEntryError(error)) {
         return false;
+      }
+      console.error("Error checking if file exists:", error);
+      return false;
+    }
+  }
+
+  private async isHealthy(dir: string): Promise<boolean> {
+    const fs = await this.getFs();
+    if (!(await this.fileExists(`${dir}/.git`))) return false;
+    try {
+      await git.listBranches({ fs, dir });
+      await git.statusMatrix({ fs, dir });
+      return true;
+    } catch (error) {
+      console.error("Error checking if repo is healthy:", error);
+      return false;
+    }
+  }
+
+  async ensureRepo(
+    projectPath: string,
+    opts: { defaultBranch: "main" | "master" },
+  ): Promise<void> {
+    const dir = normalizeDir(projectPath);
+    const inFlight = this.ensureRepoInFlight.get(dir);
+    if (inFlight) {
+      await inFlight;
+      return;
     }
 
-    private async tryRemoveDir(
-        fs: Awaited<ReturnType<WebGitProvider["getFs"]>>,
-        path: string,
-    ): Promise<void> {
-        try {
-            await fs.promises.rm(path, { recursive: true, force: true });
-        } catch (error) {
-            if (!isNoEntryError(error)) {
-                throw error;
-            }
-        }
+    const work = this.ensureRepoInternal(dir, opts).finally(() => {
+      this.ensureRepoInFlight.delete(dir);
+    });
+    this.ensureRepoInFlight.set(dir, work);
+    await work;
+  }
+
+  private async ensureRepoInternal(
+    dir: string,
+    opts: { defaultBranch: "main" | "master" },
+  ): Promise<void> {
+    const fs = await this.getFs();
+    const gitDir = `${dir}/.git`;
+    if (await this.fileExists(gitDir)) {
+      if (await this.isHealthy(dir)) return;
+      await this.tryRemoveDir(fs, gitDir);
     }
 
-    async getBranchInfo(projectPath: string): Promise<BranchInfo> {
-        const fs = await this.getFs();
-        const dir = normalizeDir(projectPath);
-        let branches: string[] = [];
-        try {
-            branches = await git.listBranches({ fs, dir });
-        } catch (error) {
-            if (!isMissingHeadError(error)) {
-                throw error;
-            }
+    await fs.promises.mkdir(dir, { recursive: true });
+    await this.initRepoWithRetry(fs, dir, opts.defaultBranch);
+    if (!(await this.waitForHealthyRepo(dir))) {
+      throw new Error(`Repository init did not become healthy for ${dir}`);
+    }
+  }
+
+  private async initRepoWithRetry(
+    fs: Awaited<ReturnType<WebGitProvider["getFs"]>>,
+    dir: string,
+    defaultBranch: "main" | "master",
+  ): Promise<void> {
+    const gitDir = `${dir}/.git`;
+    const attempts = [0, 50, 250, 1000];
+    let lastError: unknown = null;
+
+    for (const waitMs of attempts) {
+      if (waitMs > 0) {
+        await delay(waitMs);
+      }
+      try {
+        await git.init({ fs, dir, defaultBranch });
+        return;
+      } catch (error) {
+        lastError = error;
+        if (!isLikelyGitDirRace(error)) {
+          throw error;
         }
-        let current = "";
-        try {
-            current =
-                (await git.currentBranch({ fs, dir, fullname: false })) ?? "";
-        } catch (error) {
-            if (!isMissingHeadError(error)) {
-                throw error;
-            }
-        }
-        const detached = current.length === 0;
+        await this.tryRemoveDir(fs, gitDir);
+      }
+    }
+
+    throw lastError;
+  }
+
+  private async waitForHealthyRepo(dir: string): Promise<boolean> {
+    const attempts = [0, 50, 250, 1000];
+
+    for (const waitMs of attempts) {
+      if (waitMs > 0) {
+        await delay(waitMs);
+      }
+      if (await this.isHealthy(dir)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private async tryRemoveDir(
+    fs: Awaited<ReturnType<WebGitProvider["getFs"]>>,
+    path: string,
+  ): Promise<void> {
+    try {
+      await fs.promises.rm(path, { recursive: true, force: true });
+    } catch (error) {
+      if (!isNoEntryError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  async getBranchInfo(projectPath: string): Promise<BranchInfo> {
+    const fs = await this.getFs();
+    const dir = normalizeDir(projectPath);
+    let branches: string[] = [];
+    try {
+      branches = await git.listBranches({ fs, dir });
+    } catch (error) {
+      if (!isMissingHeadError(error)) {
+        throw error;
+      }
+    }
+    let current = "";
+    try {
+      current = (await git.currentBranch({ fs, dir, fullname: false })) ?? "";
+    } catch (error) {
+      if (!isMissingHeadError(error)) {
+        throw error;
+      }
+    }
+    const detached = current.length === 0;
+    return {
+      current,
+      hasMaster: branches.includes("master"),
+      defaultBranch:
+        current ||
+        (branches.includes("main")
+          ? "main"
+          : branches.includes("master")
+            ? "master"
+            : branches[0]),
+      detached,
+    };
+  }
+
+  async checkoutPreferredBranch(
+    projectPath: string,
+    opts: { prefer: "main" | "master" },
+  ): Promise<void> {
+    const fs = await this.getFs();
+    const dir = normalizeDir(projectPath);
+    const info = await this.getBranchInfo(projectPath);
+    const target = resolvePreferredBranch({ ...info, prefer: opts.prefer });
+    if (!target) {
+      throw new Error("No branch available to checkout.");
+    }
+    await git.checkout({ fs, dir, ref: target, force: true });
+  }
+
+  async listHistory(
+    projectPath: string,
+    args: { limit: number; offset: number },
+  ): Promise<VersionEntry[]> {
+    const fs = await this.getFs();
+    const dir = normalizeDir(projectPath);
+    let logEntries: Awaited<ReturnType<typeof git.log>>;
+    try {
+      logEntries = await git.log({
+        fs,
+        dir,
+        depth: args.limit + args.offset,
+        ref: "HEAD",
+      });
+    } catch (error) {
+      if (isMissingHeadError(error)) {
+        return [];
+      }
+      throw error;
+    }
+    return logEntries
+      .slice(args.offset, args.offset + args.limit)
+      .map((entry) => {
+        const fullMessage = entry.commit.message ?? "";
+        const [subject, ...bodyLines] = fullMessage.split(/\r?\n/u);
+        const body = bodyLines.join("\n");
+        const parsed = parseAppCommitMetadata({ subject, body });
         return {
-            current,
-            hasMaster: branches.includes("master"),
-            defaultBranch:
-                current ||
-                (branches.includes("main")
-                    ? "main"
-                    : branches.includes("master")
-                      ? "master"
-                      : branches[0]),
-            detached,
+          hash: entry.oid,
+          authorName: entry.commit.author.name,
+          authoredAtIso: new Date(
+            (entry.commit.author.timestamp ?? 0) * 1000,
+          ).toISOString(),
+          subject,
+          isAppCommit: parsed.isAppCommit,
+          chapterSummary: parsed.chapterSummary,
+          isExternal: parsed.isExternal,
         };
+      });
+  }
+
+  async readCommitDetails(
+    projectPath: string,
+    commitHash: string,
+  ): Promise<GitCommitDetails> {
+    const fs = await this.getFs();
+    const dir = normalizeDir(projectPath);
+    const commit = await git.readCommit({
+      fs,
+      dir,
+      oid: commitHash,
+    });
+    const authorTimestamp = commit.commit.author.timestamp ?? 0;
+    return {
+      hash: commit.oid,
+      authorName: commit.commit.author.name,
+      authoredAtIso: new Date(authorTimestamp * 1000).toISOString(),
+      subject: (commit.commit.message ?? "").split(/\r?\n/u)[0] ?? "",
+    };
+  }
+
+  async readProjectSnapshotAtCommit(
+    projectPath: string,
+    commitHash: string,
+  ): Promise<Map<string, string>> {
+    const fs = await this.getFs();
+    const dir = normalizeDir(projectPath);
+    const files = await git.listFiles({ fs, dir, ref: commitHash });
+    const entries = await boundedConcurrent(files, async (filepath) => {
+      const blob = await git.readBlob({
+        fs,
+        dir,
+        oid: commitHash,
+        filepath,
+      });
+      return [filepath, new TextDecoder().decode(blob.blob)] as const;
+    });
+    return new Map(entries);
+  }
+
+  async restoreTrackedFilesFromCommit(
+    projectPath: string,
+    commitHash: string,
+  ): Promise<void> {
+    const fs = await this.getFs();
+    const dir = normalizeDir(projectPath);
+    const targetFiles = new Set(
+      await git.listFiles({ fs, dir, ref: commitHash }),
+    );
+    const currentFiles = new Set(await git.listFiles({ fs, dir, ref: "HEAD" }));
+
+    for (const currentFile of currentFiles) {
+      if (targetFiles.has(currentFile)) continue;
+      await fs.promises.rm(`${dir}/${currentFile}`);
     }
 
-    async checkoutPreferredBranch(
-        projectPath: string,
-        opts: { prefer: "main" | "master" },
-    ): Promise<void> {
-        const fs = await this.getFs();
-        const dir = normalizeDir(projectPath);
-        const info = await this.getBranchInfo(projectPath);
-        const target = resolvePreferredBranch({ ...info, prefer: opts.prefer });
-        if (!target) {
-            throw new Error("No branch available to checkout.");
-        }
-        await git.checkout({ fs, dir, ref: target, force: true });
+    await boundedConcurrent(Array.from(targetFiles), async (filepath) => {
+      const blob = await git.readBlob({
+        fs,
+        dir,
+        oid: commitHash,
+        filepath,
+      });
+      const fullPath = `${dir}/${filepath}`;
+      await fs.promises.mkdir(dirname(fullPath), { recursive: true });
+      await fs.promises.writeFile(fullPath, blob.blob);
+    });
+  }
+
+  async commitAll(
+    projectPath: string,
+    request: CommitRequest,
+    author: { name: string; email: string },
+  ): Promise<{ hash: string }> {
+    const dir = normalizeDir(projectPath);
+    const inFlight = this.commitAllInFlight.get(dir);
+    if (inFlight) {
+      await inFlight;
     }
 
-    async listHistory(
-        projectPath: string,
-        args: { limit: number; offset: number },
-    ): Promise<VersionEntry[]> {
-        const fs = await this.getFs();
-        const dir = normalizeDir(projectPath);
-        let logEntries: Awaited<ReturnType<typeof git.log>>;
-        try {
-            logEntries = await git.log({
-                fs,
-                dir,
-                depth: args.limit + args.offset,
-                ref: "HEAD",
-            });
-        } catch (error) {
-            if (isMissingHeadError(error)) {
-                return [];
-            }
-            throw error;
-        }
-        return logEntries
-            .slice(args.offset, args.offset + args.limit)
-            .map((entry) => {
-                const fullMessage = entry.commit.message ?? "";
-                const [subject, ...bodyLines] = fullMessage.split(/\r?\n/u);
-                const body = bodyLines.join("\n");
-                const parsed = parseAppCommitMetadata({ subject, body });
-                return {
-                    hash: entry.oid,
-                    authorName: entry.commit.author.name,
-                    authoredAtIso: new Date(
-                        (entry.commit.author.timestamp ?? 0) * 1000,
-                    ).toISOString(),
-                    subject,
-                    isAppCommit: parsed.isAppCommit,
-                    chapterSummary: parsed.chapterSummary,
-                    isExternal: parsed.isExternal,
-                };
-            });
-    }
+    const work = this.commitAllInternal(dir, request, author).finally(() => {
+      this.commitAllInFlight.delete(dir);
+    });
+    this.commitAllInFlight.set(dir, work);
+    return await work;
+  }
 
-    async readCommitDetails(
-        projectPath: string,
-        commitHash: string,
-    ): Promise<GitCommitDetails> {
-        const fs = await this.getFs();
-        const dir = normalizeDir(projectPath);
-        const commit = await git.readCommit({
+  private async stageMatrix(
+    fs: Awaited<ReturnType<WebGitProvider["getFs"]>>,
+    dir: string,
+    matrix: Awaited<ReturnType<typeof git.statusMatrix>>,
+  ): Promise<boolean> {
+    let hasChanges = false;
+    for (const [filepath, head, workdir, stage] of matrix) {
+      if (workdir === 0) {
+        if (head !== 0 || stage !== 0) {
+          await this.stageWithRetry({
             fs,
             dir,
-            oid: commitHash,
-        });
-        const authorTimestamp = commit.commit.author.timestamp ?? 0;
-        return {
-            hash: commit.oid,
-            authorName: commit.commit.author.name,
-            authoredAtIso: new Date(authorTimestamp * 1000).toISOString(),
-            subject: (commit.commit.message ?? "").split(/\r?\n/u)[0] ?? "",
-        };
-    }
-
-    async readProjectSnapshotAtCommit(
-        projectPath: string,
-        commitHash: string,
-    ): Promise<Map<string, string>> {
-        const fs = await this.getFs();
-        const dir = normalizeDir(projectPath);
-        const files = await git.listFiles({ fs, dir, ref: commitHash });
-        const entries = await boundedConcurrent(files, async (filepath) => {
-            const blob = await git.readBlob({
-                fs,
-                dir,
-                oid: commitHash,
-                filepath,
-            });
-            return [filepath, new TextDecoder().decode(blob.blob)] as const;
-        });
-        return new Map(entries);
-    }
-
-    async restoreTrackedFilesFromCommit(
-        projectPath: string,
-        commitHash: string,
-    ): Promise<void> {
-        const fs = await this.getFs();
-        const dir = normalizeDir(projectPath);
-        const targetFiles = new Set(
-            await git.listFiles({ fs, dir, ref: commitHash }),
-        );
-        const currentFiles = new Set(
-            await git.listFiles({ fs, dir, ref: "HEAD" }),
-        );
-
-        for (const currentFile of currentFiles) {
-            if (targetFiles.has(currentFile)) continue;
-            await fs.promises.rm(`${dir}/${currentFile}`);
+            filepath,
+            op: "remove",
+          });
+          hasChanges = true;
         }
+        continue;
+      }
 
-        await boundedConcurrent(Array.from(targetFiles), async (filepath) => {
-            const blob = await git.readBlob({
-                fs,
-                dir,
-                oid: commitHash,
-                filepath,
-            });
-            const fullPath = `${dir}/${filepath}`;
-            await fs.promises.mkdir(dirname(fullPath), { recursive: true });
-            await fs.promises.writeFile(fullPath, blob.blob);
+      if (head !== workdir || stage !== workdir) {
+        await this.stageWithRetry({
+          fs,
+          dir,
+          filepath,
+          op: "add",
         });
+        hasChanges = true;
+      }
     }
+    return hasChanges;
+  }
 
-    async commitAll(
-        projectPath: string,
-        request: CommitRequest,
-        author: { name: string; email: string },
-    ): Promise<{ hash: string }> {
-        const dir = normalizeDir(projectPath);
-        const inFlight = this.commitAllInFlight.get(dir);
-        if (inFlight) {
-            await inFlight;
-        }
+  private async stageWithRetry(args: {
+    fs: Awaited<ReturnType<WebGitProvider["getFs"]>>;
+    dir: string;
+    filepath: string;
+    op: "add" | "remove";
+  }): Promise<void> {
+    const attempts = [0, 50, 250, 1000];
+    let lastError: unknown = null;
 
-        const work = this.commitAllInternal(dir, request, author).finally(
-            () => {
-                this.commitAllInFlight.delete(dir);
-            },
-        );
-        this.commitAllInFlight.set(dir, work);
-        return await work;
-    }
-
-    private async stageMatrix(
-        fs: Awaited<ReturnType<WebGitProvider["getFs"]>>,
-        dir: string,
-        matrix: Awaited<ReturnType<typeof git.statusMatrix>>,
-    ): Promise<boolean> {
-        let hasChanges = false;
-        for (const [filepath, head, workdir, stage] of matrix) {
-            if (workdir === 0) {
-                if (head !== 0 || stage !== 0) {
-                    await this.stageWithRetry({
-                        fs,
-                        dir,
-                        filepath,
-                        op: "remove",
-                    });
-                    hasChanges = true;
-                }
-                continue;
-            }
-
-            if (head !== workdir || stage !== workdir) {
-                await this.stageWithRetry({
-                    fs,
-                    dir,
-                    filepath,
-                    op: "add",
-                });
-                hasChanges = true;
-            }
-        }
-        return hasChanges;
-    }
-
-    private async stageWithRetry(args: {
-        fs: Awaited<ReturnType<WebGitProvider["getFs"]>>;
-        dir: string;
-        filepath: string;
-        op: "add" | "remove";
-    }): Promise<void> {
-        const attempts = [0, 50, 250, 1000];
-        let lastError: unknown = null;
-
-        for (const waitMs of attempts) {
-            if (waitMs > 0) {
-                await delay(waitMs);
-            }
-            try {
-                if (args.op === "add") {
-                    await git.add({
-                        fs: args.fs,
-                        dir: args.dir,
-                        filepath: args.filepath,
-                    });
-                } else {
-                    await git.remove({
-                        fs: args.fs,
-                        dir: args.dir,
-                        filepath: args.filepath,
-                    });
-                }
-                return;
-            } catch (error) {
-                lastError = error;
-                if (!isGitNotFoundError(error)) {
-                    throw error;
-                }
-            }
-        }
-
-        // `.gitignore` is created immediately before baseline commit on web.
-        // If the FS still cannot observe it after a short retry window, skip
-        // it for this commit rather than failing project open.
-        if (args.filepath === ".gitignore") {
-            return;
-        }
-
-        throw lastError;
-    }
-
-    private async commitAllInternal(
-        dir: string,
-        request: CommitRequest,
-        author: { name: string; email: string },
-    ): Promise<{ hash: string }> {
-        const fs = await this.getFs();
-        const matrix = await git.statusMatrix({ fs, dir });
-        const hasChanges = await this.stageMatrix(fs, dir, matrix);
-
-        let headHash: string | null = null;
-        try {
-            headHash = await git.resolveRef({ fs, dir, ref: "HEAD" });
-        } catch (error) {
-            if (!isMissingHeadError(error)) {
-                throw error;
-            }
-        }
-
-        if (!hasChanges && headHash) {
-            return { hash: headHash };
-        }
-
-        const hash = await git.commit({
-            fs,
-            dir,
-            author: {
-                name: author.name,
-                email: author.email,
-            },
-            message: buildCommitMessage(request),
-        });
-        return { hash };
-    }
-
-    async cloneRemoteRepo(args: {
-        projectPath: string;
-        remoteUrl: string;
-        branch?: string;
-        auth: GitRemoteAuth;
-    }): Promise<{ head: string | null }> {
-        const fs = await this.getFs();
-        const dir = normalizeDir(args.projectPath);
-        await fs.promises.mkdir(dirname(dir), { recursive: true });
-        await git.clone({
-            fs,
-            http,
-            dir,
-            url: args.remoteUrl,
-            corsProxy: this.buildGitCorsProxy(),
-            headers: this.buildGitTransportHeaders(),
-            singleBranch: args.branch != null,
-            ref: args.branch,
-            depth: 1,
-            onAuth: () => ({
-                username: args.auth.username,
-                password: args.auth.token,
-            }),
-        });
-        return {
-            head: await this.tryResolveRef(fs, dir, "HEAD"),
-        };
-    }
-
-    async ensureRemote(args: {
-        projectPath: string;
-        remoteName: string;
-        remoteUrl: string;
-    }): Promise<void> {
-        const fs = await this.getFs();
-        const dir = normalizeDir(args.projectPath);
-        const remotes = await git.listRemotes({ fs, dir });
-        const existing = remotes.find(
-            (remote) => remote.remote === args.remoteName,
-        );
-        if (existing?.url === args.remoteUrl) {
-            return;
-        }
-        if (existing) {
-            await git.deleteRemote({
-                fs,
-                dir,
-                remote: args.remoteName,
-            });
-        }
-        await git.addRemote({
-            fs,
-            dir,
-            remote: args.remoteName,
-            url: args.remoteUrl,
-            force: true,
-        });
-    }
-
-    async inspectRemoteHeads(args: {
-        projectPath: string;
-        remoteName: string;
-        branch: string;
-        auth: GitRemoteAuth;
-    }): Promise<GitRemoteInspection> {
-        const fs = await this.getFs();
-        const dir = normalizeDir(args.projectPath);
-        const localHead = await this.tryResolveRef(fs, dir, "HEAD");
-        const remoteRef = `refs/remotes/${args.remoteName}/${args.branch}`;
-        const remoteHead = await this.tryResolveRef(fs, dir, remoteRef);
-        const mergeBase =
-            localHead && remoteHead
-                ? ((
-                      await git.findMergeBase({
-                          fs,
-                          dir,
-                          oids: [localHead, remoteHead],
-                      })
-                  )[0] ?? null)
-                : null;
-        const relationship = classifyGitRemoteRelationship({
-            localHead,
-            remoteHead,
-            mergeBase,
-        });
-
-        return {
-            localHead,
-            remoteHead,
-            mergeBase,
-            relationship,
-        };
-    }
-
-    async fetchRemoteHeads(args: {
-        projectPath: string;
-        remoteName: string;
-        branch: string;
-        auth: GitRemoteAuth;
-    }): Promise<GitRemoteInspection> {
-        const fs = await this.getFs();
-        const dir = normalizeDir(args.projectPath);
-        await git.fetch({
-            fs,
-            http,
-            dir,
-            corsProxy: this.buildGitCorsProxy(),
-            headers: this.buildGitTransportHeaders(),
-            remote: args.remoteName,
-            ref: args.branch,
-            remoteRef: args.branch,
-            singleBranch: true,
-            prune: true,
-            onAuth: () => ({
-                username: args.auth.username,
-                password: args.auth.token,
-            }),
-        });
-        return this.inspectRemoteHeads(args);
-    }
-
-    async pushCurrentBranch(args: {
-        projectPath: string;
-        remoteName: string;
-        branch: string;
-        auth: GitRemoteAuth;
-    }): Promise<GitRemotePublishResult> {
-        const fs = await this.getFs();
-        const dir = normalizeDir(args.projectPath);
-        const localHead = await this.tryResolveRef(fs, dir, "HEAD");
-
-        try {
-            // Browser Git smart-HTTP commonly gets an initial 401 challenge on
-            // `info/refs?service=git-receive-pack`. `isomorphic-git` then calls
-            // `onAuth`, retries with credentials, and the push continues. That
-            // first 401 is expected so long as the subsequent authenticated
-            // discovery/request succeeds and the final push completes.
-            await git.push({
-                fs,
-                http,
-                dir,
-                corsProxy: this.buildGitCorsProxy(),
-                headers: this.buildGitTransportHeaders(),
-                remote: args.remoteName,
-                ref: args.branch,
-                remoteRef: args.branch,
-                onAuth: () => ({
-                    username: args.auth.username,
-                    password: args.auth.token,
-                }),
-            });
-        } catch (error) {
-            if (isGitPushRejectedError(error)) {
-                return {
-                    outcome: GIT_REMOTE_PUBLISH_REMOTE_ADVANCED,
-                    localHead,
-                    remoteHead: null,
-                };
-            }
-            if (isGitAuthError(error)) {
-                return {
-                    outcome: GIT_REMOTE_PUBLISH_AUTH_FAILED,
-                    localHead,
-                    remoteHead: null,
-                };
-            }
-            if (isGitOfflineError(error)) {
-                return {
-                    outcome: GIT_REMOTE_PUBLISH_OFFLINE,
-                    localHead,
-                    remoteHead: null,
-                };
-            }
-            throw error;
-        }
-
-        const inspection = await this.inspectRemoteHeads(args);
-        return {
-            outcome: GIT_REMOTE_PUBLISH_PUBLISHED,
-            localHead: inspection.localHead,
-            remoteHead: inspection.remoteHead,
-        };
-    }
-
-    async planReplayOntoRemote(args: {
-        projectPath: string;
-        remoteName: string;
-        branch: string;
-        auth: GitRemoteAuth;
-    }): Promise<GitRemoteReplayPlan> {
-        const fs = await this.getFs();
-        const dir = normalizeDir(args.projectPath);
-        const inspection = await this.inspectRemoteHeads(args);
-        const commitHashes = await this.collectLocalOnlyCommitHashes({
-            fs,
-            dir,
-            mergeBase: inspection.mergeBase,
-        });
-        const decision = chooseCommittedHistoryReplayStrategy(
-            inspection.relationship,
-            commitHashes.length,
-        );
-        console.debug("[WebGitProvider] Planned replay onto remote latest.", {
-            projectPath: args.projectPath,
-            relationship: inspection.relationship.kind,
-            commitHashCount: commitHashes.length,
-            strategy: decision.strategy,
-        });
-
-        return {
-            strategy: decision.strategy,
-            commitHashes,
-            relationship: inspection.relationship,
-        };
-    }
-
-    async applyReplayPlanOntoRemote(args: {
-        projectPath: string;
-        branch: string;
-        remoteHead: string;
-        commitHashes: string[];
-    }): Promise<GitRemoteReplayResult> {
-        const fs = await this.getFs();
-        const dir = normalizeDir(args.projectPath);
-        const branchRef = `refs/heads/${args.branch}`;
-
-        await git.writeRef({
-            fs,
-            dir,
-            ref: branchRef,
-            value: args.remoteHead,
-            force: true,
-        });
-        await git.checkout({
-            fs,
-            dir,
-            ref: args.branch,
-            force: true,
-        });
-
-        for (const commitHash of [...args.commitHashes].reverse()) {
-            const sourceCommit = await git.readCommit({
-                fs,
-                dir,
-                oid: commitHash,
-            });
-            await git.cherryPick({
-                fs,
-                dir,
-                oid: commitHash,
-                committer: {
-                    name:
-                        sourceCommit.commit.committer.name ||
-                        sourceCommit.commit.author.name,
-                    email:
-                        sourceCommit.commit.committer.email ||
-                        sourceCommit.commit.author.email,
-                    timestamp: sourceCommit.commit.committer.timestamp,
-                    timezoneOffset:
-                        sourceCommit.commit.committer.timezoneOffset,
-                },
-            });
-        }
-
-        console.debug(
-            "[WebGitProvider] Replayed local commits onto remote latest.",
-            {
-                projectPath: args.projectPath,
-                branch: args.branch,
-                remoteHead: args.remoteHead,
-                replayedCommitHashes: [...args.commitHashes],
-            },
-        );
-
-        return {
-            head: await this.tryResolveRef(fs, dir, "HEAD"),
-            replayedCommitHashes: [...args.commitHashes],
-        };
-    }
-
-    async isRepoHealthy(projectPath: string): Promise<boolean> {
-        const dir = normalizeDir(projectPath);
-        return this.isHealthy(dir);
-    }
-
-    private async tryResolveRef(
-        fs: Awaited<ReturnType<WebGitProvider["getFs"]>>,
-        dir: string,
-        ref: string,
-    ): Promise<string | null> {
-        try {
-            return await git.resolveRef({ fs, dir, ref });
-        } catch (error) {
-            if (isMissingRefError(error)) {
-                return null;
-            }
-            throw error;
-        }
-    }
-
-    private async collectLocalOnlyCommitHashes(args: {
-        fs: Awaited<ReturnType<WebGitProvider["getFs"]>>;
-        dir: string;
-        mergeBase: string | null;
-    }): Promise<string[]> {
-        if (!args.mergeBase) return [];
-        const entries = await git.log({
+    for (const waitMs of attempts) {
+      if (waitMs > 0) {
+        await delay(waitMs);
+      }
+      try {
+        if (args.op === "add") {
+          await git.add({
             fs: args.fs,
             dir: args.dir,
-            ref: "HEAD",
-            depth: 500,
-        });
-
-        const localOnly: string[] = [];
-        for (const entry of entries) {
-            if (entry.oid === args.mergeBase) {
-                break;
-            }
-            localOnly.push(entry.oid);
+            filepath: args.filepath,
+          });
+        } else {
+          await git.remove({
+            fs: args.fs,
+            dir: args.dir,
+            filepath: args.filepath,
+          });
         }
-        return localOnly;
+        return;
+      } catch (error) {
+        lastError = error;
+        if (!isGitNotFoundError(error)) {
+          throw error;
+        }
+      }
     }
+
+    // `.gitignore` is created immediately before baseline commit on web.
+    // If the FS still cannot observe it after a short retry window, skip
+    // it for this commit rather than failing project open.
+    if (args.filepath === ".gitignore") {
+      return;
+    }
+
+    throw lastError;
+  }
+
+  private async commitAllInternal(
+    dir: string,
+    request: CommitRequest,
+    author: { name: string; email: string },
+  ): Promise<{ hash: string }> {
+    const fs = await this.getFs();
+    const matrix = await git.statusMatrix({ fs, dir });
+    const hasChanges = await this.stageMatrix(fs, dir, matrix);
+
+    let headHash: string | null = null;
+    try {
+      headHash = await git.resolveRef({ fs, dir, ref: "HEAD" });
+    } catch (error) {
+      if (!isMissingHeadError(error)) {
+        throw error;
+      }
+    }
+
+    if (!hasChanges && headHash) {
+      return { hash: headHash };
+    }
+
+    const hash = await git.commit({
+      fs,
+      dir,
+      author: {
+        name: author.name,
+        email: author.email,
+      },
+      message: buildCommitMessage(request),
+    });
+    return { hash };
+  }
+
+  async cloneRemoteRepo(args: {
+    projectPath: string;
+    remoteUrl: string;
+    branch?: string;
+    auth: GitRemoteAuth;
+  }): Promise<{ head: string | null }> {
+    const fs = await this.getFs();
+    const dir = normalizeDir(args.projectPath);
+    await fs.promises.mkdir(dirname(dir), { recursive: true });
+    await git.clone({
+      fs,
+      http,
+      dir,
+      url: args.remoteUrl,
+      corsProxy: this.buildGitCorsProxy(),
+      headers: this.buildGitTransportHeaders(),
+      singleBranch: args.branch != null,
+      ref: args.branch,
+      depth: 1,
+      onAuth: () => ({
+        username: args.auth.username,
+        password: args.auth.token,
+      }),
+    });
+    return {
+      head: await this.tryResolveRef(fs, dir, "HEAD"),
+    };
+  }
+
+  async ensureRemote(args: {
+    projectPath: string;
+    remoteName: string;
+    remoteUrl: string;
+  }): Promise<void> {
+    const fs = await this.getFs();
+    const dir = normalizeDir(args.projectPath);
+    const remotes = await git.listRemotes({ fs, dir });
+    const existing = remotes.find(
+      (remote) => remote.remote === args.remoteName,
+    );
+    if (existing?.url === args.remoteUrl) {
+      return;
+    }
+    if (existing) {
+      await git.deleteRemote({
+        fs,
+        dir,
+        remote: args.remoteName,
+      });
+    }
+    await git.addRemote({
+      fs,
+      dir,
+      remote: args.remoteName,
+      url: args.remoteUrl,
+      force: true,
+    });
+  }
+
+  async inspectRemoteHeads(args: {
+    projectPath: string;
+    remoteName: string;
+    branch: string;
+    auth: GitRemoteAuth;
+  }): Promise<GitRemoteInspection> {
+    const fs = await this.getFs();
+    const dir = normalizeDir(args.projectPath);
+    const localHead = await this.tryResolveRef(fs, dir, "HEAD");
+    const remoteRef = `refs/remotes/${args.remoteName}/${args.branch}`;
+    const remoteHead = await this.tryResolveRef(fs, dir, remoteRef);
+    const mergeBase =
+      localHead && remoteHead
+        ? ((
+            await git.findMergeBase({
+              fs,
+              dir,
+              oids: [localHead, remoteHead],
+            })
+          )[0] ?? null)
+        : null;
+    const relationship = classifyGitRemoteRelationship({
+      localHead,
+      remoteHead,
+      mergeBase,
+    });
+
+    return {
+      localHead,
+      remoteHead,
+      mergeBase,
+      relationship,
+    };
+  }
+
+  async fetchRemoteHeads(args: {
+    projectPath: string;
+    remoteName: string;
+    branch: string;
+    auth: GitRemoteAuth;
+  }): Promise<GitRemoteInspection> {
+    const fs = await this.getFs();
+    const dir = normalizeDir(args.projectPath);
+    await git.fetch({
+      fs,
+      http,
+      dir,
+      corsProxy: this.buildGitCorsProxy(),
+      headers: this.buildGitTransportHeaders(),
+      remote: args.remoteName,
+      ref: args.branch,
+      remoteRef: args.branch,
+      singleBranch: true,
+      prune: true,
+      onAuth: () => ({
+        username: args.auth.username,
+        password: args.auth.token,
+      }),
+    });
+    return this.inspectRemoteHeads(args);
+  }
+
+  async pushCurrentBranch(args: {
+    projectPath: string;
+    remoteName: string;
+    branch: string;
+    auth: GitRemoteAuth;
+  }): Promise<GitRemotePublishResult> {
+    const fs = await this.getFs();
+    const dir = normalizeDir(args.projectPath);
+    const localHead = await this.tryResolveRef(fs, dir, "HEAD");
+
+    try {
+      // Browser Git smart-HTTP commonly gets an initial 401 challenge on
+      // `info/refs?service=git-receive-pack`. `isomorphic-git` then calls
+      // `onAuth`, retries with credentials, and the push continues. That
+      // first 401 is expected so long as the subsequent authenticated
+      // discovery/request succeeds and the final push completes.
+      await git.push({
+        fs,
+        http,
+        dir,
+        corsProxy: this.buildGitCorsProxy(),
+        headers: this.buildGitTransportHeaders(),
+        remote: args.remoteName,
+        ref: args.branch,
+        remoteRef: args.branch,
+        onAuth: () => ({
+          username: args.auth.username,
+          password: args.auth.token,
+        }),
+      });
+    } catch (error) {
+      if (isGitPushRejectedError(error)) {
+        return {
+          outcome: GIT_REMOTE_PUBLISH_REMOTE_ADVANCED,
+          localHead,
+          remoteHead: null,
+        };
+      }
+      if (isGitAuthError(error)) {
+        return {
+          outcome: GIT_REMOTE_PUBLISH_AUTH_FAILED,
+          localHead,
+          remoteHead: null,
+        };
+      }
+      if (isGitOfflineError(error)) {
+        return {
+          outcome: GIT_REMOTE_PUBLISH_OFFLINE,
+          localHead,
+          remoteHead: null,
+        };
+      }
+      throw error;
+    }
+
+    const inspection = await this.inspectRemoteHeads(args);
+    return {
+      outcome: GIT_REMOTE_PUBLISH_PUBLISHED,
+      localHead: inspection.localHead,
+      remoteHead: inspection.remoteHead,
+    };
+  }
+
+  async planReplayOntoRemote(args: {
+    projectPath: string;
+    remoteName: string;
+    branch: string;
+    auth: GitRemoteAuth;
+  }): Promise<GitRemoteReplayPlan> {
+    const fs = await this.getFs();
+    const dir = normalizeDir(args.projectPath);
+    const inspection = await this.inspectRemoteHeads(args);
+    const commitHashes = await this.collectLocalOnlyCommitHashes({
+      fs,
+      dir,
+      mergeBase: inspection.mergeBase,
+    });
+    const decision = chooseCommittedHistoryReplayStrategy(
+      inspection.relationship,
+      commitHashes.length,
+    );
+    console.debug("[WebGitProvider] Planned replay onto remote latest.", {
+      projectPath: args.projectPath,
+      relationship: inspection.relationship.kind,
+      commitHashCount: commitHashes.length,
+      strategy: decision.strategy,
+    });
+
+    return {
+      strategy: decision.strategy,
+      commitHashes,
+      relationship: inspection.relationship,
+    };
+  }
+
+  async applyReplayPlanOntoRemote(args: {
+    projectPath: string;
+    branch: string;
+    remoteHead: string;
+    commitHashes: string[];
+  }): Promise<GitRemoteReplayResult> {
+    const fs = await this.getFs();
+    const dir = normalizeDir(args.projectPath);
+    const branchRef = `refs/heads/${args.branch}`;
+
+    await git.writeRef({
+      fs,
+      dir,
+      ref: branchRef,
+      value: args.remoteHead,
+      force: true,
+    });
+    await git.checkout({
+      fs,
+      dir,
+      ref: args.branch,
+      force: true,
+    });
+
+    for (const commitHash of [...args.commitHashes].reverse()) {
+      const sourceCommit = await git.readCommit({
+        fs,
+        dir,
+        oid: commitHash,
+      });
+      await git.cherryPick({
+        fs,
+        dir,
+        oid: commitHash,
+        committer: {
+          name:
+            sourceCommit.commit.committer.name ||
+            sourceCommit.commit.author.name,
+          email:
+            sourceCommit.commit.committer.email ||
+            sourceCommit.commit.author.email,
+          timestamp: sourceCommit.commit.committer.timestamp,
+          timezoneOffset: sourceCommit.commit.committer.timezoneOffset,
+        },
+      });
+    }
+
+    console.debug(
+      "[WebGitProvider] Replayed local commits onto remote latest.",
+      {
+        projectPath: args.projectPath,
+        branch: args.branch,
+        remoteHead: args.remoteHead,
+        replayedCommitHashes: [...args.commitHashes],
+      },
+    );
+
+    return {
+      head: await this.tryResolveRef(fs, dir, "HEAD"),
+      replayedCommitHashes: [...args.commitHashes],
+    };
+  }
+
+  async isRepoHealthy(projectPath: string): Promise<boolean> {
+    const dir = normalizeDir(projectPath);
+    return this.isHealthy(dir);
+  }
+
+  private async tryResolveRef(
+    fs: Awaited<ReturnType<WebGitProvider["getFs"]>>,
+    dir: string,
+    ref: string,
+  ): Promise<string | null> {
+    try {
+      return await git.resolveRef({ fs, dir, ref });
+    } catch (error) {
+      if (isMissingRefError(error)) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  private async collectLocalOnlyCommitHashes(args: {
+    fs: Awaited<ReturnType<WebGitProvider["getFs"]>>;
+    dir: string;
+    mergeBase: string | null;
+  }): Promise<string[]> {
+    if (!args.mergeBase) return [];
+    const entries = await git.log({
+      fs: args.fs,
+      dir: args.dir,
+      ref: "HEAD",
+      depth: 500,
+    });
+
+    const localOnly: string[] = [];
+    for (const entry of entries) {
+      if (entry.oid === args.mergeBase) {
+        break;
+      }
+      localOnly.push(entry.oid);
+    }
+    return localOnly;
+  }
 }

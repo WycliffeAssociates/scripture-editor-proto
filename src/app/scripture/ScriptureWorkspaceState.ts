@@ -1,4 +1,5 @@
 import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
+
 import type { LineEnding } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
@@ -10,35 +11,35 @@ import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
  * loaded and parsed for editing.
  */
 type ScriptureBookStateBase = {
-    path: string;
-    title: string;
-    bookCode: string;
-    nextBookId: string | null;
-    prevBookId: string | null;
-    sort?: number;
+  path: string;
+  title: string;
+  bookCode: string;
+  nextBookId: string | null;
+  prevBookId: string | null;
+  sort?: number;
 };
 
 /**
  * Editable chapter state for a scripture book inside the workspace.
  */
 export type ScriptureChapterState = {
-    lexicalState: SerializedEditorState<SerializedLexicalNode>;
-    loadedLexicalState: SerializedEditorState<SerializedLexicalNode>;
-    sourceTokens: Token[];
-    currentTokens: Token[];
-    dirty: boolean;
-    chapterNumber: number;
-    /**
-     * The file's line-ending convention, detected from `sourceTokens` at load
-     * and re-applied at the `tokensToUsfm` waist on every serialize. Keeps a
-     * CRLF file round-tripping as CRLF instead of silently normalizing to LF.
-     */
-    eol: LineEnding;
+  lexicalState: SerializedEditorState<SerializedLexicalNode>;
+  loadedLexicalState: SerializedEditorState<SerializedLexicalNode>;
+  sourceTokens: Token[];
+  currentTokens: Token[];
+  dirty: boolean;
+  chapterNumber: number;
+  /**
+   * The file's line-ending convention, detected from `sourceTokens` at load
+   * and re-applied at the `tokensToUsfm` waist on every serialize. Keeps a
+   * CRLF file round-tripping as CRLF instead of silently normalizing to LF.
+   */
+  eol: LineEnding;
 };
 
 /**
  * Editable book state for a scripture workspace.
  */
 export type ScriptureBookState = ScriptureBookStateBase & {
-    chapters: Array<ScriptureChapterState>;
+  chapters: Array<ScriptureChapterState>;
 };

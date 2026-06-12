@@ -2,7 +2,7 @@
 
 import fs from "fs";
 import path from "path";
-import {fileURLToPath} from "url";
+import { fileURLToPath } from "url";
 
 /**
  * Keep package/app versions aligned across JS and Tauri metadata files.
@@ -31,7 +31,7 @@ function syncVersions() {
     const versionRegex = /^version = ".*"/m;
     const newCargoContent = cargoContent.replace(
       versionRegex,
-      `version = "${version}"`
+      `version = "${version}"`,
     );
 
     if (cargoContent !== newCargoContent) {
@@ -44,7 +44,7 @@ function syncVersions() {
     // Verify tauri.conf.json points to package.json
     const tauriConfigPath = path.join(
       __dirname,
-      "../src/tauri/rust/tauri.conf.json"
+      "../src/tauri/rust/tauri.conf.json",
     );
     const tauriConfig = JSON.parse(fs.readFileSync(tauriConfigPath, "utf8"));
 
@@ -52,7 +52,7 @@ function syncVersions() {
       console.log("⚙️  Tauri config correctly points to package.json");
     } else {
       console.log(
-        `⚠️  Warning: tauri.conf.json version is "${tauriConfig.version}" instead of "../package.json"`
+        `⚠️  Warning: tauri.conf.json version is "${tauriConfig.version}" instead of "../package.json"`,
       );
     }
 
@@ -67,4 +67,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   syncVersions();
 }
 
-export {syncVersions};
+export { syncVersions };

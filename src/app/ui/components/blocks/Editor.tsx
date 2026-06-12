@@ -1,6 +1,6 @@
 import {
-    type InitialConfigType,
-    LexicalComposer,
+  type InitialConfigType,
+  LexicalComposer,
 } from "@lexical/react/LexicalComposer";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
@@ -10,11 +10,12 @@ import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { LineBreakNode, ParagraphNode, TextNode } from "lexical";
 import { Lock } from "lucide-react";
 import { useEffect, useSyncExternalStore } from "react";
+
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
 import {
-    domPresentationMode,
-    EDITOR_MODES,
-    isEditableEditorMode,
+  domPresentationMode,
+  EDITOR_MODES,
+  isEditableEditorMode,
 } from "@/app/data/editor.ts";
 import { BookFrontmatterFormNode } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
 import { FormBlockNode } from "@/app/domain/editor/nodes/FormBlockNode.tsx";
@@ -22,8 +23,8 @@ import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditor
 import { USFMNumberedMarkerNode } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import { USFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
-    $createUSFMTextNode,
-    USFMTextNode,
+  $createUSFMTextNode,
+  USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { NodeContextMenuPlugin } from "@/app/domain/editor/plugins/ContextMenuPlugin.tsx";
 import { CustomHistoryPlugin } from "@/app/domain/editor/plugins/CustomHistoryPlugin.tsx";
@@ -54,93 +55,88 @@ import { guidGenerator } from "@/core/data/utils/generic.ts";
  * (e.g. typing underneath the recovery banner).
  */
 function GateEditablePlugin() {
-    const [editor] = useLexicalComposerContext();
-    const { interactionGate, project } = useWorkspaceContext();
-    const gate = useSyncExternalStore(
-        interactionGate.subscribe.bind(interactionGate),
-        interactionGate.getSnapshot.bind(interactionGate),
-    );
-    const mode = project?.appSettings.editorMode ?? EDITOR_MODES.regular;
-    useEffect(() => {
-        editor.setEditable(requireGateOpen(gate) && isEditableEditorMode(mode));
-    }, [editor, gate, mode]);
-    return null;
+  const [editor] = useLexicalComposerContext();
+  const { interactionGate, project } = useWorkspaceContext();
+  const gate = useSyncExternalStore(
+    interactionGate.subscribe.bind(interactionGate),
+    interactionGate.getSnapshot.bind(interactionGate),
+  );
+  const mode = project?.appSettings.editorMode ?? EDITOR_MODES.regular;
+  useEffect(() => {
+    editor.setEditable(requireGateOpen(gate) && isEditableEditorMode(mode));
+  }, [editor, gate, mode]);
+  return null;
 }
 
 export function MainEditor() {
-    const { editorRef, project, save, search, interactionGate } =
-        useWorkspaceContext();
-    const isSwitchingVersion = save.versions.isSwitching;
-    const gate = useSyncExternalStore(
-        interactionGate.subscribe.bind(interactionGate),
-        interactionGate.getSnapshot.bind(interactionGate),
-    );
-    // Block (and visually quiet) the editor while a crash-recovery decision is
-    // pending — the Keep/Discard banner above must be resolved first. `saving`
-    // is sub-second, so it doesn't get a scrim.
-    const isRecoveryPending = gate.kind === "recovery-decision-pending";
+  const { editorRef, project, save, search, interactionGate } =
+    useWorkspaceContext();
+  const isSwitchingVersion = save.versions.isSwitching;
+  const gate = useSyncExternalStore(
+    interactionGate.subscribe.bind(interactionGate),
+    interactionGate.getSnapshot.bind(interactionGate),
+  );
+  // Block (and visually quiet) the editor while a crash-recovery decision is
+  // pending — the Keep/Discard banner above must be resolved first. `saving`
+  // is sub-second, so it doesn't get a scrim.
+  const isRecoveryPending = gate.kind === "recovery-decision-pending";
 
-    return (
-        <div className={shellStyles.editorOuter}>
-            <LexicalComposer initialConfig={getIntialConfig()}>
-                <div
-                    data-js={DATA_JS.editorContainer}
-                    data-testid={TESTING_IDS.mainEditorContainer}
-                    className={`editor-container ${shellStyles.editorContainer} ${
-                        isSwitchingVersion
-                            ? shellStyles.editorContainerSwitching
-                            : ""
-                    }`}
-                >
-                    <RichTextPlugin
-                        contentEditable={
-                            <ContentEditable
-                                className={`${shellStyles.contentEditable} ${
-                                    search.isSearchPaneOpen
-                                        ? shellStyles.contentEditableSearchOpen
-                                        : ""
-                                }`}
-                                aria-label="USFM Editor"
-                                data-mode={domPresentationMode(
-                                    project?.appSettings.editorMode ??
-                                        EDITOR_MODES.regular,
-                                )}
-                                data-form-pane="source"
-                                spellCheck={false}
-                            />
-                        }
-                        ErrorBoundary={LexicalErrorBoundary}
-                    />
-                </div>
-                {isSwitchingVersion ? (
-                    <div className={shellStyles.switchingOverlay}>
-                        <span className={shellStyles.switchingOverlaySpinner} />
-                        {/* todo: should be localized */}
-                        <span>Switching version…</span>
-                    </div>
-                ) : null}
-                {isRecoveryPending ? (
-                    <div
-                        className={shellStyles.gateOverlay}
-                        data-testid={TESTING_IDS.editorGateOverlay}
-                    >
-                        <span className={shellStyles.gateOverlayNote}>
-                            <Lock size={14} />
-                            {/* todo: should be localized */}
-                            <span>
-                                Resolve the banner above to keep editing
-                            </span>
-                        </span>
-                    </div>
-                ) : null}
-                <EditorRefPlugin editorRef={editorRef} />
-                <GateEditablePlugin />
-                {/* TODO: KILL THE DEAD CODE AT SOME POINT */}
-                {/* <DecoratorFocusPlugin /> */}
-                {/* <UseLineBreaks /> */}
-                <CustomHistoryPlugin />
-                {/* <LivePreviewSelectedNodesPlugin /> */}
-                {/* <CustomOnChangePlugin
+  return (
+    <div className={shellStyles.editorOuter}>
+      <LexicalComposer initialConfig={getIntialConfig()}>
+        <div
+          data-js={DATA_JS.editorContainer}
+          data-testid={TESTING_IDS.mainEditorContainer}
+          className={`editor-container ${shellStyles.editorContainer} ${
+            isSwitchingVersion ? shellStyles.editorContainerSwitching : ""
+          }`}
+        >
+          <RichTextPlugin
+            contentEditable={
+              <ContentEditable
+                className={`${shellStyles.contentEditable} ${
+                  search.isSearchPaneOpen
+                    ? shellStyles.contentEditableSearchOpen
+                    : ""
+                }`}
+                aria-label="USFM Editor"
+                data-mode={domPresentationMode(
+                  project?.appSettings.editorMode ?? EDITOR_MODES.regular,
+                )}
+                data-form-pane="source"
+                spellCheck={false}
+              />
+            }
+            ErrorBoundary={LexicalErrorBoundary}
+          />
+        </div>
+        {isSwitchingVersion ? (
+          <div className={shellStyles.switchingOverlay}>
+            <span className={shellStyles.switchingOverlaySpinner} />
+            {/* todo: should be localized */}
+            <span>Switching version…</span>
+          </div>
+        ) : null}
+        {isRecoveryPending ? (
+          <div
+            className={shellStyles.gateOverlay}
+            data-testid={TESTING_IDS.editorGateOverlay}
+          >
+            <span className={shellStyles.gateOverlayNote}>
+              <Lock size={14} />
+              {/* todo: should be localized */}
+              <span>Resolve the banner above to keep editing</span>
+            </span>
+          </div>
+        ) : null}
+        <EditorRefPlugin editorRef={editorRef} />
+        <GateEditablePlugin />
+        {/* TODO: KILL THE DEAD CODE AT SOME POINT */}
+        {/* <DecoratorFocusPlugin /> */}
+        {/* <UseLineBreaks /> */}
+        <CustomHistoryPlugin />
+        {/* <LivePreviewSelectedNodesPlugin /> */}
+        {/* <CustomOnChangePlugin
               ignoreHistoryMergeTagChange={true}
               tagsToIgnore={new Set(["programmatic"])}
               onSelectionChange={(editorState, editor, tags) => {
@@ -169,15 +165,15 @@ export function MainEditor() {
               searchTerm={projectSearchTerm}
               currentEditorState={currentEditorState}
             /> */}
-                <USFMPlugin />
-                <UsfmStylesPlugin />
-                <NumberedCaretPlugin />
-                <NodeContextMenuPlugin />
-                <HighlightSink />
-                <WorkingFilesBridgePlugin />
-            </LexicalComposer>
-        </div>
-    );
+        <USFMPlugin />
+        <UsfmStylesPlugin />
+        <NumberedCaretPlugin />
+        <NodeContextMenuPlugin />
+        <HighlightSink />
+        <WorkingFilesBridgePlugin />
+      </LexicalComposer>
+    </div>
+  );
 }
 
 /**
@@ -187,31 +183,31 @@ export function MainEditor() {
  * custom USFM node model the rest of the editor pipeline expects.
  */
 function getIntialConfig(): InitialConfigType {
-    return {
-        namespace: "USFMEditor",
-        nodes: [
-            USFMParagraphNode,
-            USFMTextNode,
-            USFMNumberedMarkerNode,
-            {
-                replace: TextNode,
-                with: (node: TextNode) => {
-                    return $createUSFMTextNode(node.getTextContent(), {
-                        id: guidGenerator(),
-                        sid: "",
-                        inPara: "",
-                    });
-                },
-                withKlass: USFMTextNode,
-            },
-            // only one, default container for chap
-            ParagraphNode,
-            LineBreakNode,
-            BookFrontmatterFormNode,
-            FormBlockNode,
-            // footnoes and x-notes
-            USFMNestedEditorNode,
-        ],
-        onError: console.error,
-    };
+  return {
+    namespace: "USFMEditor",
+    nodes: [
+      USFMParagraphNode,
+      USFMTextNode,
+      USFMNumberedMarkerNode,
+      {
+        replace: TextNode,
+        with: (node: TextNode) => {
+          return $createUSFMTextNode(node.getTextContent(), {
+            id: guidGenerator(),
+            sid: "",
+            inPara: "",
+          });
+        },
+        withKlass: USFMTextNode,
+      },
+      // only one, default container for chap
+      ParagraphNode,
+      LineBreakNode,
+      BookFrontmatterFormNode,
+      FormBlockNode,
+      // footnoes and x-notes
+      USFMNestedEditorNode,
+    ],
+    onError: console.error,
+  };
 }

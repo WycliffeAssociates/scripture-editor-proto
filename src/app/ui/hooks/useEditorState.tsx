@@ -1,6 +1,8 @@
 import type { LexicalEditor } from "lexical";
+
 import type { ScriptureChapterState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
+
 import { setEditorContent } from "./utils/editorUtils.ts";
 
 /**
@@ -8,40 +10,40 @@ import { setEditorContent } from "./utils/editorUtils.ts";
  * instance. Reads from the store when callers don't pre-resolve a chapter.
  */
 export function useEditorState({
-    workingFilesStore,
+  workingFilesStore,
 }: {
-    workingFilesStore: WorkingFilesStore;
+  workingFilesStore: WorkingFilesStore;
 }) {
-    function setEditorContentWithDependencies(
-        editor: LexicalEditor,
-        fileBibleIdentifier: string,
-        chapter: number,
-        chapterContent: ScriptureChapterState | undefined,
-    ) {
-        return setEditorContent(
-            editor,
-            fileBibleIdentifier,
-            chapter,
-            chapterContent,
-            workingFilesStore,
-        );
-    }
+  function setEditorContentWithDependencies(
+    editor: LexicalEditor,
+    fileBibleIdentifier: string,
+    chapter: number,
+    chapterContent: ScriptureChapterState | undefined,
+  ) {
+    return setEditorContent(
+      editor,
+      fileBibleIdentifier,
+      chapter,
+      chapterContent,
+      workingFilesStore,
+    );
+  }
 
-    return {
-        setEditorContent: setEditorContentWithDependencies,
-    };
+  return {
+    setEditorContent: setEditorContentWithDependencies,
+  };
 }
 
 export function shouldSkipEmptyEditorSnapshot(args: {
-    isEditorStateEmpty: boolean;
-    currentChapterState: ScriptureChapterState | undefined;
+  isEditorStateEmpty: boolean;
+  currentChapterState: ScriptureChapterState | undefined;
 }): boolean {
-    if (!args.isEditorStateEmpty) return false;
-    if (!args.currentChapterState) return false;
+  if (!args.isEditorStateEmpty) return false;
+  if (!args.currentChapterState) return false;
 
-    return (
-        args.currentChapterState.sourceTokens.length > 0 ||
-        args.currentChapterState.currentTokens.length > 0 ||
-        args.currentChapterState.lexicalState.root.children.length > 0
-    );
+  return (
+    args.currentChapterState.sourceTokens.length > 0 ||
+    args.currentChapterState.currentTokens.length > 0 ||
+    args.currentChapterState.lexicalState.root.children.length > 0
+  );
 }

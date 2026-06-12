@@ -31,10 +31,10 @@
     "check:architecture": "node scripts/checkArchitecture.mjs"
   },
   "dependencies": {
-    "@lexical/clipboard": "0.35.0",
-    "@lexical/headless": "0.35.0",
-    "@lexical/react": "0.35.0",
-    "@lexical/utils": "0.35.0",
+    "@lexical/clipboard": "0.45.0",
+    "@lexical/headless": "0.45.0",
+    "@lexical/react": "0.45.0",
+    "@lexical/utils": "0.45.0",
     "@lingui/core": "6.2.0",
     "@lingui/react": "6.2.0",
     "@tanstack/react-query": "5.101.0",
@@ -55,7 +55,7 @@
     "effect": "4.0.0-beta.67",
     "fflate": "0.8.3",
     "isomorphic-git": "1.38.4",
-    "lexical": "0.35.0",
+    "lexical": "0.45.0",
     "lucide-react": "1.17.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",

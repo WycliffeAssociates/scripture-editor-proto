@@ -9,16 +9,16 @@ import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState
  * a preview; it resets what counts as "saved" in the current session.
  */
 export function applyVersionSnapshotToWorkingFiles(args: {
-    workingFiles: ScriptureBookState[];
-    sourceFiles: ScriptureBookState[];
-    /** The `workingRebuild` shape (see `shapeForSurface`). */
-    shape: EditorShape;
+  workingFiles: ScriptureBookState[];
+  sourceFiles: ScriptureBookState[];
+  /** The `workingRebuild` shape (see `shapeForSurface`). */
+  shape: EditorShape;
 }) {
-    applyIncomingChapterAll({
-        workingFiles: args.workingFiles,
-        sourceFiles: args.sourceFiles,
-        shape: args.shape,
-    });
-    // Version navigation should establish a clean baseline at the selected snapshot.
-    markFilesAsSaved(args.workingFiles);
+  applyIncomingChapterAll({
+    workingFiles: args.workingFiles,
+    sourceFiles: args.sourceFiles,
+    shape: args.shape,
+  });
+  // Version navigation should establish a clean baseline at the selected snapshot.
+  markFilesAsSaved(args.workingFiles);
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   catalogRepoAlreadyImported,
   originMatchesCatalogRepo,
@@ -100,8 +101,8 @@ describe("catalogRepoAlreadyImported", () => {
       },
     ];
     expect(catalogRepoAlreadyImported(repo(), origins)).toBe(true);
-    expect(catalogRepoAlreadyImported(repo({ repo_name: "en_ust" }), origins)).toBe(
-      false,
-    );
+    expect(
+      catalogRepoAlreadyImported(repo({ repo_name: "en_ust" }), origins),
+    ).toBe(false);
   });
 });

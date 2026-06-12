@@ -13,6 +13,7 @@ This project is organized into three main directories:
 ## Key Features
 
 ### Format
+
 The Format feature allows users to normalize USFM formatting across a book or the entire project. It uses a high-performance **Reduce/Pipe** architecture to transform Lexical's serialized state directly, ensuring consistency without the overhead of full editor instances.
 
 - **Operations**: Whitespace collapse, linebreak normalization, and paragraph marker spacing.
@@ -39,10 +40,11 @@ This project uses [Jest](https://jestjs.io/) for testing. The configuration is d
 Tests are located in `__tests__` directories within both `src` and `src-core`. Test files should follow the naming convention `*.test.ts` or `*.test.tsx`.
 
 Example:
+
 ```typescript
 // src/__tests__/example.test.ts
-describe('Example test', () => {
-  it('should work', () => {
+describe("Example test", () => {
+  it("should work", () => {
     expect(1 + 1).toBe(2);
   });
 });
@@ -62,11 +64,13 @@ This project uses [Biome](https://biomejs.dev/) for code formatting and linting.
 ### Usage Examples
 
 To format all files in the project:
+
 ```bash
 pnpm format
 ```
 
 To run the comprehensive check (recommended):
+
 ```bash
 pnpm biome
 ```

@@ -1,12 +1,12 @@
 import { type EditorShape, shapeForSurface } from "@/app/data/editor.ts";
 import {
-    serializeChaptersToUsfm,
-    tokensToLexical,
-    tokensToUsfm,
+  serializeChaptersToUsfm,
+  tokensToLexical,
+  tokensToUsfm,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type {
-    ScriptureBookState,
-    ScriptureChapterState,
+  ScriptureBookState,
+  ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
@@ -20,12 +20,12 @@ import type { BookRef } from "@/core/persistence/ScriptureWorkspace.ts";
  * reverted lexical state.
  */
 export function isChapterDirtyUsfm(chapter: ScriptureChapterState): boolean {
-    // TODO(usfm-onion): this token-based dirty check is pure USFM logic and
-    // belongs behind the crate boundary.
-    return (
-        tokensToUsfm(chapter.currentTokens, chapter.eol) !==
-        tokensToUsfm(chapter.sourceTokens, chapter.eol)
-    );
+  // TODO(usfm-onion): this token-based dirty check is pure USFM logic and
+  // belongs behind the crate boundary.
+  return (
+    tokensToUsfm(chapter.currentTokens, chapter.eol) !==
+    tokensToUsfm(chapter.sourceTokens, chapter.eol)
+  );
 }
 
 // Revert a chapter to its last-SAVED baseline. There IS a kept snapshot
@@ -37,113 +37,111 @@ export function isChapterDirtyUsfm(chapter: ScriptureChapterState): boolean {
 // ("Loaded" here means the saved baseline — `sourceTokens` advances on every
 // save, not just at file open.)
 export function revertChapterToLoadedState(
-    chapter: ScriptureChapterState,
-    shape: EditorShape,
+  chapter: ScriptureChapterState,
+  shape: EditorShape,
 ) {
-    chapter.lexicalState = tokensToLexical({
-        tokens: chapter.sourceTokens,
-        direction:
-            (chapter.lexicalState.root.direction ?? "ltr") === "rtl"
-                ? "rtl"
-                : "ltr",
-        mode: shape,
-    });
-    chapter.currentTokens = structuredClone(chapter.sourceTokens);
-    chapter.dirty = false;
+  chapter.lexicalState = tokensToLexical({
+    tokens: chapter.sourceTokens,
+    direction:
+      (chapter.lexicalState.root.direction ?? "ltr") === "rtl" ? "rtl" : "ltr",
+    mode: shape,
+  });
+  chapter.currentTokens = structuredClone(chapter.sourceTokens);
+  chapter.dirty = false;
 }
 
 export async function revertChapterDiffByBlockId(args: {
-    chapter: ScriptureChapterState;
-    diffBlockId: string;
-    usfmOnionService: IUsfmOnionService;
-    shape: EditorShape;
+  chapter: ScriptureChapterState;
+  diffBlockId: string;
+  usfmOnionService: IUsfmOnionService;
+  shape: EditorShape;
 }) {
-    const baselineTokens = args.chapter.sourceTokens;
-    const currentTokens = args.chapter.currentTokens;
+  const baselineTokens = args.chapter.sourceTokens;
+  const currentTokens = args.chapter.currentTokens;
 
-    const nextTokens = await args.usfmOnionService.revertDiffBlock(
-        baselineTokens,
-        currentTokens,
-        args.diffBlockId,
-    );
+  const nextTokens = await args.usfmOnionService.revertDiffBlock(
+    baselineTokens,
+    currentTokens,
+    args.diffBlockId,
+  );
 
-    const direction =
-        (args.chapter.lexicalState.root.direction ?? "ltr") === "rtl"
-            ? "rtl"
-            : "ltr";
+  const direction =
+    (args.chapter.lexicalState.root.direction ?? "ltr") === "rtl"
+      ? "rtl"
+      : "ltr";
 
-    args.chapter.lexicalState = tokensToLexical({
-        tokens: nextTokens,
-        direction,
-        mode: args.shape,
-    });
-    args.chapter.currentTokens = nextTokens;
-    args.chapter.dirty = isChapterDirtyUsfm(args.chapter);
+  args.chapter.lexicalState = tokensToLexical({
+    tokens: nextTokens,
+    direction,
+    mode: args.shape,
+  });
+  args.chapter.currentTokens = nextTokens;
+  args.chapter.dirty = isChapterDirtyUsfm(args.chapter);
 }
 
 export function buildBooksSavePayload(
-    files: ScriptureBookState[],
+  files: ScriptureBookState[],
 ): Record<string, string> {
-    // TODO(usfm-onion): `serializeChaptersToUsfm` belongs behind the crate
-    // boundary once app/UI orchestration is fully separated.
-    const toSave: Record<string, string> = {};
-    for (const file of files) {
-        const shouldSaveBook = file.chapters.some((chapter) => chapter.dirty);
-        if (!shouldSaveBook) continue;
+  // TODO(usfm-onion): `serializeChaptersToUsfm` belongs behind the crate
+  // boundary once app/UI orchestration is fully separated.
+  const toSave: Record<string, string> = {};
+  for (const file of files) {
+    const shouldSaveBook = file.chapters.some((chapter) => chapter.dirty);
+    if (!shouldSaveBook) continue;
 
-        toSave[file.bookCode] = serializeChaptersToUsfm(
-            file.chapters,
-            (chapter) => chapter.currentTokens,
-        );
-    }
-    return toSave;
+    toSave[file.bookCode] = serializeChaptersToUsfm(
+      file.chapters,
+      (chapter) => chapter.currentTokens,
+    );
+  }
+  return toSave;
 }
 
 const BOOK_PERSISTENCE_ACTION_VALUES = ["saveExisting", "addNew"] as const;
 
 export const [
-    BOOK_PERSISTENCE_ACTION_SAVE_EXISTING,
-    BOOK_PERSISTENCE_ACTION_ADD_NEW,
+  BOOK_PERSISTENCE_ACTION_SAVE_EXISTING,
+  BOOK_PERSISTENCE_ACTION_ADD_NEW,
 ] = BOOK_PERSISTENCE_ACTION_VALUES;
 
 export type BookPersistenceAction =
-    | {
-          kind: typeof BOOK_PERSISTENCE_ACTION_SAVE_EXISTING;
-          bookCode: string;
-          storageKey: string;
-          contents: string;
-      }
-    | {
-          kind: typeof BOOK_PERSISTENCE_ACTION_ADD_NEW;
-          bookCode: string;
-          contents: string;
-      };
+  | {
+      kind: typeof BOOK_PERSISTENCE_ACTION_SAVE_EXISTING;
+      bookCode: string;
+      storageKey: string;
+      contents: string;
+    }
+  | {
+      kind: typeof BOOK_PERSISTENCE_ACTION_ADD_NEW;
+      bookCode: string;
+      contents: string;
+    };
 
 export function buildBookPersistencePlan(args: {
-    existingBooks: Pick<BookRef, "bookCode" | "storageKey">[];
-    payload: Record<string, string>;
+  existingBooks: Pick<BookRef, "bookCode" | "storageKey">[];
+  payload: Record<string, string>;
 }): BookPersistenceAction[] {
-    const existingByBookCode = new Map(
-        args.existingBooks.map((book) => [book.bookCode, book.storageKey]),
-    );
+  const existingByBookCode = new Map(
+    args.existingBooks.map((book) => [book.bookCode, book.storageKey]),
+  );
 
-    return Object.entries(args.payload).map(([bookCode, contents]) => {
-        const storageKey = existingByBookCode.get(bookCode);
-        if (storageKey) {
-            return {
-                kind: BOOK_PERSISTENCE_ACTION_SAVE_EXISTING,
-                bookCode,
-                storageKey,
-                contents,
-            };
-        }
+  return Object.entries(args.payload).map(([bookCode, contents]) => {
+    const storageKey = existingByBookCode.get(bookCode);
+    if (storageKey) {
+      return {
+        kind: BOOK_PERSISTENCE_ACTION_SAVE_EXISTING,
+        bookCode,
+        storageKey,
+        contents,
+      };
+    }
 
-        return {
-            kind: BOOK_PERSISTENCE_ACTION_ADD_NEW,
-            bookCode,
-            contents,
-        };
-    });
+    return {
+      kind: BOOK_PERSISTENCE_ACTION_ADD_NEW,
+      bookCode,
+      contents,
+    };
+  });
 }
 
 /**
@@ -162,38 +160,38 @@ export function buildBookPersistencePlan(args: {
  * regardless of which subsystem caused the mutation, with no UI involved.
  */
 export function rebaseChapterToCapturedSave(
-    chapter: ScriptureChapterState,
-    captured: { tokens: Token[] },
-    direction: "ltr" | "rtl",
+  chapter: ScriptureChapterState,
+  captured: { tokens: Token[] },
+  direction: "ltr" | "rtl",
 ): ScriptureChapterState {
-    const rebased: ScriptureChapterState = {
-        ...chapter,
-        sourceTokens: captured.tokens,
-        loadedLexicalState: tokensToLexical({
-            tokens: captured.tokens,
-            direction,
-            mode: shapeForSurface("savedBaseline"),
-        }),
-    };
-    return { ...rebased, dirty: isChapterDirtyUsfm(rebased) };
+  const rebased: ScriptureChapterState = {
+    ...chapter,
+    sourceTokens: captured.tokens,
+    loadedLexicalState: tokensToLexical({
+      tokens: captured.tokens,
+      direction,
+      mode: shapeForSurface("savedBaseline"),
+    }),
+  };
+  return { ...rebased, dirty: isChapterDirtyUsfm(rebased) };
 }
 
 export function markFilesAsSaved(files: ScriptureBookState[]) {
-    for (const file of files) {
-        for (const chapter of file.chapters) {
-            const direction =
-                (chapter.loadedLexicalState.root.direction ??
-                    chapter.lexicalState.root.direction ??
-                    LanguageDirection.LTR) === LanguageDirection.RTL
-                    ? LanguageDirection.RTL
-                    : LanguageDirection.LTR;
-            chapter.sourceTokens = structuredClone(chapter.currentTokens);
-            chapter.loadedLexicalState = tokensToLexical({
-                tokens: chapter.sourceTokens,
-                direction,
-                mode: shapeForSurface("savedBaseline"),
-            });
-            chapter.dirty = false;
-        }
+  for (const file of files) {
+    for (const chapter of file.chapters) {
+      const direction =
+        (chapter.loadedLexicalState.root.direction ??
+          chapter.lexicalState.root.direction ??
+          LanguageDirection.LTR) === LanguageDirection.RTL
+          ? LanguageDirection.RTL
+          : LanguageDirection.LTR;
+      chapter.sourceTokens = structuredClone(chapter.currentTokens);
+      chapter.loadedLexicalState = tokensToLexical({
+        tokens: chapter.sourceTokens,
+        direction,
+        mode: shapeForSurface("savedBaseline"),
+      });
+      chapter.dirty = false;
     }
+  }
 }

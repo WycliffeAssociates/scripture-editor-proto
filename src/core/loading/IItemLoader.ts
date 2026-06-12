@@ -9,9 +9,9 @@ import type { FileSystem } from "@/core/persistence/FileSystem.ts";
  * remote URLs, or temp extraction state here; those belong to import.
  */
 export interface IItemLoaderArgs {
-    fs: FileSystem;
-    managedPath: string;
-    displayName: string;
+  fs: FileSystem;
+  managedPath: string;
+  displayName: string;
 }
 
 /**
@@ -27,5 +27,5 @@ export interface IItemLoaderArgs {
  * import-time reshaping, temp staging, or UI-specific branching.
  */
 export interface IItemLoader {
-    openItem(args: IItemLoaderArgs): Promise<LibraryItem | null>;
+  openItem(args: IItemLoaderArgs): Promise<LibraryItem | null>;
 }

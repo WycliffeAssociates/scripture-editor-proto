@@ -1,6 +1,6 @@
 import type {
-    ScriptureBookState,
-    ScriptureChapterState,
+  ScriptureBookState,
+  ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
 
 /**
@@ -12,46 +12,44 @@ import type {
 export type ChapterRef = { bookCode: string; chapterNum: number };
 
 export function chapterRefsForBook(file: ScriptureBookState): ChapterRef[] {
-    return file.chapters.map((chapter) => ({
-        bookCode: file.bookCode,
-        chapterNum: chapter.chapterNumber,
-    }));
+  return file.chapters.map((chapter) => ({
+    bookCode: file.bookCode,
+    chapterNum: chapter.chapterNumber,
+  }));
 }
 
 export function allChapterRefs(files: ScriptureBookState[]): ChapterRef[] {
-    return files.flatMap(chapterRefsForBook);
+  return files.flatMap(chapterRefsForBook);
 }
 
 export function findChapter(
-    files: ScriptureBookState[],
-    bookCode: string,
-    chapterNum: number,
+  files: ScriptureBookState[],
+  bookCode: string,
+  chapterNum: number,
 ): ScriptureChapterState | undefined {
-    return files
-        .find((file) => file.bookCode === bookCode)
-        ?.chapters.find((chapter) => chapter.chapterNumber === chapterNum);
+  return files
+    .find((file) => file.bookCode === bookCode)
+    ?.chapters.find((chapter) => chapter.chapterNumber === chapterNum);
 }
 
 export function listDirtyChapterRefs(
-    files: ScriptureBookState[],
+  files: ScriptureBookState[],
 ): ChapterRef[] {
-    const result: ChapterRef[] = [];
-    for (const file of files) {
-        for (const chapter of file.chapters) {
-            if (!chapter.dirty) continue;
-            result.push({
-                bookCode: file.bookCode,
-                chapterNum: chapter.chapterNumber,
-            });
-        }
+  const result: ChapterRef[] = [];
+  for (const file of files) {
+    for (const chapter of file.chapters) {
+      if (!chapter.dirty) continue;
+      result.push({
+        bookCode: file.bookCode,
+        chapterNum: chapter.chapterNumber,
+      });
     }
-    return result;
+  }
+  return result;
 }
 
 export function getDirtyFiles(
-    files: ScriptureBookState[],
+  files: ScriptureBookState[],
 ): ScriptureBookState[] {
-    return files.filter((file) =>
-        file.chapters.some((chapter) => chapter.dirty),
-    );
+  return files.filter((file) => file.chapters.some((chapter) => chapter.dirty));
 }

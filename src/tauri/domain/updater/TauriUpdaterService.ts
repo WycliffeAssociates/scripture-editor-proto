@@ -3,10 +3,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { platform } from "@tauri-apps/plugin-os";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
+
 import type {
-    CheckResult,
-    IUpdaterService,
-    ReleaseListing,
+  CheckResult,
+  IUpdaterService,
+  ReleaseListing,
 } from "@/core/domain/updater/IUpdaterService.ts";
 
 /**
@@ -25,7 +26,7 @@ import type {
  */
 
 const updaterHost =
-    (import.meta.env.VITE_UPDATER_HOST as string | undefined) ?? "";
+  (import.meta.env.VITE_UPDATER_HOST as string | undefined) ?? "";
 
 /**
  * Resolve the updater target string used by both the auto-check (handled by
@@ -42,103 +43,100 @@ const updaterHost =
  * unambiguous.
  */
 function resolveUpdaterTarget(): string {
-    const p = platform();
-    return p === "macos" ? "darwin" : p;
+  const p = platform();
+  return p === "macos" ? "darwin" : p;
 }
 
 export class TauriUpdaterService implements IUpdaterService {
-    private cachedVersion: string | null = null;
-    private cachedChannel: "stable" | "nightly" | null = null;
+  private cachedVersion: string | null = null;
+  private cachedChannel: "stable" | "nightly" | null = null;
 
-    currentVersion(): string {
-        return this.cachedVersion ?? "0.0.0";
-    }
+  currentVersion(): string {
+    return this.cachedVersion ?? "0.0.0";
+  }
 
-    currentChannel(): "stable" | "nightly" {
-        return this.cachedChannel ?? "stable";
-    }
+  currentChannel(): "stable" | "nightly" {
+    return this.cachedChannel ?? "stable";
+  }
 
-    /**
-     * Prime the cached identity. Called once during bootstrap so the synchronous
-     * `currentVersion`/`currentChannel` getters can be consumed by React without
-     * suspense.
-     */
-    async initialize(): Promise<void> {
-        const [version, identifier] = await Promise.all([
-            getVersion(),
-            getIdentifier(),
-        ]);
-        this.cachedVersion = version;
-        this.cachedChannel = identifier.endsWith(".nightly")
-            ? "nightly"
-            : "stable";
-    }
+  /**
+   * Prime the cached identity. Called once during bootstrap so the synchronous
+   * `currentVersion`/`currentChannel` getters can be consumed by React without
+   * suspense.
+   */
+  async initialize(): Promise<void> {
+    const [version, identifier] = await Promise.all([
+      getVersion(),
+      getIdentifier(),
+    ]);
+    this.cachedVersion = version;
+    this.cachedChannel = identifier.endsWith(".nightly") ? "nightly" : "stable";
+  }
 
-    async check(): Promise<CheckResult> {
-        try {
-            const update = await check();
-            if (!update) return { kind: "up-to-date" };
-            return {
-                kind: "update",
-                update: {
-                    version: update.version,
-                    notes: update.body ?? "",
-                    date: update.date ?? null,
-                },
-            };
-        } catch (error) {
-            const message =
-                error instanceof Error ? error.message : String(error);
-            console.warn("[updater] check failed", error);
-            return { kind: "error", message };
-        }
+  async check(): Promise<CheckResult> {
+    try {
+      const update = await check();
+      if (!update) return { kind: "up-to-date" };
+      return {
+        kind: "update",
+        update: {
+          version: update.version,
+          notes: update.body ?? "",
+          date: update.date ?? null,
+        },
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn("[updater] check failed", error);
+      return { kind: "error", message };
     }
+  }
 
-    async installAndRelaunch(): Promise<void> {
-        const update: Update | null = await check();
-        if (!update) {
-            console.warn("[updater] no update available at install time");
-            return;
-        }
-        await update.downloadAndInstall();
-        await relaunch();
+  async installAndRelaunch(): Promise<void> {
+    const update: Update | null = await check();
+    if (!update) {
+      console.warn("[updater] no update available at install time");
+      return;
     }
+    await update.downloadAndInstall();
+    await relaunch();
+  }
 
-    async listVersions(): Promise<ReleaseListing[]> {
-        if (!updaterHost) return [];
-        try {
-            const response = await fetch(`${updaterHost}/versions`);
-            if (!response.ok) return [];
-            const raw = (await response.json()) as Array<{
-                version: string;
-                tag: string;
-                published_at: string;
-                prerelease: boolean;
-            }>;
-            return raw.map((r) => ({
-                version: r.version,
-                tag: r.tag,
-                publishedAt: r.published_at ?? null,
-                prerelease: r.prerelease,
-            }));
-        } catch (error) {
-            console.warn("[updater] listVersions failed", error);
-            return [];
-        }
+  async listVersions(): Promise<ReleaseListing[]> {
+    if (!updaterHost) return [];
+    try {
+      const response = await fetch(`${updaterHost}/versions`);
+      if (!response.ok) return [];
+      const raw = (await response.json()) as Array<{
+        version: string;
+        tag: string;
+        published_at: string;
+        prerelease: boolean;
+      }>;
+      return raw.map((r) => ({
+        version: r.version,
+        tag: r.tag,
+        publishedAt: r.published_at ?? null,
+        prerelease: r.prerelease,
+      }));
+    } catch (error) {
+      console.warn("[updater] listVersions failed", error);
+      return [];
     }
+  }
 
-    async installVersion(version: string): Promise<void> {
-        if (!updaterHost) {
-            throw new Error("updater host not configured for this build");
-        }
-        const target = resolveUpdaterTarget();
-        const manifestUrl = `${updaterHost}/${target}/at/${version}`;
-        // The JS plugin's CheckOptions does not expose endpoint override, so
-        // we route the specific-version install through a Rust command that
-        // builds an `UpdaterBuilder` with the custom endpoint. The Rust side
-        // performs the same signature verification + atomic install as the
-        // regular auto-check path.
-        await invoke("install_update_from_endpoint", { endpoint: manifestUrl });
-        await relaunch();
+  async installVersion(version: string): Promise<void> {
+    if (!updaterHost) {
+      throw new Error("updater host not configured for this build");
     }
+    const target = resolveUpdaterTarget();
+    const manifestUrl = `${updaterHost}/${target}/at/${version}`;
+    // The JS plugin's CheckOptions does not expose endpoint override, so
+    // we route the specific-version install through a Rust command that
+    // builds an `UpdaterBuilder` with the custom endpoint. The Rust side
+    // performs the same signature verification + atomic install as the
+    // regular auto-check path.
+    await invoke("install_update_from_endpoint", { endpoint: manifestUrl });
+    await relaunch();
+  }
 }

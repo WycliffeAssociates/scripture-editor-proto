@@ -1,5 +1,5 @@
 export function joinClassNames(
-    ...classNames: Array<string | false | null | undefined>
+  ...classNames: Array<string | false | null | undefined>
 ) {
-    return classNames.filter(Boolean).join(" ");
+  return classNames.filter(Boolean).join(" ");
 }

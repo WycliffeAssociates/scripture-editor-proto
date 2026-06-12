@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 
-import { I18nProvider } from "@lingui/react";
 import { i18n } from "@lingui/core";
+import { I18nProvider } from "@lingui/react";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+
 import {
   CloudProjectStatusBadge,
   CloudProjectStatusBanner,
@@ -67,7 +68,9 @@ function render(ui: React.ReactNode) {
   });
 }
 
-function makeStatus(kind: GitRemoteProjectStatus["kind"]): GitRemoteProjectStatus {
+function makeStatus(
+  kind: GitRemoteProjectStatus["kind"],
+): GitRemoteProjectStatus {
   return {
     projectPath: "/userData/projects/foo",
     kind,
@@ -110,10 +113,14 @@ describe("cloud project status UI", () => {
       />,
     );
 
-    expect(document.body.textContent).toContain("Some changes need your review");
+    expect(document.body.textContent).toContain(
+      "Some changes need your review",
+    );
     expect(document.body.textContent).toContain("Review changes");
     act(() => {
-      document.querySelector("button")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      document
+        .querySelector("button")
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(onReview).toHaveBeenCalledTimes(1);
   });
@@ -134,7 +141,9 @@ describe("cloud project status UI", () => {
     );
     expect(document.body.textContent).toContain("Send my changes");
     act(() => {
-      document.querySelector("button")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      document
+        .querySelector("button")
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(onSync).toHaveBeenCalledTimes(1);
   });

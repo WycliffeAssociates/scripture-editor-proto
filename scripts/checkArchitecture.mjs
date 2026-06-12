@@ -16,8 +16,7 @@ const allowedRelativePrefixes = ["./", "../"];
 const allowedNodePrefixes = ["node:"];
 
 const violations = [];
-const allowedLegacyViolations = new Set([
-]);
+const allowedLegacyViolations = new Set([]);
 
 function walk(dir) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -32,7 +31,9 @@ function walk(dir) {
     }
 
     const text = fs.readFileSync(fullPath, "utf8");
-    const importMatches = [...text.matchAll(/from\s+"([^"]+)"|from\s+'([^']+)'/g)];
+    const importMatches = [
+      ...text.matchAll(/from\s+"([^"]+)"|from\s+'([^']+)'/g),
+    ];
 
     for (const match of importMatches) {
       const specifier = match[1] || match[2] || "";
@@ -48,7 +49,9 @@ function walk(dir) {
       }
 
       if (
-        allowedRelativePrefixes.some((prefix) => specifier.startsWith(prefix)) ||
+        allowedRelativePrefixes.some((prefix) =>
+          specifier.startsWith(prefix),
+        ) ||
         allowedNodePrefixes.some((prefix) => specifier.startsWith(prefix)) ||
         specifier.startsWith("@/core/")
       ) {
@@ -61,9 +64,13 @@ function walk(dir) {
 walk(coreDir);
 
 if (violations.length > 0) {
-  console.error("Architecture boundary violations found (src/core cannot import app/web/tauri):");
+  console.error(
+    "Architecture boundary violations found (src/core cannot import app/web/tauri):",
+  );
   for (const violation of violations) {
-    console.error(`- ${path.relative(rootDir, violation.file)} -> ${violation.specifier}`);
+    console.error(
+      `- ${path.relative(rootDir, violation.file)} -> ${violation.specifier}`,
+    );
   }
   process.exit(1);
 }

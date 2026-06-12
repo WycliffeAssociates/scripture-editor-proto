@@ -1,9 +1,9 @@
 import {
-    domPresentationMode,
-    EDITOR_MODES,
-    type EditorModeSetting,
-    isEditableEditorMode,
-    markersHiddenInMode,
+  domPresentationMode,
+  EDITOR_MODES,
+  type EditorModeSetting,
+  isEditableEditorMode,
+  markersHiddenInMode,
 } from "@/app/data/editor.ts";
 
 /**
@@ -12,51 +12,51 @@ import {
  * state.
  */
 export function updateDomForEditorMode({
-    editorMode,
+  editorMode,
 }: {
-    editorMode: EditorModeSetting;
+  editorMode: EditorModeSetting;
 }) {
-    const root = document.querySelector("#root") as HTMLElement | null;
-    if (root) {
-        // View mode should *look* like Regular mode (same CSS selectors),
-        // but we keep an explicit read-only flag for targeted styling if needed.
-        root.dataset.editorMode = domPresentationMode(editorMode);
-        root.dataset.editorReadOnly = isEditableEditorMode(editorMode)
-            ? "false"
-            : "true";
-    }
+  const root = document.querySelector("#root") as HTMLElement | null;
+  if (root) {
+    // View mode should *look* like Regular mode (same CSS selectors),
+    // but we keep an explicit read-only flag for targeted styling if needed.
+    root.dataset.editorMode = domPresentationMode(editorMode);
+    root.dataset.editorReadOnly = isEditableEditorMode(editorMode)
+      ? "false"
+      : "true";
+  }
 
-    if (editorMode === EDITOR_MODES.plain) {
-        document.body.classList.add("source-mode");
-    } else {
-        document.body.classList.remove("source-mode");
-    }
+  if (editorMode === EDITOR_MODES.plain) {
+    document.body.classList.add("source-mode");
+  } else {
+    document.body.classList.remove("source-mode");
+  }
 
-    const appRoot = document.body.firstElementChild;
-    if (!appRoot) return;
+  const appRoot = document.body.firstElementChild;
+  if (!appRoot) return;
 
-    if (markersHiddenInMode(editorMode)) {
-        appRoot.classList.add("markers-hidden");
-        appRoot.classList.remove("markers-shown");
-    } else {
-        appRoot.classList.add("markers-shown");
-        appRoot.classList.remove("markers-hidden");
-    }
+  if (markersHiddenInMode(editorMode)) {
+    appRoot.classList.add("markers-hidden");
+    appRoot.classList.remove("markers-shown");
+  } else {
+    appRoot.classList.add("markers-shown");
+    appRoot.classList.remove("markers-hidden");
+  }
 }
 /**
  * Tiny development-only timing helper for synchronous UI experiments.
  */
 /** @knipignore */
 export function timeInDev(fn: () => void, label?: string) {
-    if (import.meta.env.DEV) {
-        const start = performance.now();
-        const r = fn();
-        const end = performance.now();
-        console.log(`Label: ${label}, Time: ${end - start}ms`);
-        return r;
-    } else {
-        return fn();
-    }
+  if (import.meta.env.DEV) {
+    const start = performance.now();
+    const r = fn();
+    const end = performance.now();
+    console.log(`Label: ${label}, Time: ${end - start}ms`);
+    return r;
+  } else {
+    return fn();
+  }
 }
 // Namespaces our dev measures so the logger (and a DevTools filter) can pick
 // them out from framework/browser User Timing entries.
@@ -77,14 +77,14 @@ const NOOP_TIMER = () => {};
  * completes. No-op in production (returns a shared empty function).
  */
 export function devTimer(label: string): () => void {
-    if (!import.meta.env.DEV) return NOOP_TIMER;
-    const start = performance.now();
-    return () => {
-        performance.measure(`${DEV_TIMER_PREFIX}${label}`, {
-            start,
-            end: performance.now(),
-        });
-    };
+  if (!import.meta.env.DEV) return NOOP_TIMER;
+  const start = performance.now();
+  return () => {
+    performance.measure(`${DEV_TIMER_PREFIX}${label}`, {
+      start,
+      end: performance.now(),
+    });
+  };
 }
 
 let devTimerLoggerInstalled = false;
@@ -97,17 +97,17 @@ let devTimerLoggerInstalled = false;
  * unavailable. Call once at app startup.
  */
 export function installDevTimerLogger(): void {
-    if (!import.meta.env.DEV || devTimerLoggerInstalled) return;
-    if (typeof PerformanceObserver === "undefined") return;
-    devTimerLoggerInstalled = true;
-    new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
-            if (
-                entry.entryType === "measure" &&
-                entry.name.startsWith(DEV_TIMER_PREFIX)
-            ) {
-                console.debug(`${entry.name}: ${entry.duration.toFixed(1)}ms`);
-            }
-        }
-    }).observe({ entryTypes: ["measure"] });
+  if (!import.meta.env.DEV || devTimerLoggerInstalled) return;
+  if (typeof PerformanceObserver === "undefined") return;
+  devTimerLoggerInstalled = true;
+  new PerformanceObserver((list) => {
+    for (const entry of list.getEntries()) {
+      if (
+        entry.entryType === "measure" &&
+        entry.name.startsWith(DEV_TIMER_PREFIX)
+      ) {
+        console.debug(`${entry.name}: ${entry.duration.toFixed(1)}ms`);
+      }
+    }
+  }).observe({ entryTypes: ["measure"] });
 }

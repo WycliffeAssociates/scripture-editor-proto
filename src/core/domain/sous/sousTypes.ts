@@ -12,14 +12,14 @@ export type SousSeverity = "error" | "warning" | "info";
 
 /** One content anomaly. `code` is a sous `RuleId` (e.g. `lex.excess-h-whitespace`). */
 export type SousFinding = {
-    sid: string;
-    code: string;
-    severity: SousSeverity;
-    /** UTF-16 offsets into the verse's projected text. */
-    start: number;
-    end: number;
-    /** Confidence, when the rule scores; undefined for binary rules. */
-    score?: number;
+  sid: string;
+  code: string;
+  severity: SousSeverity;
+  /** UTF-16 offsets into the verse's projected text. */
+  start: number;
+  end: number;
+  /** Confidence, when the rule scores; undefined for binary rules. */
+  score?: number;
 };
 
 /**
@@ -28,6 +28,6 @@ export type SousFinding = {
  * come from one pass — onion builds the projection, sous analyzes its text.
  */
 export type SousAnalyzeResult = {
-    segments: SegmentsBySid;
-    findings: SousFinding[];
+  segments: SegmentsBySid;
+  findings: SousFinding[];
 };

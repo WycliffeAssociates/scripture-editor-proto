@@ -1,4 +1,5 @@
 import { Effect, Stream } from "effect";
+
 import { isSaveStatusRelevant } from "@/app/state/commitFilters.ts";
 import type { SaveStatusStore } from "@/app/state/SaveStatusStore.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
@@ -22,20 +23,20 @@ import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
  *                         initial status from `projectFiles`.
  */
 export function makeSaveStatusPipeline(args: {
-    workingFilesStore: WorkingFilesStore;
-    saveStatusStore: SaveStatusStore;
+  workingFilesStore: WorkingFilesStore;
+  saveStatusStore: SaveStatusStore;
 }): Effect.Effect<void> {
-    return args.workingFilesStore.changes.pipe(
-        Stream.filter(isSaveStatusRelevant),
-        Stream.tap((event) =>
-            Effect.sync(() => {
-                const anyDirty = event.snapshot.some((file) =>
-                    file.chapters.some((chapter) => chapter.dirty),
-                );
-                if (anyDirty) args.saveStatusStore.setDirty();
-                else args.saveStatusStore.setCleanFromCommit();
-            }),
-        ),
-        Stream.runDrain,
-    );
+  return args.workingFilesStore.changes.pipe(
+    Stream.filter(isSaveStatusRelevant),
+    Stream.tap((event) =>
+      Effect.sync(() => {
+        const anyDirty = event.snapshot.some((file) =>
+          file.chapters.some((chapter) => chapter.dirty),
+        );
+        if (anyDirty) args.saveStatusStore.setDirty();
+        else args.saveStatusStore.setCleanFromCommit();
+      }),
+    ),
+    Stream.runDrain,
+  );
 }

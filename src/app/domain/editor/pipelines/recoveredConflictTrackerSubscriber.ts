@@ -20,33 +20,29 @@
 // unreviewed).
 
 import { Effect, Stream } from "effect";
+
 import type { RecoveredConflictTracker } from "@/app/state/RecoveredConflictTracker.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 
 export function makeRecoveredConflictTrackerSubscriber(args: {
-    workingFilesStore: WorkingFilesStore;
-    tracker: RecoveredConflictTracker;
+  workingFilesStore: WorkingFilesStore;
+  tracker: RecoveredConflictTracker;
 }): Effect.Effect<void> {
-    return args.workingFilesStore.changes.pipe(
-        Stream.runForEach((event) =>
-            Effect.sync(() => {
-                if (args.tracker.isEmpty()) return;
-                // Snapshot is a stable array; clearing mutates the tracker's
-                // internal set, not this captured list, so iteration is safe.
-                for (const {
-                    bookCode,
-                    chapterNum,
-                } of args.tracker.getSnapshot()) {
-                    const chapter = event.snapshot
-                        .find((file) => file.bookCode === bookCode)
-                        ?.chapters.find(
-                            (entry) => entry.chapterNumber === chapterNum,
-                        );
-                    if (chapter && !chapter.dirty) {
-                        args.tracker.clear(bookCode, chapterNum);
-                    }
-                }
-            }),
-        ),
-    );
+  return args.workingFilesStore.changes.pipe(
+    Stream.runForEach((event) =>
+      Effect.sync(() => {
+        if (args.tracker.isEmpty()) return;
+        // Snapshot is a stable array; clearing mutates the tracker's
+        // internal set, not this captured list, so iteration is safe.
+        for (const { bookCode, chapterNum } of args.tracker.getSnapshot()) {
+          const chapter = event.snapshot
+            .find((file) => file.bookCode === bookCode)
+            ?.chapters.find((entry) => entry.chapterNumber === chapterNum);
+          if (chapter && !chapter.dirty) {
+            args.tracker.clear(bookCode, chapterNum);
+          }
+        }
+      }),
+    ),
+  );
 }

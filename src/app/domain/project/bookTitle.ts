@@ -19,16 +19,16 @@ type TitledBook = { bookCode: string; title: string };
  *   callers pass a whole reference string rather than just the code.
  */
 export function bookCodeToTitle(
-    books: ReadonlyArray<TitledBook>,
-    {
-        bookCode,
-        replaceCodeInString,
-    }: { bookCode: string; replaceCodeInString?: string },
+  books: ReadonlyArray<TitledBook>,
+  {
+    bookCode,
+    replaceCodeInString,
+  }: { bookCode: string; replaceCodeInString?: string },
 ): string {
-    const book = books.find((candidate) => candidate.bookCode === bookCode);
-    if (!book) return bookCode;
-    if (replaceCodeInString) {
-        return replaceCodeInString.replace(bookCode, book.title);
-    }
-    return book.title;
+  const book = books.find((candidate) => candidate.bookCode === bookCode);
+  if (!book) return bookCode;
+  if (replaceCodeInString) {
+    return replaceCodeInString.replace(bookCode, book.title);
+  }
+  return book.title;
 }

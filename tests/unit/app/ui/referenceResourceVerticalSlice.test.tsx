@@ -3,11 +3,22 @@
 import { i18n } from "@lingui/core";
 import { I18nProvider } from "@lingui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { InMemoryFileSystem } from "@tests/helpers/InMemoryFileSystem.ts";
+import { seedEnTnCondensedFixture } from "@tests/helpers/mockData/enTnCondensed.ts";
 import React, { act, useEffect, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import type { LibraryService } from "@/app/library/LibraryService.ts";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+
 import { TESTING_IDS } from "@/app/data/constants.ts";
+import type { LibraryService } from "@/app/library/LibraryService.ts";
 import { ReferenceEditor } from "@/app/ui/components/blocks/ReferenceEditor.tsx";
 import { WorkspaceContext } from "@/app/ui/contexts/_workspaceContext.ts";
 import type { WorkSpaceContextType } from "@/app/ui/contexts/WorkspaceContext.tsx";
@@ -15,8 +26,6 @@ import { useReferenceItem } from "@/app/ui/hooks/useReferenceItem.tsx";
 import { ResourceContainerProjectLoader } from "@/core/domain/project/ResourceContainerProjectLoader.ts";
 import { isRemoteSyncCapable } from "@/core/library/ReferenceItemSupport.ts";
 import type { ProjectsService } from "@/core/persistence/WorkspaceService.ts";
-import { InMemoryFileSystem } from "@tests/helpers/InMemoryFileSystem.ts";
-import { seedEnTnCondensedFixture } from "@tests/helpers/mockData/enTnCondensed.ts";
 
 vi.mock("@tanstack/react-router", () => ({
   useRouter: () => ({
@@ -33,7 +42,10 @@ vi.mock("@tanstack/react-router", () => ({
 
 const PROJECT_ROOT_PATH = "/projects/en_tn_condensed";
 
-function TestProviders(props: { children: React.ReactNode; queryClient: QueryClient }) {
+function TestProviders(props: {
+  children: React.ReactNode;
+  queryClient: QueryClient;
+}) {
   return (
     <QueryClientProvider client={props.queryClient}>
       <I18nProvider i18n={i18n}>{props.children}</I18nProvider>
@@ -152,7 +164,9 @@ function render(ui: React.ReactNode) {
   document.body.appendChild(container);
   root = createRoot(container);
   act(() => {
-    root?.render(<TestProviders queryClient={queryClient!}>{ui}</TestProviders>);
+    root?.render(
+      <TestProviders queryClient={queryClient!}>{ui}</TestProviders>,
+    );
   });
 }
 
@@ -256,14 +270,18 @@ describe("reference-resource vertical slice", () => {
     await waitForText("Verse 71");
     await waitForText("Why do we still need a witness?");
 
-    expect(document.body.textContent).toContain('"We have no further need for witnesses!"');
+    expect(document.body.textContent).toContain(
+      '"We have no further need for witnesses!"',
+    );
     // DISABLED: the "Sync navigation" toggle was removed from the reference UI
     // (nav-sync is now always on). TODO: delete or rewrite once the sync-nav
     // direction is settled (see TODOs in useReferenceItem.tsx).
     // expect(
     //   document.querySelector(`[data-testid="${TESTING_IDS.reference.syncNavigationToggle}"]`),
     // ).not.toBeNull();
-    expect(document.querySelector(`[data-testid="${TESTING_IDS.referencePicker}"]`)).toBeNull();
+    expect(
+      document.querySelector(`[data-testid="${TESTING_IDS.referencePicker}"]`),
+    ).toBeNull();
     expect(document.body.textContent).not.toContain("Check for updates");
     expect(document.body.textContent).not.toContain("Apply updates");
     expect(libraryService.openItem).toHaveBeenCalledWith(PROJECT_ROOT_PATH);

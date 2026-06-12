@@ -1,4 +1,5 @@
 import { t } from "@lingui/core/macro";
+
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import * as styles from "@/app/ui/styles/modules/UpdateBanner.css.ts";
 
@@ -17,38 +18,38 @@ import * as styles from "@/app/ui/styles/modules/UpdateBanner.css.ts";
  * knows to review before saving.
  */
 export function RestoredBuffersBanner({
-    bookCodes,
-    conflictedBookCodes,
-    onKeep,
-    onDiscard,
+  bookCodes,
+  conflictedBookCodes,
+  onKeep,
+  onDiscard,
 }: {
-    bookCodes: string[];
-    conflictedBookCodes: string[];
-    onKeep: () => void;
-    onDiscard: () => void;
+  bookCodes: string[];
+  conflictedBookCodes: string[];
+  onKeep: () => void;
+  onDiscard: () => void;
 }) {
-    if (bookCodes.length === 0) return null;
-    const hasConflicts = conflictedBookCodes.length > 0;
-    return (
-        // biome-ignore lint/a11y/useSemanticElements: role="status" polite live region is the right ARIA pattern for an app-level recovery notice.
-        <div className={styles.root} role="status" aria-live="polite">
-            <div className={styles.message}>
-                {t`We restored unsaved work from your last session. It will be kept until you save your file, and you can review the changes in the review panel.`}
-                {hasConflicts && (
-                    <>
-                        {" "}
-                        {t`Some of these files changed on disk since your last edits. Your changes are kept and layered on top — review them in the review panel before saving.`}
-                    </>
-                )}
-            </div>
-            <div className={styles.actions}>
-                <Button variant="secondary" onClick={onDiscard}>
-                    {t`Discard`}
-                </Button>
-                <Button variant="primary" onClick={onKeep}>
-                    {t`Keep`}
-                </Button>
-            </div>
-        </div>
-    );
+  if (bookCodes.length === 0) return null;
+  const hasConflicts = conflictedBookCodes.length > 0;
+  return (
+    // biome-ignore lint/a11y/useSemanticElements: role="status" polite live region is the right ARIA pattern for an app-level recovery notice.
+    <div className={styles.root} role="status" aria-live="polite">
+      <div className={styles.message}>
+        {t`We restored unsaved work from your last session. It will be kept until you save your file, and you can review the changes in the review panel.`}
+        {hasConflicts && (
+          <>
+            {" "}
+            {t`Some of these files changed on disk since your last edits. Your changes are kept and layered on top — review them in the review panel before saving.`}
+          </>
+        )}
+      </div>
+      <div className={styles.actions}>
+        <Button variant="secondary" onClick={onDiscard}>
+          {t`Discard`}
+        </Button>
+        <Button variant="primary" onClick={onKeep}>
+          {t`Keep`}
+        </Button>
+      </div>
+    </div>
+  );
 }

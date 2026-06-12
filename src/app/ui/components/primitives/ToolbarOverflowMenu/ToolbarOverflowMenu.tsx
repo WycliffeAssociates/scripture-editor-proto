@@ -2,7 +2,9 @@ import { Menu } from "@base-ui/react/menu";
 import { Trans } from "@lingui/react/macro";
 import { BookCopy, ClipboardPaste, Copy, Scissors } from "lucide-react";
 import type { ReactNode } from "react";
+
 import { zLayer } from "@/app/ui/styles/zLayers.ts";
+
 import * as styles from "./toolbarOverflowMenu.css.ts";
 
 /**
@@ -11,19 +13,19 @@ import * as styles from "./toolbarOverflowMenu.css.ts";
  * vocabulary) so the menu stays a dumb renderer.
  */
 export interface KebabMarkerAction {
-    marker: string;
-    label: string;
-    icon: ReactNode;
-    onSelect: () => void;
+  marker: string;
+  label: string;
+  icon: ReactNode;
+  onSelect: () => void;
 }
 
 export interface ToolbarOverflowMenuProps {
-    onCut: () => void;
-    onCopy: () => void;
-    onPaste: () => void;
-    markerActions: KebabMarkerAction[];
-    onMatchFormattingToSource?: () => void;
-    onCopyEditorJson?: () => void;
+  onCut: () => void;
+  onCopy: () => void;
+  onPaste: () => void;
+  markerActions: KebabMarkerAction[];
+  onMatchFormattingToSource?: () => void;
+  onCopyEditorJson?: () => void;
 }
 
 /**
@@ -36,127 +38,96 @@ export interface ToolbarOverflowMenuProps {
  * a known anchor.
  */
 export function ToolbarOverflowMenu(props: ToolbarOverflowMenuProps) {
-    const hasTools = Boolean(
-        props.onMatchFormattingToSource || props.onCopyEditorJson,
-    );
+  const hasTools = Boolean(
+    props.onMatchFormattingToSource || props.onCopyEditorJson,
+  );
 
-    return (
-        <Menu.Root>
-            <Menu.Trigger className={styles.trigger} aria-label="More actions">
-                <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                >
-                    <circle cx="8" cy="2.5" r="1.5" fill="currentColor" />
-                    <circle cx="8" cy="8" r="1.5" fill="currentColor" />
-                    <circle cx="8" cy="13.5" r="1.5" fill="currentColor" />
-                </svg>
-            </Menu.Trigger>
-            <Menu.Portal style={{ zIndex: zLayer.toolbarMenu }}>
-                <Menu.Positioner sideOffset={4} className={styles.positioner}>
-                    <Menu.Popup className={styles.popup}>
-                        <Menu.Group>
-                            <Menu.Item
-                                className={styles.item}
-                                onClick={props.onCut}
-                            >
-                                <Scissors
-                                    size={14}
-                                    className={styles.itemIcon}
-                                />
-                                <Trans>Cut</Trans>
-                            </Menu.Item>
-                            <Menu.Item
-                                className={styles.item}
-                                onClick={props.onCopy}
-                            >
-                                <Copy size={14} className={styles.itemIcon} />
-                                <Trans>Copy</Trans>
-                            </Menu.Item>
-                            <Menu.Item
-                                className={styles.item}
-                                onClick={props.onPaste}
-                            >
-                                <ClipboardPaste
-                                    size={14}
-                                    className={styles.itemIcon}
-                                />
-                                <Trans>Paste</Trans>
-                            </Menu.Item>
-                        </Menu.Group>
+  return (
+    <Menu.Root>
+      <Menu.Trigger className={styles.trigger} aria-label="More actions">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <circle cx="8" cy="2.5" r="1.5" fill="currentColor" />
+          <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+          <circle cx="8" cy="13.5" r="1.5" fill="currentColor" />
+        </svg>
+      </Menu.Trigger>
+      <Menu.Portal style={{ zIndex: zLayer.toolbarMenu }}>
+        <Menu.Positioner sideOffset={4} className={styles.positioner}>
+          <Menu.Popup className={styles.popup}>
+            <Menu.Group>
+              <Menu.Item className={styles.item} onClick={props.onCut}>
+                <Scissors size={14} className={styles.itemIcon} />
+                <Trans>Cut</Trans>
+              </Menu.Item>
+              <Menu.Item className={styles.item} onClick={props.onCopy}>
+                <Copy size={14} className={styles.itemIcon} />
+                <Trans>Copy</Trans>
+              </Menu.Item>
+              <Menu.Item className={styles.item} onClick={props.onPaste}>
+                <ClipboardPaste size={14} className={styles.itemIcon} />
+                <Trans>Paste</Trans>
+              </Menu.Item>
+            </Menu.Group>
 
-                        {props.markerActions.length > 0 ? (
-                            <>
-                                <Menu.Separator className={styles.separator} />
-                                <Menu.Group>
-                                    <Menu.GroupLabel
-                                        className={styles.groupLabel}
-                                    >
-                                        <Trans>Content</Trans>
-                                    </Menu.GroupLabel>
-                                    {props.markerActions.map((action) => (
-                                        <Menu.Item
-                                            key={action.marker}
-                                            className={styles.item}
-                                            onClick={action.onSelect}
-                                        >
-                                            <span className={styles.itemIcon}>
-                                                {action.icon}
-                                            </span>
-                                            {action.label}
-                                        </Menu.Item>
-                                    ))}
-                                </Menu.Group>
-                            </>
-                        ) : null}
+            {props.markerActions.length > 0 ? (
+              <>
+                <Menu.Separator className={styles.separator} />
+                <Menu.Group>
+                  <Menu.GroupLabel className={styles.groupLabel}>
+                    <Trans>Content</Trans>
+                  </Menu.GroupLabel>
+                  {props.markerActions.map((action) => (
+                    <Menu.Item
+                      key={action.marker}
+                      className={styles.item}
+                      onClick={action.onSelect}
+                    >
+                      <span className={styles.itemIcon}>{action.icon}</span>
+                      {action.label}
+                    </Menu.Item>
+                  ))}
+                </Menu.Group>
+              </>
+            ) : null}
 
-                        {hasTools ? (
-                            <>
-                                <Menu.Separator className={styles.separator} />
-                                <Menu.Group>
-                                    <Menu.GroupLabel
-                                        className={styles.groupLabel}
-                                    >
-                                        <Trans>Tools</Trans>
-                                    </Menu.GroupLabel>
-                                    {props.onMatchFormattingToSource ? (
-                                        <Menu.Item
-                                            className={styles.item}
-                                            onClick={
-                                                props.onMatchFormattingToSource
-                                            }
-                                        >
-                                            <BookCopy
-                                                size={14}
-                                                className={styles.itemIcon}
-                                            />
-                                            <Trans>
-                                                Match formatting to source
-                                            </Trans>
-                                        </Menu.Item>
-                                    ) : null}
-                                    {props.onCopyEditorJson ? (
-                                        <Menu.Item
-                                            className={styles.item}
-                                            onClick={props.onCopyEditorJson}
-                                        >
-                                            <Copy
-                                                size={14}
-                                                className={styles.itemIcon}
-                                            />
-                                            <Trans>Copy editor JSON</Trans>
-                                        </Menu.Item>
-                                    ) : null}
-                                </Menu.Group>
-                            </>
-                        ) : null}
-                    </Menu.Popup>
-                </Menu.Positioner>
-            </Menu.Portal>
-        </Menu.Root>
-    );
+            {hasTools ? (
+              <>
+                <Menu.Separator className={styles.separator} />
+                <Menu.Group>
+                  <Menu.GroupLabel className={styles.groupLabel}>
+                    <Trans>Tools</Trans>
+                  </Menu.GroupLabel>
+                  {props.onMatchFormattingToSource ? (
+                    <Menu.Item
+                      className={styles.item}
+                      onClick={props.onMatchFormattingToSource}
+                    >
+                      <BookCopy size={14} className={styles.itemIcon} />
+                      <Trans>Match formatting to source</Trans>
+                    </Menu.Item>
+                  ) : null}
+                  {props.onCopyEditorJson ? (
+                    <Menu.Item
+                      className={styles.item}
+                      onClick={props.onCopyEditorJson}
+                    >
+                      <Copy size={14} className={styles.itemIcon} />
+                      <Trans>Copy editor JSON</Trans>
+                    </Menu.Item>
+                  ) : null}
+                </Menu.Group>
+              </>
+            ) : null}
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
+  );
 }

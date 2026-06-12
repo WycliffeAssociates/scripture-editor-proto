@@ -1,6 +1,7 @@
 # Custom History (Mode-Agnostic Undo/Redo)
 
 ## What this feature does
+
 - Replaces Lexical-only chapter history with a workspace-wide history stack.
 - Stores history using canonical flat-token chapter snapshots so undo/redo
   does not depend on editor mode (`regular`/`usfm`/`plain`/`form`).
@@ -9,11 +10,12 @@
   - Programmatic chapter/book/project operations (format, find/replace,
     lint autofix, revert, mode switch)
 - Allows user-facing labels per entry (`Format Project`, `Replace
-  (Inline Match)`, etc.) for better undo/redo intent.
+(Inline Match)`, etc.) for better undo/redo intent.
 - Restores cursor position across undo/redo by stable `data-id`, surviving
   Lexical key regeneration.
 
 ## Core abstraction
+
 - Canonical snapshot is `direction + flatNodes` (flattened token stream from
   Lexical root children).
 - History entry contains:
@@ -25,6 +27,7 @@
   wrappers.
 
 ## Capture model
+
 - **Typing**: `CustomHistoryPlugin` listens to editor updates and records
   chapter diffs through `history.captureEditorUpdate`. Typing entries are
   coalesced within a 2500 ms window so a continuous typing run is a single
@@ -89,15 +92,17 @@ deleted by the change being replayed, restore falls back to the editor's
 default cursor.
 
 ## Notification rules
+
 - No toast when only the current chapter is affected (normal local edit
   UX).
 - Toast when exactly one non-current chapter is affected (`Undid/Redid
-  last edit in <Book> <Chapter>`).
+last edit in <Book> <Chapter>`).
 - Aggregate toast for multi-chapter operations (`Affected N chapters`).
 - Current chapter keeps immediate typing continuity after undo/redo
   (editor stays ready for input).
 
 ## Instrumentation contract (manual opt-in)
+
 - Any feature that commits across chapters must use `runTransaction` (the
   hook captures the before-snapshot of `candidates`, runs the
   programmatic flow, and records the diff as one history entry).
@@ -124,6 +129,7 @@ Undo/redo commits carry `kind: "undo"` or `kind: "redo"` in their
   query whenever replay restores prior content.
 
 ## Performance notes
+
 - Replay cost is dominated by `canonicalSnapshotToChapterState`
   (re-parsing the snapshot into Lexical state). The bulk-commit itself
   is O(touched chapters), and React rerender is O(touched chapters)
@@ -132,6 +138,7 @@ Undo/redo commits carry `kind: "undo"` or `kind: "redo"` in their
   draft+commit phase and the restore phase. Tree-shaken in prod.
 
 ## Testing scope
+
 - Unit:
   - `HistoryManager` coalescing, merge behavior, transaction entries,
     metadata propagation.
@@ -146,6 +153,7 @@ Undo/redo commits carry `kind: "undo"` or `kind: "redo"` in their
   - Cursor restoration after undo (data-id resolution).
 
 ## Key modules (for agents)
+
 - `src/app/domain/history/HistoryManager.ts`
 - `src/app/domain/history/canonicalChapterState.ts`
 - `src/app/domain/history/historyUndoRedoNotifications.ts`

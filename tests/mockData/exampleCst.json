@@ -1556,7 +1556,10 @@
         },
         {
           "type": "verse",
-          "markerToken": { "token": 73, "span": { "start": 1127, "end": 1129 } },
+          "markerToken": {
+            "token": 73,
+            "span": { "start": 1127, "end": 1129 }
+          },
           "numberToken": { "token": 74, "span": { "start": 1130, "end": 1131 } }
         },
         {
@@ -1568,9 +1571,15 @@
           "type": "container",
           "kind": "note",
           "marker": "f",
-          "markerToken": { "token": 76, "span": { "start": 1198, "end": 1200 } },
+          "markerToken": {
+            "token": 76,
+            "span": { "start": 1198, "end": 1200 }
+          },
           "closeToken": { "token": 82, "span": { "start": 1249, "end": 1252 } },
-          "specialToken": { "token": 77, "span": { "start": 1201, "end": 1202 } },
+          "specialToken": {
+            "token": 77,
+            "span": { "start": 1201, "end": 1202 }
+          },
           "children": [
             {
               "type": "leaf",
@@ -1586,19 +1595,28 @@
               "type": "container",
               "kind": "character",
               "marker": "fr",
-              "markerToken": { "token": 78, "span": { "start": 1203, "end": 1206 } },
+              "markerToken": {
+                "token": 78,
+                "span": { "start": 1203, "end": 1206 }
+              },
               "closeToken": null,
               "specialToken": null,
               "children": [
                 {
                   "type": "leaf",
                   "kind": "whitespace",
-                  "token": { "token": 78, "span": { "start": 1206, "end": 1207 } }
+                  "token": {
+                    "token": 78,
+                    "span": { "start": 1206, "end": 1207 }
+                  }
                 },
                 {
                   "type": "leaf",
                   "kind": "text",
-                  "token": { "token": 79, "span": { "start": 1207, "end": 1211 } }
+                  "token": {
+                    "token": 79,
+                    "span": { "start": 1207, "end": 1211 }
+                  }
                 }
               ]
             },
@@ -1606,19 +1624,28 @@
               "type": "container",
               "kind": "character",
               "marker": "ft",
-              "markerToken": { "token": 80, "span": { "start": 1211, "end": 1214 } },
+              "markerToken": {
+                "token": 80,
+                "span": { "start": 1211, "end": 1214 }
+              },
               "closeToken": null,
               "specialToken": null,
               "children": [
                 {
                   "type": "leaf",
                   "kind": "whitespace",
-                  "token": { "token": 80, "span": { "start": 1214, "end": 1215 } }
+                  "token": {
+                    "token": 80,
+                    "span": { "start": 1214, "end": 1215 }
+                  }
                 },
                 {
                   "type": "leaf",
                   "kind": "text",
-                  "token": { "token": 81, "span": { "start": 1215, "end": 1249 } }
+                  "token": {
+                    "token": 81,
+                    "span": { "start": 1215, "end": 1249 }
+                  }
                 }
               ]
             }
@@ -1646,7 +1673,10 @@
         },
         {
           "type": "verse",
-          "markerToken": { "token": 85, "span": { "start": 1289, "end": 1291 } },
+          "markerToken": {
+            "token": 85,
+            "span": { "start": 1289, "end": 1291 }
+          },
           "numberToken": { "token": 86, "span": { "start": 1292, "end": 1293 } }
         },
         {
@@ -1681,7 +1711,10 @@
         },
         {
           "type": "verse",
-          "markerToken": { "token": 91, "span": { "start": 1447, "end": 1449 } },
+          "markerToken": {
+            "token": 91,
+            "span": { "start": 1447, "end": 1449 }
+          },
           "numberToken": { "token": 92, "span": { "start": 1450, "end": 1452 } }
         },
         {
@@ -1701,7 +1734,10 @@
         },
         {
           "type": "verse",
-          "markerToken": { "token": 95, "span": { "start": 1563, "end": 1565 } },
+          "markerToken": {
+            "token": 95,
+            "span": { "start": 1563, "end": 1565 }
+          },
           "numberToken": { "token": 96, "span": { "start": 1566, "end": 1568 } }
         },
         {
@@ -1786,8 +1822,14 @@
         },
         {
           "type": "verse",
-          "markerToken": { "token": 107, "span": { "start": 1664, "end": 1666 } },
-          "numberToken": { "token": 108, "span": { "start": 1667, "end": 1669 } }
+          "markerToken": {
+            "token": 107,
+            "span": { "start": 1664, "end": 1666 }
+          },
+          "numberToken": {
+            "token": 108,
+            "span": { "start": 1667, "end": 1669 }
+          }
         },
         {
           "type": "leaf",
@@ -1798,9 +1840,18 @@
           "type": "container",
           "kind": "note",
           "marker": "f",
-          "markerToken": { "token": 110, "span": { "start": 1814, "end": 1816 } },
-          "closeToken": { "token": 116, "span": { "start": 1856, "end": 1859 } },
-          "specialToken": { "token": 111, "span": { "start": 1817, "end": 1818 } },
+          "markerToken": {
+            "token": 110,
+            "span": { "start": 1814, "end": 1816 }
+          },
+          "closeToken": {
+            "token": 116,
+            "span": { "start": 1856, "end": 1859 }
+          },
+          "specialToken": {
+            "token": 111,
+            "span": { "start": 1817, "end": 1818 }
+          },
           "children": [
             {
               "type": "leaf",
@@ -1816,19 +1867,28 @@
               "type": "container",
               "kind": "character",
               "marker": "fr",
-              "markerToken": { "token": 112, "span": { "start": 1819, "end": 1822 } },
+              "markerToken": {
+                "token": 112,
+                "span": { "start": 1819, "end": 1822 }
+              },
               "closeToken": null,
               "specialToken": null,
               "children": [
                 {
                   "type": "leaf",
                   "kind": "whitespace",
-                  "token": { "token": 112, "span": { "start": 1822, "end": 1823 } }
+                  "token": {
+                    "token": 112,
+                    "span": { "start": 1822, "end": 1823 }
+                  }
                 },
                 {
                   "type": "leaf",
                   "kind": "text",
-                  "token": { "token": 113, "span": { "start": 1823, "end": 1828 } }
+                  "token": {
+                    "token": 113,
+                    "span": { "start": 1823, "end": 1828 }
+                  }
                 }
               ]
             },
@@ -1836,19 +1896,28 @@
               "type": "container",
               "kind": "character",
               "marker": "ft",
-              "markerToken": { "token": 114, "span": { "start": 1828, "end": 1831 } },
+              "markerToken": {
+                "token": 114,
+                "span": { "start": 1828, "end": 1831 }
+              },
               "closeToken": null,
               "specialToken": null,
               "children": [
                 {
                   "type": "leaf",
                   "kind": "whitespace",
-                  "token": { "token": 114, "span": { "start": 1831, "end": 1832 } }
+                  "token": {
+                    "token": 114,
+                    "span": { "start": 1831, "end": 1832 }
+                  }
                 },
                 {
                   "type": "leaf",
                   "kind": "text",
-                  "token": { "token": 115, "span": { "start": 1832, "end": 1856 } }
+                  "token": {
+                    "token": 115,
+                    "span": { "start": 1832, "end": 1856 }
+                  }
                 }
               ]
             }
@@ -1891,8 +1960,14 @@
         },
         {
           "type": "verse",
-          "markerToken": { "token": 121, "span": { "start": 1896, "end": 1898 } },
-          "numberToken": { "token": 122, "span": { "start": 1899, "end": 1901 } }
+          "markerToken": {
+            "token": 121,
+            "span": { "start": 1896, "end": 1898 }
+          },
+          "numberToken": {
+            "token": 122,
+            "span": { "start": 1899, "end": 1901 }
+          }
         },
         {
           "type": "leaf",
@@ -1903,9 +1978,18 @@
           "type": "container",
           "kind": "note",
           "marker": "f",
-          "markerToken": { "token": 124, "span": { "start": 1955, "end": 1957 } },
-          "closeToken": { "token": 130, "span": { "start": 1997, "end": 2000 } },
-          "specialToken": { "token": 125, "span": { "start": 1958, "end": 1959 } },
+          "markerToken": {
+            "token": 124,
+            "span": { "start": 1955, "end": 1957 }
+          },
+          "closeToken": {
+            "token": 130,
+            "span": { "start": 1997, "end": 2000 }
+          },
+          "specialToken": {
+            "token": 125,
+            "span": { "start": 1958, "end": 1959 }
+          },
           "children": [
             {
               "type": "leaf",
@@ -1921,19 +2005,28 @@
               "type": "container",
               "kind": "character",
               "marker": "fr",
-              "markerToken": { "token": 126, "span": { "start": 1960, "end": 1963 } },
+              "markerToken": {
+                "token": 126,
+                "span": { "start": 1960, "end": 1963 }
+              },
               "closeToken": null,
               "specialToken": null,
               "children": [
                 {
                   "type": "leaf",
                   "kind": "whitespace",
-                  "token": { "token": 126, "span": { "start": 1963, "end": 1964 } }
+                  "token": {
+                    "token": 126,
+                    "span": { "start": 1963, "end": 1964 }
+                  }
                 },
                 {
                   "type": "leaf",
                   "kind": "text",
-                  "token": { "token": 127, "span": { "start": 1964, "end": 1969 } }
+                  "token": {
+                    "token": 127,
+                    "span": { "start": 1964, "end": 1969 }
+                  }
                 }
               ]
             },
@@ -1941,19 +2034,28 @@
               "type": "container",
               "kind": "character",
               "marker": "ft",
-              "markerToken": { "token": 128, "span": { "start": 1969, "end": 1972 } },
+              "markerToken": {
+                "token": 128,
+                "span": { "start": 1969, "end": 1972 }
+              },
               "closeToken": null,
               "specialToken": null,
               "children": [
                 {
                   "type": "leaf",
                   "kind": "whitespace",
-                  "token": { "token": 128, "span": { "start": 1972, "end": 1973 } }
+                  "token": {
+                    "token": 128,
+                    "span": { "start": 1972, "end": 1973 }
+                  }
                 },
                 {
                   "type": "leaf",
                   "kind": "text",
-                  "token": { "token": 129, "span": { "start": 1973, "end": 1997 } }
+                  "token": {
+                    "token": 129,
+                    "span": { "start": 1973, "end": 1997 }
+                  }
                 }
               ]
             }

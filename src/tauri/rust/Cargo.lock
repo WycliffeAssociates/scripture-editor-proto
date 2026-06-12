@@ -5143,8 +5143,8 @@ dependencies = [
 
 [[package]]
 name = "usfm_onion"
-version = "0.1.0"
-source = "git+https://github.com/WycliffeAssociates/usfm-onion.git?tag=v0.0.7#52748a3eb151ca77d7057004ed34320c96b8f2ce"
+version = "0.1.1"
+source = "git+https://github.com/WycliffeAssociates/usfm-onion.git?tag=v0.0.8#4e9de553285cac5c4301daab3dcfabf88c77cbd6"
 dependencies = [
  "logos",
  "quick-xml 0.37.5",
@@ -5152,6 +5152,15 @@ dependencies = [
  "serde",
  "serde_json",
  "similar",
+]
+
+[[package]]
+name = "usfm_onion_dto"
+version = "0.1.1"
+source = "git+https://github.com/WycliffeAssociates/usfm-onion.git?tag=v0.0.8#4e9de553285cac5c4301daab3dcfabf88c77cbd6"
+dependencies = [
+ "serde",
+ "usfm_onion",
 ]
 
 [[package]]
@@ -6120,6 +6129,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tauri-plugin-window-state",
  "usfm_onion",
+ "usfm_onion_dto",
  "zip 2.4.2",
 ]
 

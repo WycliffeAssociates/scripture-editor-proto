@@ -1,26 +1,26 @@
 import {
-    mutAddSids,
-    type TokenForSidCalculation,
+  mutAddSids,
+  type TokenForSidCalculation,
 } from "@/core/domain/usfm/parseUtils.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 function toSidCalculationToken(token: Token): TokenForSidCalculation {
-    return {
-        tokenType:
-            token.kind === "marker"
-                ? "marker"
-                : token.kind === "endMarker"
-                  ? "endMarker"
-                  : token.kind === "number"
-                    ? "numberRange"
-                    : token.kind === "newline"
-                      ? "nl"
-                      : token.kind,
-        text: token.source,
-        marker: token.marker,
-        sid: token.sid,
-        numberInfo: token.numberInfo,
-    };
+  return {
+    tokenType:
+      token.kind === "marker"
+        ? "marker"
+        : token.kind === "endMarker"
+          ? "endMarker"
+          : token.kind === "number"
+            ? "numberRange"
+            : token.kind === "newline"
+              ? "nl"
+              : token.kind,
+    text: token.source,
+    marker: token.marker,
+    sid: token.sid,
+    numberInfo: token.numberInfo,
+  };
 }
 
 /**
@@ -32,14 +32,14 @@ function toSidCalculationToken(token: Token): TokenForSidCalculation {
  * chapter-0 material is anchored to `BOOK 0:0`.
  */
 export function normalizeTokenSids(tokens: Token[], bookCode: string): Token[] {
-    if (!tokens.length) return [];
+  if (!tokens.length) return [];
 
-    const normalized = structuredClone(tokens);
-    const sidTokens = normalized.map(toSidCalculationToken);
-    mutAddSids(sidTokens, bookCode);
+  const normalized = structuredClone(tokens);
+  const sidTokens = normalized.map(toSidCalculationToken);
+  mutAddSids(sidTokens, bookCode);
 
-    return normalized.map((token, index) => ({
-        ...token,
-        sid: sidTokens[index]?.sid ?? token.sid,
-    }));
+  return normalized.map((token, index) => ({
+    ...token,
+    sid: sidTokens[index]?.sid ?? token.sid,
+  }));
 }

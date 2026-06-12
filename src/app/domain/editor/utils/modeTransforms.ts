@@ -1,31 +1,32 @@
 import type {
-    SerializedEditorState,
-    SerializedElementNode,
-    SerializedLexicalNode,
+  SerializedEditorState,
+  SerializedElementNode,
+  SerializedLexicalNode,
 } from "lexical";
+
 import {
-    EDITOR_SHAPES,
-    type EditorShape,
-    UsfmTokenTypes,
+  EDITOR_SHAPES,
+  type EditorShape,
+  UsfmTokenTypes,
 } from "@/app/data/editor.ts";
 import { isSectionMarker } from "@/app/domain/editor/markerTaxonomy.ts";
 import {
-    createSerializedBookFrontmatterFormNode,
-    isSerializedBookFrontmatterFormNode,
+  createSerializedBookFrontmatterFormNode,
+  isSerializedBookFrontmatterFormNode,
 } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
 import {
-    createSerializedFormBlockNode,
-    isSerializedFormBlockNode,
+  createSerializedFormBlockNode,
+  isSerializedFormBlockNode,
 } from "@/app/domain/editor/nodes/FormBlockNode.tsx";
 import {
-    nestedEditorMarkers,
-    USFM_NESTED_DECORATOR_TYPE,
-    type USFMNestedEditorNodeJSON,
+  nestedEditorMarkers,
+  USFM_NESTED_DECORATOR_TYPE,
+  type USFMNestedEditorNodeJSON,
 } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { createSerializedUSFMNumberedMarkerNode } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import {
-    isSerializedUSFMTextNode,
-    type SerializedUSFMTextNode,
+  isSerializedUSFMTextNode,
+  type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { groupFlatNodesIntoParagraphContainers } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";
 import { buildFormBlockTree } from "@/app/domain/editor/utils/formModeBlockTree.ts";
@@ -34,10 +35,10 @@ import { parseSid } from "@/core/data/bible/bible.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 import { LanguageDirection } from "@/core/domain/project/project.ts";
 import {
-    getClosingBehavior,
-    isDocumentMarker,
-    isEnabledNumberedMarker,
-    isValidParaMarker,
+  getClosingBehavior,
+  isDocumentMarker,
+  isEnabledNumberedMarker,
+  isValidParaMarker,
 } from "@/core/domain/usfm/onionMarkers.ts";
 
 // Re-export shared utilities from their canonical locations
@@ -51,14 +52,14 @@ export { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializ
  * USFM paragraph containers and nested editor nodes.
  */
 export function unwrapFlatTokensFromRootChildren(
-    rootChildren: SerializedLexicalNode[],
+  rootChildren: SerializedLexicalNode[],
 ): SerializedLexicalNode[] | null {
-    const onlyChild = rootChildren.length === 1 ? rootChildren[0] : undefined;
-    if (onlyChild?.type !== "paragraph") return null;
-    const maybeChildren = (onlyChild as { children?: unknown }).children;
-    return Array.isArray(maybeChildren)
-        ? (maybeChildren as SerializedLexicalNode[])
-        : null;
+  const onlyChild = rootChildren.length === 1 ? rootChildren[0] : undefined;
+  if (onlyChild?.type !== "paragraph") return null;
+  const maybeChildren = (onlyChild as { children?: unknown }).children;
+  return Array.isArray(maybeChildren)
+    ? (maybeChildren as SerializedLexicalNode[])
+    : null;
 }
 
 /**
@@ -66,49 +67,48 @@ export function unwrapFlatTokensFromRootChildren(
  * source/plain mode.
  */
 export function wrapFlatTokensInLexicalParagraph(
-    flatTokens: SerializedLexicalNode[],
-    languageDirection: "ltr" | "rtl" = "ltr",
+  flatTokens: SerializedLexicalNode[],
+  languageDirection: "ltr" | "rtl" = "ltr",
 ): SerializedElementNode {
-    return {
-        type: "paragraph",
-        version: 1,
-        direction: languageDirection,
-        format: "",
-        indent: 0,
-        children: flatTokens,
-    };
+  return {
+    type: "paragraph",
+    version: 1,
+    direction: languageDirection,
+    format: "",
+    indent: 0,
+    children: flatTokens,
+  };
 }
 
 function markerFromUsfmTokenText(text: string | undefined): string | null {
-    if (!text) return null;
-    const match = text.match(/^\\(?:\+)?([\w\d]+-?\w*)\*?/u);
-    if (!match) return null;
-    return match[1] ?? null;
+  if (!text) return null;
+  const match = text.match(/^\\(?:\+)?([\w\d]+-?\w*)\*?/u);
+  if (!match) return null;
+  return match[1] ?? null;
 }
 
 function isSerializedMarkerToken(
-    node: SerializedLexicalNode,
+  node: SerializedLexicalNode,
 ): node is SerializedUSFMTextNode {
-    return (
-        isSerializedUSFMTextNode(node) &&
-        node.tokenType === UsfmTokenTypes.marker
-    );
+  return (
+    isSerializedUSFMTextNode(node) && node.tokenType === UsfmTokenTypes.marker
+  );
 }
 
 function isSerializedEndMarkerToken(
-    node: SerializedLexicalNode,
+  node: SerializedLexicalNode,
 ): node is SerializedUSFMTextNode {
-    return (
-        isSerializedUSFMTextNode(node) &&
-        node.tokenType === UsfmTokenTypes.endMarker
-    );
+  return (
+    isSerializedUSFMTextNode(node) &&
+    node.tokenType === UsfmTokenTypes.endMarker
+  );
 }
 
 const isContainerStartMarker = (marker: string) =>
-    isValidParaMarker(marker) ||
-    isDocumentMarker(marker) ||
-    marker === "c" ||
-    isSectionMarker(marker);
+  isValidParaMarker(marker) ||
+  isDocumentMarker(marker) ||
+  marker === "c" ||
+  isSectionMarker(marker);
 
 /**
  * Converts flattened note/crossref streams back into `USFMNestedEditorNodeJSON`.
@@ -120,122 +120,122 @@ const isContainerStartMarker = (marker: string) =>
  * otherwise the footnote content appears inlined in the main text.
  */
 function rewrapNestedEditorNodesFromFlatTokens(
-    flatTokens: SerializedLexicalNode[],
-    direction: LanguageDirection,
+  flatTokens: SerializedLexicalNode[],
+  direction: LanguageDirection,
 ): SerializedLexicalNode[] {
-    const out: SerializedLexicalNode[] = [];
+  const out: SerializedLexicalNode[] = [];
 
-    for (let i = 0; i < flatTokens.length; i++) {
-        const node = flatTokens[i];
+  for (let i = 0; i < flatTokens.length; i++) {
+    const node = flatTokens[i];
 
-        if (!isSerializedMarkerToken(node)) {
-            out.push(node);
-            continue;
-        }
-
-        const marker = node.marker ?? markerFromUsfmTokenText(node.text);
-        if (!marker || !nestedEditorMarkers.has(marker)) {
-            out.push(node);
-            continue;
-        }
-
-        // A note is inline content: it cannot legally cross a paragraph/line
-        // boundary, so its scope ends no later than the next linebreak or
-        // container-start marker. Compute that ceiling first, then only look
-        // for the matching `\\marker*` *within* it. Without the ceiling the
-        // search would greedily pair an unclosed `\\f` with the next `\\f*`
-        // many verses downstream, swallowing every verse in between.
-        //
-        // TODO: once usfm-onion's resolved nesting drives Regular mode (walk
-        // `ParsedUsfm.cst()` roots/children, or honor `Token.nested`), this
-        // hand-rolled boundary becomes redundant — the close site comes from
-        // the parser instead of being re-derived here from marker text.
-        let boundaryStop = flatTokens.length;
-        for (let j = i + 1; j < flatTokens.length; j++) {
-            const t = flatTokens[j];
-            if (t?.type === "linebreak") {
-                boundaryStop = j;
-                break;
-            }
-            if (!isSerializedMarkerToken(t)) continue;
-            const m = t.marker ?? markerFromUsfmTokenText(t.text);
-            if (m && isContainerStartMarker(m)) {
-                boundaryStop = j;
-                break;
-            }
-        }
-
-        // Find the matching `\\marker*` end marker within the note's scope.
-        let endIndex = -1;
-        for (let j = i + 1; j < boundaryStop; j++) {
-            const maybeEnd = flatTokens[j];
-            if (!isSerializedEndMarkerToken(maybeEnd)) continue;
-
-            const endMarker =
-                maybeEnd.marker ??
-                markerFromUsfmTokenText(
-                    // text usually looks like "\\f*"
-                    (maybeEnd.text ?? "").replace("*", ""),
-                );
-            if (endMarker === marker) {
-                endIndex = j;
-                break;
-            }
-        }
-
-        // When the close is missing, the note ends at the boundary ceiling.
-        // The decorator's extent (the children we slice below) is what defines
-        // where the note ends in the editor — we deliberately do NOT synthesize
-        // a `\\marker*` token here. Injecting one would round-trip back out as a
-        // byte the source never had, corrupting save/diff against an unclosed
-        // (malformed-but-real) note. Byte-faithful: render closed, emit nothing.
-        const boundaryIndex = endIndex !== -1 ? endIndex + 1 : boundaryStop;
-
-        const nestedChildren = flatTokens.slice(i + 1, boundaryIndex);
-
-        const paragraph: SerializedElementNode = {
-            type: "paragraph",
-            version: 1,
-            direction,
-            format: "",
-            indent: 0,
-            children: nestedChildren,
-        };
-
-        const nestedNode: USFMNestedEditorNodeJSON = {
-            type: USFM_NESTED_DECORATOR_TYPE,
-            id: node.id ?? guidGenerator(),
-            version: 1,
-            text: node.text ?? `\\${marker} `,
-            marker,
-            sid: node.sid ?? undefined,
-            tokenType: node.tokenType ?? UsfmTokenTypes.marker,
-            inPara: node.inPara ?? undefined,
-            inChars: node.inChars ?? undefined,
-            attributes:
-                (node as unknown as { attributes?: Record<string, string> })
-                    .attributes ?? {},
-            editorState: {
-                root: {
-                    children: [paragraph],
-                    direction,
-                    format: "",
-                    indent: 0,
-                    type: "root",
-                    version: 1,
-                },
-            },
-        };
-
-        out.push(nestedNode);
-        i =
-            endIndex !== -1
-                ? endIndex
-                : // We consumed everything up to (but not including) the boundary token.
-                  boundaryIndex - 1;
+    if (!isSerializedMarkerToken(node)) {
+      out.push(node);
+      continue;
     }
 
-    return out;
+    const marker = node.marker ?? markerFromUsfmTokenText(node.text);
+    if (!marker || !nestedEditorMarkers.has(marker)) {
+      out.push(node);
+      continue;
+    }
+
+    // A note is inline content: it cannot legally cross a paragraph/line
+    // boundary, so its scope ends no later than the next linebreak or
+    // container-start marker. Compute that ceiling first, then only look
+    // for the matching `\\marker*` *within* it. Without the ceiling the
+    // search would greedily pair an unclosed `\\f` with the next `\\f*`
+    // many verses downstream, swallowing every verse in between.
+    //
+    // TODO: once usfm-onion's resolved nesting drives Regular mode (walk
+    // `ParsedUsfm.cst()` roots/children, or honor `Token.nested`), this
+    // hand-rolled boundary becomes redundant — the close site comes from
+    // the parser instead of being re-derived here from marker text.
+    let boundaryStop = flatTokens.length;
+    for (let j = i + 1; j < flatTokens.length; j++) {
+      const t = flatTokens[j];
+      if (t?.type === "linebreak") {
+        boundaryStop = j;
+        break;
+      }
+      if (!isSerializedMarkerToken(t)) continue;
+      const m = t.marker ?? markerFromUsfmTokenText(t.text);
+      if (m && isContainerStartMarker(m)) {
+        boundaryStop = j;
+        break;
+      }
+    }
+
+    // Find the matching `\\marker*` end marker within the note's scope.
+    let endIndex = -1;
+    for (let j = i + 1; j < boundaryStop; j++) {
+      const maybeEnd = flatTokens[j];
+      if (!isSerializedEndMarkerToken(maybeEnd)) continue;
+
+      const endMarker =
+        maybeEnd.marker ??
+        markerFromUsfmTokenText(
+          // text usually looks like "\\f*"
+          (maybeEnd.text ?? "").replace("*", ""),
+        );
+      if (endMarker === marker) {
+        endIndex = j;
+        break;
+      }
+    }
+
+    // When the close is missing, the note ends at the boundary ceiling.
+    // The decorator's extent (the children we slice below) is what defines
+    // where the note ends in the editor — we deliberately do NOT synthesize
+    // a `\\marker*` token here. Injecting one would round-trip back out as a
+    // byte the source never had, corrupting save/diff against an unclosed
+    // (malformed-but-real) note. Byte-faithful: render closed, emit nothing.
+    const boundaryIndex = endIndex !== -1 ? endIndex + 1 : boundaryStop;
+
+    const nestedChildren = flatTokens.slice(i + 1, boundaryIndex);
+
+    const paragraph: SerializedElementNode = {
+      type: "paragraph",
+      version: 1,
+      direction,
+      format: "",
+      indent: 0,
+      children: nestedChildren,
+    };
+
+    const nestedNode: USFMNestedEditorNodeJSON = {
+      type: USFM_NESTED_DECORATOR_TYPE,
+      id: node.id ?? guidGenerator(),
+      version: 1,
+      text: node.text ?? `\\${marker} `,
+      marker,
+      sid: node.sid ?? undefined,
+      tokenType: node.tokenType ?? UsfmTokenTypes.marker,
+      inPara: node.inPara ?? undefined,
+      inChars: node.inChars ?? undefined,
+      attributes:
+        (node as unknown as { attributes?: Record<string, string> })
+          .attributes ?? {},
+      editorState: {
+        root: {
+          children: [paragraph],
+          direction,
+          format: "",
+          indent: 0,
+          type: "root",
+          version: 1,
+        },
+      },
+    };
+
+    out.push(nestedNode);
+    i =
+      endIndex !== -1
+        ? endIndex
+        : // We consumed everything up to (but not including) the boundary token.
+          boundaryIndex - 1;
+  }
+
+  return out;
 }
 
 /**
@@ -258,64 +258,61 @@ function rewrapNestedEditorNodesFromFlatTokens(
  *   endMarker is absorbed as closeBytes.
  */
 function pairNumberedMarkerNodesFromFlatTokens(
-    flatTokens: SerializedLexicalNode[],
+  flatTokens: SerializedLexicalNode[],
 ): SerializedLexicalNode[] {
-    const out: SerializedLexicalNode[] = [];
-    for (let i = 0; i < flatTokens.length; i++) {
-        const node = flatTokens[i];
-        if (!isSerializedMarkerToken(node)) {
-            out.push(node);
-            continue;
-        }
-        const marker = node.marker ?? markerFromUsfmTokenText(node.text);
-        if (!marker || !isEnabledNumberedMarker(marker)) {
-            out.push(node);
-            continue;
-        }
-
-        const next = flatTokens[i + 1];
-        const isNumber =
-            next !== undefined &&
-            isSerializedUSFMTextNode(next) &&
-            next.tokenType === UsfmTokenTypes.numberRange;
-
-        let closeBytes: string | null = null;
-        let closeId: string | null = null;
-        if (isNumber && getClosingBehavior(marker) === "requiredExplicit") {
-            const maybeClose = flatTokens[i + 2];
-            if (
-                maybeClose !== undefined &&
-                isSerializedEndMarkerToken(maybeClose) &&
-                (maybeClose.marker ??
-                    markerFromUsfmTokenText(
-                        (maybeClose.text ?? "").replace("*", ""),
-                    )) === marker
-            ) {
-                closeBytes = maybeClose.text ?? `\\${marker}*`;
-                closeId = maybeClose.id ?? null;
-            }
-        }
-
-        out.push(
-            createSerializedUSFMNumberedMarkerNode(
-                isNumber ? (next.text ?? "") : "",
-                {
-                    numberId: isNumber
-                        ? (next.id ?? guidGenerator())
-                        : guidGenerator(),
-                    openId: node.id ?? guidGenerator(),
-                    closeId,
-                    openBytes: node.text ?? `\\${marker} `,
-                    closeBytes,
-                    marker,
-                    sid: (isNumber ? next.sid : undefined) || node.sid || "",
-                    inPara: node.inPara,
-                },
-            ),
-        );
-        if (isNumber) i += closeBytes != null ? 2 : 1;
+  const out: SerializedLexicalNode[] = [];
+  for (let i = 0; i < flatTokens.length; i++) {
+    const node = flatTokens[i];
+    if (!isSerializedMarkerToken(node)) {
+      out.push(node);
+      continue;
     }
-    return out;
+    const marker = node.marker ?? markerFromUsfmTokenText(node.text);
+    if (!marker || !isEnabledNumberedMarker(marker)) {
+      out.push(node);
+      continue;
+    }
+
+    const next = flatTokens[i + 1];
+    const isNumber =
+      next !== undefined &&
+      isSerializedUSFMTextNode(next) &&
+      next.tokenType === UsfmTokenTypes.numberRange;
+
+    let closeBytes: string | null = null;
+    let closeId: string | null = null;
+    if (isNumber && getClosingBehavior(marker) === "requiredExplicit") {
+      const maybeClose = flatTokens[i + 2];
+      if (
+        maybeClose !== undefined &&
+        isSerializedEndMarkerToken(maybeClose) &&
+        (maybeClose.marker ??
+          markerFromUsfmTokenText((maybeClose.text ?? "").replace("*", ""))) ===
+          marker
+      ) {
+        closeBytes = maybeClose.text ?? `\\${marker}*`;
+        closeId = maybeClose.id ?? null;
+      }
+    }
+
+    out.push(
+      createSerializedUSFMNumberedMarkerNode(
+        isNumber ? (next.text ?? "") : "",
+        {
+          numberId: isNumber ? (next.id ?? guidGenerator()) : guidGenerator(),
+          openId: node.id ?? guidGenerator(),
+          closeId,
+          openBytes: node.text ?? `\\${marker} `,
+          closeBytes,
+          marker,
+          sid: (isNumber ? next.sid : undefined) || node.sid || "",
+          inPara: node.inPara,
+        },
+      ),
+    );
+    if (isNumber) i += closeBytes != null ? 2 : 1;
+  }
+  return out;
 }
 
 /**
@@ -327,172 +324,169 @@ function pairNumberedMarkerNodesFromFlatTokens(
  * the regular shape.
  */
 export function transformToShape(
-    state: SerializedEditorState,
-    targetShape: EditorShape,
+  state: SerializedEditorState,
+  targetShape: EditorShape,
 ): SerializedEditorState {
-    const direction = state.root.direction ?? LanguageDirection.LTR;
-    const rootChildren = state.root.children as SerializedLexicalNode[];
+  const direction = state.root.direction ?? LanguageDirection.LTR;
+  const rootChildren = state.root.children as SerializedLexicalNode[];
 
-    const currentShape = detectCurrentShape(rootChildren);
+  const currentShape = detectCurrentShape(rootChildren);
 
-    // Chapter 0 (book frontmatter) renders the same dedicated form on
-    // both Regular and Form modes — we never want to break out the
-    // identifiers / titles into either regular paragraphs or
-    // discourse-style FormBlockNodes. If the current state is already
-    // a single BookFrontmatterFormNode and the target is one of the
-    // editable modes that share that shape, short-circuit before
-    // `currentShape === targetShape` would mis-classify it as a flat
-    // shape that needs reflowing.
-    const isAlreadyFrontmatter =
-        rootChildren.length === 1 &&
-        isSerializedBookFrontmatterFormNode(rootChildren[0]);
-    if (
-        isAlreadyFrontmatter &&
-        (targetShape === "regular" || targetShape === "form")
-    ) {
-        return state;
-    }
+  // Chapter 0 (book frontmatter) renders the same dedicated form on
+  // both Regular and Form modes — we never want to break out the
+  // identifiers / titles into either regular paragraphs or
+  // discourse-style FormBlockNodes. If the current state is already
+  // a single BookFrontmatterFormNode and the target is one of the
+  // editable modes that share that shape, short-circuit before
+  // `currentShape === targetShape` would mis-classify it as a flat
+  // shape that needs reflowing.
+  const isAlreadyFrontmatter =
+    rootChildren.length === 1 &&
+    isSerializedBookFrontmatterFormNode(rootChildren[0]);
+  if (
+    isAlreadyFrontmatter &&
+    (targetShape === "regular" || targetShape === "form")
+  ) {
+    return state;
+  }
 
-    if (currentShape === targetShape) {
-        return state;
-    }
+  if (currentShape === targetShape) {
+    return state;
+  }
 
-    // Always reduce to a flat token list first, then rebuild for the target shape.
-    const flatTokens = flattenToTokens(rootChildren);
+  // Always reduce to a flat token list first, then rebuild for the target shape.
+  const flatTokens = flattenToTokens(rootChildren);
 
-    // Empty content has no meaningful shape. Keep whatever valid state the
-    // chapter already has rather than emitting a childless root (the form and
-    // regular rebuilds below would produce zero root children, which is not a
-    // usable Lexical document).
-    if (flatTokens.length === 0) {
-        return state;
-    }
+  // Empty content has no meaningful shape. Keep whatever valid state the
+  // chapter already has rather than emitting a childless root (the form and
+  // regular rebuilds below would produce zero root children, which is not a
+  // usable Lexical document).
+  if (flatTokens.length === 0) {
+    return state;
+  }
 
-    // Frontmatter detection runs before the form/regular split so
-    // both paths produce the BookFrontmatterFormNode shape.
-    // Otherwise the form-mode branch below would parse `\id`, `\h`,
-    // `\toc*`, `\mt*` markers into ordinary paragraph blocks and the
-    // user would lose the dedicated frontmatter UI.
-    if (
-        (targetShape === EDITOR_SHAPES.form ||
-            targetShape === EDITOR_SHAPES.regular) &&
-        shouldRenderAsBookFrontmatterForm(flatTokens)
-    ) {
-        return {
-            ...state,
-            root: {
-                ...state.root,
-                children: [
-                    createSerializedBookFrontmatterFormNode({
-                        direction,
-                        tokens: flatTokens,
-                    }),
-                ],
-            },
-        };
-    }
-
-    if (targetShape === "form") {
-        // Discourse-first: each paragraph-class marker becomes a top-level
-        // FormBlockNode. Verse markers are fragments inside their block, not
-        // top-level containers — so a `\p` containing two verses is one block,
-        // and a verse spanning many paragraph markers spans many blocks.
-        const blocks = buildFormBlockTree(flatTokens);
-        const children: SerializedLexicalNode[] = blocks.map((block) =>
-            createSerializedFormBlockNode({
-                direction,
-                tokens: block.tokens,
-                id: block.id,
-            }),
-        );
-        return {
-            ...state,
-            root: { ...state.root, children },
-        };
-    }
-
-    if (targetShape === "regular") {
-        // Order matters: note rewrap first (its unclosed-note boundary
-        // inference reads flat \c marker tokens), then numbered pairing,
-        // then container grouping.
-        const withNested = rewrapNestedEditorNodesFromFlatTokens(
-            flatTokens,
-            direction,
-        );
-        const withNumbered = pairNumberedMarkerNodesFromFlatTokens(withNested);
-        return {
-            ...state,
-            root: {
-                ...state.root,
-                children: groupFlatNodesIntoParagraphContainers(
-                    withNumbered,
-                    direction,
-                ),
-            },
-        };
-    }
-
-    // targetShape === "flat" — wrap in a single Lexical paragraph for usfm/plain.
+  // Frontmatter detection runs before the form/regular split so
+  // both paths produce the BookFrontmatterFormNode shape.
+  // Otherwise the form-mode branch below would parse `\id`, `\h`,
+  // `\toc*`, `\mt*` markers into ordinary paragraph blocks and the
+  // user would lose the dedicated frontmatter UI.
+  if (
+    (targetShape === EDITOR_SHAPES.form ||
+      targetShape === EDITOR_SHAPES.regular) &&
+    shouldRenderAsBookFrontmatterForm(flatTokens)
+  ) {
     return {
-        ...state,
-        root: {
-            ...state.root,
-            children: [wrapFlatTokensInLexicalParagraph(flatTokens, direction)],
-        },
+      ...state,
+      root: {
+        ...state.root,
+        children: [
+          createSerializedBookFrontmatterFormNode({
+            direction,
+            tokens: flatTokens,
+          }),
+        ],
+      },
     };
+  }
+
+  if (targetShape === "form") {
+    // Discourse-first: each paragraph-class marker becomes a top-level
+    // FormBlockNode. Verse markers are fragments inside their block, not
+    // top-level containers — so a `\p` containing two verses is one block,
+    // and a verse spanning many paragraph markers spans many blocks.
+    const blocks = buildFormBlockTree(flatTokens);
+    const children: SerializedLexicalNode[] = blocks.map((block) =>
+      createSerializedFormBlockNode({
+        direction,
+        tokens: block.tokens,
+        id: block.id,
+      }),
+    );
+    return {
+      ...state,
+      root: { ...state.root, children },
+    };
+  }
+
+  if (targetShape === "regular") {
+    // Order matters: note rewrap first (its unclosed-note boundary
+    // inference reads flat \c marker tokens), then numbered pairing,
+    // then container grouping.
+    const withNested = rewrapNestedEditorNodesFromFlatTokens(
+      flatTokens,
+      direction,
+    );
+    const withNumbered = pairNumberedMarkerNodesFromFlatTokens(withNested);
+    return {
+      ...state,
+      root: {
+        ...state.root,
+        children: groupFlatNodesIntoParagraphContainers(
+          withNumbered,
+          direction,
+        ),
+      },
+    };
+  }
+
+  // targetShape === "flat" — wrap in a single Lexical paragraph for usfm/plain.
+  return {
+    ...state,
+    root: {
+      ...state.root,
+      children: [wrapFlatTokensInLexicalParagraph(flatTokens, direction)],
+    },
+  };
 }
 
 function detectCurrentShape(
-    rootChildren: SerializedLexicalNode[],
+  rootChildren: SerializedLexicalNode[],
 ): EditorShape {
-    if (isFormModeRootChildren(rootChildren)) return "form";
-    if (isRegularModeRootChildren(rootChildren)) return "regular";
-    return "flat";
+  if (isFormModeRootChildren(rootChildren)) return "form";
+  if (isRegularModeRootChildren(rootChildren)) return "regular";
+  return "flat";
 }
 
 function flattenToTokens(
-    rootChildren: SerializedLexicalNode[],
+  rootChildren: SerializedLexicalNode[],
 ): SerializedLexicalNode[] {
-    const unwrapped = unwrapFlatTokensFromRootChildren(rootChildren);
-    return (
-        unwrapped ??
-        materializeFlatTokensArray(rootChildren, { nested: "flatten" })
-    );
+  const unwrapped = unwrapFlatTokensFromRootChildren(rootChildren);
+  return (
+    unwrapped ?? materializeFlatTokensArray(rootChildren, { nested: "flatten" })
+  );
 }
 
 export function isFormModeRootChildren(
-    rootChildren: SerializedLexicalNode[],
+  rootChildren: SerializedLexicalNode[],
 ): boolean {
-    return rootChildren.some((child) => isSerializedFormBlockNode(child));
+  return rootChildren.some((child) => isSerializedFormBlockNode(child));
 }
 
 export function isRegularModeRootChildren(
-    rootChildren: SerializedLexicalNode[],
+  rootChildren: SerializedLexicalNode[],
 ): boolean {
-    return rootChildren.some(
-        (child) =>
-            child.type === "usfm-paragraph-node" ||
-            isSerializedBookFrontmatterFormNode(child),
-    );
+  return rootChildren.some(
+    (child) =>
+      child.type === "usfm-paragraph-node" ||
+      isSerializedBookFrontmatterFormNode(child),
+  );
 }
 
 function shouldRenderAsBookFrontmatterForm(
-    flatTokens: SerializedLexicalNode[],
+  flatTokens: SerializedLexicalNode[],
 ): boolean {
-    const visibleTokens = flatTokens.filter(
-        (node) => node.type !== "linebreak",
-    );
-    if (visibleTokens.length === 0) return false;
+  const visibleTokens = flatTokens.filter((node) => node.type !== "linebreak");
+  if (visibleTokens.length === 0) return false;
 
-    let sawChapterZeroSid = false;
+  let sawChapterZeroSid = false;
 
-    for (const node of visibleTokens) {
-        if (!isSerializedUSFMTextNode(node)) return false;
-        const parsed = parseSid(node.sid ?? "");
-        if (!parsed) continue;
-        if (parsed.chapter !== 0) return false;
-        sawChapterZeroSid = true;
-    }
+  for (const node of visibleTokens) {
+    if (!isSerializedUSFMTextNode(node)) return false;
+    const parsed = parseSid(node.sid ?? "");
+    if (!parsed) continue;
+    if (parsed.chapter !== 0) return false;
+    sawChapterZeroSid = true;
+  }
 
-    return sawChapterZeroSid;
+  return sawChapterZeroSid;
 }

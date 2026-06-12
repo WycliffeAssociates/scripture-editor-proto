@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 
 function readOnlineStatus() {
-    if (typeof navigator === "undefined") {
-        return true;
-    }
-    return navigator.onLine;
+  if (typeof navigator === "undefined") {
+    return true;
+  }
+  return navigator.onLine;
 }
 
 /**
@@ -14,25 +14,25 @@ function readOnlineStatus() {
  * disable network actions while offline.
  */
 export function useNetworkStatus() {
-    const [isOnline, setIsOnline] = useState(readOnlineStatus);
+  const [isOnline, setIsOnline] = useState(readOnlineStatus);
 
-    useEffect(() => {
-        function handleOnline() {
-            setIsOnline(true);
-        }
+  useEffect(() => {
+    function handleOnline() {
+      setIsOnline(true);
+    }
 
-        function handleOffline() {
-            setIsOnline(false);
-        }
+    function handleOffline() {
+      setIsOnline(false);
+    }
 
-        window.addEventListener("online", handleOnline);
-        window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
 
-        return () => {
-            window.removeEventListener("online", handleOnline);
-            window.removeEventListener("offline", handleOffline);
-        };
-    }, []);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
-    return { isOnline };
+  return { isOnline };
 }

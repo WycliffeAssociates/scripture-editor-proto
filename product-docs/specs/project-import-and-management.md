@@ -1,6 +1,7 @@
 # Project Import and Management
 
 ## What this feature does
+
 - Creates local projects from three sources:
   - Repository download
   - Writable cloud project clone (when a cloud session is already present)
@@ -21,6 +22,7 @@
   - `Attach existing cloud project` from the settings drawer when the remote metadata looks like the same scripture language
 
 ## How to access it in the app
+
 - Go to home route (`/`) and click `New Project` (or use `New Project` from the in-project drawer).
 - On the create project route (`/create`), use:
   - Search/download repository
@@ -34,6 +36,7 @@
   - Attaching one owned cloud repo whose metadata passes compatibility checks
 
 ## Typical user flow
+
 1. Import via repository, writable cloud repo, folder, or ZIP.
 2. Importer copies content into the app project storage.
 3. Project indexer stores metadata entries for fast lookup.
@@ -41,6 +44,7 @@
 5. Open it from the list and start editing.
 
 ## Current limits and non-goals
+
 - Project type detection is metadata-based (`metadata.json` or `manifest.yaml`).
 - ZIP imports with multiple top-level entries currently use the first discovered top-level entry.
 - Naming collisions are auto-resolved by suffixing (`(1)`, `(2)`, ...).
@@ -54,6 +58,7 @@
 - Cloud session and per-project cloud status are app-local and do not travel with export/share artifacts.
 
 ## Key modules (for agents)
+
 - `src/app/routes/index.tsx`
 - `src/app/routes/create.tsx`
 - `src/app/ui/components/import/CloudProjectImporter.tsx`

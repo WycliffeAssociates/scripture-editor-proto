@@ -2,25 +2,25 @@ import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { ContainerFormat } from "@/core/library/LibraryItemCapabilities.ts";
 import type { IndexedLibraryItemType } from "@/core/library/LibraryItemType.ts";
 import type {
-    ReferenceDocument,
-    ReferenceDocumentId,
-    ReferenceDocumentReference,
+  ReferenceDocument,
+  ReferenceDocumentId,
+  ReferenceDocumentReference,
 } from "@/core/library/ReferenceDocuments.ts";
 import type { RemoteSyncCapable } from "@/core/library/ReferenceItemSupport.ts";
 import type { PackedTranslationNotesReadable } from "@/core/library/stores/PackedTranslationNotesRepository.ts";
 import type { ProjectType } from "@/core/persistence/ScriptureWorkspace.ts";
 
 export type ReferenceItemDescriptor = {
-    id: string;
-    displayName: string;
-    type: IndexedLibraryItemType;
-    containerFormat: ContainerFormat;
-    language: {
-        code: string;
-        name: string;
-        direction: LanguageDirection;
-    };
-    readOnly: boolean;
+  id: string;
+  displayName: string;
+  type: IndexedLibraryItemType;
+  containerFormat: ContainerFormat;
+  language: {
+    code: string;
+    name: string;
+    direction: LanguageDirection;
+  };
+  readOnly: boolean;
 };
 
 /**
@@ -31,17 +31,16 @@ export type ReferenceItemDescriptor = {
  * need the document-level surface directly.
  */
 export interface LoadedReferenceItem
-    extends Partial<RemoteSyncCapable>,
-        Partial<PackedTranslationNotesReadable> {
-    readonly folderName: string;
-    readonly displayName: string;
-    readonly managedPath: string;
-    readonly projectId?: string;
-    readonly projectType?: ProjectType;
-    readonly descriptor: ReferenceItemDescriptor;
+  extends Partial<RemoteSyncCapable>, Partial<PackedTranslationNotesReadable> {
+  readonly folderName: string;
+  readonly displayName: string;
+  readonly managedPath: string;
+  readonly projectId?: string;
+  readonly projectType?: ProjectType;
+  readonly descriptor: ReferenceItemDescriptor;
 
-    listDocuments(): Promise<ReferenceDocumentReference[]>;
-    readDocument(
-        documentId: ReferenceDocumentId | string,
-    ): Promise<ReferenceDocument>;
+  listDocuments(): Promise<ReferenceDocumentReference[]>;
+  readDocument(
+    documentId: ReferenceDocumentId | string,
+  ): Promise<ReferenceDocument>;
 }

@@ -26,8 +26,8 @@ const repoRoot = path.resolve(__dirname, "..");
 
 const newVersion = process.argv[2];
 if (!newVersion) {
-    console.error("usage: patchAppVersion.mjs <version>");
-    process.exit(1);
+  console.error("usage: patchAppVersion.mjs <version>");
+  process.exit(1);
 }
 
 const pkgPath = path.join(repoRoot, "package.json");
@@ -43,8 +43,8 @@ fs.writeFileSync(confPath, `${JSON.stringify(conf, null, 4)}\n`);
 const cargoPath = path.join(repoRoot, "src/tauri/rust/Cargo.toml");
 const cargo = fs.readFileSync(cargoPath, "utf8");
 const replaced = cargo.replace(
-    /^version = "[^"]*"/m,
-    `version = "${newVersion}"`,
+  /^version = "[^"]*"/m,
+  `version = "${newVersion}"`,
 );
 fs.writeFileSync(cargoPath, replaced);
 

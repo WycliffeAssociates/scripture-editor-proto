@@ -1,5 +1,5 @@
 export type {
-    CloudStatusButtonProps,
-    CloudStatusButtonState,
+  CloudStatusButtonProps,
+  CloudStatusButtonState,
 } from "./CloudStatusButton.tsx";
 export { CloudStatusButton } from "./CloudStatusButton.tsx";

@@ -19,12 +19,13 @@
 // faithful" instead, which is a different (and harder) guarantee.
 
 import type { SerializedLexicalNode } from "lexical";
+
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { classifyParagraphMarker } from "@/app/domain/editor/markerTaxonomy.ts";
 import {
-    createSerializedUSFMTextNode,
-    isSerializedUSFMTextNode,
-    type SerializedUSFMTextNode,
+  createSerializedUSFMTextNode,
+  isSerializedUSFMTextNode,
+  type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
@@ -49,12 +50,12 @@ import { guidGenerator } from "@/core/data/utils/generic.ts";
  * marker (for kind-specific behavior).
  */
 export type FormBlockKind =
-    | { variant: "implicit" }
-    | { variant: "paragraph"; marker: string }
-    | { variant: "poetry"; marker: string }
-    | { variant: "heading"; marker: string }
-    | { variant: "rule"; marker: string }
-    | { variant: "list"; marker: string };
+  | { variant: "implicit" }
+  | { variant: "paragraph"; marker: string }
+  | { variant: "poetry"; marker: string }
+  | { variant: "heading"; marker: string }
+  | { variant: "rule"; marker: string }
+  | { variant: "list"; marker: string };
 
 /**
  * One verse-shaped slice of a block. A block can hold zero (rule blocks),
@@ -64,16 +65,16 @@ export type FormBlockKind =
  * text without rescanning.
  */
 export type FormVerseFragment = {
-    id: string;
-    /** Verse SID (`"REV 1:3"`) or null for a fragment with no preceding `\v`. */
-    sid: string | null;
-    verseNumber: string | null;
-    /** True only on the first fragment of any new verse run across the chapter. */
-    isFirstOfVerse: boolean;
-    text: string;
-    tokenIndices: number[];
-    /** Index of the `\v` marker token in the parent block; null if no verse. */
-    markerTokenIndex: number | null;
+  id: string;
+  /** Verse SID (`"REV 1:3"`) or null for a fragment with no preceding `\v`. */
+  sid: string | null;
+  verseNumber: string | null;
+  /** True only on the first fragment of any new verse run across the chapter. */
+  isFirstOfVerse: boolean;
+  text: string;
+  tokenIndices: number[];
+  /** Index of the `\v` marker token in the parent block; null if no verse. */
+  markerTokenIndex: number | null;
 };
 
 /**
@@ -82,10 +83,10 @@ export type FormVerseFragment = {
  * round-trip invariant.
  */
 export type FormBlock = {
-    id: string;
-    kind: FormBlockKind;
-    tokens: SerializedLexicalNode[];
-    fragments: FormVerseFragment[];
+  id: string;
+  kind: FormBlockKind;
+  tokens: SerializedLexicalNode[];
+  fragments: FormVerseFragment[];
 };
 
 /**
@@ -94,18 +95,18 @@ export type FormBlock = {
  * depending on the kind being separately persisted.
  */
 export function deriveBlockKind(
-    tokens: readonly SerializedLexicalNode[],
+  tokens: readonly SerializedLexicalNode[],
 ): FormBlockKind {
-    const head = tokens[0];
-    if (!head) return { variant: "implicit" };
-    if (
-        isSerializedUSFMTextNode(head) &&
-        head.tokenType === UsfmTokenTypes.marker &&
-        typeof head.marker === "string"
-    ) {
-        return classifyMarker(head.marker) ?? { variant: "implicit" };
-    }
-    return { variant: "implicit" };
+  const head = tokens[0];
+  if (!head) return { variant: "implicit" };
+  if (
+    isSerializedUSFMTextNode(head) &&
+    head.tokenType === UsfmTokenTypes.marker &&
+    typeof head.marker === "string"
+  ) {
+    return classifyMarker(head.marker) ?? { variant: "implicit" };
+  }
+  return { variant: "implicit" };
 }
 
 /**
@@ -115,8 +116,8 @@ export function deriveBlockKind(
  * the resulting FormBlockKind variant.
  */
 function classifyMarker(marker: string): FormBlockKind | null {
-    const category = classifyParagraphMarker(marker);
-    return category === null ? null : { variant: category, marker };
+  const category = classifyParagraphMarker(marker);
+  return category === null ? null : { variant: category, marker };
 }
 
 /**
@@ -131,11 +132,11 @@ function classifyMarker(marker: string): FormBlockKind | null {
  * `\li*`/`\lim*` (list) all paint a card. Anything else doesn't.
  */
 function isCardEligibleKind(kind: FormBlockKind | null): boolean {
-    return (
-        kind?.variant === "paragraph" ||
-        kind?.variant === "poetry" ||
-        kind?.variant === "list"
-    );
+  return (
+    kind?.variant === "paragraph" ||
+    kind?.variant === "poetry" ||
+    kind?.variant === "list"
+  );
 }
 
 /**
@@ -161,15 +162,15 @@ function isCardEligibleKind(kind: FormBlockKind | null): boolean {
  * Keep this function and the CSS `CONTINUATION_PAIRS` array in sync.
  */
 function isContinuationOfPrev(
-    ownKind: FormBlockKind,
-    previousVisibleKind: FormBlockKind | null,
+  ownKind: FormBlockKind,
+  previousVisibleKind: FormBlockKind | null,
 ): boolean {
-    if (ownKind.variant !== "poetry") return false;
-    return (
-        previousVisibleKind?.variant === "paragraph" ||
-        previousVisibleKind?.variant === "poetry" ||
-        previousVisibleKind?.variant === "list"
-    );
+  if (ownKind.variant !== "poetry") return false;
+  return (
+    previousVisibleKind?.variant === "paragraph" ||
+    previousVisibleKind?.variant === "poetry" ||
+    previousVisibleKind?.variant === "list"
+  );
 }
 
 /**
@@ -186,45 +187,45 @@ function isContinuationOfPrev(
  *   - `\s1` followed by `\p`: FALSE — heading isn't card-eligible
  */
 export function canCombineCardWithPrevious(
-    ownKind: FormBlockKind,
-    previousVisibleKind: FormBlockKind | null,
+  ownKind: FormBlockKind,
+  previousVisibleKind: FormBlockKind | null,
 ): boolean {
-    return (
-        isCardEligibleKind(ownKind) &&
-        isCardEligibleKind(previousVisibleKind) &&
-        !isContinuationOfPrev(ownKind, previousVisibleKind)
-    );
+  return (
+    isCardEligibleKind(ownKind) &&
+    isCardEligibleKind(previousVisibleKind) &&
+    !isContinuationOfPrev(ownKind, previousVisibleKind)
+  );
 }
 
 function isMarker(node: SerializedLexicalNode): node is SerializedUSFMTextNode {
-    return (
-        isSerializedUSFMTextNode(node) &&
-        node.tokenType === UsfmTokenTypes.marker &&
-        typeof node.marker === "string"
-    );
+  return (
+    isSerializedUSFMTextNode(node) &&
+    node.tokenType === UsfmTokenTypes.marker &&
+    typeof node.marker === "string"
+  );
 }
 
 function isVerseMarker(node: SerializedLexicalNode): boolean {
-    return isMarker(node) && node.marker === "v";
+  return isMarker(node) && node.marker === "v";
 }
 
 function isNumberRange(
-    node: SerializedLexicalNode,
+  node: SerializedLexicalNode,
 ): node is SerializedUSFMTextNode {
-    return (
-        isSerializedUSFMTextNode(node) &&
-        node.tokenType === UsfmTokenTypes.numberRange
-    );
+  return (
+    isSerializedUSFMTextNode(node) &&
+    node.tokenType === UsfmTokenTypes.numberRange
+  );
 }
 
 function isText(node: SerializedLexicalNode): node is SerializedUSFMTextNode {
-    return (
-        isSerializedUSFMTextNode(node) && node.tokenType === UsfmTokenTypes.text
-    );
+  return (
+    isSerializedUSFMTextNode(node) && node.tokenType === UsfmTokenTypes.text
+  );
 }
 
 function isLinebreak(node: SerializedLexicalNode): boolean {
-    return node.type === "linebreak";
+  return node.type === "linebreak";
 }
 
 /**
@@ -233,41 +234,41 @@ function isLinebreak(node: SerializedLexicalNode): boolean {
  * marker (typically the `\c` chapter header).
  */
 export function buildFormBlockTree(
-    flatTokens: readonly SerializedLexicalNode[],
+  flatTokens: readonly SerializedLexicalNode[],
 ): FormBlock[] {
-    const blocks: FormBlock[] = [];
-    let currentTokens: SerializedLexicalNode[] = [];
-    let currentKind: FormBlockKind = { variant: "implicit" };
+  const blocks: FormBlock[] = [];
+  let currentTokens: SerializedLexicalNode[] = [];
+  let currentKind: FormBlockKind = { variant: "implicit" };
 
-    const closeCurrent = () => {
-        if (currentTokens.length === 0) return;
-        blocks.push({
-            id: guidGenerator(),
-            kind: currentKind,
-            tokens: currentTokens,
-            fragments: [],
-        });
-        currentTokens = [];
-    };
+  const closeCurrent = () => {
+    if (currentTokens.length === 0) return;
+    blocks.push({
+      id: guidGenerator(),
+      kind: currentKind,
+      tokens: currentTokens,
+      fragments: [],
+    });
+    currentTokens = [];
+  };
 
-    for (const token of flatTokens) {
-        if (isMarker(token) && token.marker) {
-            const nextKind = classifyMarker(token.marker);
-            if (nextKind !== null) {
-                closeCurrent();
-                currentKind = nextKind;
-            }
-        }
-        currentTokens.push(token);
+  for (const token of flatTokens) {
+    if (isMarker(token) && token.marker) {
+      const nextKind = classifyMarker(token.marker);
+      if (nextKind !== null) {
+        closeCurrent();
+        currentKind = nextKind;
+      }
     }
-    closeCurrent();
+    currentTokens.push(token);
+  }
+  closeCurrent();
 
-    for (const block of blocks) {
-        block.fragments = extractFragmentsFromBlock(block.tokens, block.id);
-    }
-    annotateFirstOfVerse(blocks);
+  for (const block of blocks) {
+    block.fragments = extractFragmentsFromBlock(block.tokens, block.id);
+  }
+  annotateFirstOfVerse(blocks);
 
-    return blocks;
+  return blocks;
 }
 
 /**
@@ -276,15 +277,15 @@ export function buildFormBlockTree(
  * `flattenFormBlockTree(buildFormBlockTree(x)) === x` (token-by-token).
  */
 export function flattenFormBlockTree(
-    blocks: readonly FormBlock[],
+  blocks: readonly FormBlock[],
 ): SerializedLexicalNode[] {
-    const out: SerializedLexicalNode[] = [];
-    for (const block of blocks) {
-        for (const token of block.tokens) {
-            out.push(token);
-        }
+  const out: SerializedLexicalNode[] = [];
+  for (const block of blocks) {
+    for (const token of block.tokens) {
+      out.push(token);
     }
-    return out;
+  }
+  return out;
 }
 
 /**
@@ -294,81 +295,81 @@ export function flattenFormBlockTree(
  * any single fragment.
  */
 export function extractFragmentsFromBlock(
-    blockTokens: readonly SerializedLexicalNode[],
-    blockId: string,
-    /**
-     * SID of the most recent verse seen in *preceding* blocks. Lets a
-     * block that has no `\v` of its own (e.g. a `\q1` continuing the
-     * previous block's verse) tag its prelude fragment with the right
-     * verse SID, so cross-pane focus alignment can find it.
-     */
-    inheritedSid: string | null = null,
+  blockTokens: readonly SerializedLexicalNode[],
+  blockId: string,
+  /**
+   * SID of the most recent verse seen in *preceding* blocks. Lets a
+   * block that has no `\v` of its own (e.g. a `\q1` continuing the
+   * previous block's verse) tag its prelude fragment with the right
+   * verse SID, so cross-pane focus alignment can find it.
+   */
+  inheritedSid: string | null = null,
 ): FormVerseFragment[] {
-    const fragments: FormVerseFragment[] = [];
-    const framingEnd = computeFramingEnd(blockTokens);
+  const fragments: FormVerseFragment[] = [];
+  const framingEnd = computeFramingEnd(blockTokens);
 
-    let current: FormVerseFragment | null = null;
-    const closeCurrent = () => {
-        if (current === null) return;
-        fragments.push(current);
-        current = null;
-    };
+  let current: FormVerseFragment | null = null;
+  const closeCurrent = () => {
+    if (current === null) return;
+    fragments.push(current);
+    current = null;
+  };
 
-    for (let i = framingEnd; i < blockTokens.length; i++) {
-        const token = blockTokens[i] as SerializedLexicalNode;
+  for (let i = framingEnd; i < blockTokens.length; i++) {
+    const token = blockTokens[i] as SerializedLexicalNode;
 
-        if (isMarker(token) && isVerseMarker(token)) {
-            closeCurrent();
-            current = startVerseFragment(
-                blockId,
-                fragments.length,
-                token,
-                blockTokens,
-                i,
-            );
-            current.tokenIndices.push(i);
-            continue;
-        }
-
-        if (current === null) {
-            current = startPreludeFragment(blockId, fragments.length);
-            current.sid = inheritedSid;
-        }
-
-        current.tokenIndices.push(i);
-        appendTokenToFragmentText(current, token, blockTokens, i);
+    if (isMarker(token) && isVerseMarker(token)) {
+      closeCurrent();
+      current = startVerseFragment(
+        blockId,
+        fragments.length,
+        token,
+        blockTokens,
+        i,
+      );
+      current.tokenIndices.push(i);
+      continue;
     }
 
-    closeCurrent();
-    if (fragments.length === 0 && shouldHaveTypingPlaceholder(blockTokens)) {
-        // Block has no fragments — typically a freshly-inserted empty
-        // paragraph-class block whose only tokens are the leading marker
-        // and a linebreak. Synthesize a placeholder so the renderer can
-        // show the kind header + an empty textarea to type into. The
-        // placeholder has no tokenIndices, so the first edit triggers
-        // `replaceFragmentText`'s append-new-token branch and the text
-        // becomes a real text token in the slice. Rule and implicit
-        // blocks skip this — they have no editable surface to host a
-        // placeholder.
-        fragments.push({
-            id: `${blockId}-frag-empty`,
-            sid: inheritedSid,
-            verseNumber: null,
-            isFirstOfVerse: false,
-            text: "",
-            tokenIndices: [],
-            markerTokenIndex: null,
-        });
+    if (current === null) {
+      current = startPreludeFragment(blockId, fragments.length);
+      current.sid = inheritedSid;
     }
-    annotateFirstOfVerseLocal(fragments);
-    return fragments;
+
+    current.tokenIndices.push(i);
+    appendTokenToFragmentText(current, token, blockTokens, i);
+  }
+
+  closeCurrent();
+  if (fragments.length === 0 && shouldHaveTypingPlaceholder(blockTokens)) {
+    // Block has no fragments — typically a freshly-inserted empty
+    // paragraph-class block whose only tokens are the leading marker
+    // and a linebreak. Synthesize a placeholder so the renderer can
+    // show the kind header + an empty textarea to type into. The
+    // placeholder has no tokenIndices, so the first edit triggers
+    // `replaceFragmentText`'s append-new-token branch and the text
+    // becomes a real text token in the slice. Rule and implicit
+    // blocks skip this — they have no editable surface to host a
+    // placeholder.
+    fragments.push({
+      id: `${blockId}-frag-empty`,
+      sid: inheritedSid,
+      verseNumber: null,
+      isFirstOfVerse: false,
+      text: "",
+      tokenIndices: [],
+      markerTokenIndex: null,
+    });
+  }
+  annotateFirstOfVerseLocal(fragments);
+  return fragments;
 }
 
 function shouldHaveTypingPlaceholder(
-    blockTokens: readonly SerializedLexicalNode[],
+  blockTokens: readonly SerializedLexicalNode[],
 ): boolean {
-    const kind = deriveBlockKind(blockTokens);
-    return kind.variant !== "rule" && kind.variant !== "implicit";
+  const kind = deriveBlockKind(blockTokens);
+  return kind.variant !== "rule" && kind.variant !== "implicit";
 }
 
 /**
@@ -379,15 +380,15 @@ function shouldHaveTypingPlaceholder(
  * stamping should use `buildFormBlockTree` instead.
  */
 function annotateFirstOfVerseLocal(
-    fragments: readonly FormVerseFragment[],
+  fragments: readonly FormVerseFragment[],
 ): void {
-    let prevSid: string | null = null;
-    for (const fragment of fragments) {
-        if (fragment.sid !== null && fragment.sid !== prevSid) {
-            fragment.isFirstOfVerse = true;
-            prevSid = fragment.sid;
-        }
+  let prevSid: string | null = null;
+  for (const fragment of fragments) {
+    if (fragment.sid !== null && fragment.sid !== prevSid) {
+      fragment.isFirstOfVerse = true;
+      prevSid = fragment.sid;
     }
+  }
 }
 
 /**
@@ -396,56 +397,56 @@ function annotateFirstOfVerseLocal(
  * round-trip but are not assigned to any fragment.
  */
 export function computeFramingEnd(
-    blockTokens: readonly SerializedLexicalNode[],
+  blockTokens: readonly SerializedLexicalNode[],
 ): number {
-    if (blockTokens.length === 0) return 0;
-    const head = blockTokens[0];
-    let cursor = 0;
-    if (head && isMarker(head) && classifyMarker(head.marker ?? "") !== null) {
-        cursor = 1;
-        while (cursor < blockTokens.length) {
-            const next = blockTokens[cursor];
-            if (!next || !isLinebreak(next)) break;
-            cursor++;
-        }
+  if (blockTokens.length === 0) return 0;
+  const head = blockTokens[0];
+  let cursor = 0;
+  if (head && isMarker(head) && classifyMarker(head.marker ?? "") !== null) {
+    cursor = 1;
+    while (cursor < blockTokens.length) {
+      const next = blockTokens[cursor];
+      if (!next || !isLinebreak(next)) break;
+      cursor++;
     }
-    return cursor;
+  }
+  return cursor;
 }
 
 function startVerseFragment(
-    blockId: string,
-    index: number,
-    verseToken: SerializedUSFMTextNode,
-    blockTokens: readonly SerializedLexicalNode[],
-    verseTokenIndex: number,
+  blockId: string,
+  index: number,
+  verseToken: SerializedUSFMTextNode,
+  blockTokens: readonly SerializedLexicalNode[],
+  verseTokenIndex: number,
 ): FormVerseFragment {
-    const next = blockTokens[verseTokenIndex + 1];
-    const verseNumber =
-        next && isNumberRange(next) ? (next.text ?? "").trim() : null;
-    return {
-        id: `${blockId}-frag-${index}`,
-        sid: verseToken.sid ?? null,
-        verseNumber: verseNumber || null,
-        isFirstOfVerse: false,
-        text: "",
-        tokenIndices: [],
-        markerTokenIndex: verseTokenIndex,
-    };
+  const next = blockTokens[verseTokenIndex + 1];
+  const verseNumber =
+    next && isNumberRange(next) ? (next.text ?? "").trim() : null;
+  return {
+    id: `${blockId}-frag-${index}`,
+    sid: verseToken.sid ?? null,
+    verseNumber: verseNumber || null,
+    isFirstOfVerse: false,
+    text: "",
+    tokenIndices: [],
+    markerTokenIndex: verseTokenIndex,
+  };
 }
 
 function startPreludeFragment(
-    blockId: string,
-    index: number,
+  blockId: string,
+  index: number,
 ): FormVerseFragment {
-    return {
-        id: `${blockId}-frag-${index}`,
-        sid: null,
-        verseNumber: null,
-        isFirstOfVerse: false,
-        text: "",
-        tokenIndices: [],
-        markerTokenIndex: null,
-    };
+  return {
+    id: `${blockId}-frag-${index}`,
+    sid: null,
+    verseNumber: null,
+    isFirstOfVerse: false,
+    text: "",
+    tokenIndices: [],
+    markerTokenIndex: null,
+  };
 }
 
 /**
@@ -454,23 +455,23 @@ function startPreludeFragment(
  * fragment body — it's surfaced separately on the fragment.
  */
 function appendTokenToFragmentText(
-    fragment: FormVerseFragment,
-    token: SerializedLexicalNode,
-    blockTokens: readonly SerializedLexicalNode[],
-    index: number,
+  fragment: FormVerseFragment,
+  token: SerializedLexicalNode,
+  blockTokens: readonly SerializedLexicalNode[],
+  index: number,
 ): void {
-    if (isLinebreak(token)) {
-        fragment.text += " ";
-        return;
-    }
-    if (!isText(token) && !isNumberRange(token)) return;
+  if (isLinebreak(token)) {
+    fragment.text += " ";
+    return;
+  }
+  if (!isText(token) && !isNumberRange(token)) return;
 
-    const prev = blockTokens[index - 1];
-    const isVerseHeaderNumber =
-        isNumberRange(token) && prev !== undefined && isVerseMarker(prev);
-    if (isVerseHeaderNumber) return;
+  const prev = blockTokens[index - 1];
+  const isVerseHeaderNumber =
+    isNumberRange(token) && prev !== undefined && isVerseMarker(prev);
+  if (isVerseHeaderNumber) return;
 
-    fragment.text += (token as SerializedUSFMTextNode).text ?? "";
+  fragment.text += (token as SerializedUSFMTextNode).text ?? "";
 }
 
 /**
@@ -479,15 +480,15 @@ function appendTokenToFragmentText(
  * matter how many blocks the verse spans.
  */
 function annotateFirstOfVerse(blocks: readonly FormBlock[]): void {
-    let prevSid: string | null = null;
-    for (const block of blocks) {
-        for (const fragment of block.fragments) {
-            if (fragment.sid !== null && fragment.sid !== prevSid) {
-                fragment.isFirstOfVerse = true;
-                prevSid = fragment.sid;
-            }
-        }
+  let prevSid: string | null = null;
+  for (const block of blocks) {
+    for (const fragment of block.fragments) {
+      if (fragment.sid !== null && fragment.sid !== prevSid) {
+        fragment.isFirstOfVerse = true;
+        prevSid = fragment.sid;
+      }
     }
+  }
 }
 
 // --- Pending-focus coordination ---------------------------------------
@@ -514,23 +515,23 @@ export type PendingFocusPosition = "first" | "last" | number;
 const PENDING_FOCUS: Map<string, PendingFocusPosition> = new Map();
 
 export function markBlockPendingFocus(
-    blockId: string,
-    position: PendingFocusPosition = "last",
+  blockId: string,
+  position: PendingFocusPosition = "last",
 ): void {
-    PENDING_FOCUS.set(blockId, position);
+  PENDING_FOCUS.set(blockId, position);
 }
 
 export function peekPendingFocus(blockId: string): PendingFocusPosition | null {
-    return PENDING_FOCUS.get(blockId) ?? null;
+  return PENDING_FOCUS.get(blockId) ?? null;
 }
 
 export function consumePendingFocus(
-    blockId: string,
+  blockId: string,
 ): PendingFocusPosition | null {
-    const value = PENDING_FOCUS.get(blockId);
-    if (value === undefined) return null;
-    PENDING_FOCUS.delete(blockId);
-    return value;
+  const value = PENDING_FOCUS.get(blockId);
+  if (value === undefined) return null;
+  PENDING_FOCUS.delete(blockId);
+  return value;
 }
 
 /**
@@ -545,27 +546,24 @@ export function consumePendingFocus(
  * collapsed into the replacement.
  */
 export function replaceFragmentText(
-    blockTokens: readonly SerializedLexicalNode[],
-    fragment: FormVerseFragment,
-    nextText: string,
-    sidHint: string,
+  blockTokens: readonly SerializedLexicalNode[],
+  fragment: FormVerseFragment,
+  nextText: string,
+  sidHint: string,
 ): SerializedLexicalNode[] {
-    const dropIndices = collectTextIndicesToDrop(blockTokens, fragment);
-    const insertionAnchor = computeInsertionAnchor(
-        fragment,
-        blockTokens.length,
-    );
-    const replacement =
-        nextText.length > 0
-            ? createReplacementTextToken(fragment, nextText, sidHint)
-            : null;
+  const dropIndices = collectTextIndicesToDrop(blockTokens, fragment);
+  const insertionAnchor = computeInsertionAnchor(fragment, blockTokens.length);
+  const replacement =
+    nextText.length > 0
+      ? createReplacementTextToken(fragment, nextText, sidHint)
+      : null;
 
-    return rebuildTokensWithReplacement(
-        blockTokens,
-        dropIndices,
-        insertionAnchor,
-        replacement,
-    );
+  return rebuildTokensWithReplacement(
+    blockTokens,
+    dropIndices,
+    insertionAnchor,
+    replacement,
+  );
 }
 
 /**
@@ -574,21 +572,21 @@ export function replaceFragmentText(
  * carry structural meaning.
  */
 function collectTextIndicesToDrop(
-    blockTokens: readonly SerializedLexicalNode[],
-    fragment: FormVerseFragment,
+  blockTokens: readonly SerializedLexicalNode[],
+  fragment: FormVerseFragment,
 ): Set<number> {
-    const drop = new Set<number>();
-    for (const i of fragment.tokenIndices) {
-        const token = blockTokens[i];
-        if (!token) continue;
-        if (
-            isSerializedUSFMTextNode(token) &&
-            token.tokenType === UsfmTokenTypes.text
-        ) {
-            drop.add(i);
-        }
+  const drop = new Set<number>();
+  for (const i of fragment.tokenIndices) {
+    const token = blockTokens[i];
+    if (!token) continue;
+    if (
+      isSerializedUSFMTextNode(token) &&
+      token.tokenType === UsfmTokenTypes.text
+    ) {
+      drop.add(i);
     }
-    return drop;
+  }
+  return drop;
 }
 
 /**
@@ -598,27 +596,27 @@ function collectTextIndicesToDrop(
  * fragments (no verse marker) the anchor is the first index in range.
  */
 function computeInsertionAnchor(
-    fragment: FormVerseFragment,
-    blockTokensLength: number,
+  fragment: FormVerseFragment,
+  blockTokensLength: number,
 ): number {
-    if (fragment.markerTokenIndex === null) {
-        return fragment.tokenIndices[0] ?? blockTokensLength;
-    }
-    return fragment.markerTokenIndex + 2;
+  if (fragment.markerTokenIndex === null) {
+    return fragment.tokenIndices[0] ?? blockTokensLength;
+  }
+  return fragment.markerTokenIndex + 2;
 }
 
 function createReplacementTextToken(
-    fragment: FormVerseFragment,
-    nextText: string,
-    sidHint: string,
+  fragment: FormVerseFragment,
+  nextText: string,
+  sidHint: string,
 ): SerializedUSFMTextNode {
-    const leadingSpace = fragment.markerTokenIndex !== null ? " " : "";
-    return createSerializedUSFMTextNode({
-        text: `${leadingSpace}${nextText}`,
-        id: guidGenerator(),
-        sid: fragment.sid ?? sidHint,
-        tokenType: UsfmTokenTypes.text,
-    });
+  const leadingSpace = fragment.markerTokenIndex !== null ? " " : "";
+  return createSerializedUSFMTextNode({
+    text: `${leadingSpace}${nextText}`,
+    id: guidGenerator(),
+    sid: fragment.sid ?? sidHint,
+    tokenType: UsfmTokenTypes.text,
+  });
 }
 
 /**
@@ -629,17 +627,17 @@ function createReplacementTextToken(
  * the new sibling).
  */
 export function buildEmptyBlockTokens(marker: string): SerializedLexicalNode[] {
-    return [
-        createSerializedUSFMTextNode({
-            text: `\\${marker} `,
-            id: guidGenerator(),
-            sid: "",
-            tokenType: UsfmTokenTypes.marker,
-            marker,
-            inPara: marker,
-        }),
-        { type: "linebreak", version: 1 } as SerializedLexicalNode,
-    ];
+  return [
+    createSerializedUSFMTextNode({
+      text: `\\${marker} `,
+      id: guidGenerator(),
+      sid: "",
+      tokenType: UsfmTokenTypes.marker,
+      marker,
+      inPara: marker,
+    }),
+    { type: "linebreak", version: 1 } as SerializedLexicalNode,
+  ];
 }
 
 /**
@@ -653,23 +651,23 @@ export function buildEmptyBlockTokens(marker: string): SerializedLexicalNode[] {
  * that case).
  */
 export function setBlockMarker(
-    blockTokens: readonly SerializedLexicalNode[],
-    nextMarker: string,
+  blockTokens: readonly SerializedLexicalNode[],
+  nextMarker: string,
 ): SerializedLexicalNode[] | null {
-    const head = blockTokens[0];
-    if (!head || !isSerializedUSFMTextNode(head)) return null;
-    if (head.tokenType !== UsfmTokenTypes.marker) return null;
-    if (!head.marker || classifyMarker(head.marker) === null) return null;
+  const head = blockTokens[0];
+  if (!head || !isSerializedUSFMTextNode(head)) return null;
+  if (head.tokenType !== UsfmTokenTypes.marker) return null;
+  if (!head.marker || classifyMarker(head.marker) === null) return null;
 
-    const replacement = createSerializedUSFMTextNode({
-        text: `\\${nextMarker} `,
-        id: head.id ?? guidGenerator(),
-        sid: head.sid ?? "",
-        tokenType: UsfmTokenTypes.marker,
-        marker: nextMarker,
-        inPara: nextMarker,
-    });
-    return [replacement, ...blockTokens.slice(1)];
+  const replacement = createSerializedUSFMTextNode({
+    text: `\\${nextMarker} `,
+    id: head.id ?? guidGenerator(),
+    sid: head.sid ?? "",
+    tokenType: UsfmTokenTypes.marker,
+    marker: nextMarker,
+    inPara: nextMarker,
+  });
+  return [replacement, ...blockTokens.slice(1)];
 }
 
 /**
@@ -679,26 +677,26 @@ export function setBlockMarker(
  * invisible.
  */
 export function findChapterNumber(
-    tokens: readonly SerializedLexicalNode[],
+  tokens: readonly SerializedLexicalNode[],
 ): string | null {
-    for (let i = 0; i < tokens.length; i++) {
-        const token = tokens[i];
-        if (
-            !isSerializedUSFMTextNode(token) ||
-            token.tokenType !== UsfmTokenTypes.marker ||
-            token.marker !== "c"
-        ) {
-            continue;
-        }
-        const next = tokens[i + 1];
-        if (
-            isSerializedUSFMTextNode(next) &&
-            next.tokenType === UsfmTokenTypes.numberRange
-        ) {
-            return (next.text ?? "").trim();
-        }
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    if (
+      !isSerializedUSFMTextNode(token) ||
+      token.tokenType !== UsfmTokenTypes.marker ||
+      token.marker !== "c"
+    ) {
+      continue;
     }
-    return null;
+    const next = tokens[i + 1];
+    if (
+      isSerializedUSFMTextNode(next) &&
+      next.tokenType === UsfmTokenTypes.numberRange
+    ) {
+      return (next.text ?? "").trim();
+    }
+  }
+  return null;
 }
 
 /**
@@ -708,12 +706,12 @@ export function findChapterNumber(
  * (framing + other verse fragments) intact.
  */
 export function removeFragmentFromBlock(
-    blockTokens: readonly SerializedLexicalNode[],
-    fragment: FormVerseFragment,
+  blockTokens: readonly SerializedLexicalNode[],
+  fragment: FormVerseFragment,
 ): SerializedLexicalNode[] {
-    if (fragment.tokenIndices.length === 0) return [...blockTokens];
-    const drop = new Set(fragment.tokenIndices);
-    return blockTokens.filter((_, i) => !drop.has(i));
+  if (fragment.tokenIndices.length === 0) return [...blockTokens];
+  const drop = new Set(fragment.tokenIndices);
+  return blockTokens.filter((_, i) => !drop.has(i));
 }
 
 /**
@@ -721,20 +719,20 @@ export function removeFragmentFromBlock(
  * inserted verse to the right book/chapter and number.
  */
 export function findLastVerseSid(
-    tokens: readonly SerializedLexicalNode[],
+  tokens: readonly SerializedLexicalNode[],
 ): string | null {
-    let last: string | null = null;
-    for (const token of tokens) {
-        if (
-            isSerializedUSFMTextNode(token) &&
-            token.tokenType === UsfmTokenTypes.marker &&
-            token.marker === "v" &&
-            token.sid
-        ) {
-            last = token.sid;
-        }
+  let last: string | null = null;
+  for (const token of tokens) {
+    if (
+      isSerializedUSFMTextNode(token) &&
+      token.tokenType === UsfmTokenTypes.marker &&
+      token.marker === "v" &&
+      token.sid
+    ) {
+      last = token.sid;
     }
-    return last;
+  }
+  return last;
 }
 
 /**
@@ -744,26 +742,26 @@ export function findLastVerseSid(
  * wrapping it in a fresh `\p`.
  */
 export function buildVerseFragmentTokens(
-    nextSid: string,
-    nextNumber: number,
+  nextSid: string,
+  nextNumber: number,
 ): SerializedLexicalNode[] {
-    return [
-        createSerializedUSFMTextNode({
-            text: `\\v `,
-            id: guidGenerator(),
-            sid: nextSid,
-            tokenType: UsfmTokenTypes.marker,
-            marker: "v",
-        }),
-        createSerializedUSFMTextNode({
-            text: String(nextNumber),
-            id: guidGenerator(),
-            sid: nextSid,
-            tokenType: UsfmTokenTypes.numberRange,
-            marker: "v",
-        }),
-        { type: "linebreak", version: 1 } as SerializedLexicalNode,
-    ];
+  return [
+    createSerializedUSFMTextNode({
+      text: `\\v `,
+      id: guidGenerator(),
+      sid: nextSid,
+      tokenType: UsfmTokenTypes.marker,
+      marker: "v",
+    }),
+    createSerializedUSFMTextNode({
+      text: String(nextNumber),
+      id: guidGenerator(),
+      sid: nextSid,
+      tokenType: UsfmTokenTypes.numberRange,
+      marker: "v",
+    }),
+    { type: "linebreak", version: 1 } as SerializedLexicalNode,
+  ];
 }
 
 /**
@@ -772,15 +770,15 @@ export function buildVerseFragmentTokens(
  * (caller bails). Doesn't check for collisions — caller can validate.
  */
 export function nextVerseSidFrom(
-    anchorSid: string,
+  anchorSid: string,
 ): { sid: string; number: number } | null {
-    const parsed = parseSid(anchorSid);
-    if (!parsed) return null;
-    const nextNumber = (parsed.verseEnd || parsed.verseStart) + 1;
-    return {
-        sid: `${parsed.book} ${parsed.chapter}:${nextNumber}`,
-        number: nextNumber,
-    };
+  const parsed = parseSid(anchorSid);
+  if (!parsed) return null;
+  const nextNumber = (parsed.verseEnd || parsed.verseStart) + 1;
+  return {
+    sid: `${parsed.book} ${parsed.chapter}:${nextNumber}`,
+    number: nextNumber,
+  };
 }
 
 /**
@@ -795,30 +793,30 @@ export function nextVerseSidFrom(
  * for fragments produced by `extractFragmentsFromBlock`).
  */
 export function insertVerseFragmentBeforeFragment(
-    blockTokens: readonly SerializedLexicalNode[],
-    fragment: FormVerseFragment,
-    verseTokens: readonly SerializedLexicalNode[],
+  blockTokens: readonly SerializedLexicalNode[],
+  fragment: FormVerseFragment,
+  verseTokens: readonly SerializedLexicalNode[],
 ): SerializedLexicalNode[] | null {
-    const insertIndex = fragment.tokenIndices[0];
-    if (insertIndex === undefined) return null;
-    return [
-        ...blockTokens.slice(0, insertIndex),
-        ...verseTokens,
-        ...blockTokens.slice(insertIndex),
-    ];
+  const insertIndex = fragment.tokenIndices[0];
+  if (insertIndex === undefined) return null;
+  return [
+    ...blockTokens.slice(0, insertIndex),
+    ...verseTokens,
+    ...blockTokens.slice(insertIndex),
+  ];
 }
 
 export function splitBlockAtFragment(
-    blockTokens: readonly SerializedLexicalNode[],
-    fragment: FormVerseFragment,
-    newBlockMarker: string,
+  blockTokens: readonly SerializedLexicalNode[],
+  fragment: FormVerseFragment,
+  newBlockMarker: string,
 ): { before: SerializedLexicalNode[]; after: SerializedLexicalNode[] } | null {
-    const splitIndex = fragment.tokenIndices[0];
-    if (splitIndex === undefined) return null;
-    const before = blockTokens.slice(0, splitIndex);
-    const remaining = blockTokens.slice(splitIndex);
-    const after = [...buildEmptyBlockTokens(newBlockMarker), ...remaining];
-    return { before, after };
+  const splitIndex = fragment.tokenIndices[0];
+  if (splitIndex === undefined) return null;
+  const before = blockTokens.slice(0, splitIndex);
+  const remaining = blockTokens.slice(splitIndex);
+  const after = [...buildEmptyBlockTokens(newBlockMarker), ...remaining];
+  return { before, after };
 }
 
 /**
@@ -834,56 +832,56 @@ export function splitBlockAtFragment(
  * token.
  */
 export function insertVerseAtCursor(
-    blockTokens: readonly SerializedLexicalNode[],
-    fragment: FormVerseFragment,
-    cursorOffset: number,
-    nextSid: string,
-    nextNumber: number,
+  blockTokens: readonly SerializedLexicalNode[],
+  fragment: FormVerseFragment,
+  cursorOffset: number,
+  nextSid: string,
+  nextNumber: number,
 ): SerializedLexicalNode[] | null {
-    const lastIndex = fragment.tokenIndices[fragment.tokenIndices.length - 1];
-    if (lastIndex === undefined) return null;
-    const beforeText = fragment.text.slice(0, cursorOffset);
-    const afterText = fragment.text.slice(cursorOffset);
-    const truncated = replaceFragmentText(
-        blockTokens,
-        fragment,
-        beforeText,
-        fragment.sid ?? "",
+  const lastIndex = fragment.tokenIndices[fragment.tokenIndices.length - 1];
+  if (lastIndex === undefined) return null;
+  const beforeText = fragment.text.slice(0, cursorOffset);
+  const afterText = fragment.text.slice(cursorOffset);
+  const truncated = replaceFragmentText(
+    blockTokens,
+    fragment,
+    beforeText,
+    fragment.sid ?? "",
+  );
+  // The truncated array shares the same suffix structure as the
+  // input — only the text token(s) inside the fragment changed.
+  // Re-extract to find the *now*-current fragment so we know where
+  // to splice. Cheap because parsing one block is bounded.
+  const refreshedFragments = extractFragmentsFromBlock(
+    truncated,
+    "tmp",
+    fragment.sid,
+  );
+  const refreshed = refreshedFragments.find(
+    (f) => f.markerTokenIndex === fragment.markerTokenIndex,
+  );
+  const refreshedLast =
+    refreshed?.tokenIndices[refreshed.tokenIndices.length - 1];
+  if (refreshedLast === undefined) return null;
+  const newVerseTokens: SerializedLexicalNode[] = [
+    ...buildVerseFragmentTokens(nextSid, nextNumber),
+  ];
+  if (afterText.length > 0) {
+    newVerseTokens.push(
+      createSerializedUSFMTextNode({
+        text: ` ${afterText}`,
+        id: guidGenerator(),
+        sid: nextSid,
+        tokenType: UsfmTokenTypes.text,
+      }),
+      { type: "linebreak", version: 1 } as SerializedLexicalNode,
     );
-    // The truncated array shares the same suffix structure as the
-    // input — only the text token(s) inside the fragment changed.
-    // Re-extract to find the *now*-current fragment so we know where
-    // to splice. Cheap because parsing one block is bounded.
-    const refreshedFragments = extractFragmentsFromBlock(
-        truncated,
-        "tmp",
-        fragment.sid,
-    );
-    const refreshed = refreshedFragments.find(
-        (f) => f.markerTokenIndex === fragment.markerTokenIndex,
-    );
-    const refreshedLast =
-        refreshed?.tokenIndices[refreshed.tokenIndices.length - 1];
-    if (refreshedLast === undefined) return null;
-    const newVerseTokens: SerializedLexicalNode[] = [
-        ...buildVerseFragmentTokens(nextSid, nextNumber),
-    ];
-    if (afterText.length > 0) {
-        newVerseTokens.push(
-            createSerializedUSFMTextNode({
-                text: ` ${afterText}`,
-                id: guidGenerator(),
-                sid: nextSid,
-                tokenType: UsfmTokenTypes.text,
-            }),
-            { type: "linebreak", version: 1 } as SerializedLexicalNode,
-        );
-    }
-    return [
-        ...truncated.slice(0, refreshedLast + 1),
-        ...newVerseTokens,
-        ...truncated.slice(refreshedLast + 1),
-    ];
+  }
+  return [
+    ...truncated.slice(0, refreshedLast + 1),
+    ...newVerseTokens,
+    ...truncated.slice(refreshedLast + 1),
+  ];
 }
 
 /**
@@ -894,68 +892,68 @@ export function insertVerseAtCursor(
  * subsequent fragments.
  */
 export function splitBlockAtCursor(
-    blockTokens: readonly SerializedLexicalNode[],
-    fragment: FormVerseFragment,
-    cursorOffset: number,
-    newBlockMarker: string,
+  blockTokens: readonly SerializedLexicalNode[],
+  fragment: FormVerseFragment,
+  cursorOffset: number,
+  newBlockMarker: string,
 ): { before: SerializedLexicalNode[]; after: SerializedLexicalNode[] } | null {
-    const lastIndex = fragment.tokenIndices[fragment.tokenIndices.length - 1];
-    if (lastIndex === undefined) return null;
-    const beforeText = fragment.text.slice(0, cursorOffset);
-    const afterText = fragment.text.slice(cursorOffset);
-    const truncated = replaceFragmentText(
-        blockTokens,
-        fragment,
-        beforeText,
-        fragment.sid ?? "",
+  const lastIndex = fragment.tokenIndices[fragment.tokenIndices.length - 1];
+  if (lastIndex === undefined) return null;
+  const beforeText = fragment.text.slice(0, cursorOffset);
+  const afterText = fragment.text.slice(cursorOffset);
+  const truncated = replaceFragmentText(
+    blockTokens,
+    fragment,
+    beforeText,
+    fragment.sid ?? "",
+  );
+  const refreshedFragments = extractFragmentsFromBlock(
+    truncated,
+    "tmp",
+    fragment.sid,
+  );
+  const refreshed = refreshedFragments.find(
+    (f) => f.markerTokenIndex === fragment.markerTokenIndex,
+  );
+  const refreshedLast =
+    refreshed?.tokenIndices[refreshed.tokenIndices.length - 1];
+  if (refreshedLast === undefined) return null;
+  const before = truncated.slice(0, refreshedLast + 1);
+  const tail = truncated.slice(refreshedLast + 1);
+  const after: SerializedLexicalNode[] = [
+    ...buildEmptyBlockTokens(newBlockMarker),
+  ];
+  if (afterText.length > 0) {
+    after.push(
+      createSerializedUSFMTextNode({
+        text: afterText,
+        id: guidGenerator(),
+        sid: fragment.sid ?? "",
+        tokenType: UsfmTokenTypes.text,
+      }),
+      { type: "linebreak", version: 1 } as SerializedLexicalNode,
     );
-    const refreshedFragments = extractFragmentsFromBlock(
-        truncated,
-        "tmp",
-        fragment.sid,
-    );
-    const refreshed = refreshedFragments.find(
-        (f) => f.markerTokenIndex === fragment.markerTokenIndex,
-    );
-    const refreshedLast =
-        refreshed?.tokenIndices[refreshed.tokenIndices.length - 1];
-    if (refreshedLast === undefined) return null;
-    const before = truncated.slice(0, refreshedLast + 1);
-    const tail = truncated.slice(refreshedLast + 1);
-    const after: SerializedLexicalNode[] = [
-        ...buildEmptyBlockTokens(newBlockMarker),
-    ];
-    if (afterText.length > 0) {
-        after.push(
-            createSerializedUSFMTextNode({
-                text: afterText,
-                id: guidGenerator(),
-                sid: fragment.sid ?? "",
-                tokenType: UsfmTokenTypes.text,
-            }),
-            { type: "linebreak", version: 1 } as SerializedLexicalNode,
-        );
-    }
-    after.push(...tail);
-    return { before, after };
+  }
+  after.push(...tail);
+  return { before, after };
 }
 
 function rebuildTokensWithReplacement(
-    blockTokens: readonly SerializedLexicalNode[],
-    dropIndices: ReadonlySet<number>,
-    insertionAnchor: number,
-    replacement: SerializedUSFMTextNode | null,
+  blockTokens: readonly SerializedLexicalNode[],
+  dropIndices: ReadonlySet<number>,
+  insertionAnchor: number,
+  replacement: SerializedUSFMTextNode | null,
 ): SerializedLexicalNode[] {
-    const out: SerializedLexicalNode[] = [];
-    let inserted = false;
-    for (let i = 0; i < blockTokens.length; i++) {
-        if (i === insertionAnchor && !inserted) {
-            if (replacement) out.push(replacement);
-            inserted = true;
-        }
-        if (dropIndices.has(i)) continue;
-        out.push(blockTokens[i] as SerializedLexicalNode);
+  const out: SerializedLexicalNode[] = [];
+  let inserted = false;
+  for (let i = 0; i < blockTokens.length; i++) {
+    if (i === insertionAnchor && !inserted) {
+      if (replacement) out.push(replacement);
+      inserted = true;
     }
-    if (!inserted && replacement) out.push(replacement);
-    return out;
+    if (dropIndices.has(i)) continue;
+    out.push(blockTokens[i] as SerializedLexicalNode);
+  }
+  if (!inserted && replacement) out.push(replacement);
+  return out;
 }

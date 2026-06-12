@@ -1,7 +1,7 @@
 import type { ConsolidatedRepo } from "@/core/domain/project/import/LanguageApiImporter.ts";
 import {
-    normalizeOriginUrl,
-    type ProjectOrigin,
+  normalizeOriginUrl,
+  type ProjectOrigin,
 } from "@/core/persistence/projectOriginModels.ts";
 
 /**
@@ -13,16 +13,16 @@ import {
 export const WA_CATALOG_USERNAME = "wa-catalog";
 
 function equalsIgnoreCase(a: string, b: string): boolean {
-    return a.toLowerCase() === b.toLowerCase();
+  return a.toLowerCase() === b.toLowerCase();
 }
 
 /** Keep only the curated WA-Catalog rows from a consolidated-catalog result. */
 export function selectWaCatalogRepos(
-    repos: ConsolidatedRepo[],
+  repos: ConsolidatedRepo[],
 ): ConsolidatedRepo[] {
-    return repos.filter((repo) =>
-        equalsIgnoreCase(repo.username, WA_CATALOG_USERNAME),
-    );
+  return repos.filter((repo) =>
+    equalsIgnoreCase(repo.username, WA_CATALOG_USERNAME),
+  );
 }
 
 /**
@@ -36,30 +36,30 @@ export function selectWaCatalogRepos(
  * recoverable upstream.
  */
 export function originMatchesCatalogRepo(
-    origin: ProjectOrigin,
-    repo: ConsolidatedRepo,
+  origin: ProjectOrigin,
+  repo: ConsolidatedRepo,
 ): boolean {
-    if (origin.kind !== "remote") return false;
-    if (normalizeOriginUrl(origin.url) === normalizeOriginUrl(repo.repo_url)) {
-        return true;
-    }
-    return Boolean(
-        origin.owner &&
-            origin.name &&
-            equalsIgnoreCase(origin.owner, repo.username) &&
-            equalsIgnoreCase(origin.name, repo.repo_name),
-    );
+  if (origin.kind !== "remote") return false;
+  if (normalizeOriginUrl(origin.url) === normalizeOriginUrl(repo.repo_url)) {
+    return true;
+  }
+  return Boolean(
+    origin.owner &&
+    origin.name &&
+    equalsIgnoreCase(origin.owner, repo.username) &&
+    equalsIgnoreCase(origin.name, repo.repo_name),
+  );
 }
 
 /**
  * True when any of the supplied origins already covers this catalog row.
  */
 export function catalogRepoAlreadyImported(
-    repo: ConsolidatedRepo,
-    origins: Iterable<ProjectOrigin>,
+  repo: ConsolidatedRepo,
+  origins: Iterable<ProjectOrigin>,
 ): boolean {
-    for (const origin of origins) {
-        if (originMatchesCatalogRepo(origin, repo)) return true;
-    }
-    return false;
+  for (const origin of origins) {
+    if (originMatchesCatalogRepo(origin, repo)) return true;
+  }
+  return false;
 }

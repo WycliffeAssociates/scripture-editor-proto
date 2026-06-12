@@ -8,20 +8,20 @@
 type Listener = () => void;
 
 export class LayoutTickStore {
-    #tick = 0;
-    #listeners = new Set<Listener>();
+  #tick = 0;
+  #listeners = new Set<Listener>();
 
-    readonly subscribe = (listener: Listener): (() => void) => {
-        this.#listeners.add(listener);
-        return () => {
-            this.#listeners.delete(listener);
-        };
+  readonly subscribe = (listener: Listener): (() => void) => {
+    this.#listeners.add(listener);
+    return () => {
+      this.#listeners.delete(listener);
     };
+  };
 
-    readonly getSnapshot = (): number => this.#tick;
+  readonly getSnapshot = (): number => this.#tick;
 
-    bump(): void {
-        this.#tick += 1;
-        for (const listener of this.#listeners) listener();
-    }
+  bump(): void {
+    this.#tick += 1;
+    for (const listener of this.#listeners) listener();
+  }
 }

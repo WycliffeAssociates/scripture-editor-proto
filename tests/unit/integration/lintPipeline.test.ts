@@ -33,347 +33,357 @@
 // keep the pipeline-integration link honest and otherwise leans on the
 // predicate test for coverage.
 
+import { drainYields, passTime } from "@tests/helpers/effectTestTime.ts";
+import {
+  makeBook,
+  makeChapterPatch,
+  makeCommitMeta,
+} from "@tests/helpers/workspaceFixtures.ts";
 import { Effect, type Scope } from "effect";
 import { TestClock } from "effect/testing";
 import { describe, expect, it, vi } from "vitest";
+
 import { makeLintPipeline } from "@/app/domain/editor/pipelines/lintPipeline.ts";
 import { FindingsStore } from "@/app/state/FindingsStore.ts";
 import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
-import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
-import { drainYields, passTime } from "@tests/helpers/effectTestTime.ts";
-import {
-    makeBook,
-    makeChapterPatch,
-    makeCommitMeta,
-} from "@tests/helpers/workspaceFixtures.ts";
+import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 const DEBOUNCE_MS = 100;
 
 function runWithTestClock<E>(
-    program: Effect.Effect<void, E, Scope.Scope>,
+  program: Effect.Effect<void, E, Scope.Scope>,
 ): Promise<void> {
-    return Effect.runPromise(
-        Effect.scoped(program).pipe(Effect.provide(TestClock.layer())),
-    );
+  return Effect.runPromise(
+    Effect.scoped(program).pipe(Effect.provide(TestClock.layer())),
+  );
 }
 
 function stubService(impl?: IUsfmOnionService["lintScope"]) {
-    const lintScope = vi
-        .fn(
-            impl ??
-                (async (scope: Parameters<IUsfmOnionService["lintScope"]>[0]) =>
-                    scope.map(() => [] as LintIssue[])),
-        )
-        .mockName("lintScope");
-    return {
-        lintScope,
-        service: { lintScope } as unknown as IUsfmOnionService,
-    };
+  const lintScope = vi
+    .fn(
+      impl ??
+        (async (scope: Parameters<IUsfmOnionService["lintScope"]>[0]) =>
+          scope.map(() => [] as LintIssue[])),
+    )
+    .mockName("lintScope");
+  return {
+    lintScope,
+    service: { lintScope } as unknown as IUsfmOnionService,
+  };
 }
 
 function userEdit(bookCode: string, chapter: number, text: string) {
-    return {
-        patch: makeChapterPatch({ bookCode, chapter, text }),
-        meta: makeCommitMeta({ kind: "userEdit", bookCode, chapter }),
-    };
+  return {
+    patch: makeChapterPatch({ bookCode, chapter, text }),
+    meta: makeCommitMeta({ kind: "userEdit", bookCode, chapter }),
+  };
 }
 
 describe("lintPipeline (integration)", () => {
-    it("coalesces a typing burst into one lint pass after the debounce window", async () => {
-        const { lintScope, service } = stubService();
-        const wf = new WorkingFilesStore([makeBook({ bookCode: "GEN" })]);
-        const findingsStore = new FindingsStore();
-        const writeSpy = vi.spyOn(findingsStore, "commitBookFindings");
+  it("coalesces a typing burst into one lint pass after the debounce window", async () => {
+    const { lintScope, service } = stubService();
+    const wf = new WorkingFilesStore([makeBook({ bookCode: "GEN" })]);
+    const findingsStore = new FindingsStore();
+    const writeSpy = vi.spyOn(findingsStore, "commitBookFindings");
 
-        await runWithTestClock(
-            Effect.gen(function* () {
-                yield* Effect.forkChild(
-                    makeLintPipeline({
-                        workingFilesStore: wf,
-                        findingsStore,
-                        usfmOnionService: service,
-                        debounceMs: DEBOUNCE_MS,
-                    }),
-                );
-                yield* drainYields(); // let pipeline subscribe before publish
-
-                wf.commit(userEdit("GEN", 1, "a"));
-                wf.commit(userEdit("GEN", 1, "ab"));
-                wf.commit(userEdit("GEN", 1, "abc"));
-
-                yield* passTime(DEBOUNCE_MS - 10);
-                expect(lintScope).not.toHaveBeenCalled();
-
-                yield* passTime(50);
-                expect(lintScope).toHaveBeenCalledTimes(1);
-                expect(writeSpy).toHaveBeenCalledTimes(1);
-            }),
+    await runWithTestClock(
+      Effect.gen(function* () {
+        yield* Effect.forkChild(
+          makeLintPipeline({
+            workingFilesStore: wf,
+            findingsStore,
+            usfmOnionService: service,
+            debounceMs: DEBOUNCE_MS,
+          }),
         );
-    });
+        yield* drainYields(); // let pipeline subscribe before publish
 
-    it("ignores metadataOnly commits — cursor moves don't drive lint", async () => {
-        const { lintScope, service } = stubService();
-        const wf = new WorkingFilesStore([makeBook({ bookCode: "GEN" })]);
-        const findingsStore = new FindingsStore();
-        const writeSpy = vi.spyOn(findingsStore, "commitBookFindings");
+        wf.commit(userEdit("GEN", 1, "a"));
+        wf.commit(userEdit("GEN", 1, "ab"));
+        wf.commit(userEdit("GEN", 1, "abc"));
 
-        await runWithTestClock(
-            Effect.gen(function* () {
-                yield* Effect.forkChild(
-                    makeLintPipeline({
-                        workingFilesStore: wf,
-                        findingsStore,
-                        usfmOnionService: service,
-                        debounceMs: DEBOUNCE_MS,
-                    }),
-                );
-                yield* drainYields();
+        yield* passTime(DEBOUNCE_MS - 10);
+        expect(lintScope).not.toHaveBeenCalled();
 
-                wf.commit({
-                    patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1, selection: null },
-                    meta: makeCommitMeta({
-                        kind: "metadataOnly",
-                        bookCode: "GEN",
-                        chapter: 1,
-                        dirtyTextContent: false,
-                    }),
-                });
+        yield* passTime(50);
+        expect(lintScope).toHaveBeenCalledTimes(1);
+        expect(writeSpy).toHaveBeenCalledTimes(1);
+      }),
+    );
+  });
 
-                yield* passTime(DEBOUNCE_MS * 2);
-                expect(lintScope).not.toHaveBeenCalled();
-                expect(writeSpy).not.toHaveBeenCalled();
-            }),
+  it("ignores metadataOnly commits — cursor moves don't drive lint", async () => {
+    const { lintScope, service } = stubService();
+    const wf = new WorkingFilesStore([makeBook({ bookCode: "GEN" })]);
+    const findingsStore = new FindingsStore();
+    const writeSpy = vi.spyOn(findingsStore, "commitBookFindings");
+
+    await runWithTestClock(
+      Effect.gen(function* () {
+        yield* Effect.forkChild(
+          makeLintPipeline({
+            workingFilesStore: wf,
+            findingsStore,
+            usfmOnionService: service,
+            debounceMs: DEBOUNCE_MS,
+          }),
         );
-    });
+        yield* drainYields();
 
-    it("re-lints on undo and import commits — replay carries precise chapter scope", async () => {
-        const { lintScope, service } = stubService();
-        const wf = new WorkingFilesStore([makeBook({ bookCode: "GEN" })]);
-        const findingsStore = new FindingsStore();
-
-        await runWithTestClock(
-            Effect.gen(function* () {
-                yield* Effect.forkChild(
-                    makeLintPipeline({
-                        workingFilesStore: wf,
-                        findingsStore,
-                        usfmOnionService: service,
-                        debounceMs: DEBOUNCE_MS,
-                    }),
-                );
-                yield* drainYields();
-
-                wf.commit({
-                    patch: makeChapterPatch({ bookCode: "GEN", chapter: 1, text: "x" }),
-                    meta: makeCommitMeta({ kind: "undo", bookCode: "GEN", chapter: 1 }),
-                });
-                yield* passTime(DEBOUNCE_MS + 20);
-                expect(lintScope).toHaveBeenCalledTimes(1);
-
-                wf.commit({
-                    patch: makeChapterPatch({ bookCode: "GEN", chapter: 1, text: "y" }),
-                    meta: makeCommitMeta({
-                        kind: "import",
-                        bookCode: "GEN",
-                        chapter: 1,
-                    }),
-                });
-                yield* passTime(DEBOUNCE_MS + 20);
-                expect(lintScope).toHaveBeenCalledTimes(2);
-            }),
-        );
-    });
-
-    it("FOLDS scopes across the debounce window — commits to two books drain as ONE pass covering both", async () => {
-        const { lintScope, service } = stubService();
-        const wf = new WorkingFilesStore([
-            makeBook({ bookCode: "GEN" }),
-            makeBook({ bookCode: "EXO" }),
-        ]);
-        const findingsStore = new FindingsStore();
-        const writeSpy = vi.spyOn(findingsStore, "commitBookFindings");
-
-        await runWithTestClock(
-            Effect.gen(function* () {
-                yield* Effect.forkChild(
-                    makeLintPipeline({
-                        workingFilesStore: wf,
-                        findingsStore,
-                        usfmOnionService: service,
-                        debounceMs: DEBOUNCE_MS,
-                    }),
-                );
-                yield* drainYields();
-
-                // Two different books inside one debounce window. Keep-latest
-                // would drop GEN; the fold must union them.
-                wf.commit(userEdit("GEN", 1, "a"));
-                yield* passTime(DEBOUNCE_MS / 2);
-                wf.commit(userEdit("EXO", 1, "b"));
-
-                yield* passTime(DEBOUNCE_MS + 20);
-                expect(lintScope).toHaveBeenCalledTimes(1);
-                // One service call, one batch per book; one store write per book.
-                expect(lintScope.mock.calls[0]?.[0]).toHaveLength(2);
-                expect(writeSpy).toHaveBeenCalledTimes(2);
-                expect(
-                    writeSpy.mock.calls.map((call) => call[1]).sort(),
-                ).toEqual(["EXO", "GEN"]);
-            }),
-        );
-    });
-
-    it("escalates to ALL books when a project-scope commit lands in the window", async () => {
-        const { lintScope, service } = stubService();
-        const wf = new WorkingFilesStore([
-            makeBook({ bookCode: "GEN" }),
-            makeBook({ bookCode: "EXO" }),
-            makeBook({ bookCode: "LEV" }),
-        ]);
-        const findingsStore = new FindingsStore();
-        const writeSpy = vi.spyOn(findingsStore, "commitBookFindings");
-
-        await runWithTestClock(
-            Effect.gen(function* () {
-                yield* Effect.forkChild(
-                    makeLintPipeline({
-                        workingFilesStore: wf,
-                        findingsStore,
-                        usfmOnionService: service,
-                        debounceMs: DEBOUNCE_MS,
-                    }),
-                );
-                yield* drainYields();
-
-                wf.commit(userEdit("GEN", 1, "a"));
-                wf.commit({
-                    patch: { kind: "bulk", files: wf.read() },
-                    meta: {
-                        kind: "import",
-                        scope: { project: true },
-                        dirtyTextContent: true,
-                    },
-                });
-
-                yield* passTime(DEBOUNCE_MS + 20);
-                expect(lintScope).toHaveBeenCalledTimes(1);
-                expect(lintScope.mock.calls[0]?.[0]).toHaveLength(3);
-                expect(
-                    writeSpy.mock.calls.map((call) => call[1]).sort(),
-                ).toEqual(["EXO", "GEN", "LEV"]);
-            }),
-        );
-    });
-
-    it("does NOT lose a cancelled pass's scope — the next pass covers old ∪ new", async () => {
-        // Pass 1 (GEN) hangs; a commit to EXO interrupts it via switchMap.
-        // The fold must restore GEN into the accumulator so pass 2 covers
-        // BOTH books — keep-latest semantics would lint only EXO and leave
-        // GEN's diagnostics stale forever.
-        let releaseFirst!: (issues: LintIssue[][]) => void;
-        const firstPending = new Promise<LintIssue[][]>((resolve) => {
-            releaseFirst = resolve;
+        wf.commit({
+          patch: {
+            kind: "selectionOnly",
+            bookCode: "GEN",
+            chapter: 1,
+            selection: null,
+          },
+          meta: makeCommitMeta({
+            kind: "metadataOnly",
+            bookCode: "GEN",
+            chapter: 1,
+            dirtyTextContent: false,
+          }),
         });
-        const lintScope = vi
-            .fn<IUsfmOnionService["lintScope"]>()
-            .mockReturnValueOnce(firstPending)
-            .mockImplementation(async (scope) => scope.map(() => []));
-        const service = { lintScope } as unknown as IUsfmOnionService;
 
-        const wf = new WorkingFilesStore([
-            makeBook({ bookCode: "GEN" }),
-            makeBook({ bookCode: "EXO" }),
-        ]);
-        const findingsStore = new FindingsStore();
-        const writeSpy = vi.spyOn(findingsStore, "commitBookFindings");
+        yield* passTime(DEBOUNCE_MS * 2);
+        expect(lintScope).not.toHaveBeenCalled();
+        expect(writeSpy).not.toHaveBeenCalled();
+      }),
+    );
+  });
 
-        await runWithTestClock(
-            Effect.gen(function* () {
-                yield* Effect.forkChild(
-                    makeLintPipeline({
-                        workingFilesStore: wf,
-                        findingsStore,
-                        usfmOnionService: service,
-                        debounceMs: DEBOUNCE_MS,
-                    }),
-                );
-                yield* drainYields();
+  it("re-lints on undo and import commits — replay carries precise chapter scope", async () => {
+    const { lintScope, service } = stubService();
+    const wf = new WorkingFilesStore([makeBook({ bookCode: "GEN" })]);
+    const findingsStore = new FindingsStore();
 
-                wf.commit(userEdit("GEN", 1, "first"));
-                yield* passTime(DEBOUNCE_MS + 20);
-                // Pass 1 (GEN only) has started and is hanging.
-                expect(lintScope).toHaveBeenCalledTimes(1);
-                expect(lintScope.mock.calls[0]?.[0]).toHaveLength(1);
-
-                wf.commit(userEdit("EXO", 1, "second"));
-                yield* passTime(DEBOUNCE_MS + 20);
-                // Pass 1 interrupted; pass 2 must cover GEN ∪ EXO.
-                expect(lintScope).toHaveBeenCalledTimes(2);
-                expect(lintScope.mock.calls[1]?.[0]).toHaveLength(2);
-                expect(writeSpy).toHaveBeenCalledTimes(2);
-                expect(
-                    writeSpy.mock.calls.map((call) => call[1]).sort(),
-                ).toEqual(["EXO", "GEN"]);
-
-                // Releasing the cancelled pass is a no-op.
-                releaseFirst([[]]);
-                yield* drainYields();
-                expect(writeSpy).toHaveBeenCalledTimes(2);
-            }),
+    await runWithTestClock(
+      Effect.gen(function* () {
+        yield* Effect.forkChild(
+          makeLintPipeline({
+            workingFilesStore: wf,
+            findingsStore,
+            usfmOnionService: service,
+            debounceMs: DEBOUNCE_MS,
+          }),
         );
-    });
+        yield* drainYields();
 
-    it("switchMap interrupts in-flight lint when a newer commit lands", async () => {
-        // First call hangs until we release it; second resolves immediately.
-        // The pipeline's `switchMap` should interrupt the first fiber when
-        // the second debounce fires, so the first call's downstream
-        // `commitBookFindings` is never reached.
-        let releaseFirst!: (issues: LintIssue[][]) => void;
-        const firstPending = new Promise<LintIssue[][]>((resolve) => {
-            releaseFirst = resolve;
+        wf.commit({
+          patch: makeChapterPatch({ bookCode: "GEN", chapter: 1, text: "x" }),
+          meta: makeCommitMeta({ kind: "undo", bookCode: "GEN", chapter: 1 }),
         });
-        const lintScope = vi
-            .fn<IUsfmOnionService["lintScope"]>()
-            .mockReturnValueOnce(firstPending)
-            .mockResolvedValue([[]]);
-        const service = { lintScope } as unknown as IUsfmOnionService;
+        yield* passTime(DEBOUNCE_MS + 20);
+        expect(lintScope).toHaveBeenCalledTimes(1);
 
-        const wf = new WorkingFilesStore([makeBook({ bookCode: "GEN" })]);
-        const findingsStore = new FindingsStore();
-        const writeSpy = vi.spyOn(findingsStore, "commitBookFindings");
+        wf.commit({
+          patch: makeChapterPatch({ bookCode: "GEN", chapter: 1, text: "y" }),
+          meta: makeCommitMeta({
+            kind: "import",
+            bookCode: "GEN",
+            chapter: 1,
+          }),
+        });
+        yield* passTime(DEBOUNCE_MS + 20);
+        expect(lintScope).toHaveBeenCalledTimes(2);
+      }),
+    );
+  });
 
-        await runWithTestClock(
-            Effect.gen(function* () {
-                yield* Effect.forkChild(
-                    makeLintPipeline({
-                        workingFilesStore: wf,
-                        findingsStore,
-                        usfmOnionService: service,
-                        debounceMs: DEBOUNCE_MS,
-                    }),
-                );
-                yield* drainYields();
+  it("FOLDS scopes across the debounce window — commits to two books drain as ONE pass covering both", async () => {
+    const { lintScope, service } = stubService();
+    const wf = new WorkingFilesStore([
+      makeBook({ bookCode: "GEN" }),
+      makeBook({ bookCode: "EXO" }),
+    ]);
+    const findingsStore = new FindingsStore();
+    const writeSpy = vi.spyOn(findingsStore, "commitBookFindings");
 
-                wf.commit(userEdit("GEN", 1, "first"));
-                yield* passTime(DEBOUNCE_MS + 20);
-                // First lint pass has started and is awaiting the promise.
-                expect(lintScope).toHaveBeenCalledTimes(1);
-                expect(writeSpy).not.toHaveBeenCalled();
-
-                wf.commit(userEdit("GEN", 1, "second"));
-                yield* passTime(DEBOUNCE_MS + 20);
-                // switchMap has cancelled the first fiber and started the
-                // second; second's mockResolvedValue([]) writes immediately.
-                expect(lintScope).toHaveBeenCalledTimes(2);
-                expect(writeSpy).toHaveBeenCalledTimes(1);
-
-                // Releasing the first call now is a no-op — its fiber was
-                // interrupted before it could reach `commitBookFindings`.
-                releaseFirst([[]]);
-                yield* drainYields();
-                expect(writeSpy).toHaveBeenCalledTimes(1);
-            }),
+    await runWithTestClock(
+      Effect.gen(function* () {
+        yield* Effect.forkChild(
+          makeLintPipeline({
+            workingFilesStore: wf,
+            findingsStore,
+            usfmOnionService: service,
+            debounceMs: DEBOUNCE_MS,
+          }),
         );
+        yield* drainYields();
+
+        // Two different books inside one debounce window. Keep-latest
+        // would drop GEN; the fold must union them.
+        wf.commit(userEdit("GEN", 1, "a"));
+        yield* passTime(DEBOUNCE_MS / 2);
+        wf.commit(userEdit("EXO", 1, "b"));
+
+        yield* passTime(DEBOUNCE_MS + 20);
+        expect(lintScope).toHaveBeenCalledTimes(1);
+        // One service call, one batch per book; one store write per book.
+        expect(lintScope.mock.calls[0]?.[0]).toHaveLength(2);
+        expect(writeSpy).toHaveBeenCalledTimes(2);
+        expect(writeSpy.mock.calls.map((call) => call[1]).sort()).toEqual([
+          "EXO",
+          "GEN",
+        ]);
+      }),
+    );
+  });
+
+  it("escalates to ALL books when a project-scope commit lands in the window", async () => {
+    const { lintScope, service } = stubService();
+    const wf = new WorkingFilesStore([
+      makeBook({ bookCode: "GEN" }),
+      makeBook({ bookCode: "EXO" }),
+      makeBook({ bookCode: "LEV" }),
+    ]);
+    const findingsStore = new FindingsStore();
+    const writeSpy = vi.spyOn(findingsStore, "commitBookFindings");
+
+    await runWithTestClock(
+      Effect.gen(function* () {
+        yield* Effect.forkChild(
+          makeLintPipeline({
+            workingFilesStore: wf,
+            findingsStore,
+            usfmOnionService: service,
+            debounceMs: DEBOUNCE_MS,
+          }),
+        );
+        yield* drainYields();
+
+        wf.commit(userEdit("GEN", 1, "a"));
+        wf.commit({
+          patch: { kind: "bulk", files: wf.read() },
+          meta: {
+            kind: "import",
+            scope: { project: true },
+            dirtyTextContent: true,
+          },
+        });
+
+        yield* passTime(DEBOUNCE_MS + 20);
+        expect(lintScope).toHaveBeenCalledTimes(1);
+        expect(lintScope.mock.calls[0]?.[0]).toHaveLength(3);
+        expect(writeSpy.mock.calls.map((call) => call[1]).sort()).toEqual([
+          "EXO",
+          "GEN",
+          "LEV",
+        ]);
+      }),
+    );
+  });
+
+  it("does NOT lose a cancelled pass's scope — the next pass covers old ∪ new", async () => {
+    // Pass 1 (GEN) hangs; a commit to EXO interrupts it via switchMap.
+    // The fold must restore GEN into the accumulator so pass 2 covers
+    // BOTH books — keep-latest semantics would lint only EXO and leave
+    // GEN's diagnostics stale forever.
+    let releaseFirst!: (issues: LintIssue[][]) => void;
+    const firstPending = new Promise<LintIssue[][]>((resolve) => {
+      releaseFirst = resolve;
     });
+    const lintScope = vi
+      .fn<IUsfmOnionService["lintScope"]>()
+      .mockReturnValueOnce(firstPending)
+      .mockImplementation(async (scope) => scope.map(() => []));
+    const service = { lintScope } as unknown as IUsfmOnionService;
+
+    const wf = new WorkingFilesStore([
+      makeBook({ bookCode: "GEN" }),
+      makeBook({ bookCode: "EXO" }),
+    ]);
+    const findingsStore = new FindingsStore();
+    const writeSpy = vi.spyOn(findingsStore, "commitBookFindings");
+
+    await runWithTestClock(
+      Effect.gen(function* () {
+        yield* Effect.forkChild(
+          makeLintPipeline({
+            workingFilesStore: wf,
+            findingsStore,
+            usfmOnionService: service,
+            debounceMs: DEBOUNCE_MS,
+          }),
+        );
+        yield* drainYields();
+
+        wf.commit(userEdit("GEN", 1, "first"));
+        yield* passTime(DEBOUNCE_MS + 20);
+        // Pass 1 (GEN only) has started and is hanging.
+        expect(lintScope).toHaveBeenCalledTimes(1);
+        expect(lintScope.mock.calls[0]?.[0]).toHaveLength(1);
+
+        wf.commit(userEdit("EXO", 1, "second"));
+        yield* passTime(DEBOUNCE_MS + 20);
+        // Pass 1 interrupted; pass 2 must cover GEN ∪ EXO.
+        expect(lintScope).toHaveBeenCalledTimes(2);
+        expect(lintScope.mock.calls[1]?.[0]).toHaveLength(2);
+        expect(writeSpy).toHaveBeenCalledTimes(2);
+        expect(writeSpy.mock.calls.map((call) => call[1]).sort()).toEqual([
+          "EXO",
+          "GEN",
+        ]);
+
+        // Releasing the cancelled pass is a no-op.
+        releaseFirst([[]]);
+        yield* drainYields();
+        expect(writeSpy).toHaveBeenCalledTimes(2);
+      }),
+    );
+  });
+
+  it("switchMap interrupts in-flight lint when a newer commit lands", async () => {
+    // First call hangs until we release it; second resolves immediately.
+    // The pipeline's `switchMap` should interrupt the first fiber when
+    // the second debounce fires, so the first call's downstream
+    // `commitBookFindings` is never reached.
+    let releaseFirst!: (issues: LintIssue[][]) => void;
+    const firstPending = new Promise<LintIssue[][]>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const lintScope = vi
+      .fn<IUsfmOnionService["lintScope"]>()
+      .mockReturnValueOnce(firstPending)
+      .mockResolvedValue([[]]);
+    const service = { lintScope } as unknown as IUsfmOnionService;
+
+    const wf = new WorkingFilesStore([makeBook({ bookCode: "GEN" })]);
+    const findingsStore = new FindingsStore();
+    const writeSpy = vi.spyOn(findingsStore, "commitBookFindings");
+
+    await runWithTestClock(
+      Effect.gen(function* () {
+        yield* Effect.forkChild(
+          makeLintPipeline({
+            workingFilesStore: wf,
+            findingsStore,
+            usfmOnionService: service,
+            debounceMs: DEBOUNCE_MS,
+          }),
+        );
+        yield* drainYields();
+
+        wf.commit(userEdit("GEN", 1, "first"));
+        yield* passTime(DEBOUNCE_MS + 20);
+        // First lint pass has started and is awaiting the promise.
+        expect(lintScope).toHaveBeenCalledTimes(1);
+        expect(writeSpy).not.toHaveBeenCalled();
+
+        wf.commit(userEdit("GEN", 1, "second"));
+        yield* passTime(DEBOUNCE_MS + 20);
+        // switchMap has cancelled the first fiber and started the
+        // second; second's mockResolvedValue([]) writes immediately.
+        expect(lintScope).toHaveBeenCalledTimes(2);
+        expect(writeSpy).toHaveBeenCalledTimes(1);
+
+        // Releasing the first call now is a no-op — its fiber was
+        // interrupted before it could reach `commitBookFindings`.
+        releaseFirst([[]]);
+        yield* drainYields();
+        expect(writeSpy).toHaveBeenCalledTimes(1);
+      }),
+    );
+  });
 });

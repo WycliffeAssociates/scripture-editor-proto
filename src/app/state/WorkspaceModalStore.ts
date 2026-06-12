@@ -16,44 +16,44 @@ type Listener = () => void;
 export type WorkspaceModalBaseProps = { onClose: () => void };
 
 export type WorkspaceModalEntry = {
-    Component: ComponentType<WorkspaceModalBaseProps>;
-    props: Record<string, unknown>;
+  Component: ComponentType<WorkspaceModalBaseProps>;
+  props: Record<string, unknown>;
 };
 
 export class WorkspaceModalStore {
-    private state: WorkspaceModalEntry | null = null;
-    private readonly listeners = new Set<Listener>();
+  private state: WorkspaceModalEntry | null = null;
+  private readonly listeners = new Set<Listener>();
 
-    getSnapshot = (): WorkspaceModalEntry | null => this.state;
+  getSnapshot = (): WorkspaceModalEntry | null => this.state;
 
-    subscribe = (listener: Listener): (() => void) => {
-        this.listeners.add(listener);
-        return () => this.listeners.delete(listener);
+  subscribe = (listener: Listener): (() => void) => {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  };
+
+  /**
+   * Show `Component` in the outlet with `props` (+ the injected `onClose`).
+   * One slot: opening replaces whatever was open.
+   */
+  open = <P extends object>(
+    Component: ComponentType<P & WorkspaceModalBaseProps>,
+    props: P,
+  ): void => {
+    // Erased at the boundary; the generic signature is the type safety.
+    this.state = {
+      Component: Component as ComponentType<WorkspaceModalBaseProps>,
+      props: props as Record<string, unknown>,
     };
+    this.notify();
+  };
 
-    /**
-     * Show `Component` in the outlet with `props` (+ the injected `onClose`).
-     * One slot: opening replaces whatever was open.
-     */
-    open = <P extends object>(
-        Component: ComponentType<P & WorkspaceModalBaseProps>,
-        props: P,
-    ): void => {
-        // Erased at the boundary; the generic signature is the type safety.
-        this.state = {
-            Component: Component as ComponentType<WorkspaceModalBaseProps>,
-            props: props as Record<string, unknown>,
-        };
-        this.notify();
-    };
+  close = (): void => {
+    if (this.state === null) return;
+    this.state = null;
+    this.notify();
+  };
 
-    close = (): void => {
-        if (this.state === null) return;
-        this.state = null;
-        this.notify();
-    };
-
-    private notify(): void {
-        for (const listener of this.listeners) listener();
-    }
+  private notify(): void {
+    for (const listener of this.listeners) listener();
+  }
 }

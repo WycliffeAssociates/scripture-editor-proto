@@ -11,9 +11,9 @@ overlays and a panel list.
 A `Finding` carries `id`, `code`, `severity`, `category`, `source`,
 `coveringTokenIds`, and an **anchor** — a closed union of:
 
-- **`token`** — pinned to a token id (structural lint: the issue is *a marker*).
+- **`token`** — pinned to a token id (structural lint: the issue is _a marker_).
 - **`content`** — `(sid, Utf16Span)` into a verse's projected text (sous: the
-  issue is *some characters within a verse*).
+  issue is _some characters within a verse_).
 
 The model holds no display strings: ids derive from canonical fields only, so
 they're stable across locale and re-runs. Adding a producer or anchor kind is a

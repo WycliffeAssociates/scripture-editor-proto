@@ -9,16 +9,14 @@ export const WEB_STORAGE_NAMESPACE_KEY = "zephyr.storageNamespace";
  * construction and Dexie naming stay aligned.
  */
 export function resolveWebStorageNamespace(): string | null {
-    if (typeof window === "undefined") {
-        return null;
-    }
+  if (typeof window === "undefined") {
+    return null;
+  }
 
-    try {
-        const namespace = window.localStorage.getItem(
-            WEB_STORAGE_NAMESPACE_KEY,
-        );
-        return namespace?.trim() || null;
-    } catch {
-        return null;
-    }
+  try {
+    const namespace = window.localStorage.getItem(WEB_STORAGE_NAMESPACE_KEY);
+    return namespace?.trim() || null;
+  } catch {
+    return null;
+  }
 }

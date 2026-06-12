@@ -33,6 +33,7 @@ pnpm deploy:nightly
 ```
 
 Both envs require:
+
 - `GH_TOKEN` as a Worker secret (`wrangler secret put GH_TOKEN --env production`,
   same for nightly). Public-release-read PAT. Raises the GH API rate limit from
   60/hr (unauth) to 5000/hr.
@@ -40,11 +41,11 @@ Both envs require:
 
 ## Endpoints
 
-| Endpoint                              | Purpose                                     |
-| ------------------------------------- | ------------------------------------------- |
-| `/{target}/{current_version}`         | Auto-check. 204 if no newer; manifest otherwise. |
-| `/versions`                           | List recent releases for the manual picker. |
-| `/{target}/at/{specific_version}`     | Manifest for a specific version.            |
+| Endpoint                          | Purpose                                          |
+| --------------------------------- | ------------------------------------------------ |
+| `/{target}/{current_version}`     | Auto-check. 204 if no newer; manifest otherwise. |
+| `/versions`                       | List recent releases for the manual picker.      |
+| `/{target}/at/{specific_version}` | Manifest for a specific version.                 |
 
 Target values follow Tauri convention: `darwin-aarch64`, `darwin-x86_64`,
 `linux-x86_64`, `windows-x86_64`.

@@ -1,6 +1,6 @@
 import {
-    type InitialConfigType,
-    LexicalComposer,
+  type InitialConfigType,
+  LexicalComposer,
 } from "@lexical/react/LexicalComposer";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { EditorRefPlugin } from "@lexical/react/LexicalEditorRefPlugin";
@@ -8,18 +8,19 @@ import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
-    HISTORY_MERGE_TAG,
-    LineBreakNode,
-    ParagraphNode,
-    TextNode,
+  HISTORY_MERGE_TAG,
+  LineBreakNode,
+  ParagraphNode,
+  TextNode,
 } from "lexical";
 import { useEffect } from "react";
 import ReactMarkdown from "react-markdown";
+
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
 import {
-    domPresentationMode,
-    EDITOR_MODES,
-    shapeForSurface,
+  domPresentationMode,
+  EDITOR_MODES,
+  shapeForSurface,
 } from "@/app/data/editor.ts";
 import { BookFrontmatterFormNode } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
 import { FormBlockNode } from "@/app/domain/editor/nodes/FormBlockNode.tsx";
@@ -27,8 +28,8 @@ import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditor
 import { USFMNumberedMarkerNode } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import { USFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
-    $createUSFMTextNode,
-    USFMTextNode,
+  $createUSFMTextNode,
+  USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
 import { transformToShape } from "@/app/domain/editor/utils/modeTransforms.ts";
@@ -43,7 +44,7 @@ import { guidGenerator } from "@/core/data/utils/generic.ts";
  * stays shared while each item type provides its own content view.
  */
 function ReferenceLoadingState(props: { message: string }) {
-    return <div className={shellStyles.loadingReference}>{props.message}</div>;
+  return <div className={shellStyles.loadingReference}>{props.message}</div>;
 }
 
 /**
@@ -54,60 +55,56 @@ function ReferenceLoadingState(props: { message: string }) {
  * markdown rendering without carrying scripture editor concerns.
  */
 function TranslationNotesReferencePane() {
-    const { t } = useLingui();
-    const { referenceResource } = useWorkspaceContext();
-    const { translationNotesQuery, referenceBookCode, referenceChapterNumber } =
-        referenceResource;
-    const activeNotes = translationNotesQuery.data ?? [];
+  const { t } = useLingui();
+  const { referenceResource } = useWorkspaceContext();
+  const { translationNotesQuery, referenceBookCode, referenceChapterNumber } =
+    referenceResource;
+  const activeNotes = translationNotesQuery.data ?? [];
 
-    return (
-        <div className={shellStyles.referenceEditorRoot}>
-            <div
-                className={shellStyles.referenceEditorOuter}
-                data-js={DATA_JS.referenceEditorScrollContainer}
-            >
-                {translationNotesQuery.isLoading ? (
-                    <ReferenceLoadingState
-                        message={t`Loading translation notes for ${referenceBookCode} ${referenceChapterNumber}...`}
-                    />
-                ) : translationNotesQuery.error ? (
-                    <ReferenceLoadingState
-                        message={t`Failed to load translation notes for ${referenceBookCode} ${referenceChapterNumber}`}
-                    />
-                ) : activeNotes.length === 0 ? (
-                    <ReferenceLoadingState
-                        message={t`No translation notes for ${referenceBookCode} ${referenceChapterNumber}.`}
-                    />
-                ) : (
-                    <div
-                        style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "1rem",
-                        }}
-                    >
-                        {activeNotes.map((note) => (
-                            <section
-                                key={note.documentId}
-                                className={shellStyles.translationNoteCard}
-                            >
-                                <h5>
-                                    <Trans>Verse {note.verseNumber}</Trans>
-                                </h5>
-                                <div
-                                    className={shellStyles.translationNoteBody}
-                                >
-                                    <ReactMarkdown>
-                                        {note.rawMarkdown}
-                                    </ReactMarkdown>
-                                </div>
-                            </section>
-                        ))}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
+  return (
+    <div className={shellStyles.referenceEditorRoot}>
+      <div
+        className={shellStyles.referenceEditorOuter}
+        data-js={DATA_JS.referenceEditorScrollContainer}
+      >
+        {translationNotesQuery.isLoading ? (
+          <ReferenceLoadingState
+            message={t`Loading translation notes for ${referenceBookCode} ${referenceChapterNumber}...`}
+          />
+        ) : translationNotesQuery.error ? (
+          <ReferenceLoadingState
+            message={t`Failed to load translation notes for ${referenceBookCode} ${referenceChapterNumber}`}
+          />
+        ) : activeNotes.length === 0 ? (
+          <ReferenceLoadingState
+            message={t`No translation notes for ${referenceBookCode} ${referenceChapterNumber}.`}
+          />
+        ) : (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "1rem",
+            }}
+          >
+            {activeNotes.map((note) => (
+              <section
+                key={note.documentId}
+                className={shellStyles.translationNoteCard}
+              >
+                <h5>
+                  <Trans>Verse {note.verseNumber}</Trans>
+                </h5>
+                <div className={shellStyles.translationNoteBody}>
+                  <ReactMarkdown>{note.rawMarkdown}</ReactMarkdown>
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -118,128 +115,126 @@ function TranslationNotesReferencePane() {
  * the loaded scripture item.
  */
 function ScriptureReferencePane() {
-    const { t } = useLingui();
-    const { referenceResource, search, referenceEditorRef, project } =
-        useWorkspaceContext();
-    const { referenceChapter } = referenceResource;
-    const editorMode = project?.appSettings.editorMode ?? EDITOR_MODES.regular;
-    const referenceShape = shapeForSurface("referencePane", editorMode);
+  const { t } = useLingui();
+  const { referenceResource, search, referenceEditorRef, project } =
+    useWorkspaceContext();
+  const { referenceChapter } = referenceResource;
+  const editorMode = project?.appSettings.editorMode ?? EDITOR_MODES.regular;
+  const referenceShape = shapeForSurface("referencePane", editorMode);
 
-    useEffect(() => {
-        if (!referenceChapter) return;
-        const editor = referenceEditorRef.current;
-        if (!editor) return;
+  useEffect(() => {
+    if (!referenceChapter) return;
+    const editor = referenceEditorRef.current;
+    if (!editor) return;
 
-        editor.setEditable(false);
-        const clonedState = transformToShape(
-            structuredClone(referenceChapter.lexicalState),
-            referenceShape,
-        );
-
-        editor.setEditorState(editor.parseEditorState(clonedState), {
-            tag: HISTORY_MERGE_TAG,
-        });
-    }, [referenceChapter, referenceEditorRef, referenceShape]);
-
-    return (
-        <div className={shellStyles.referenceEditorRoot}>
-            <div
-                className={shellStyles.referenceEditorOuter}
-                data-js={DATA_JS.referenceEditorScrollContainer}
-            >
-                <LexicalComposer initialConfig={getIntialConfig()}>
-                    <EditorRefPlugin editorRef={referenceEditorRef} />
-                    <div
-                        data-testid={TESTING_IDS.refEditorContainer}
-                        data-testing-ref-chapter={
-                            referenceChapter?.chapterNumber
-                        }
-                        data-testing-ref-bookcode={referenceResource?.referenceFile?.bookCode.toLowerCase()}
-                        data-js={DATA_JS.referenceEditorContainer}
-                        className={`editor-container ${shellStyles.editorContainer}`}
-                    >
-                        <RichTextPlugin
-                            contentEditable={
-                                <ContentEditable
-                                    className={`${shellStyles.contentEditableReference} ${
-                                        search.isSearchPaneOpen
-                                            ? shellStyles.contentEditableReferenceSearchOpen
-                                            : ""
-                                    }`}
-                                    aria-label={t`USFM Editor`}
-                                    data-mode={domPresentationMode(editorMode)}
-                                    data-form-pane="reference"
-                                />
-                            }
-                            ErrorBoundary={LexicalErrorBoundary}
-                        />
-                    </div>
-                    <UsfmStylesPlugin />
-                </LexicalComposer>
-            </div>
-        </div>
+    editor.setEditable(false);
+    const clonedState = transformToShape(
+      structuredClone(referenceChapter.lexicalState),
+      referenceShape,
     );
+
+    editor.setEditorState(editor.parseEditorState(clonedState), {
+      tag: HISTORY_MERGE_TAG,
+    });
+  }, [referenceChapter, referenceEditorRef, referenceShape]);
+
+  return (
+    <div className={shellStyles.referenceEditorRoot}>
+      <div
+        className={shellStyles.referenceEditorOuter}
+        data-js={DATA_JS.referenceEditorScrollContainer}
+      >
+        <LexicalComposer initialConfig={getIntialConfig()}>
+          <EditorRefPlugin editorRef={referenceEditorRef} />
+          <div
+            data-testid={TESTING_IDS.refEditorContainer}
+            data-testing-ref-chapter={referenceChapter?.chapterNumber}
+            data-testing-ref-bookcode={referenceResource?.referenceFile?.bookCode.toLowerCase()}
+            data-js={DATA_JS.referenceEditorContainer}
+            className={`editor-container ${shellStyles.editorContainer}`}
+          >
+            <RichTextPlugin
+              contentEditable={
+                <ContentEditable
+                  className={`${shellStyles.contentEditableReference} ${
+                    search.isSearchPaneOpen
+                      ? shellStyles.contentEditableReferenceSearchOpen
+                      : ""
+                  }`}
+                  aria-label={t`USFM Editor`}
+                  data-mode={domPresentationMode(editorMode)}
+                  data-form-pane="reference"
+                />
+              }
+              ErrorBoundary={LexicalErrorBoundary}
+            />
+          </div>
+          <UsfmStylesPlugin />
+        </LexicalComposer>
+      </div>
+    </div>
+  );
 }
 
 export function ReferenceEditor() {
-    const { referenceResource } = useWorkspaceContext();
-    const {
-        activeReferenceResource,
-        activeReferenceResourcePath,
-        activeReferenceResourceQuery,
-        referenceQuery,
-        supportsReferenceAnchors,
-        supportsScriptureNavigation,
-    } = referenceResource;
+  const { referenceResource } = useWorkspaceContext();
+  const {
+    activeReferenceResource,
+    activeReferenceResourcePath,
+    activeReferenceResourceQuery,
+    referenceQuery,
+    supportsReferenceAnchors,
+    supportsScriptureNavigation,
+  } = referenceResource;
 
-    if (!activeReferenceResourcePath) {
-        return null;
-    }
-    const isScriptureReference =
-        activeReferenceResource?.type === "usfmScripture";
-    const activeContentQuery = isScriptureReference ? referenceQuery : null;
-    const activeDisplayName =
-        activeReferenceResource?.displayName ?? activeReferenceResourcePath;
+  if (!activeReferenceResourcePath) {
+    return null;
+  }
+  const isScriptureReference =
+    activeReferenceResource?.type === "usfmScripture";
+  const activeContentQuery = isScriptureReference ? referenceQuery : null;
+  const activeDisplayName =
+    activeReferenceResource?.displayName ?? activeReferenceResourcePath;
 
-    if (
-        activeReferenceResourceQuery?.isLoading ||
-        activeContentQuery?.isLoading
-    ) {
-        return (
-            <ReferenceLoadingState
-                message={`Loading ${activeReferenceResourcePath}...`}
-            />
-        );
-    }
-    if (activeReferenceResourceQuery?.error || activeContentQuery?.error) {
-        return (
-            <ReferenceLoadingState
-                message={`Failed to load ${activeReferenceResourcePath}`}
-            />
-        );
-    }
+  if (
+    activeReferenceResourceQuery?.isLoading ||
+    activeContentQuery?.isLoading
+  ) {
+    return (
+      <ReferenceLoadingState
+        message={`Loading ${activeReferenceResourcePath}...`}
+      />
+    );
+  }
+  if (activeReferenceResourceQuery?.error || activeContentQuery?.error) {
+    return (
+      <ReferenceLoadingState
+        message={`Failed to load ${activeReferenceResourcePath}`}
+      />
+    );
+  }
 
-    switch (activeReferenceResource?.type) {
-        case "translationNotes":
-            return <TranslationNotesReferencePane />;
-        case "usfmScripture":
-            return <ScriptureReferencePane />;
-        default:
-            break;
-    }
+  switch (activeReferenceResource?.type) {
+    case "translationNotes":
+      return <TranslationNotesReferencePane />;
+    case "usfmScripture":
+      return <ScriptureReferencePane />;
+    default:
+      break;
+  }
 
-    if (!supportsScriptureNavigation) {
-        return (
-            <ReferenceLoadingState
-                message={`${activeDisplayName} ${
-                    !supportsReferenceAnchors
-                        ? "does not support scripture navigation yet."
-                        : "does not support this reference mode yet."
-                }`}
-            />
-        );
-    }
-    return <ScriptureReferencePane />;
+  if (!supportsScriptureNavigation) {
+    return (
+      <ReferenceLoadingState
+        message={`${activeDisplayName} ${
+          !supportsReferenceAnchors
+            ? "does not support scripture navigation yet."
+            : "does not support this reference mode yet."
+        }`}
+      />
+    );
+  }
+  return <ScriptureReferencePane />;
 }
 
 /**
@@ -249,30 +244,30 @@ export function ReferenceEditor() {
  * across editable and read-only surfaces.
  */
 function getIntialConfig(): InitialConfigType {
-    return {
-        namespace: "USFMEditor-Reference",
-        editable: false,
-        nodes: [
-            USFMParagraphNode,
-            USFMTextNode,
-            USFMNumberedMarkerNode,
-            {
-                replace: TextNode,
-                with: (node: TextNode) => {
-                    return $createUSFMTextNode(node.getTextContent(), {
-                        id: guidGenerator(),
-                        sid: "",
-                        inPara: "",
-                    });
-                },
-                withKlass: USFMTextNode,
-            },
-            ParagraphNode,
-            LineBreakNode,
-            BookFrontmatterFormNode,
-            FormBlockNode,
-            USFMNestedEditorNode,
-        ],
-        onError: console.error,
-    };
+  return {
+    namespace: "USFMEditor-Reference",
+    editable: false,
+    nodes: [
+      USFMParagraphNode,
+      USFMTextNode,
+      USFMNumberedMarkerNode,
+      {
+        replace: TextNode,
+        with: (node: TextNode) => {
+          return $createUSFMTextNode(node.getTextContent(), {
+            id: guidGenerator(),
+            sid: "",
+            inPara: "",
+          });
+        },
+        withKlass: USFMTextNode,
+      },
+      ParagraphNode,
+      LineBreakNode,
+      BookFrontmatterFormNode,
+      FormBlockNode,
+      USFMNestedEditorNode,
+    ],
+    onError: console.error,
+  };
 }

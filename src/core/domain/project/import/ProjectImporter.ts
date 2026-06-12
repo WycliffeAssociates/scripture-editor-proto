@@ -10,10 +10,10 @@ import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
  * how to materialize into managed app storage.
  */
 export type ImportSource =
-    | { type: "fromZipFile"; filePath: string }
-    | { type: "fromDir"; directoryPath: string }
-    | { type: "fromPreparedDir"; directoryPath: string }
-    | { type: "fromGitRepo"; url: string };
+  | { type: "fromZipFile"; filePath: string }
+  | { type: "fromDir"; directoryPath: string }
+  | { type: "fromPreparedDir"; directoryPath: string }
+  | { type: "fromGitRepo"; url: string };
 
 /**
  * Low-level import router that turns one import source into a managed directory
@@ -24,44 +24,38 @@ export type ImportSource =
  * indexing, and project/resource opening happen later.
  */
 export class ProjectImporter {
-    private readonly wacsImporter: WacsRepoImporter;
-    private readonly fileImporter: ProjectFileImporter;
-    private readonly directoryImporter: ProjectDirectoryImporter;
+  private readonly wacsImporter: WacsRepoImporter;
+  private readonly fileImporter: ProjectFileImporter;
+  private readonly directoryImporter: ProjectDirectoryImporter;
 
-    constructor(fileSystem: FileSystem, roots: StorageRoots) {
-        this.wacsImporter = new WacsRepoImporter(fileSystem, roots);
-        this.fileImporter = new ProjectFileImporter(fileSystem, roots);
-        this.directoryImporter = new ProjectDirectoryImporter(
-            fileSystem,
-            roots,
+  constructor(fileSystem: FileSystem, roots: StorageRoots) {
+    this.wacsImporter = new WacsRepoImporter(fileSystem, roots);
+    this.fileImporter = new ProjectFileImporter(fileSystem, roots);
+    this.directoryImporter = new ProjectDirectoryImporter(fileSystem, roots);
+  }
+
+  public async import(
+    source: ImportSource,
+    onProgress?: ImportProgressReporter,
+  ): Promise<string> {
+    switch (source.type) {
+      case "fromGitRepo":
+        return this.wacsImporter.import(source.url, onProgress);
+
+      case "fromZipFile":
+        return this.fileImporter.importFile(source.filePath, onProgress);
+
+      case "fromDir":
+        return this.directoryImporter.importDirectory(
+          source.directoryPath,
+          onProgress,
         );
+
+      case "fromPreparedDir":
+        return source.directoryPath;
+
+      default:
+        throw new Error("Unsupported import source");
     }
-
-    public async import(
-        source: ImportSource,
-        onProgress?: ImportProgressReporter,
-    ): Promise<string> {
-        switch (source.type) {
-            case "fromGitRepo":
-                return this.wacsImporter.import(source.url, onProgress);
-
-            case "fromZipFile":
-                return this.fileImporter.importFile(
-                    source.filePath,
-                    onProgress,
-                );
-
-            case "fromDir":
-                return this.directoryImporter.importDirectory(
-                    source.directoryPath,
-                    onProgress,
-                );
-
-            case "fromPreparedDir":
-                return source.directoryPath;
-
-            default:
-                throw new Error("Unsupported import source");
-        }
-    }
+  }
 }

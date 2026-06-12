@@ -1,6 +1,6 @@
 import type {
-    SearchResult,
-    SearchSource,
+  SearchResult,
+  SearchSource,
 } from "@/app/domain/search/SearchService.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { MatchInNode } from "@/app/ui/hooks/useSearchHighlighter.ts";
@@ -12,22 +12,22 @@ import type { MatchInNode } from "@/app/ui/hooks/useSearchHighlighter.ts";
  * editor-node and highlight bookkeeping needed for navigation and replace flows.
  */
 export type SearchMatch = MatchInNode & {
-    source: SearchSource;
-    sid?: string;
-    sidOccurrenceIndex?: number;
+  source: SearchSource;
+  sid?: string;
+  sidOccurrenceIndex?: number;
 };
 
 export type SearchRunResult = {
-    sortedResults: SearchResult[];
-    searchMatches: SearchMatch[];
+  sortedResults: SearchResult[];
+  searchMatches: SearchMatch[];
 };
 
 export type SearchRunScope = "project" | "currentChapter";
 
 export type SearchRunOptionOverrides = {
-    matchCase?: boolean;
-    matchWholeWord?: boolean;
-    searchUSFM?: boolean;
-    searchReference?: boolean;
-    referenceFiles?: ScriptureBookState[];
+  matchCase?: boolean;
+  matchWholeWord?: boolean;
+  searchUSFM?: boolean;
+  searchReference?: boolean;
+  referenceFiles?: ScriptureBookState[];
 };

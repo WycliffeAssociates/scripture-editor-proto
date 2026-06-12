@@ -7,5 +7,5 @@
  * internal metadata directory.
  */
 export function shouldStripPortableProjectPath(path: string): boolean {
-    return path.split("/").filter(Boolean).includes(".git");
+  return path.split("/").filter(Boolean).includes(".git");
 }

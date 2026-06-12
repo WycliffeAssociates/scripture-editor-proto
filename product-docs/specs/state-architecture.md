@@ -109,8 +109,8 @@ every subscriber"**.
 
 ```ts
 const draft = workingFilesStore.draftWithChapters([
-    { bookCode: "GEN", chapterNum: 1 },
-    { bookCode: "GEN", chapterNum: 2 },
+  { bookCode: "GEN", chapterNum: 1 },
+  { bookCode: "GEN", chapterNum: 2 },
 ]);
 // draft is a new ScriptureBookState[] where GEN, GEN.chapters[0], and
 // GEN.chapters[1] are shallow copies; every other book and chapter is the
@@ -120,9 +120,12 @@ const gen1 = findChapterInDraft(draft, "GEN", 1)!;
 gen1.lexicalState = newSerializedState;
 // Then commit synchronously, in the same stack frame:
 workingFilesStore.commit(
-    { kind: "bulk", files: draft },
-    { kind: "programmaticFix", scope: { bookCode: "GEN", chapter: 1 },
-      dirtyTextContent: true },
+  { kind: "bulk", files: draft },
+  {
+    kind: "programmaticFix",
+    scope: { bookCode: "GEN", chapter: 1 },
+    dirtyTextContent: true,
+  },
 );
 ```
 
@@ -168,12 +171,12 @@ only touched chapters get fresh objects.
 
 ### The four `WorkingFilesPatch` shapes
 
-| `patch.kind`     | Mutation                                          | Tokens recomputed? |
-| ---------------- | ------------------------------------------------- | ------------------ |
-| `chapter`        | Replace one chapter's `lexicalState`              | Yes (`lexicalToTokens`) |
-| `metadata`       | Flip one chapter's `dirty` flag                   | No                 |
-| `bulk`           | Replace the entire `files` array                  | No (caller's job)  |
-| `selectionOnly`  | No mutation; pure signal                          | No                 |
+| `patch.kind`    | Mutation                             | Tokens recomputed?      |
+| --------------- | ------------------------------------ | ----------------------- |
+| `chapter`       | Replace one chapter's `lexicalState` | Yes (`lexicalToTokens`) |
+| `metadata`      | Flip one chapter's `dirty` flag      | No                      |
+| `bulk`          | Replace the entire `files` array     | No (caller's job)       |
+| `selectionOnly` | No mutation; pure signal             | No                      |
 
 `bulk` is the workhorse for programmatic flows: callers build a draft with
 the chapters they touched, populate `currentTokens` themselves if relevant,
@@ -197,10 +200,10 @@ The cost is bounded: no `toJSON`, no token recompute, no patch materialization.
 
 ```ts
 type CommitMeta = {
-    kind: CommitKind;       // why this happened
-    scope: CommitScope;     // chapter scope or project scope
-    dirtyTextContent: boolean;
-    generation: number;     // monotonic, store-assigned
+  kind: CommitKind; // why this happened
+  scope: CommitScope; // chapter scope or project scope
+  dirtyTextContent: boolean;
+  generation: number; // monotonic, store-assigned
 };
 ```
 
@@ -413,17 +416,17 @@ Each satellite store is single-purpose, single-writer (per writer rule
 documented inline), and exposes `subscribe` + `getSnapshot` for
 `useSyncExternalStore`.
 
-| Store                          | Writers                                                                                            | Readers                                                            |
-| ------------------------------ | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `FindingsStore`                | `makeLintPipeline` (`"onion"` slice), `makeSousPipeline` (`"sous-chef"` slice), route loader (initial lint seed) | `useFindings`, `FindingsOverlayPlugin`, `FindingsPopover`         |
-| `SaveStatusStore`              | `makeSaveStatusPipeline`, save command                                                             | `useSave`, toolbar                                                 |
-| `LayoutTickStore`              | `makeOverlayTickPipeline`, workspace resize/scroll listeners                                       | `FindingsOverlayPlugin`, `HighlightSink`                          |
-| `SearchHighlightStore`         | Search hooks (execution / navigation / replace)                                                    | `HighlightSink` (paints in `useLayoutEffect`)                      |
-| `WorkspaceInteractionGate`     | Save command (`open`↔`saving`), recovery decision (`recovery-decision-pending`↔`open`)             | Editor `GateEditablePlugin`, every mutation hook, button surfaces  |
-| `RecoveredConflictTracker`     | Route loader (seed on baseline mismatch), `recoveredConflictTrackerSubscriber` (clear on observed clean), Discard banner (`clearAll`) | `useSave` (modal routing), external-compare entry control, save command (`reviewedRecoveredWork` check) |
-| `WorkspaceBaselineStore`       | Route loader (initial seed from `diskMd5ByBook`), save command (`setPresent` after each successful book write) | `dirtyBufferPipeline` (wrapper's `diskBaseline`), recovery classifier |
-| `DirtyBufferStore`             | `dirtyBufferPipeline` (`put` / `clear`)                                                            | Route loader at reopen (`list` + classify against current disk)    |
-| `WorkspaceModalStore`          | `useDecorateFindings` context (`openModal` / `closeModal` passed to decorator context)             | `WorkspaceModalOutlet` (renders the active modal slot)            |
+| Store                      | Writers                                                                                                                               | Readers                                                                                                 |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `FindingsStore`            | `makeLintPipeline` (`"onion"` slice), `makeSousPipeline` (`"sous-chef"` slice), route loader (initial lint seed)                      | `useFindings`, `FindingsOverlayPlugin`, `FindingsPopover`                                               |
+| `SaveStatusStore`          | `makeSaveStatusPipeline`, save command                                                                                                | `useSave`, toolbar                                                                                      |
+| `LayoutTickStore`          | `makeOverlayTickPipeline`, workspace resize/scroll listeners                                                                          | `FindingsOverlayPlugin`, `HighlightSink`                                                                |
+| `SearchHighlightStore`     | Search hooks (execution / navigation / replace)                                                                                       | `HighlightSink` (paints in `useLayoutEffect`)                                                           |
+| `WorkspaceInteractionGate` | Save command (`open`↔`saving`), recovery decision (`recovery-decision-pending`↔`open`)                                                | Editor `GateEditablePlugin`, every mutation hook, button surfaces                                       |
+| `RecoveredConflictTracker` | Route loader (seed on baseline mismatch), `recoveredConflictTrackerSubscriber` (clear on observed clean), Discard banner (`clearAll`) | `useSave` (modal routing), external-compare entry control, save command (`reviewedRecoveredWork` check) |
+| `WorkspaceBaselineStore`   | Route loader (initial seed from `diskMd5ByBook`), save command (`setPresent` after each successful book write)                        | `dirtyBufferPipeline` (wrapper's `diskBaseline`), recovery classifier                                   |
+| `DirtyBufferStore`         | `dirtyBufferPipeline` (`put` / `clear`)                                                                                               | Route loader at reopen (`list` + classify against current disk)                                         |
+| `WorkspaceModalStore`      | `useDecorateFindings` context (`openModal` / `closeModal` passed to decorator context)                                                | `WorkspaceModalOutlet` (renders the active modal slot)                                                  |
 
 Three design points worth calling out:
 

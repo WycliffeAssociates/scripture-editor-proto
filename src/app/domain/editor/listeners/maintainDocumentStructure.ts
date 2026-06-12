@@ -1,29 +1,30 @@
 import { $dfsIterator, type DFSNode } from "@lexical/utils";
 import {
-    $getRoot,
-    $isLineBreakNode,
-    type EditorState,
-    type LexicalEditor,
+  $getRoot,
+  $isLineBreakNode,
+  type EditorState,
+  type LexicalEditor,
 } from "lexical";
+
 import { EDITOR_TAGS_USED, UsfmTokenTypes } from "@/app/data/editor.ts";
 import type { Settings } from "@/app/data/settings.ts";
 import { $isUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
-    $isUSFMTextNode,
-    type USFMTextNode,
+  $isUSFMTextNode,
+  type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { markerTrimNoSlash } from "@/core/domain/usfm/lex.ts";
 import { ALL_CHAR_MARKERS } from "@/core/domain/usfm/onionMarkers.ts";
 
 export type DocStructureFxnArgs = {
-    node: USFMTextNode;
-    tokenType: string;
-    appSettings: Settings;
-    updates: Array<{
-        dbgLabel: string;
-        dbgDetail?: string;
-        run: () => void;
-    }>;
+  node: USFMTextNode;
+  tokenType: string;
+  appSettings: Settings;
+  updates: Array<{
+    dbgLabel: string;
+    dbgDetail?: string;
+    run: () => void;
+  }>;
 };
 export type MainDocumentStrutureFxn = (args: DocStructureFxnArgs) => void;
 
@@ -39,45 +40,45 @@ export type MainDocumentStrutureFxn = (args: DocStructureFxnArgs) => void;
  * with the char-element node (plan §5.5).
  */
 export function maintainDocumentStructure(
-    editorState: EditorState,
-    editor: LexicalEditor,
-    appSettings: Settings,
+  editorState: EditorState,
+  editor: LexicalEditor,
+  appSettings: Settings,
 ) {
-    const allNodes = editorState.read(() => [...$dfsIterator()]);
+  const allNodes = editorState.read(() => [...$dfsIterator()]);
 
-    for (const dfsNode of allNodes) {
-        const nodeUpdates: Array<{
-            dbgLabel: string;
-            run: () => void;
-        }> = [];
+  for (const dfsNode of allNodes) {
+    const nodeUpdates: Array<{
+      dbgLabel: string;
+      run: () => void;
+    }> = [];
 
-        editorState.read(() => {
-            const node = dfsNode.node;
-            if (!$isUSFMTextNode(node) || !node.isAttached()) return;
-            editCharOpenAndCloseTogether({
-                node,
-                tokenType: node.getTokenType(),
-                appSettings,
-                updates: nodeUpdates,
-            });
-        });
+    editorState.read(() => {
+      const node = dfsNode.node;
+      if (!$isUSFMTextNode(node) || !node.isAttached()) return;
+      editCharOpenAndCloseTogether({
+        node,
+        tokenType: node.getTokenType(),
+        appSettings,
+        updates: nodeUpdates,
+      });
+    });
 
-        if (nodeUpdates.length) {
-            editor.update(
-                () => {
-                    nodeUpdates.forEach((u) => {
-                        u.run();
-                    });
-                },
-                {
-                    tag: [
-                        EDITOR_TAGS_USED.historyMerge,
-                        EDITOR_TAGS_USED.programmaticStructuralFix,
-                    ],
-                },
-            );
-        }
+    if (nodeUpdates.length) {
+      editor.update(
+        () => {
+          nodeUpdates.forEach((u) => {
+            u.run();
+          });
+        },
+        {
+          tag: [
+            EDITOR_TAGS_USED.historyMerge,
+            EDITOR_TAGS_USED.programmaticStructuralFix,
+          ],
+        },
+      );
     }
+  }
 }
 
 /**
@@ -199,170 +200,165 @@ export function maintainDocumentStructure(
  * into shape shortly after editing without fighting copy/paste or rapid input.
  */
 export function maintainDocumentStructureDebounced(
-    editorState: EditorState,
-    editor: LexicalEditor,
-    appSettings: Settings,
+  editorState: EditorState,
+  editor: LexicalEditor,
+  appSettings: Settings,
 ) {
-    const updates: Array<{
-        dbgLabel: string;
-        run: () => void;
-    }> = [];
+  const updates: Array<{
+    dbgLabel: string;
+    run: () => void;
+  }> = [];
 
-    editorState.read(() => {
-        const allNodes = [...$dfsIterator()];
-        mergeAdjacentTextNodesOfSameType({
-            allNodes,
-            updates,
-            appSettings,
-        });
-        // pushTrailingHorizontalWhitespaceToNextSibling({
-        //     allNodes,
-        //     updates,
-        //     appSettings,
-        // });
-        // ensureSiblingsHaveAtLeastOneSpace({
-        //     allNodes,
-        //     updates,
-        //     appSettings,
-        // });
+  editorState.read(() => {
+    const allNodes = [...$dfsIterator()];
+    mergeAdjacentTextNodesOfSameType({
+      allNodes,
+      updates,
+      appSettings,
     });
+    // pushTrailingHorizontalWhitespaceToNextSibling({
+    //     allNodes,
+    //     updates,
+    //     appSettings,
+    // });
+    // ensureSiblingsHaveAtLeastOneSpace({
+    //     allNodes,
+    //     updates,
+    //     appSettings,
+    // });
+  });
 
-    if (updates.length) {
-        editor.update(
-            () => {
-                updates.forEach((u) => {
-                    u.run();
-                });
-            },
-            {
-                tag: [
-                    EDITOR_TAGS_USED.historyMerge,
-                    //   EDITOR_TAGS_USED.programaticIgnore,
-                ],
-            },
-        );
-    }
-    // console.timeEnd("maintainDocumentStructure");
+  if (updates.length) {
+    editor.update(
+      () => {
+        updates.forEach((u) => {
+          u.run();
+        });
+      },
+      {
+        tag: [
+          EDITOR_TAGS_USED.historyMerge,
+          //   EDITOR_TAGS_USED.programaticIgnore,
+        ],
+      },
+    );
+  }
+  // console.timeEnd("maintainDocumentStructure");
 }
 
 type DebouncedStructuralUpdatesArgs = {
-    allNodes: Array<DFSNode>;
-    appSettings: Settings;
-    updates: Array<{
-        dbgLabel: string;
-        dbgDetail?: string;
-        run: () => void;
-    }>;
+  allNodes: Array<DFSNode>;
+  appSettings: Settings;
+  updates: Array<{
+    dbgLabel: string;
+    dbgDetail?: string;
+    run: () => void;
+  }>;
 };
 
 // for lint which depends on tokens, it's actually needed to merge things are logically same type same sid together.
 const mergeAdjacentTextNodesOfSameType = ({
-    allNodes,
-    updates,
+  allNodes,
+  updates,
 }: DebouncedStructuralUpdatesArgs) => {
-    const tokenTypesToMerge: Array<string> = [
-        UsfmTokenTypes.text,
-        UsfmTokenTypes.error,
-    ];
+  const tokenTypesToMerge: Array<string> = [
+    UsfmTokenTypes.text,
+    UsfmTokenTypes.error,
+  ];
 
-    const allTextNodes: Array<USFMTextNode> = [];
-    for (const dfsNode of allNodes) {
-        const n = dfsNode.node;
-        if (
-            $isUSFMTextNode(n) &&
-            tokenTypesToMerge.includes(n.getTokenType())
-        ) {
-            allTextNodes.push(n);
-        }
+  const allTextNodes: Array<USFMTextNode> = [];
+  for (const dfsNode of allNodes) {
+    const n = dfsNode.node;
+    if ($isUSFMTextNode(n) && tokenTypesToMerge.includes(n.getTokenType())) {
+      allTextNodes.push(n);
     }
-    // Group consecutive nodes with same sid + tokenType
-    const groups: USFMTextNode[][] = [];
-    let currentGroup: USFMTextNode[] = [];
+  }
+  // Group consecutive nodes with same sid + tokenType
+  const groups: USFMTextNode[][] = [];
+  let currentGroup: USFMTextNode[] = [];
 
-    for (let i = 0; i < allTextNodes.length; i++) {
-        const node = allTextNodes[i];
-        const prev = allTextNodes[i - 1];
+  for (let i = 0; i < allTextNodes.length; i++) {
+    const node = allTextNodes[i];
+    const prev = allTextNodes[i - 1];
 
-        const shouldMergeWithPrev =
-            i > 0 &&
-            prev.getNextSibling() === node && // consecutive in the tree
-            prev.getSid() === node.getSid() &&
-            prev.getTokenType() === node.getTokenType();
+    const shouldMergeWithPrev =
+      i > 0 &&
+      prev.getNextSibling() === node && // consecutive in the tree
+      prev.getSid() === node.getSid() &&
+      prev.getTokenType() === node.getTokenType();
 
-        if (shouldMergeWithPrev) {
-            currentGroup.push(node);
-        } else {
-            if (currentGroup.length > 0) groups.push(currentGroup);
-            currentGroup = [node];
-        }
+    if (shouldMergeWithPrev) {
+      currentGroup.push(node);
+    } else {
+      if (currentGroup.length > 0) groups.push(currentGroup);
+      currentGroup = [node];
     }
-    if (currentGroup.length > 0) groups.push(currentGroup);
+  }
+  if (currentGroup.length > 0) groups.push(currentGroup);
 
-    // Now reduce each group down to one node
-    for (const group of groups) {
-        if (group.length <= 1) continue;
-        const [first, ...rest] = group;
-        updates.push({
-            dbgLabel: "mergeAdjacentTextNodesOfSameTypeBatch",
-            run: () => {
-                const mergedText = group
-                    .map((n) => n.getTextContent())
-                    .join("");
-                first.setTextContent(mergedText);
-                rest.forEach((n) => {
-                    n.remove();
-                });
-            },
+  // Now reduce each group down to one node
+  for (const group of groups) {
+    if (group.length <= 1) continue;
+    const [first, ...rest] = group;
+    updates.push({
+      dbgLabel: "mergeAdjacentTextNodesOfSameTypeBatch",
+      run: () => {
+        const mergedText = group.map((n) => n.getTextContent()).join("");
+        first.setTextContent(mergedText);
+        rest.forEach((n) => {
+          n.remove();
         });
-    }
+      },
+    });
+  }
 };
 
 const editCharOpenAndCloseTogether: MainDocumentStrutureFxn = ({
-    node,
-    tokenType,
-    updates,
+  node,
+  tokenType,
+  updates,
 }) => {
-    const isMarker = tokenType === UsfmTokenTypes.marker;
-    const marker = node.getMarker();
-    if (!isMarker || !marker) return;
-    const isChar = ALL_CHAR_MARKERS.has(marker);
-    if (!isChar) return;
-    const lastNodeInEditor = $getRoot().getLastChild();
-    if (!lastNodeInEditor) return;
+  const isMarker = tokenType === UsfmTokenTypes.marker;
+  const marker = node.getMarker();
+  if (!isMarker || !marker) return;
+  const isChar = ALL_CHAR_MARKERS.has(marker);
+  if (!isChar) return;
+  const lastNodeInEditor = $getRoot().getLastChild();
+  if (!lastNodeInEditor) return;
 
-    // look forward until we find a closeMarker, or a para el, line break, or next footnote marker:  The last 3 cases are the hard stops for a char:
-    let matchedEnd: USFMTextNode | null = null;
-    for (const nextNode of $dfsIterator(node, lastNodeInEditor)) {
-        // check break conditions:
-        const next = nextNode.node;
-        if ($isLineBreakNode(next)) break;
-        if ($isUSFMNestedEditorNode(next)) break;
+  // look forward until we find a closeMarker, or a para el, line break, or next footnote marker:  The last 3 cases are the hard stops for a char:
+  let matchedEnd: USFMTextNode | null = null;
+  for (const nextNode of $dfsIterator(node, lastNodeInEditor)) {
+    // check break conditions:
+    const next = nextNode.node;
+    if ($isLineBreakNode(next)) break;
+    if ($isUSFMNestedEditorNode(next)) break;
 
-        if (!$isUSFMTextNode(next)) continue;
-        const isEndMarker = next.getTokenType() === UsfmTokenTypes.endMarker;
-        if (isEndMarker) {
-            const endMarker = next.getMarker();
-            if (!endMarker) continue;
-            if (endMarker !== marker) continue;
-            matchedEnd = next;
-            break;
-        }
+    if (!$isUSFMTextNode(next)) continue;
+    const isEndMarker = next.getTokenType() === UsfmTokenTypes.endMarker;
+    if (isEndMarker) {
+      const endMarker = next.getMarker();
+      if (!endMarker) continue;
+      if (endMarker !== marker) continue;
+      matchedEnd = next;
+      break;
     }
-    if (matchedEnd) {
-        const endMatchingTxt = `${node.getTextContent().trim()}*`;
-        if (matchedEnd.getTextContent().trim() !== endMatchingTxt) {
-            updates.push({
-                dbgLabel: "editCharOpenAndCloseTogether",
-                run: () => {
-                    // set the marker of both nodes:
-                    const newMarker = markerTrimNoSlash(node.getTextContent());
-                    if (ALL_CHAR_MARKERS.has(newMarker)) {
-                        node.setMarker(newMarker);
-                        matchedEnd.setMarker(newMarker);
-                    }
-                    matchedEnd.setTextContent(endMatchingTxt);
-                },
-            });
-        }
+  }
+  if (matchedEnd) {
+    const endMatchingTxt = `${node.getTextContent().trim()}*`;
+    if (matchedEnd.getTextContent().trim() !== endMatchingTxt) {
+      updates.push({
+        dbgLabel: "editCharOpenAndCloseTogether",
+        run: () => {
+          // set the marker of both nodes:
+          const newMarker = markerTrimNoSlash(node.getTextContent());
+          if (ALL_CHAR_MARKERS.has(newMarker)) {
+            node.setMarker(newMarker);
+            matchedEnd.setMarker(newMarker);
+          }
+          matchedEnd.setTextContent(endMatchingTxt);
+        },
+      });
     }
+  }
 };

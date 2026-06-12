@@ -5,9 +5,15 @@
 // These tests pin the contract: rebuilds take an explicit `EditorShape` and the
 // rebuilt tree honors it.
 
+import { makeBook, makeChapter } from "@tests/helpers/workspaceFixtures.ts";
 import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
-import { EDITOR_SHAPES, editorModeToShape, shapeForSurface } from "@/app/data/editor.ts";
+
+import {
+  EDITOR_SHAPES,
+  editorModeToShape,
+  shapeForSurface,
+} from "@/app/data/editor.ts";
 import {
   isFormModeRootChildren,
   isRegularModeRootChildren,
@@ -21,7 +27,6 @@ import {
 } from "@/app/domain/project/saveAndRevertService.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
-import { makeBook, makeChapter } from "@tests/helpers/workspaceFixtures.ts";
 
 function rootChildren(
   state: SerializedEditorState<SerializedLexicalNode>,
@@ -31,7 +36,11 @@ function rootChildren(
 
 describe("shapeForSurface", () => {
   it("follows the user's mode on mode-dependent surfaces", () => {
-    for (const surface of ["mainEditor", "workingRebuild", "referencePane"] as const) {
+    for (const surface of [
+      "mainEditor",
+      "workingRebuild",
+      "referencePane",
+    ] as const) {
       expect(shapeForSurface(surface, "form")).toBe(EDITOR_SHAPES.form);
       expect(shapeForSurface(surface, "regular")).toBe(EDITOR_SHAPES.regular);
       expect(shapeForSurface(surface, "view")).toBe(EDITOR_SHAPES.regular);
@@ -47,7 +56,9 @@ describe("shapeForSurface", () => {
 
   it("agrees with editorModeToShape for the mode-dependent surfaces", () => {
     for (const mode of ["regular", "usfm", "plain", "view", "form"] as const) {
-      expect(shapeForSurface("workingRebuild", mode)).toBe(editorModeToShape(mode));
+      expect(shapeForSurface("workingRebuild", mode)).toBe(
+        editorModeToShape(mode),
+      );
     }
   });
 });
@@ -59,13 +70,19 @@ describe("workingRebuild shape preservation (the form-collapse regressions)", ()
       text: "IN THE BEGINNING edited",
       shape: "form",
     });
-    expect(isFormModeRootChildren(rootChildren(chapter.lexicalState))).toBe(true);
+    expect(isFormModeRootChildren(rootChildren(chapter.lexicalState))).toBe(
+      true,
+    );
 
     revertChapterToLoadedState(chapter, "form");
 
-    expect(isFormModeRootChildren(rootChildren(chapter.lexicalState))).toBe(true);
+    expect(isFormModeRootChildren(rootChildren(chapter.lexicalState))).toBe(
+      true,
+    );
     expect(chapter.dirty).toBe(false);
-    expect(chapter.currentTokens.map((t) => t.source).join("")).toBe("\\p in the beginning");
+    expect(chapter.currentTokens.map((t) => t.source).join("")).toBe(
+      "\\p in the beginning",
+    );
   });
 
   it("revertChapterToLoadedState keeps a regular chapter regular-shaped", () => {
@@ -77,7 +94,9 @@ describe("workingRebuild shape preservation (the form-collapse regressions)", ()
 
     revertChapterToLoadedState(chapter, "regular");
 
-    expect(isRegularModeRootChildren(rootChildren(chapter.lexicalState))).toBe(true);
+    expect(isRegularModeRootChildren(rootChildren(chapter.lexicalState))).toBe(
+      true,
+    );
   });
 
   it("revertChapterDiffByBlockId rebuilds into the given shape", async () => {
@@ -97,7 +116,9 @@ describe("workingRebuild shape preservation (the form-collapse regressions)", ()
       shape: "form",
     });
 
-    expect(isFormModeRootChildren(rootChildren(chapter.lexicalState))).toBe(true);
+    expect(isFormModeRootChildren(rootChildren(chapter.lexicalState))).toBe(
+      true,
+    );
     expect(chapter.dirty).toBe(false);
   });
 
@@ -113,8 +134,12 @@ describe("workingRebuild shape preservation (the form-collapse regressions)", ()
       shape: "form",
     });
 
-    expect(isFormModeRootChildren(rootChildren(workingChapter.lexicalState))).toBe(true);
-    expect(workingChapter.currentTokens.map((t) => t.source).join("")).toBe("\\p incoming");
+    expect(
+      isFormModeRootChildren(rootChildren(workingChapter.lexicalState)),
+    ).toBe(true);
+    expect(workingChapter.currentTokens.map((t) => t.source).join("")).toBe(
+      "\\p incoming",
+    );
   });
 });
 

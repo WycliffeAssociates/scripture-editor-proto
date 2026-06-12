@@ -1,667 +1,753 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cloud Publishing And Reconciliation Review</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --font-body: "IBM Plex Sans", system-ui, sans-serif;
-    --font-mono: "IBM Plex Mono", "SF Mono", Consolas, monospace;
-
-    --bg: #edf4fb;
-    --surface: rgba(255, 255, 255, 0.88);
-    --surface-strong: rgba(255, 255, 255, 0.96);
-    --surface-soft: rgba(232, 240, 249, 0.82);
-    --border: rgba(18, 42, 66, 0.12);
-    --border-strong: rgba(18, 42, 66, 0.2);
-    --text: #17324d;
-    --text-dim: #56708a;
-    --accent: #0f6c8d;
-    --accent-dim: rgba(15, 108, 141, 0.11);
-    --accent-2: #166534;
-    --accent-2-dim: rgba(22, 101, 52, 0.1);
-    --accent-3: #b45309;
-    --accent-3-dim: rgba(180, 83, 9, 0.1);
-    --danger: #b42318;
-    --danger-dim: rgba(180, 35, 24, 0.1);
-    --shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #09131d;
-      --surface: rgba(14, 26, 38, 0.9);
-      --surface-strong: rgba(18, 32, 46, 0.96);
-      --surface-soft: rgba(12, 21, 33, 0.88);
-      --border: rgba(182, 209, 232, 0.12);
-      --border-strong: rgba(182, 209, 232, 0.22);
-      --text: #dcecf8;
-      --text-dim: #8ea9bf;
-      --accent: #56b5d8;
-      --accent-dim: rgba(86, 181, 216, 0.12);
-      --accent-2: #5fd08c;
-      --accent-2-dim: rgba(95, 208, 140, 0.12);
-      --accent-3: #f0a657;
-      --accent-3-dim: rgba(240, 166, 87, 0.12);
-      --danger: #f47c72;
-      --danger-dim: rgba(244, 124, 114, 0.14);
-      --shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
-    }
-  }
-
-  * { box-sizing: border-box; }
-
-  html {
-    scroll-behavior: smooth;
-  }
-
-  body {
-    margin: 0;
-    min-height: 100vh;
-    color: var(--text);
-    font-family: var(--font-body);
-    background:
-      radial-gradient(circle at top left, var(--accent-dim), transparent 34%),
-      radial-gradient(circle at bottom right, var(--accent-2-dim), transparent 30%),
-      linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0)),
-      var(--bg);
-    background-image:
-      linear-gradient(var(--border) 1px, transparent 1px),
-      linear-gradient(90deg, var(--border) 1px, transparent 1px),
-      radial-gradient(circle at top left, var(--accent-dim), transparent 34%),
-      radial-gradient(circle at bottom right, var(--accent-2-dim), transparent 30%),
-      linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0)),
-      linear-gradient(180deg, var(--bg), var(--bg));
-    background-size: 24px 24px, 24px 24px, auto, auto, auto, auto;
-    padding: 28px;
-  }
-
-  a {
-    color: var(--accent);
-    text-decoration-thickness: 1px;
-    text-underline-offset: 2px;
-  }
-
-  code {
-    font-family: var(--font-mono);
-    font-size: 0.92em;
-    background: var(--accent-dim);
-    color: var(--accent);
-    padding: 0.1rem 0.35rem;
-    border-radius: 6px;
-  }
-
-  .wrap {
-    max-width: 1460px;
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: 196px minmax(0, 1fr);
-    gap: 0 36px;
-  }
-
-  .main {
-    min-width: 0;
-  }
-
-  .toc {
-    position: sticky;
-    top: 18px;
-    align-self: start;
-    max-height: calc(100dvh - 36px);
-    overflow-y: auto;
-    padding: 18px 0;
-  }
-
-  .toc-title {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    padding-bottom: 10px;
-    margin-bottom: 10px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .toc a {
-    display: block;
-    font-size: 11px;
-    line-height: 1.45;
-    color: var(--text-dim);
-    text-decoration: none;
-    padding: 6px 10px;
-    border-left: 2px solid transparent;
-    border-radius: 8px;
-    transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
-  }
-
-  .toc a:hover,
-  .toc a.active {
-    color: var(--text);
-    background: var(--surface-soft);
-    border-left-color: var(--accent);
-  }
-
-  .hero {
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
-    border-radius: 28px;
-    box-shadow: var(--shadow);
-    padding: 34px 34px 28px;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    margin-bottom: 26px;
-  }
-
-  .eyebrow {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 14px;
-  }
-
-  .eyebrow::before {
-    content: "";
-    width: 10px;
-    height: 10px;
-    border-radius: 999px;
-    background: currentColor;
-  }
-
-  h1 {
-    margin: 0;
-    font-size: clamp(2.4rem, 4vw, 4rem);
-    line-height: 0.98;
-    letter-spacing: -0.04em;
-    max-width: 12ch;
-  }
-
-  .subtitle {
-    margin-top: 14px;
-    max-width: 72ch;
-    font-size: 1rem;
-    line-height: 1.72;
-    color: var(--text-dim);
-  }
-
-  .kpi-grid,
-  .card-grid {
-    display: grid;
-    gap: 16px;
-  }
-
-  .kpi-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    margin-top: 24px;
-  }
-
-  .card-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .ve-card {
-    min-width: 0;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 18px 20px;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
-  }
-
-  .ve-card.hero-card {
-    background: linear-gradient(180deg, var(--surface-strong), var(--surface));
-    border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-  }
-
-  .ve-card.soft {
-    background: var(--surface-soft);
-  }
-
-  .ve-card__label {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 12px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--accent);
-  }
-
-  .ve-card__label::before {
-    content: "";
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
-    background: currentColor;
-  }
-
-  .kpi {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .kpi strong {
-    font-size: 2rem;
-    line-height: 1;
-    letter-spacing: -0.04em;
-  }
-
-  .kpi span {
-    color: var(--text-dim);
-    font-size: 0.93rem;
-    line-height: 1.5;
-  }
-
-  .sec-head {
-    margin: 28px 0 14px;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    scroll-margin-top: 76px;
-  }
-
-  .lead {
-    margin: 0 0 18px;
-    max-width: 74ch;
-    color: var(--text-dim);
-    line-height: 1.72;
-  }
-
-  .bullet-list {
-    display: grid;
-    gap: 10px;
-    margin: 0;
-    padding-left: 18px;
-    color: var(--text-dim);
-    line-height: 1.6;
-  }
-
-  .bullet-list strong {
-    color: var(--text);
-  }
-
-  .diagram-shell {
-    position: relative;
-  }
-
-  .diagram-shell__hint {
-    margin-bottom: 8px;
-    color: var(--text-dim);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .mermaid-wrap {
-    position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 400px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 22px;
-    overflow: hidden;
-    box-shadow: var(--shadow);
-  }
-
-  .mermaid-viewport {
-    position: relative;
-    width: 100%;
-    min-height: 400px;
-    overflow: hidden;
-  }
-
-  .mermaid-canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-    transform-origin: top left;
-  }
-
-  .zoom-controls {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 5;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    background: color-mix(in srgb, var(--surface-strong) 80%, transparent);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-  }
-
-  .zoom-controls button {
-    width: 30px;
-    height: 30px;
-    border: 0;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--text-dim);
-    font-family: var(--font-mono);
-    cursor: pointer;
-    transition: background 140ms ease, color 140ms ease;
-  }
-
-  .zoom-controls button:hover {
-    color: var(--text);
-    background: var(--surface-soft);
-  }
-
-  .zoom-label {
-    min-width: 48px;
-    text-align: center;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--text-dim);
-  }
-
-  .mermaid-wrap.is-panning {
-    cursor: grabbing;
-  }
-
-  .mermaid .nodeLabel,
-  .mermaid .edgeLabel,
-  .mermaid .label {
-    color: var(--text) !important;
-  }
-
-  .mermaid .edgeLabel {
-    background: transparent !important;
-  }
-
-  .mermaid .edgeLabel rect {
-    fill: var(--bg) !important;
-    opacity: 0.92;
-  }
-
-  .mermaid .nodeLabel {
-    font-family: var(--font-body) !important;
-    font-size: 16px !important;
-  }
-
-  .mermaid .edgeLabel,
-  .mermaid .noteText {
-    font-family: var(--font-mono) !important;
-    font-size: 12px !important;
-  }
-
-  .mermaid .node rect,
-  .mermaid .node polygon,
-  .mermaid .node circle {
-    stroke-width: 1.5px !important;
-  }
-
-  .table-wrap {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 22px;
-    overflow: hidden;
-    box-shadow: var(--shadow);
-  }
-
-  .table-scroll {
-    overflow-x: auto;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-    line-height: 1.6;
-  }
-
-  thead th {
-    position: sticky;
-    top: 0;
-    background: var(--surface-soft);
-    color: var(--text-dim);
-    text-align: left;
-    padding: 14px 16px;
-    border-bottom: 1px solid var(--border-strong);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-  }
-
-  tbody td {
-    vertical-align: top;
-    padding: 14px 16px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  tbody tr:nth-child(even) {
-    background: color-mix(in srgb, var(--surface-soft) 72%, transparent);
-  }
-
-  .status {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 10px;
-    border-radius: 999px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    white-space: nowrap;
-  }
-
-  .status::before {
-    content: "";
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
-    background: currentColor;
-  }
-
-  .status.good {
-    color: var(--accent-2);
-    background: var(--accent-2-dim);
-  }
-
-  .status.warn {
-    color: var(--accent-3);
-    background: var(--accent-3-dim);
-  }
-
-  .status.risk {
-    color: var(--danger);
-    background: var(--danger-dim);
-  }
-
-  .callout {
-    border-left: 3px solid var(--accent-3);
-    background: color-mix(in srgb, var(--surface) 84%, var(--accent-3) 16%);
-    padding: 14px 16px;
-    border-radius: 14px;
-    color: var(--text-dim);
-    line-height: 1.65;
-  }
-
-  .mini-grid {
-    display: grid;
-    gap: 14px;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .foot {
-    margin-top: 28px;
-    color: var(--text-dim);
-    font-size: 0.92rem;
-    line-height: 1.65;
-  }
-
-  @media (max-width: 1080px) {
-    body {
-      padding: 0 24px 24px;
-    }
-
-    .wrap {
-      grid-template-columns: 1fr;
-      gap: 0;
-    }
-
-    .toc {
-      position: sticky;
-      top: 0;
-      z-index: 20;
-      display: flex;
-      gap: 4px;
-      overflow-x: auto;
-      max-height: none;
-      margin: 0 -24px;
-      padding: 12px 24px;
-      background: color-mix(in srgb, var(--bg) 88%, transparent);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .toc-title {
-      display: none;
-    }
-
-    .toc a {
-      white-space: nowrap;
-      border-left: none;
-      border-bottom: 2px solid transparent;
-    }
-
-    .toc a.active {
-      border-left-color: transparent;
-      border-bottom-color: var(--accent);
-    }
-
-    .sec-head {
-      scroll-margin-top: 58px;
-    }
-
-    .kpi-grid,
-    .card-grid,
-    .mini-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-</style>
-</head>
-<body>
-  <div class="wrap">
-    <nav class="toc" id="toc">
-      <div class="toc-title">Review Map</div>
-      <a href="#s1">1. North Star</a>
-      <a href="#s2">2. Statechart</a>
-      <a href="#s3">3. Session Machine</a>
-      <a href="#s4">4. Project Machine</a>
-      <a href="#s5">5. Policy Machine</a>
-      <a href="#s6">6. Save And Sync</a>
-      <a href="#s7">7. State Ownership</a>
-      <a href="#s8">8. Current Seams</a>
-      <a href="#s9">9. Open Risks</a>
-    </nav>
-
-    <main class="main">
-      <section class="hero">
-        <div class="eyebrow">Cloud Publishing Review</div>
-        <h1>Cloud Publishing and Reconciliation for Editable Scripture</h1>
-        <p class="subtitle">
-          A review artifact for moving from clarified product intent into pseudocode and beads.
-          Framed as <code>cloud publishing and reconciliation</code>, not generic remote sync.
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cloud Publishing And Reconciliation Review</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --font-body: "IBM Plex Sans", system-ui, sans-serif;
+        --font-mono: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+
+        --bg: #edf4fb;
+        --surface: rgba(255, 255, 255, 0.88);
+        --surface-strong: rgba(255, 255, 255, 0.96);
+        --surface-soft: rgba(232, 240, 249, 0.82);
+        --border: rgba(18, 42, 66, 0.12);
+        --border-strong: rgba(18, 42, 66, 0.2);
+        --text: #17324d;
+        --text-dim: #56708a;
+        --accent: #0f6c8d;
+        --accent-dim: rgba(15, 108, 141, 0.11);
+        --accent-2: #166534;
+        --accent-2-dim: rgba(22, 101, 52, 0.1);
+        --accent-3: #b45309;
+        --accent-3-dim: rgba(180, 83, 9, 0.1);
+        --danger: #b42318;
+        --danger-dim: rgba(180, 35, 24, 0.1);
+        --shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #09131d;
+          --surface: rgba(14, 26, 38, 0.9);
+          --surface-strong: rgba(18, 32, 46, 0.96);
+          --surface-soft: rgba(12, 21, 33, 0.88);
+          --border: rgba(182, 209, 232, 0.12);
+          --border-strong: rgba(182, 209, 232, 0.22);
+          --text: #dcecf8;
+          --text-dim: #8ea9bf;
+          --accent: #56b5d8;
+          --accent-dim: rgba(86, 181, 216, 0.12);
+          --accent-2: #5fd08c;
+          --accent-2-dim: rgba(95, 208, 140, 0.12);
+          --accent-3: #f0a657;
+          --accent-3-dim: rgba(240, 166, 87, 0.12);
+          --danger: #f47c72;
+          --danger-dim: rgba(244, 124, 114, 0.14);
+          --shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        font-family: var(--font-body);
+        background:
+          radial-gradient(
+            circle at top left,
+            var(--accent-dim),
+            transparent 34%
+          ),
+          radial-gradient(
+            circle at bottom right,
+            var(--accent-2-dim),
+            transparent 30%
+          ),
+          linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.08),
+            rgba(255, 255, 255, 0)
+          ),
+          var(--bg);
+        background-image:
+          linear-gradient(var(--border) 1px, transparent 1px),
+          linear-gradient(90deg, var(--border) 1px, transparent 1px),
+          radial-gradient(
+            circle at top left,
+            var(--accent-dim),
+            transparent 34%
+          ),
+          radial-gradient(
+            circle at bottom right,
+            var(--accent-2-dim),
+            transparent 30%
+          ),
+          linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.08),
+            rgba(255, 255, 255, 0)
+          ),
+          linear-gradient(180deg, var(--bg), var(--bg));
+        background-size:
+          24px 24px,
+          24px 24px,
+          auto,
+          auto,
+          auto,
+          auto;
+        padding: 28px;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration-thickness: 1px;
+        text-underline-offset: 2px;
+      }
+
+      code {
+        font-family: var(--font-mono);
+        font-size: 0.92em;
+        background: var(--accent-dim);
+        color: var(--accent);
+        padding: 0.1rem 0.35rem;
+        border-radius: 6px;
+      }
+
+      .wrap {
+        max-width: 1460px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 196px minmax(0, 1fr);
+        gap: 0 36px;
+      }
+
+      .main {
+        min-width: 0;
+      }
+
+      .toc {
+        position: sticky;
+        top: 18px;
+        align-self: start;
+        max-height: calc(100dvh - 36px);
+        overflow-y: auto;
+        padding: 18px 0;
+      }
+
+      .toc-title {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+        padding-bottom: 10px;
+        margin-bottom: 10px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .toc a {
+        display: block;
+        font-size: 11px;
+        line-height: 1.45;
+        color: var(--text-dim);
+        text-decoration: none;
+        padding: 6px 10px;
+        border-left: 2px solid transparent;
+        border-radius: 8px;
+        transition:
+          background 160ms ease,
+          color 160ms ease,
+          border-color 160ms ease;
+      }
+
+      .toc a:hover,
+      .toc a.active {
+        color: var(--text);
+        background: var(--surface-soft);
+        border-left-color: var(--accent);
+      }
+
+      .hero {
+        background: var(--surface);
+        border: 1px solid var(--border-strong);
+        border-radius: 28px;
+        box-shadow: var(--shadow);
+        padding: 34px 34px 28px;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        margin-bottom: 26px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 14px;
+      }
+
+      .eyebrow::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: currentColor;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2.4rem, 4vw, 4rem);
+        line-height: 0.98;
+        letter-spacing: -0.04em;
+        max-width: 12ch;
+      }
+
+      .subtitle {
+        margin-top: 14px;
+        max-width: 72ch;
+        font-size: 1rem;
+        line-height: 1.72;
+        color: var(--text-dim);
+      }
+
+      .kpi-grid,
+      .card-grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      .kpi-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        margin-top: 24px;
+      }
+
+      .card-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .ve-card {
+        min-width: 0;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 18px 20px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+      }
+
+      .ve-card.hero-card {
+        background: linear-gradient(
+          180deg,
+          var(--surface-strong),
+          var(--surface)
+        );
+        border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+      }
+
+      .ve-card.soft {
+        background: var(--surface-soft);
+      }
+
+      .ve-card__label {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      .ve-card__label::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: currentColor;
+      }
+
+      .kpi {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .kpi strong {
+        font-size: 2rem;
+        line-height: 1;
+        letter-spacing: -0.04em;
+      }
+
+      .kpi span {
+        color: var(--text-dim);
+        font-size: 0.93rem;
+        line-height: 1.5;
+      }
+
+      .sec-head {
+        margin: 28px 0 14px;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+        scroll-margin-top: 76px;
+      }
+
+      .lead {
+        margin: 0 0 18px;
+        max-width: 74ch;
+        color: var(--text-dim);
+        line-height: 1.72;
+      }
+
+      .bullet-list {
+        display: grid;
+        gap: 10px;
+        margin: 0;
+        padding-left: 18px;
+        color: var(--text-dim);
+        line-height: 1.6;
+      }
+
+      .bullet-list strong {
+        color: var(--text);
+      }
+
+      .diagram-shell {
+        position: relative;
+      }
+
+      .diagram-shell__hint {
+        margin-bottom: 8px;
+        color: var(--text-dim);
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .mermaid-wrap {
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 400px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+      }
+
+      .mermaid-viewport {
+        position: relative;
+        width: 100%;
+        min-height: 400px;
+        overflow: hidden;
+      }
+
+      .mermaid-canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        transform-origin: top left;
+      }
+
+      .zoom-controls {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--surface-strong) 80%, transparent);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+      }
+
+      .zoom-controls button {
+        width: 30px;
+        height: 30px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--text-dim);
+        font-family: var(--font-mono);
+        cursor: pointer;
+        transition:
+          background 140ms ease,
+          color 140ms ease;
+      }
+
+      .zoom-controls button:hover {
+        color: var(--text);
+        background: var(--surface-soft);
+      }
+
+      .zoom-label {
+        min-width: 48px;
+        text-align: center;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--text-dim);
+      }
+
+      .mermaid-wrap.is-panning {
+        cursor: grabbing;
+      }
+
+      .mermaid .nodeLabel,
+      .mermaid .edgeLabel,
+      .mermaid .label {
+        color: var(--text) !important;
+      }
+
+      .mermaid .edgeLabel {
+        background: transparent !important;
+      }
+
+      .mermaid .edgeLabel rect {
+        fill: var(--bg) !important;
+        opacity: 0.92;
+      }
+
+      .mermaid .nodeLabel {
+        font-family: var(--font-body) !important;
+        font-size: 16px !important;
+      }
+
+      .mermaid .edgeLabel,
+      .mermaid .noteText {
+        font-family: var(--font-mono) !important;
+        font-size: 12px !important;
+      }
+
+      .mermaid .node rect,
+      .mermaid .node polygon,
+      .mermaid .node circle {
+        stroke-width: 1.5px !important;
+      }
+
+      .table-wrap {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+      }
+
+      .table-scroll {
+        overflow-x: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      thead th {
+        position: sticky;
+        top: 0;
+        background: var(--surface-soft);
+        color: var(--text-dim);
+        text-align: left;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border-strong);
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      tbody td {
+        vertical-align: top;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      tbody tr:nth-child(even) {
+        background: color-mix(in srgb, var(--surface-soft) 72%, transparent);
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .status::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: currentColor;
+      }
+
+      .status.good {
+        color: var(--accent-2);
+        background: var(--accent-2-dim);
+      }
+
+      .status.warn {
+        color: var(--accent-3);
+        background: var(--accent-3-dim);
+      }
+
+      .status.risk {
+        color: var(--danger);
+        background: var(--danger-dim);
+      }
+
+      .callout {
+        border-left: 3px solid var(--accent-3);
+        background: color-mix(in srgb, var(--surface) 84%, var(--accent-3) 16%);
+        padding: 14px 16px;
+        border-radius: 14px;
+        color: var(--text-dim);
+        line-height: 1.65;
+      }
+
+      .mini-grid {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .foot {
+        margin-top: 28px;
+        color: var(--text-dim);
+        font-size: 0.92rem;
+        line-height: 1.65;
+      }
+
+      @media (max-width: 1080px) {
+        body {
+          padding: 0 24px 24px;
+        }
+
+        .wrap {
+          grid-template-columns: 1fr;
+          gap: 0;
+        }
+
+        .toc {
+          position: sticky;
+          top: 0;
+          z-index: 20;
+          display: flex;
+          gap: 4px;
+          overflow-x: auto;
+          max-height: none;
+          margin: 0 -24px;
+          padding: 12px 24px;
+          background: color-mix(in srgb, var(--bg) 88%, transparent);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          border-bottom: 1px solid var(--border);
+        }
+
+        .toc-title {
+          display: none;
+        }
+
+        .toc a {
+          white-space: nowrap;
+          border-left: none;
+          border-bottom: 2px solid transparent;
+        }
+
+        .toc a.active {
+          border-left-color: transparent;
+          border-bottom-color: var(--accent);
+        }
+
+        .sec-head {
+          scroll-margin-top: 58px;
+        }
+
+        .kpi-grid,
+        .card-grid,
+        .mini-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <nav class="toc" id="toc">
+        <div class="toc-title">Review Map</div>
+        <a href="#s1">1. North Star</a>
+        <a href="#s2">2. Statechart</a>
+        <a href="#s3">3. Session Machine</a>
+        <a href="#s4">4. Project Machine</a>
+        <a href="#s5">5. Policy Machine</a>
+        <a href="#s6">6. Save And Sync</a>
+        <a href="#s7">7. State Ownership</a>
+        <a href="#s8">8. Current Seams</a>
+        <a href="#s9">9. Open Risks</a>
+      </nav>
+
+      <main class="main">
+        <section class="hero">
+          <div class="eyebrow">Cloud Publishing Review</div>
+          <h1>Cloud Publishing and Reconciliation for Editable Scripture</h1>
+          <p class="subtitle">
+            A review artifact for moving from clarified product intent into
+            pseudocode and beads. Framed as
+            <code>cloud publishing and reconciliation</code>, not generic remote
+            sync.
+          </p>
+          <div class="kpi-grid">
+            <article class="ve-card hero-card kpi">
+              <div class="ve-card__label">Scope</div>
+              <strong>Web + Tauri</strong>
+              <span
+                >One shared domain design, with platform-specific transport
+                underneath.</span
+              >
+            </article>
+            <article class="ve-card kpi">
+              <div class="ve-card__label">Primary User Story</div>
+              <strong>Publish</strong>
+              <span
+                >Local editable project to cloud-linked project to repeated
+                save-and-publish.</span
+              >
+            </article>
+            <article class="ve-card kpi">
+              <div class="ve-card__label">North Star</div>
+              <strong>Transparency</strong>
+              <span
+                >No silent USFM merges, no hidden local edit loss, no raw Git
+                UI.</span
+              >
+            </article>
+            <article class="ve-card kpi">
+              <div class="ve-card__label">Conflict Basis</div>
+              <strong>Latest Left / Right</strong>
+              <span
+                >Reconciliation UX is based on current in-memory work versus
+                remote latest state.</span
+              >
+            </article>
+          </div>
+        </section>
+
+        <div id="s1" class="sec-head">1. North Star</div>
+        <p class="lead">
+          This feature extends Dovetail’s existing local-first save and history
+          model. It does not replace it. The product is a scripture-focused
+          cloud publishing layer with explicit review at sync boundaries,
+          especially for USFM. Local save remains authoritative. Remote
+          publication and remote intake are secondary operations with bounded
+          failure states.
         </p>
-        <div class="kpi-grid">
-          <article class="ve-card hero-card kpi">
-            <div class="ve-card__label">Scope</div>
-            <strong>Web + Tauri</strong>
-            <span>One shared domain design, with platform-specific transport underneath.</span>
+        <div class="card-grid">
+          <article class="ve-card">
+            <div class="ve-card__label">Hard Rules</div>
+            <ul class="bullet-list">
+              <li><strong>Editable scripture projects only</strong> in v1.</li>
+              <li>
+                <strong>One tracked branch only</strong>; no branch-management
+                UI.
+              </li>
+              <li>
+                <strong>App-created remotes use <code>master</code></strong
+                >; cloned repos track remote default branch.
+              </li>
+              <li>
+                <strong
+                  >Export/share strips <code>.git</code> and Dovetail link
+                  metadata</strong
+                >.
+              </li>
+              <li>
+                <strong>Session is app-global</strong>; token and mutable sync
+                state stay app-local.
+              </li>
+            </ul>
           </article>
-          <article class="ve-card kpi">
-            <div class="ve-card__label">Primary User Story</div>
-            <strong>Publish</strong>
-            <span>Local editable project to cloud-linked project to repeated save-and-publish.</span>
-          </article>
-          <article class="ve-card kpi">
-            <div class="ve-card__label">North Star</div>
-            <strong>Transparency</strong>
-            <span>No silent USFM merges, no hidden local edit loss, no raw Git UI.</span>
-          </article>
-          <article class="ve-card kpi">
-            <div class="ve-card__label">Conflict Basis</div>
-            <strong>Latest Left / Right</strong>
-            <span>Reconciliation UX is based on current in-memory work versus remote latest state.</span>
+          <article class="ve-card">
+            <div class="ve-card__label">UX Commitments</div>
+            <ul class="bullet-list">
+              <li>
+                <strong>No silent USFM merges</strong>; even separate-book or
+                separate-chapter changes are surfaced.
+              </li>
+              <li>
+                <strong>No local edit loss</strong>; resolved state becomes
+                unsaved working state until explicit save.
+              </li>
+              <li><strong>No raw Git terminology</strong> in normal UI.</li>
+              <li>
+                <strong>Web cannot feel visibly worse than Tauri</strong>.
+              </li>
+              <li>
+                <strong>One-button bias</strong> for non-technical users, with
+                explicit sync still available.
+              </li>
+            </ul>
           </article>
         </div>
-      </section>
 
-      <div id="s1" class="sec-head">1. North Star</div>
-      <p class="lead">
-        This feature extends Dovetail’s existing local-first save and history model. It does not replace it.
-        The product is a scripture-focused cloud publishing layer with explicit review at sync boundaries,
-        especially for USFM. Local save remains authoritative. Remote publication and remote intake are
-        secondary operations with bounded failure states.
-      </p>
-      <div class="card-grid">
-        <article class="ve-card">
-          <div class="ve-card__label">Hard Rules</div>
-          <ul class="bullet-list">
-            <li><strong>Editable scripture projects only</strong> in v1.</li>
-            <li><strong>One tracked branch only</strong>; no branch-management UI.</li>
-            <li><strong>App-created remotes use <code>master</code></strong>; cloned repos track remote default branch.</li>
-            <li><strong>Export/share strips <code>.git</code> and Dovetail link metadata</strong>.</li>
-            <li><strong>Session is app-global</strong>; token and mutable sync state stay app-local.</li>
-          </ul>
-        </article>
-        <article class="ve-card">
-          <div class="ve-card__label">UX Commitments</div>
-          <ul class="bullet-list">
-            <li><strong>No silent USFM merges</strong>; even separate-book or separate-chapter changes are surfaced.</li>
-            <li><strong>No local edit loss</strong>; resolved state becomes unsaved working state until explicit save.</li>
-            <li><strong>No raw Git terminology</strong> in normal UI.</li>
-            <li><strong>Web cannot feel visibly worse than Tauri</strong>.</li>
-            <li><strong>One-button bias</strong> for non-technical users, with explicit sync still available.</li>
-          </ul>
-        </article>
-      </div>
-
-      <div id="s2" class="sec-head">2. Statechart</div>
-      <p class="lead">
-        Using Harel-style statechart thinking, the feature is best modeled as three related machines:
-        an app-global account session machine, a per-project linkage and cloud-status machine,
-        and a save/sync review machine that composes local unsaved edits with remote incoming state.
-      </p>
-      <div class="diagram-shell">
-        <div class="diagram-shell__hint">Top-level relationship map</div>
-        <div class="mermaid-wrap" data-diagram-shell>
-          <div class="zoom-controls">
-            <button type="button" data-zoom-out>-</button>
-            <div class="zoom-label" data-zoom-label>100%</div>
-            <button type="button" data-zoom-in>+</button>
-            <button type="button" data-zoom-reset>Reset</button>
-            <button type="button" data-zoom-expand>Open</button>
-          </div>
-          <div class="mermaid-viewport">
-            <div class="mermaid-canvas">
-<pre class="mermaid">
+        <div id="s2" class="sec-head">2. Statechart</div>
+        <p class="lead">
+          Using Harel-style statechart thinking, the feature is best modeled as
+          three related machines: an app-global account session machine, a
+          per-project linkage and cloud-status machine, and a save/sync review
+          machine that composes local unsaved edits with remote incoming state.
+        </p>
+        <div class="diagram-shell">
+          <div class="diagram-shell__hint">Top-level relationship map</div>
+          <div class="mermaid-wrap" data-diagram-shell>
+            <div class="zoom-controls">
+              <button type="button" data-zoom-out>-</button>
+              <div class="zoom-label" data-zoom-label>100%</div>
+              <button type="button" data-zoom-in>+</button>
+              <button type="button" data-zoom-reset>Reset</button>
+              <button type="button" data-zoom-expand>Open</button>
+            </div>
+            <div class="mermaid-viewport">
+              <div class="mermaid-canvas">
+                <pre class="mermaid">
 flowchart TD
   A["Account Session<br/>App-global auth state"] --> B["Project Linkage<br/>Minimal portable project-local link file"]
   B --> C["Cloud Status<br/>App-local mutable state per project"]
@@ -680,29 +766,30 @@ flowchart TD
   class D,E,F support
   class G,H warning
 </pre>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div id="s3" class="sec-head">3. Session Machine</div>
-      <p class="lead">
-        The session machine is app-global. It owns the current logged-in account and bearer token,
-        plus bounded retry state for logout token deletion. It does not own project linkage or project cloud status.
-      </p>
-      <div class="diagram-shell">
-        <div class="diagram-shell__hint">App-global session lifecycle</div>
-        <div class="mermaid-wrap" data-diagram-shell>
-          <div class="zoom-controls">
-            <button type="button" data-zoom-out>-</button>
-            <div class="zoom-label" data-zoom-label>100%</div>
-            <button type="button" data-zoom-in>+</button>
-            <button type="button" data-zoom-reset>Reset</button>
-            <button type="button" data-zoom-expand>Open</button>
-          </div>
-          <div class="mermaid-viewport">
-            <div class="mermaid-canvas">
-<pre class="mermaid">
+        <div id="s3" class="sec-head">3. Session Machine</div>
+        <p class="lead">
+          The session machine is app-global. It owns the current logged-in
+          account and bearer token, plus bounded retry state for logout token
+          deletion. It does not own project linkage or project cloud status.
+        </p>
+        <div class="diagram-shell">
+          <div class="diagram-shell__hint">App-global session lifecycle</div>
+          <div class="mermaid-wrap" data-diagram-shell>
+            <div class="zoom-controls">
+              <button type="button" data-zoom-out>-</button>
+              <div class="zoom-label" data-zoom-label>100%</div>
+              <button type="button" data-zoom-in>+</button>
+              <button type="button" data-zoom-reset>Reset</button>
+              <button type="button" data-zoom-expand>Open</button>
+            </div>
+            <div class="mermaid-viewport">
+              <div class="mermaid-canvas">
+                <pre class="mermaid">
 stateDiagram-v2
   [*] --> LoggedOut
   LoggedOut --> Authorizing : Login
@@ -720,57 +807,61 @@ stateDiagram-v2
   }
 
   LoggedOutCleanup --> LoggedOut : LocalSessionCleared
-</pre>
+</pre
+                >
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      <div class="mini-grid" style="margin-top:16px;">
-        <article class="ve-card soft">
-          <div class="ve-card__label">Stored App-Local</div>
-          <ul class="bullet-list">
-            <li>Current account identity</li>
-            <li>Bearer token</li>
-            <li>Token deletion id and retry count</li>
-          </ul>
-        </article>
-        <article class="ve-card soft">
-          <div class="ve-card__label">Logout Rule</div>
-          <ul class="bullet-list">
-            <li>Local logout always succeeds</li>
-            <li>Remote deletion is best effort</li>
-            <li>Retry is bounded, not endless</li>
-          </ul>
-        </article>
-        <article class="ve-card soft">
-          <div class="ve-card__label">Explicit Non-Goal</div>
-          <ul class="bullet-list">
-            <li>No per-project auth model in v1</li>
-            <li>No multiple active sessions</li>
-            <li>No portable session state</li>
-          </ul>
-        </article>
-      </div>
+        <div class="mini-grid" style="margin-top: 16px">
+          <article class="ve-card soft">
+            <div class="ve-card__label">Stored App-Local</div>
+            <ul class="bullet-list">
+              <li>Current account identity</li>
+              <li>Bearer token</li>
+              <li>Token deletion id and retry count</li>
+            </ul>
+          </article>
+          <article class="ve-card soft">
+            <div class="ve-card__label">Logout Rule</div>
+            <ul class="bullet-list">
+              <li>Local logout always succeeds</li>
+              <li>Remote deletion is best effort</li>
+              <li>Retry is bounded, not endless</li>
+            </ul>
+          </article>
+          <article class="ve-card soft">
+            <div class="ve-card__label">Explicit Non-Goal</div>
+            <ul class="bullet-list">
+              <li>No per-project auth model in v1</li>
+              <li>No multiple active sessions</li>
+              <li>No portable session state</li>
+            </ul>
+          </article>
+        </div>
 
-      <div id="s4" class="sec-head">4. Project Machine</div>
-      <p class="lead">
-        Each editable scripture project has a small portable linkage file plus app-local cloud status. The linkage
-        file says what remote this project belongs to. The app-local status says how healthy or actionable the current
-        browser or desktop install thinks the cloud relationship is.
-      </p>
-      <div class="diagram-shell">
-        <div class="diagram-shell__hint">Per-project cloud linkage and status lifecycle</div>
-        <div class="mermaid-wrap" data-diagram-shell>
-          <div class="zoom-controls">
-            <button type="button" data-zoom-out>-</button>
-            <div class="zoom-label" data-zoom-label>100%</div>
-            <button type="button" data-zoom-in>+</button>
-            <button type="button" data-zoom-reset>Reset</button>
-            <button type="button" data-zoom-expand>Open</button>
+        <div id="s4" class="sec-head">4. Project Machine</div>
+        <p class="lead">
+          Each editable scripture project has a small portable linkage file plus
+          app-local cloud status. The linkage file says what remote this project
+          belongs to. The app-local status says how healthy or actionable the
+          current browser or desktop install thinks the cloud relationship is.
+        </p>
+        <div class="diagram-shell">
+          <div class="diagram-shell__hint">
+            Per-project cloud linkage and status lifecycle
           </div>
-          <div class="mermaid-viewport">
-            <div class="mermaid-canvas">
-<pre class="mermaid">
+          <div class="mermaid-wrap" data-diagram-shell>
+            <div class="zoom-controls">
+              <button type="button" data-zoom-out>-</button>
+              <div class="zoom-label" data-zoom-label>100%</div>
+              <button type="button" data-zoom-in>+</button>
+              <button type="button" data-zoom-reset>Reset</button>
+              <button type="button" data-zoom-expand>Open</button>
+            </div>
+            <div class="mermaid-viewport">
+              <div class="mermaid-canvas">
+                <pre class="mermaid">
 stateDiagram-v2
   [*] --> LocalOnly
   LocalOnly --> Linking : CreateRemote
@@ -798,39 +889,46 @@ stateDiagram-v2
     NeedsReview --> Connected : ReviewSavedAndPublished
     NeedsReview --> PendingPublish : ReviewSavedOffline
   }
-</pre>
+</pre
+                >
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      <div style="margin-top:16px;" class="callout">
-        <strong style="color:var(--text);">Important v1 bias:</strong>
-        <span>
-          app-local mutable statuses such as <code>offline</code>, <code>pendingPublish</code>,
-          <code>needsReview</code>, and <code>lastChecked</code> should never be tracked in Git.
-          Only durable linkage facts belong in the project-local Dovetail link file.
-        </span>
-      </div>
+        <div style="margin-top: 16px" class="callout">
+          <strong style="color: var(--text)">Important v1 bias:</strong>
+          <span>
+            app-local mutable statuses such as <code>offline</code>,
+            <code>pendingPublish</code>, <code>needsReview</code>, and
+            <code>lastChecked</code> should never be tracked in Git. Only
+            durable linkage facts belong in the project-local Dovetail link
+            file.
+          </span>
+        </div>
 
-      <div id="s5" class="sec-head">5. Networking Policy Machine</div>
-      <p class="lead">
-        The cloud feature is not just project state. It is also governed by user policy. In the current codebase,
-        settings already form a cross-platform seam through the shared settings manager. Auto-sync and auto-push
-        should be modeled as explicit guards, not hidden conditionals scattered across save and open codepaths.
-      </p>
-      <div class="diagram-shell">
-        <div class="diagram-shell__hint">App-level networking preference policy</div>
-        <div class="mermaid-wrap" data-diagram-shell>
-          <div class="zoom-controls">
-            <button type="button" data-zoom-out>-</button>
-            <div class="zoom-label" data-zoom-label>100%</div>
-            <button type="button" data-zoom-in>+</button>
-            <button type="button" data-zoom-reset>Reset</button>
-            <button type="button" data-zoom-expand>Open</button>
+        <div id="s5" class="sec-head">5. Networking Policy Machine</div>
+        <p class="lead">
+          The cloud feature is not just project state. It is also governed by
+          user policy. In the current codebase, settings already form a
+          cross-platform seam through the shared settings manager. Auto-sync and
+          auto-push should be modeled as explicit guards, not hidden
+          conditionals scattered across save and open codepaths.
+        </p>
+        <div class="diagram-shell">
+          <div class="diagram-shell__hint">
+            App-level networking preference policy
           </div>
-          <div class="mermaid-viewport">
-            <div class="mermaid-canvas">
-<pre class="mermaid">
+          <div class="mermaid-wrap" data-diagram-shell>
+            <div class="zoom-controls">
+              <button type="button" data-zoom-out>-</button>
+              <div class="zoom-label" data-zoom-label>100%</div>
+              <button type="button" data-zoom-in>+</button>
+              <button type="button" data-zoom-reset>Reset</button>
+              <button type="button" data-zoom-expand>Open</button>
+            </div>
+            <div class="mermaid-viewport">
+              <div class="mermaid-canvas">
+                <pre class="mermaid">
 stateDiagram-v2
   [*] --> ManualOnly
   ManualOnly --> AutoSyncOnOpen : EnableOpenSync
@@ -841,54 +939,73 @@ stateDiagram-v2
   AutoBoth --> AutoPushOnSave : DisableOpenSync
   AutoSyncOnOpen --> ManualOnly : DisableOpenSync
   AutoPushOnSave --> ManualOnly : DisablePushOnSave
-</pre>
+</pre
+                >
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      <div class="mini-grid" style="margin-top:16px;">
-        <article class="ve-card soft">
-          <div class="ve-card__label">Guarded Open Event</div>
-          <ul class="bullet-list">
-            <li><code>OpenProject</code> may trigger cloud check only in <code>AutoSyncOnOpen</code> or <code>AutoBoth</code>.</li>
-            <li>Even when enabled, open should not block the editor shell.</li>
-          </ul>
-        </article>
-        <article class="ve-card soft">
-          <div class="ve-card__label">Guarded Save Event</div>
-          <ul class="bullet-list">
-            <li><code>Review & Save</code> always performs local save and local commit first.</li>
-            <li>Cloud publish is entered automatically only in <code>AutoPushOnSave</code> or <code>AutoBoth</code>.</li>
-          </ul>
-        </article>
-        <article class="ve-card soft">
-          <div class="ve-card__label">Explicit Escape Hatch</div>
-          <ul class="bullet-list">
-            <li><code>Sync</code> remains available even in <code>ManualOnly</code>.</li>
-            <li>Settings act as default guards, not capability removal.</li>
-          </ul>
-        </article>
-      </div>
+        <div class="mini-grid" style="margin-top: 16px">
+          <article class="ve-card soft">
+            <div class="ve-card__label">Guarded Open Event</div>
+            <ul class="bullet-list">
+              <li>
+                <code>OpenProject</code> may trigger cloud check only in
+                <code>AutoSyncOnOpen</code> or <code>AutoBoth</code>.
+              </li>
+              <li>
+                Even when enabled, open should not block the editor shell.
+              </li>
+            </ul>
+          </article>
+          <article class="ve-card soft">
+            <div class="ve-card__label">Guarded Save Event</div>
+            <ul class="bullet-list">
+              <li>
+                <code>Review & Save</code> always performs local save and local
+                commit first.
+              </li>
+              <li>
+                Cloud publish is entered automatically only in
+                <code>AutoPushOnSave</code> or <code>AutoBoth</code>.
+              </li>
+            </ul>
+          </article>
+          <article class="ve-card soft">
+            <div class="ve-card__label">Explicit Escape Hatch</div>
+            <ul class="bullet-list">
+              <li>
+                <code>Sync</code> remains available even in
+                <code>ManualOnly</code>.
+              </li>
+              <li>Settings act as default guards, not capability removal.</li>
+            </ul>
+          </article>
+        </div>
 
-      <div id="s6" class="sec-head">6. Save And Sync Review Machine</div>
-      <p class="lead">
-        This is the machine that most directly bridges into current Dovetail behavior. The current left side is still
-        the in-memory workspace. The remote right side is loaded through a compare source. The user reviews a combined
-        save-and-sync surface, then explicit save produces a new local commit and optional cloud publish.
-      </p>
-      <div class="diagram-shell">
-        <div class="diagram-shell__hint">Combined local-save and remote-review flow</div>
-        <div class="mermaid-wrap" data-diagram-shell>
-          <div class="zoom-controls">
-            <button type="button" data-zoom-out>-</button>
-            <div class="zoom-label" data-zoom-label>100%</div>
-            <button type="button" data-zoom-in>+</button>
-            <button type="button" data-zoom-reset>Reset</button>
-            <button type="button" data-zoom-expand>Open</button>
+        <div id="s6" class="sec-head">6. Save And Sync Review Machine</div>
+        <p class="lead">
+          This is the machine that most directly bridges into current Dovetail
+          behavior. The current left side is still the in-memory workspace. The
+          remote right side is loaded through a compare source. The user reviews
+          a combined save-and-sync surface, then explicit save produces a new
+          local commit and optional cloud publish.
+        </p>
+        <div class="diagram-shell">
+          <div class="diagram-shell__hint">
+            Combined local-save and remote-review flow
           </div>
-          <div class="mermaid-viewport">
-            <div class="mermaid-canvas">
-<pre class="mermaid">
+          <div class="mermaid-wrap" data-diagram-shell>
+            <div class="zoom-controls">
+              <button type="button" data-zoom-out>-</button>
+              <div class="zoom-label" data-zoom-label>100%</div>
+              <button type="button" data-zoom-in>+</button>
+              <button type="button" data-zoom-reset>Reset</button>
+              <button type="button" data-zoom-expand>Open</button>
+            </div>
+            <div class="mermaid-viewport">
+              <div class="mermaid-canvas">
+                <pre class="mermaid">
 flowchart TD
   A["Editing Working Memory"] --> B{"Boundary reached"}
   B -->|"Review & Save"| C["Build local save payload"]
@@ -914,384 +1031,568 @@ flowchart TD
   class C,E,D,I action
   class B,F,H,J,G warn
 </pre>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      <div class="card-grid" style="margin-top:16px;">
-        <article class="ve-card">
-          <div class="ve-card__label">USFM Rule</div>
-          <ul class="bullet-list">
-            <li><strong>Always explicit review</strong> when remote latest differs.</li>
-            <li><strong>Separate-book and separate-chapter changes still surface</strong>; no silent merge.</li>
-            <li><strong>Bulk accept is allowed</strong>, but not hidden application.</li>
-          </ul>
-        </article>
-        <article class="ve-card">
-          <div class="ve-card__label">Non-USFM Rule</div>
-          <ul class="bullet-list">
-            <li><strong>User-edited content in v1 is USFM only</strong>.</li>
-            <li><strong>Remote extra files are preserved automatically</strong>.</li>
-            <li><strong>Derived metadata is regenerated</strong> before save/publish.</li>
-          </ul>
-        </article>
-      </div>
-
-      <div id="s7" class="sec-head">7. State Ownership</div>
-      <p class="lead">
-        This split is the most important architecture correction from the stale plan. It keeps linkage durable without
-        polluting commit history with ephemeral app observations.
-      </p>
-      <div class="table-wrap">
-        <div class="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>State / Fact</th>
-                <th>Owner</th>
-                <th>Why</th>
-                <th>Review Outcome</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><code>hostBaseUrl</code>, repo owner/name/id/url, tracked branch</td>
-                <td><span class="status good">Project Local</span></td>
-                <td>Durable linkage fact; enough for Dovetail to repair Git internals and know what the project belongs to.</td>
-                <td>Keep in a small Dovetail-owned file inside the project.</td>
-              </tr>
-              <tr>
-                <td>Current account, bearer token, token deletion retry data</td>
-                <td><span class="status good">App Local</span></td>
-                <td>Session is install-specific and should never travel with a project.</td>
-                <td>Store in app settings storage.</td>
-              </tr>
-              <tr>
-                <td><code>offline</code>, <code>pendingPublish</code>, <code>needsReview</code>, <code>lastChecked</code></td>
-                <td><span class="status good">Per-Project App Local</span></td>
-                <td>These belong to the project conceptually, but they are still machine-local observations about this install’s cloud relationship.</td>
-                <td>Persist keyed by project, but do not track in Git or travel in exports.</td>
-              </tr>
-              <tr>
-                <td>Manifest checksums and similar scripture-derived metadata</td>
-                <td><span class="status warn">Derived</span></td>
-                <td>Should be recomputed from accepted scripture state, not treated as primary user-edited content.</td>
-                <td>Regenerate before save/publish.</td>
-              </tr>
-              <tr>
-                <td>Manual copied <code>.git</code> without Dovetail link file</td>
-                <td><span class="status risk">Ignore By Default</span></td>
-                <td>Automatic adoption would violate explicitness and create ambiguous cloud linkage.</td>
-                <td>Require explicit reconnect.</td>
-              </tr>
-              <tr>
-                <td>Export/share zip output</td>
-                <td><span class="status warn">Sanitized</span></td>
-                <td>Recipients should not inherit private linkage they cannot actually use.</td>
-                <td>Strip <code>.git</code> and link file.</td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="card-grid" style="margin-top: 16px">
+          <article class="ve-card">
+            <div class="ve-card__label">USFM Rule</div>
+            <ul class="bullet-list">
+              <li>
+                <strong>Always explicit review</strong> when remote latest
+                differs.
+              </li>
+              <li>
+                <strong
+                  >Separate-book and separate-chapter changes still
+                  surface</strong
+                >; no silent merge.
+              </li>
+              <li>
+                <strong>Bulk accept is allowed</strong>, but not hidden
+                application.
+              </li>
+            </ul>
+          </article>
+          <article class="ve-card">
+            <div class="ve-card__label">Non-USFM Rule</div>
+            <ul class="bullet-list">
+              <li><strong>User-edited content in v1 is USFM only</strong>.</li>
+              <li>
+                <strong>Remote extra files are preserved automatically</strong>.
+              </li>
+              <li>
+                <strong>Derived metadata is regenerated</strong> before
+                save/publish.
+              </li>
+            </ul>
+          </article>
         </div>
-      </div>
 
-      <div id="s8" class="sec-head">8. Current Seams</div>
-      <p class="lead">
-        The new design should attach to the existing architecture instead of bypassing it. These are the main seams
-        the current repo already gives us.
-      </p>
-      <div class="table-wrap">
-        <div class="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Current Seam</th>
-                <th>Current Role</th>
-                <th>Extension Direction</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><a href="/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/core/persistence/GitProvider.ts">src/core/persistence/GitProvider.ts</a></td>
-                <td>Local repo init, history, restore, commit, health</td>
-                <td>Extend into remote-capable project Git operations while keeping shared Web/Tauri contract.</td>
-                <td><span class="status warn">Extend</span></td>
-              </tr>
-              <tr>
-                <td><a href="/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/core/persistence/ensureProjectGitReady.ts">src/core/persistence/ensureProjectGitReady.ts</a></td>
-                <td>Open/import-time local Git readiness and baseline behavior</td>
-                <td>Add remote-link repair checks only after durable linkage exists.</td>
-                <td><span class="status warn">Extend Carefully</span></td>
-              </tr>
-              <tr>
-                <td><a href="/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/hooks/save/useSaveAndRevert.ts">src/app/ui/hooks/save/useSaveAndRevert.ts</a></td>
-                <td>Local save payload build, local write, local commit, revert flow</td>
-                <td>Keep local save first; branch into cloud publish decision after local commit.</td>
-                <td><span class="status good">Anchor</span></td>
-              </tr>
-              <tr>
-                <td><a href="/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/hooks/save/useExternalCompare.ts">src/app/ui/hooks/save/useExternalCompare.ts</a></td>
-                <td>Left-vs-right compare pipeline against external sources</td>
-                <td>Use this as the compare-source seam, but avoid turning the hook itself into the cloud orchestrator. Remote latest should be one source that a higher-level flow can load.</td>
-                <td><span class="status good">Best Compare Bridge</span></td>
-              </tr>
-              <tr>
-                <td><a href="/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/persistence/DefaultProjectsService.ts">src/app/persistence/DefaultProjectsService.ts</a></td>
-                <td>Project open/import orchestration and indexing</td>
-                <td>Likely home for project link discovery, clone/open cloud-source flow, and status hydration.</td>
-                <td><span class="status warn">Likely Expansion Point</span></td>
-              </tr>
-              <tr>
-                <td><a href="/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/reference/translationNotesRemoteSync.ts">src/app/reference/translationNotesRemoteSync.ts</a></td>
-                <td>Existing remote-update affordance for reference resources</td>
-                <td>Do not reuse naming or abstractions too early; scripture cloud publish is a different product seam.</td>
-                <td><span class="status risk">Avoid Naming Collision</span></td>
-              </tr>
-              <tr>
-                <td><a href="/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/data/settings.ts">src/app/data/settings.ts</a> + <a href="/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/domain/settings/settings.ts">src/app/domain/settings/settings.ts</a></td>
-                <td>Cross-platform settings contract and persistence behavior</td>
-                <td>Add explicit networking preference fields so auto-sync-on-open and auto-push-on-save become first-class guards in the state machines.</td>
-                <td><span class="status good">New Policy Seam</span></td>
-              </tr>
-            </tbody>
-          </table>
+        <div id="s7" class="sec-head">7. State Ownership</div>
+        <p class="lead">
+          This split is the most important architecture correction from the
+          stale plan. It keeps linkage durable without polluting commit history
+          with ephemeral app observations.
+        </p>
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>State / Fact</th>
+                  <th>Owner</th>
+                  <th>Why</th>
+                  <th>Review Outcome</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <code>hostBaseUrl</code>, repo owner/name/id/url, tracked
+                    branch
+                  </td>
+                  <td><span class="status good">Project Local</span></td>
+                  <td>
+                    Durable linkage fact; enough for Dovetail to repair Git
+                    internals and know what the project belongs to.
+                  </td>
+                  <td>
+                    Keep in a small Dovetail-owned file inside the project.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    Current account, bearer token, token deletion retry data
+                  </td>
+                  <td><span class="status good">App Local</span></td>
+                  <td>
+                    Session is install-specific and should never travel with a
+                    project.
+                  </td>
+                  <td>Store in app settings storage.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>offline</code>, <code>pendingPublish</code>,
+                    <code>needsReview</code>, <code>lastChecked</code>
+                  </td>
+                  <td>
+                    <span class="status good">Per-Project App Local</span>
+                  </td>
+                  <td>
+                    These belong to the project conceptually, but they are still
+                    machine-local observations about this install’s cloud
+                    relationship.
+                  </td>
+                  <td>
+                    Persist keyed by project, but do not track in Git or travel
+                    in exports.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    Manifest checksums and similar scripture-derived metadata
+                  </td>
+                  <td><span class="status warn">Derived</span></td>
+                  <td>
+                    Should be recomputed from accepted scripture state, not
+                    treated as primary user-edited content.
+                  </td>
+                  <td>Regenerate before save/publish.</td>
+                </tr>
+                <tr>
+                  <td>
+                    Manual copied <code>.git</code> without Dovetail link file
+                  </td>
+                  <td><span class="status risk">Ignore By Default</span></td>
+                  <td>
+                    Automatic adoption would violate explicitness and create
+                    ambiguous cloud linkage.
+                  </td>
+                  <td>Require explicit reconnect.</td>
+                </tr>
+                <tr>
+                  <td>Export/share zip output</td>
+                  <td><span class="status warn">Sanitized</span></td>
+                  <td>
+                    Recipients should not inherit private linkage they cannot
+                    actually use.
+                  </td>
+                  <td>Strip <code>.git</code> and link file.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
 
-      <div id="s9" class="sec-head">9. Open Risks</div>
-      <p class="lead">
-        These are the design risks that should shape pseudocode and beads next. They are not blockers to planning,
-        but they are the places where correctness and product trust are easiest to lose.
-      </p>
-      <div class="card-grid">
-        <article class="ve-card">
-          <div class="ve-card__label">Review Plumbing</div>
-          <ul class="bullet-list">
-            <li>Combined save-and-sync review must not duplicate or fight the existing unsaved diff modal.</li>
-            <li>Remote latest should slot into compare-source loading without introducing a second review stack.</li>
-            <li>Resolved state must land in working memory cleanly, then behave like ordinary unsaved edits.</li>
-          </ul>
-        </article>
-        <article class="ve-card">
-          <div class="ve-card__label">Metadata Rewrite Rules</div>
-          <ul class="bullet-list">
-            <li>Derived manifest and checksum updates need an explicit regenerate-before-save step.</li>
-            <li>Non-derived metadata changes need a documented last-wins or preserve-remote rule.</li>
-            <li>The app must avoid creating noisy conflicts over files the user never edits directly.</li>
-          </ul>
-        </article>
-        <article class="ve-card">
-          <div class="ve-card__label">Cross-Platform Truth</div>
-          <ul class="bullet-list">
-            <li>Web and Tauri need the same visible states and recovery behaviors.</li>
-            <li>Background open-time sync cannot feel blocking or surprising on Web.</li>
-            <li>Auth and remote Git assumptions need to hold equally for both platforms.</li>
-          </ul>
-        </article>
-        <article class="ve-card">
-          <div class="ve-card__label">Product Trust</div>
-          <ul class="bullet-list">
-            <li>Users need plain-language statuses: connected, syncing, offline, changes not yet published, remote updates available, needs review.</li>
-            <li>One-button defaults are fine only if the machine states remain inspectable.</li>
-            <li>Explicitness matters more than cleverness for scripture content.</li>
-          </ul>
-        </article>
-      </div>
+        <div id="s8" class="sec-head">8. Current Seams</div>
+        <p class="lead">
+          The new design should attach to the existing architecture instead of
+          bypassing it. These are the main seams the current repo already gives
+          us.
+        </p>
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Current Seam</th>
+                  <th>Current Role</th>
+                  <th>Extension Direction</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <a
+                      href="/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/core/persistence/GitProvider.ts"
+                      >src/core/persistence/GitProvider.ts</a
+                    >
+                  </td>
+                  <td>Local repo init, history, restore, commit, health</td>
+                  <td>
+                    Extend into remote-capable project Git operations while
+                    keeping shared Web/Tauri contract.
+                  </td>
+                  <td><span class="status warn">Extend</span></td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/core/persistence/ensureProjectGitReady.ts"
+                      >src/core/persistence/ensureProjectGitReady.ts</a
+                    >
+                  </td>
+                  <td>
+                    Open/import-time local Git readiness and baseline behavior
+                  </td>
+                  <td>
+                    Add remote-link repair checks only after durable linkage
+                    exists.
+                  </td>
+                  <td><span class="status warn">Extend Carefully</span></td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/hooks/save/useSaveAndRevert.ts"
+                      >src/app/ui/hooks/save/useSaveAndRevert.ts</a
+                    >
+                  </td>
+                  <td>
+                    Local save payload build, local write, local commit, revert
+                    flow
+                  </td>
+                  <td>
+                    Keep local save first; branch into cloud publish decision
+                    after local commit.
+                  </td>
+                  <td><span class="status good">Anchor</span></td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/hooks/save/useExternalCompare.ts"
+                      >src/app/ui/hooks/save/useExternalCompare.ts</a
+                    >
+                  </td>
+                  <td>
+                    Left-vs-right compare pipeline against external sources
+                  </td>
+                  <td>
+                    Use this as the compare-source seam, but avoid turning the
+                    hook itself into the cloud orchestrator. Remote latest
+                    should be one source that a higher-level flow can load.
+                  </td>
+                  <td><span class="status good">Best Compare Bridge</span></td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/persistence/DefaultProjectsService.ts"
+                      >src/app/persistence/DefaultProjectsService.ts</a
+                    >
+                  </td>
+                  <td>Project open/import orchestration and indexing</td>
+                  <td>
+                    Likely home for project link discovery, clone/open
+                    cloud-source flow, and status hydration.
+                  </td>
+                  <td>
+                    <span class="status warn">Likely Expansion Point</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/reference/translationNotesRemoteSync.ts"
+                      >src/app/reference/translationNotesRemoteSync.ts</a
+                    >
+                  </td>
+                  <td>
+                    Existing remote-update affordance for reference resources
+                  </td>
+                  <td>
+                    Do not reuse naming or abstractions too early; scripture
+                    cloud publish is a different product seam.
+                  </td>
+                  <td>
+                    <span class="status risk">Avoid Naming Collision</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/data/settings.ts"
+                      >src/app/data/settings.ts</a
+                    >
+                    +
+                    <a
+                      href="/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/domain/settings/settings.ts"
+                      >src/app/domain/settings/settings.ts</a
+                    >
+                  </td>
+                  <td>
+                    Cross-platform settings contract and persistence behavior
+                  </td>
+                  <td>
+                    Add explicit networking preference fields so
+                    auto-sync-on-open and auto-push-on-save become first-class
+                    guards in the state machines.
+                  </td>
+                  <td><span class="status good">New Policy Seam</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-      <p class="foot">
-        This artifact is meant to be the handoff surface into pseudocode and bead decomposition:
-        the state ownership split is now pinned down, the major machines are named, and the extension
-        points in the current repo are identified without pretending the old plan still matches reality.
-      </p>
-    </main>
-  </div>
+        <div id="s9" class="sec-head">9. Open Risks</div>
+        <p class="lead">
+          These are the design risks that should shape pseudocode and beads
+          next. They are not blockers to planning, but they are the places where
+          correctness and product trust are easiest to lose.
+        </p>
+        <div class="card-grid">
+          <article class="ve-card">
+            <div class="ve-card__label">Review Plumbing</div>
+            <ul class="bullet-list">
+              <li>
+                Combined save-and-sync review must not duplicate or fight the
+                existing unsaved diff modal.
+              </li>
+              <li>
+                Remote latest should slot into compare-source loading without
+                introducing a second review stack.
+              </li>
+              <li>
+                Resolved state must land in working memory cleanly, then behave
+                like ordinary unsaved edits.
+              </li>
+            </ul>
+          </article>
+          <article class="ve-card">
+            <div class="ve-card__label">Metadata Rewrite Rules</div>
+            <ul class="bullet-list">
+              <li>
+                Derived manifest and checksum updates need an explicit
+                regenerate-before-save step.
+              </li>
+              <li>
+                Non-derived metadata changes need a documented last-wins or
+                preserve-remote rule.
+              </li>
+              <li>
+                The app must avoid creating noisy conflicts over files the user
+                never edits directly.
+              </li>
+            </ul>
+          </article>
+          <article class="ve-card">
+            <div class="ve-card__label">Cross-Platform Truth</div>
+            <ul class="bullet-list">
+              <li>
+                Web and Tauri need the same visible states and recovery
+                behaviors.
+              </li>
+              <li>
+                Background open-time sync cannot feel blocking or surprising on
+                Web.
+              </li>
+              <li>
+                Auth and remote Git assumptions need to hold equally for both
+                platforms.
+              </li>
+            </ul>
+          </article>
+          <article class="ve-card">
+            <div class="ve-card__label">Product Trust</div>
+            <ul class="bullet-list">
+              <li>
+                Users need plain-language statuses: connected, syncing, offline,
+                changes not yet published, remote updates available, needs
+                review.
+              </li>
+              <li>
+                One-button defaults are fine only if the machine states remain
+                inspectable.
+              </li>
+              <li>
+                Explicitness matters more than cleverness for scripture content.
+              </li>
+            </ul>
+          </article>
+        </div>
 
-<script type="module">
-  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-  import elkLayouts from 'https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk/dist/mermaid-layout-elk.esm.min.mjs';
+        <p class="foot">
+          This artifact is meant to be the handoff surface into pseudocode and
+          bead decomposition: the state ownership split is now pinned down, the
+          major machines are named, and the extension points in the current repo
+          are identified without pretending the old plan still matches reality.
+        </p>
+      </main>
+    </div>
 
-  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  mermaid.registerLayoutLoaders(elkLayouts);
-  mermaid.initialize({
-    startOnLoad: true,
-    theme: 'base',
-    look: 'classic',
-    layout: 'elk',
-    securityLevel: 'loose',
-    themeVariables: {
-      primaryColor: isDark ? '#0f2435' : '#eef7fc',
-      primaryBorderColor: isDark ? '#56b5d8' : '#0f6c8d',
-      primaryTextColor: isDark ? '#dcecf8' : '#17324d',
-      secondaryColor: isDark ? '#112819' : '#edf9f1',
-      secondaryBorderColor: isDark ? '#5fd08c' : '#166534',
-      secondaryTextColor: isDark ? '#dcecf8' : '#17324d',
-      tertiaryColor: isDark ? '#34210f' : '#fff4e8',
-      tertiaryBorderColor: isDark ? '#f0a657' : '#b45309',
-      tertiaryTextColor: isDark ? '#dcecf8' : '#17324d',
-      lineColor: isDark ? '#7ca1be' : '#6a89a4',
-      noteBkgColor: isDark ? '#18293a' : '#f7fbff',
-      noteBorderColor: isDark ? '#56b5d8' : '#0f6c8d',
-      noteTextColor: isDark ? '#dcecf8' : '#17324d',
-      fontSize: '18px',
-      fontFamily: 'IBM Plex Sans'
-    }
-  });
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      import elkLayouts from "https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk/dist/mermaid-layout-elk.esm.min.mjs";
 
-  function openMermaidInNewTab(pre) {
-    const svg = pre.parentElement.querySelector('svg');
-    if (!svg) return;
-    const clone = svg.cloneNode(true);
-    clone.removeAttribute('style');
-    clone.setAttribute('width', '100%');
-    clone.setAttribute('height', '100%');
-    const win = window.open('', '_blank', 'noopener,noreferrer');
-    if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head><title>Diagram</title><style>
+      const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      mermaid.registerLayoutLoaders(elkLayouts);
+      mermaid.initialize({
+        startOnLoad: true,
+        theme: "base",
+        look: "classic",
+        layout: "elk",
+        securityLevel: "loose",
+        themeVariables: {
+          primaryColor: isDark ? "#0f2435" : "#eef7fc",
+          primaryBorderColor: isDark ? "#56b5d8" : "#0f6c8d",
+          primaryTextColor: isDark ? "#dcecf8" : "#17324d",
+          secondaryColor: isDark ? "#112819" : "#edf9f1",
+          secondaryBorderColor: isDark ? "#5fd08c" : "#166534",
+          secondaryTextColor: isDark ? "#dcecf8" : "#17324d",
+          tertiaryColor: isDark ? "#34210f" : "#fff4e8",
+          tertiaryBorderColor: isDark ? "#f0a657" : "#b45309",
+          tertiaryTextColor: isDark ? "#dcecf8" : "#17324d",
+          lineColor: isDark ? "#7ca1be" : "#6a89a4",
+          noteBkgColor: isDark ? "#18293a" : "#f7fbff",
+          noteBorderColor: isDark ? "#56b5d8" : "#0f6c8d",
+          noteTextColor: isDark ? "#dcecf8" : "#17324d",
+          fontSize: "18px",
+          fontFamily: "IBM Plex Sans",
+        },
+      });
+
+      function openMermaidInNewTab(pre) {
+        const svg = pre.parentElement.querySelector("svg");
+        if (!svg) return;
+        const clone = svg.cloneNode(true);
+        clone.removeAttribute("style");
+        clone.setAttribute("width", "100%");
+        clone.setAttribute("height", "100%");
+        const win = window.open("", "_blank", "noopener,noreferrer");
+        if (!win) return;
+        win.document
+          .write(`<!DOCTYPE html><html><head><title>Diagram</title><style>
       body { margin: 0; background: #0b1420; display: grid; place-items: center; min-height: 100vh; }
       svg { max-width: 96vw; max-height: 96vh; }
     </style></head><body>${clone.outerHTML}</body></html>`);
-    win.document.close();
-  }
-
-  function installZoom(shell) {
-    const wrap = shell;
-    const viewport = shell.querySelector('.mermaid-viewport');
-    const canvas = shell.querySelector('.mermaid-canvas');
-    const pre = shell.querySelector('pre.mermaid');
-    const label = shell.querySelector('[data-zoom-label]');
-    const btnIn = shell.querySelector('[data-zoom-in]');
-    const btnOut = shell.querySelector('[data-zoom-out]');
-    const btnReset = shell.querySelector('[data-zoom-reset]');
-    const btnExpand = shell.querySelector('[data-zoom-expand]');
-    if (!viewport || !canvas || !pre) return;
-
-    let scale = 1;
-    let x = 0;
-    let y = 0;
-    let dragging = false;
-    let moved = false;
-    let startX = 0;
-    let startY = 0;
-
-    function update() {
-      canvas.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
-      if (label) {
-        label.textContent = `${Math.round(scale * 100)}%`;
+        win.document.close();
       }
-    }
 
-    function fit() {
-      const svg = canvas.querySelector('svg');
-      if (!svg) return;
-      const bounds = svg.getBBox();
-      const vw = viewport.clientWidth;
-      const vh = viewport.clientHeight;
-      if (!bounds.width || !bounds.height || !vw || !vh) return;
-      scale = Math.min(vw / (bounds.width + 80), vh / (bounds.height + 80));
-      scale = Math.max(0.72, Math.min(scale, 1.55));
-      x = (vw - bounds.width * scale) / 2 - bounds.x * scale;
-      y = (vh - bounds.height * scale) / 2 - bounds.y * scale;
-      update();
-    }
+      function installZoom(shell) {
+        const wrap = shell;
+        const viewport = shell.querySelector(".mermaid-viewport");
+        const canvas = shell.querySelector(".mermaid-canvas");
+        const pre = shell.querySelector("pre.mermaid");
+        const label = shell.querySelector("[data-zoom-label]");
+        const btnIn = shell.querySelector("[data-zoom-in]");
+        const btnOut = shell.querySelector("[data-zoom-out]");
+        const btnReset = shell.querySelector("[data-zoom-reset]");
+        const btnExpand = shell.querySelector("[data-zoom-expand]");
+        if (!viewport || !canvas || !pre) return;
 
-    btnIn?.addEventListener('click', () => {
-      scale = Math.min(scale + 0.12, 2.6);
-      update();
-    });
+        let scale = 1;
+        let x = 0;
+        let y = 0;
+        let dragging = false;
+        let moved = false;
+        let startX = 0;
+        let startY = 0;
 
-    btnOut?.addEventListener('click', () => {
-      scale = Math.max(scale - 0.12, 0.45);
-      update();
-    });
+        function update() {
+          canvas.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+          if (label) {
+            label.textContent = `${Math.round(scale * 100)}%`;
+          }
+        }
 
-    btnReset?.addEventListener('click', fit);
-    btnExpand?.addEventListener('click', () => openMermaidInNewTab(pre));
+        function fit() {
+          const svg = canvas.querySelector("svg");
+          if (!svg) return;
+          const bounds = svg.getBBox();
+          const vw = viewport.clientWidth;
+          const vh = viewport.clientHeight;
+          if (!bounds.width || !bounds.height || !vw || !vh) return;
+          scale = Math.min(vw / (bounds.width + 80), vh / (bounds.height + 80));
+          scale = Math.max(0.72, Math.min(scale, 1.55));
+          x = (vw - bounds.width * scale) / 2 - bounds.x * scale;
+          y = (vh - bounds.height * scale) / 2 - bounds.y * scale;
+          update();
+        }
 
-    wrap.addEventListener('pointerdown', (event) => {
-      dragging = true;
-      moved = false;
-      startX = event.clientX - x;
-      startY = event.clientY - y;
-      wrap.classList.add('is-panning');
-    });
+        btnIn?.addEventListener("click", () => {
+          scale = Math.min(scale + 0.12, 2.6);
+          update();
+        });
 
-    window.addEventListener('pointermove', (event) => {
-      if (!dragging) return;
-      const nextX = event.clientX - startX;
-      const nextY = event.clientY - startY;
-      if (Math.abs(nextX - x) > 3 || Math.abs(nextY - y) > 3) {
-        moved = true;
+        btnOut?.addEventListener("click", () => {
+          scale = Math.max(scale - 0.12, 0.45);
+          update();
+        });
+
+        btnReset?.addEventListener("click", fit);
+        btnExpand?.addEventListener("click", () => openMermaidInNewTab(pre));
+
+        wrap.addEventListener("pointerdown", (event) => {
+          dragging = true;
+          moved = false;
+          startX = event.clientX - x;
+          startY = event.clientY - y;
+          wrap.classList.add("is-panning");
+        });
+
+        window.addEventListener("pointermove", (event) => {
+          if (!dragging) return;
+          const nextX = event.clientX - startX;
+          const nextY = event.clientY - startY;
+          if (Math.abs(nextX - x) > 3 || Math.abs(nextY - y) > 3) {
+            moved = true;
+          }
+          x = nextX;
+          y = nextY;
+          update();
+        });
+
+        window.addEventListener("pointerup", () => {
+          dragging = false;
+          wrap.classList.remove("is-panning");
+        });
+
+        wrap.addEventListener("click", (event) => {
+          if (moved) {
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+          }
+          if (event.target.closest(".zoom-controls")) return;
+          openMermaidInNewTab(pre);
+        });
+
+        wrap.addEventListener(
+          "wheel",
+          (event) => {
+            if (!(event.ctrlKey || event.metaKey)) return;
+            event.preventDefault();
+            const delta = event.deltaY < 0 ? 1.08 : 0.92;
+            scale = Math.max(0.45, Math.min(scale * delta, 2.6));
+            update();
+          },
+          { passive: false },
+        );
+
+        const observer = new MutationObserver(() => {
+          if (canvas.querySelector("svg")) {
+            fit();
+            observer.disconnect();
+          }
+        });
+        observer.observe(canvas, { childList: true, subtree: true });
+        window.addEventListener("resize", fit);
       }
-      x = nextX;
-      y = nextY;
-      update();
-    });
 
-    window.addEventListener('pointerup', () => {
-      dragging = false;
-      wrap.classList.remove('is-panning');
-    });
+      document.querySelectorAll("[data-diagram-shell]").forEach(installZoom);
 
-    wrap.addEventListener('click', (event) => {
-      if (moved) {
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-      if (event.target.closest('.zoom-controls')) return;
-      openMermaidInNewTab(pre);
-    });
+      const toc = document.getElementById("toc");
+      const links = toc ? [...toc.querySelectorAll("a")] : [];
+      const sections = links
+        .map((link) => {
+          const id = link.getAttribute("href")?.slice(1);
+          const el = id ? document.getElementById(id) : null;
+          return el ? { link, el } : null;
+        })
+        .filter(Boolean);
 
-    wrap.addEventListener('wheel', (event) => {
-      if (!(event.ctrlKey || event.metaKey)) return;
-      event.preventDefault();
-      const delta = event.deltaY < 0 ? 1.08 : 0.92;
-      scale = Math.max(0.45, Math.min(scale * delta, 2.6));
-      update();
-    }, { passive: false });
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            links.forEach((link) => link.classList.remove("active"));
+            const match = sections.find(
+              (section) => section.el === entry.target,
+            );
+            match?.link.classList.add("active");
+          });
+        },
+        { rootMargin: "-10% 0px -75% 0px" },
+      );
 
-    const observer = new MutationObserver(() => {
-      if (canvas.querySelector('svg')) {
-        fit();
-        observer.disconnect();
-      }
-    });
-    observer.observe(canvas, { childList: true, subtree: true });
-    window.addEventListener('resize', fit);
-  }
+      sections.forEach((section) => observer.observe(section.el));
 
-  document.querySelectorAll('[data-diagram-shell]').forEach(installZoom);
-
-  const toc = document.getElementById('toc');
-  const links = toc ? [...toc.querySelectorAll('a')] : [];
-  const sections = links.map((link) => {
-    const id = link.getAttribute('href')?.slice(1);
-    const el = id ? document.getElementById(id) : null;
-    return el ? { link, el } : null;
-  }).filter(Boolean);
-
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      if (!entry.isIntersecting) return;
-      links.forEach((link) => link.classList.remove('active'));
-      const match = sections.find((section) => section.el === entry.target);
-      match?.link.classList.add('active');
-    });
-  }, { rootMargin: '-10% 0px -75% 0px' });
-
-  sections.forEach((section) => observer.observe(section.el));
-
-  links.forEach((link) => {
-    link.addEventListener('click', (event) => {
-      event.preventDefault();
-      const id = link.getAttribute('href')?.slice(1);
-      const el = id ? document.getElementById(id) : null;
-      if (!el) return;
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      history.replaceState(null, '', `#${id}`);
-    });
-  });
-</script>
-</body>
+      links.forEach((link) => {
+        link.addEventListener("click", (event) => {
+          event.preventDefault();
+          const id = link.getAttribute("href")?.slice(1);
+          const el = id ? document.getElementById(id) : null;
+          if (!el) return;
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+          history.replaceState(null, "", `#${id}`);
+        });
+      });
+    </script>
+  </body>
 </html>

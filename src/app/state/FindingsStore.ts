@@ -25,8 +25,8 @@
 // messages are formatted at the React edge (`formatFindingMessage`).
 
 import type {
-    Finding,
-    FindingsByChapter,
+  Finding,
+  FindingsByChapter,
 } from "@/app/domain/editor/annotations/finding.ts";
 import type { SegmentsBySid } from "@/core/domain/usfm/vrefTypes.ts";
 
@@ -41,12 +41,12 @@ export type FindingsByScope = Record<string, FindingsByChapter>;
  * app-namespaced producer, alongside its `Finding` union arm).
  */
 interface SourceSliceMap {
-    onion: { byBook: FindingsByScope };
-    "sous-chef": {
-        byBook: FindingsByScope;
-        /** Sidecar: the vref segment maps findings resolve against, same book grain. */
-        segmentsByBook: Record<string, SegmentsBySid>;
-    };
+  onion: { byBook: FindingsByScope };
+  "sous-chef": {
+    byBook: FindingsByScope;
+    /** Sidecar: the vref segment maps findings resolve against, same book grain. */
+    segmentsByBook: Record<string, SegmentsBySid>;
+  };
 }
 
 export type FindingsState = Partial<SourceSliceMap>;
@@ -55,78 +55,78 @@ export type FindingSource = keyof SourceSliceMap;
 const EMPTY_FINDINGS: Finding[] = [];
 
 export class FindingsStore {
-    private state: FindingsState = {};
-    private readonly listeners = new Set<Listener>();
+  private state: FindingsState = {};
+  private readonly listeners = new Set<Listener>();
 
-    read(): FindingsState {
-        return this.state;
-    }
+  read(): FindingsState {
+    return this.state;
+  }
 
-    /** React-side `useSyncExternalStore` getSnapshot. */
-    getSnapshot = (): FindingsState => this.state;
+  /** React-side `useSyncExternalStore` getSnapshot. */
+  getSnapshot = (): FindingsState => this.state;
 
-    subscribe = (listener: Listener): (() => void) => {
-        this.listeners.add(listener);
-        return () => this.listeners.delete(listener);
+  subscribe = (listener: Listener): (() => void) => {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  };
+
+  /**
+   * Replace one book's findings in one producer's slice — the supersession
+   * unit. Zero findings = `{}`. The caller's pipeline scope supplies
+   * `bookCode` (authoritative — never inferred from sids).
+   */
+  commitBookFindings(
+    source: "onion",
+    bookCode: string,
+    byChapter: FindingsByChapter,
+  ): void {
+    const book = bookCode.toUpperCase();
+    const slice = this.state[source];
+    this.state = {
+      ...this.state,
+      [source]: {
+        ...slice,
+        byBook: { ...slice?.byBook, [book]: byChapter },
+      },
     };
+    this.notify();
+  }
 
-    /**
-     * Replace one book's findings in one producer's slice — the supersession
-     * unit. Zero findings = `{}`. The caller's pipeline scope supplies
-     * `bookCode` (authoritative — never inferred from sids).
-     */
-    commitBookFindings(
-        source: "onion",
-        bookCode: string,
-        byChapter: FindingsByChapter,
-    ): void {
-        const book = bookCode.toUpperCase();
-        const slice = this.state[source];
-        this.state = {
-            ...this.state,
-            [source]: {
-                ...slice,
-                byBook: { ...slice?.byBook, [book]: byChapter },
-            },
-        };
-        this.notify();
-    }
+  /**
+   * The sous variant carries the segment-map sidecar in the same commit, so
+   * findings and the projection they resolve against can never be observed
+   * out of step.
+   */
+  commitSousBookFindings(
+    bookCode: string,
+    byChapter: FindingsByChapter,
+    segments: SegmentsBySid,
+  ): void {
+    const book = bookCode.toUpperCase();
+    const slice = this.state["sous-chef"];
+    this.state = {
+      ...this.state,
+      "sous-chef": {
+        byBook: { ...slice?.byBook, [book]: byChapter },
+        segmentsByBook: { ...slice?.segmentsByBook, [book]: segments },
+      },
+    };
+    this.notify();
+  }
 
-    /**
-     * The sous variant carries the segment-map sidecar in the same commit, so
-     * findings and the projection they resolve against can never be observed
-     * out of step.
-     */
-    commitSousBookFindings(
-        bookCode: string,
-        byChapter: FindingsByChapter,
-        segments: SegmentsBySid,
-    ): void {
-        const book = bookCode.toUpperCase();
-        const slice = this.state["sous-chef"];
-        this.state = {
-            ...this.state,
-            "sous-chef": {
-                byBook: { ...slice?.byBook, [book]: byChapter },
-                segmentsByBook: { ...slice?.segmentsByBook, [book]: segments },
-            },
-        };
-        this.notify();
-    }
+  /** One book+chapter's findings for one producer; stable `[]` when absent. */
+  chapterFindings(
+    source: FindingSource,
+    bookCode: string,
+    chapter: number,
+  ): Finding[] {
+    return (
+      this.state[source]?.byBook[bookCode.toUpperCase()]?.[chapter] ??
+      EMPTY_FINDINGS
+    );
+  }
 
-    /** One book+chapter's findings for one producer; stable `[]` when absent. */
-    chapterFindings(
-        source: FindingSource,
-        bookCode: string,
-        chapter: number,
-    ): Finding[] {
-        return (
-            this.state[source]?.byBook[bookCode.toUpperCase()]?.[chapter] ??
-            EMPTY_FINDINGS
-        );
-    }
-
-    private notify(): void {
-        for (const listener of this.listeners) listener();
-    }
+  private notify(): void {
+    for (const listener of this.listeners) listener();
+  }
 }

@@ -11,7 +11,7 @@ import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
 import type { ProjectsService } from "@/core/persistence/WorkspaceService.ts";
 
 type OpenProjectFn = (
-    projectRef: string,
+  projectRef: string,
 ) => Promise<UsfmScriptureItem | Project | null>;
 
 /**
@@ -25,68 +25,68 @@ type OpenProjectFn = (
  * `ScriptureBookState[]`.
  */
 export async function projectParamToParsedScripture(args: {
-    projectsService?: ProjectsService;
-    libraryService?: LibraryService;
-    openProjectReadOnly?: OpenProjectFn;
-    project: string | undefined;
-    fileSystem: FileSystem;
-    gitProvider: GitProvider;
-    /** Surface-resolved shape for `lexicalState` (see `shapeForSurface`). */
-    shape: EditorShape;
-    usfmOnionService: IUsfmOnionService;
-    /**
-     * Request per-book source md5s (`diskMd5ByBook`) for crash-recovery
-     * baselines. Only the editable workspace load sets this; reference loading
-     * leaves it off so it doesn't hash resources it never recovers.
-     */
-    includeSourceMd5?: boolean;
+  projectsService?: ProjectsService;
+  libraryService?: LibraryService;
+  openProjectReadOnly?: OpenProjectFn;
+  project: string | undefined;
+  fileSystem: FileSystem;
+  gitProvider: GitProvider;
+  /** Surface-resolved shape for `lexicalState` (see `shapeForSurface`). */
+  shape: EditorShape;
+  usfmOnionService: IUsfmOnionService;
+  /**
+   * Request per-book source md5s (`diskMd5ByBook`) for crash-recovery
+   * baselines. Only the editable workspace load sets this; reference loading
+   * leaves it off so it doesn't hash resources it never recovers.
+   */
+  includeSourceMd5?: boolean;
 }) {
-    if (args.project === "undefined") return;
-    if (!args.project) return;
+  if (args.project === "undefined") return;
+  if (!args.project) return;
 
-    const editableResult =
-        args.openProjectReadOnly || args.projectsService
-            ? args.projectsService
-                ? await args.projectsService.openEditableProject(args.project)
-                : null
-            : !args.libraryService
-              ? null
-              : await openEditableScripture({
-                    libraryService: args.libraryService,
-                    itemRef: args.project,
-                });
-    const loadedProject = args.openProjectReadOnly
-        ? await args.openProjectReadOnly(args.project)
-        : (editableResult?.project ?? null);
-    if (!loadedProject) {
-        return {
-            parsedFiles: [],
-            initialLintErrorsByBook: {},
-            loadedProject: null,
-            rejectionReason: editableResult?.rejectionReason ?? "not-found",
-            diskMd5ByBook: new Map<string, string>(),
-        };
-    }
-
-    if (!args.openProjectReadOnly) {
-        await ensureProjectGitReady({
-            fileSystem: args.fileSystem,
-            gitProvider: args.gitProvider,
-            loadedProject,
-        });
-    }
-    const { parsedFiles, initialLintErrorsByBook, diskMd5ByBook } =
-        await scriptureProjectToParsedFiles({
-            loadedProject,
-            shape: args.shape,
-            usfmOnionService: args.usfmOnionService,
-            includeSourceMd5: args.includeSourceMd5,
-        });
+  const editableResult =
+    args.openProjectReadOnly || args.projectsService
+      ? args.projectsService
+        ? await args.projectsService.openEditableProject(args.project)
+        : null
+      : !args.libraryService
+        ? null
+        : await openEditableScripture({
+            libraryService: args.libraryService,
+            itemRef: args.project,
+          });
+  const loadedProject = args.openProjectReadOnly
+    ? await args.openProjectReadOnly(args.project)
+    : (editableResult?.project ?? null);
+  if (!loadedProject) {
     return {
-        parsedFiles,
-        initialLintErrorsByBook,
-        loadedProject,
-        rejectionReason: null,
-        diskMd5ByBook,
+      parsedFiles: [],
+      initialLintErrorsByBook: {},
+      loadedProject: null,
+      rejectionReason: editableResult?.rejectionReason ?? "not-found",
+      diskMd5ByBook: new Map<string, string>(),
     };
+  }
+
+  if (!args.openProjectReadOnly) {
+    await ensureProjectGitReady({
+      fileSystem: args.fileSystem,
+      gitProvider: args.gitProvider,
+      loadedProject,
+    });
+  }
+  const { parsedFiles, initialLintErrorsByBook, diskMd5ByBook } =
+    await scriptureProjectToParsedFiles({
+      loadedProject,
+      shape: args.shape,
+      usfmOnionService: args.usfmOnionService,
+      includeSourceMd5: args.includeSourceMd5,
+    });
+  return {
+    parsedFiles,
+    initialLintErrorsByBook,
+    loadedProject,
+    rejectionReason: null,
+    diskMd5ByBook,
+  };
 }

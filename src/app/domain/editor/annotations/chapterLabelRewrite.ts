@@ -9,8 +9,8 @@
 // source replace (see the plan's "IPC trap").
 
 import {
-    type ChapterLabelEntry,
-    findChapterLabelEntries,
+  type ChapterLabelEntry,
+  findChapterLabelEntries,
 } from "@/app/domain/editor/annotations/chapterLabelTally.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
@@ -25,21 +25,21 @@ import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
  * preserved — the number token is untouched by `applyChapterLabelRewrites`.
  */
 export function swapChapterLabelStem(text: string, targetStem: string): string {
-    const firstDigit = text.search(/[0-9]/);
-    const head = firstDigit === -1 ? text : text.slice(0, firstDigit);
-    const tail = firstDigit === -1 ? "" : text.slice(firstDigit);
-    const leadingWs = head.slice(0, head.length - head.trimStart().length);
-    const trailingWs = head.slice(head.trimEnd().length);
-    return `${leadingWs}${targetStem}${trailingWs}${tail}`;
+  const firstDigit = text.search(/[0-9]/);
+  const head = firstDigit === -1 ? text : text.slice(0, firstDigit);
+  const tail = firstDigit === -1 ? "" : text.slice(firstDigit);
+  const leadingWs = head.slice(0, head.length - head.trimStart().length);
+  const trailingWs = head.slice(head.trimEnd().length);
+  return `${leadingWs}${targetStem}${trailingWs}${tail}`;
 }
 
 export type ChapterLabelRewrite = {
-    /** Id of the text token to rewrite. */
-    tokenId: string;
-    /** Original label text (for logging / dry-run inspection). */
-    from: string;
-    /** Rewritten label text. */
-    to: string;
+  /** Id of the text token to rewrite. */
+  tokenId: string;
+  /** Original label text (for logging / dry-run inspection). */
+  from: string;
+  /** Rewritten label text. */
+  to: string;
 };
 
 /**
@@ -48,18 +48,18 @@ export type ChapterLabelRewrite = {
  * swaps.
  */
 export function fabricateChapterLabelRewrites(
-    tokens: Token[],
-    targetStem: string,
+  tokens: Token[],
+  targetStem: string,
 ): ChapterLabelRewrite[] {
-    const rewrites: ChapterLabelRewrite[] = [];
-    for (const entry of findChapterLabelEntries(tokens)) {
-        if (entry.stem === targetStem) continue;
-        if (entry.textTokenId === undefined) continue;
-        const to = swapChapterLabelStem(entry.text, targetStem);
-        if (to === entry.text) continue;
-        rewrites.push({ tokenId: entry.textTokenId, from: entry.text, to });
-    }
-    return rewrites;
+  const rewrites: ChapterLabelRewrite[] = [];
+  for (const entry of findChapterLabelEntries(tokens)) {
+    if (entry.stem === targetStem) continue;
+    if (entry.textTokenId === undefined) continue;
+    const to = swapChapterLabelStem(entry.text, targetStem);
+    if (to === entry.text) continue;
+    rewrites.push({ tokenId: entry.textTokenId, from: entry.text, to });
+  }
+  return rewrites;
 }
 
 /**
@@ -68,15 +68,15 @@ export function fabricateChapterLabelRewrites(
  * re-serializes the book.
  */
 export function applyChapterLabelRewrites(
-    tokens: Token[],
-    rewrites: ChapterLabelRewrite[],
+  tokens: Token[],
+  rewrites: ChapterLabelRewrite[],
 ): Token[] {
-    if (rewrites.length === 0) return tokens;
-    const byId = new Map(rewrites.map((r) => [r.tokenId, r.to]));
-    return tokens.map((token) => {
-        const next = token.id ? byId.get(token.id) : undefined;
-        return next === undefined ? token : { ...token, source: next };
-    });
+  if (rewrites.length === 0) return tokens;
+  const byId = new Map(rewrites.map((r) => [r.tokenId, r.to]));
+  return tokens.map((token) => {
+    const next = token.id ? byId.get(token.id) : undefined;
+    return next === undefined ? token : { ...token, source: next };
+  });
 }
 
 // Re-exported for callers that want the raw scan (e.g. counting affected books).

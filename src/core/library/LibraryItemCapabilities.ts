@@ -13,26 +13,26 @@ export type ContainerFormat = "resource-container" | "scripture-burrito";
  * This is an affordance layered onto a typed noun. It is not the noun itself.
  */
 export type RemoteSyncCapabilitySource = {
-    kind: "git" | "url" | "unknown";
-    identifier: string;
-    ref?: string;
-    shallowClone?: boolean;
+  kind: "git" | "url" | "unknown";
+  identifier: string;
+  ref?: string;
+  shallowClone?: boolean;
 };
 
 /**
  * Capability for items that can fetch and apply updates from a remote source.
  */
 export type RemoteSyncCapability = {
-    kind: "remoteSync";
-    source: RemoteSyncCapabilitySource;
-    applyUpdate(): Promise<void>;
+  kind: "remoteSync";
+  source: RemoteSyncCapabilitySource;
+  applyUpdate(): Promise<void>;
 };
 
 /**
  * Capability for items that can resolve scripture anchors in app flows.
  */
 export type AnchorNavigationCapability = {
-    kind: "anchorNavigation";
+  kind: "anchorNavigation";
 };
 
 /**
@@ -42,7 +42,7 @@ export type AnchorNavigationCapability = {
  * `type` answers "what kind of thing is this and what verbs does it expose?".
  */
 export type LibraryItemCapabilities = {
-    editableWith?: "usfmScripture";
-    remoteSync?: RemoteSyncCapability;
-    anchorNavigation?: AnchorNavigationCapability;
+  editableWith?: "usfmScripture";
+  remoteSync?: RemoteSyncCapability;
+  anchorNavigation?: AnchorNavigationCapability;
 };

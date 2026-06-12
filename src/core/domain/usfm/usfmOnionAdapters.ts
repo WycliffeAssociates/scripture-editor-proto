@@ -5,5 +5,5 @@ import type { BuildSidBlocksOptions } from "@/core/domain/usfm/usfmOnionTypes.ts
  * service expectations.
  */
 export function defaultBuildSidBlocksOptions(): BuildSidBlocksOptions {
-    return { allowEmptySid: true };
+  return { allowEmptySid: true };
 }

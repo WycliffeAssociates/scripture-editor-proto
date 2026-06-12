@@ -26,36 +26,37 @@
 // (manual cursor navigation against real DOM).
 
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
+import { makeBook } from "@tests/helpers/workspaceFixtures.ts";
 import { Deferred, Effect, Fiber, Stream } from "effect";
 import {
-    $createParagraphNode,
-    $getRoot,
-    HISTORIC_TAG,
-    HISTORY_MERGE_TAG,
-    LineBreakNode,
-    ParagraphNode,
-    TextNode,
-    type LexicalEditor,
+  $createParagraphNode,
+  $getRoot,
+  HISTORIC_TAG,
+  HISTORY_MERGE_TAG,
+  LineBreakNode,
+  ParagraphNode,
+  TextNode,
+  type LexicalEditor,
 } from "lexical";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
+
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import { BookFrontmatterFormNode } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { USFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
-    $createUSFMTextNode,
-    USFMTextNode,
+  $createUSFMTextNode,
+  USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { WorkingFilesBridgePlugin } from "@/app/domain/editor/plugins/WorkingFilesBridgePlugin.tsx";
-import { WorkspaceContext } from "@/app/ui/contexts/_workspaceContext.ts";
-import type { WorkSpaceContextType } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import type { CommitEvent } from "@/app/state/types.ts";
 import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
+import { WorkspaceContext } from "@/app/ui/contexts/_workspaceContext.ts";
+import type { WorkSpaceContextType } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
-import type { CommitEvent } from "@/app/state/types.ts";
-import { makeBook } from "@tests/helpers/workspaceFixtures.ts";
 
 // We provide only the WorkspaceContext fields the bridge actually
 // uses (`workingFilesStore`, `project`, `mainEditorDeferred`,
@@ -65,53 +66,53 @@ import { makeBook } from "@tests/helpers/workspaceFixtures.ts";
 // collaborator — fabricated stubs make the suite test its own mock
 // harness instead of the bridge.
 function makeWorkspaceContextValue(args: {
-    workingFilesStore: WorkingFilesStore;
-    mainEditorDeferred: Deferred.Deferred<LexicalEditor>;
+  workingFilesStore: WorkingFilesStore;
+  mainEditorDeferred: Deferred.Deferred<LexicalEditor>;
 }): WorkSpaceContextType {
-    return {
-        workingFilesStore: args.workingFilesStore,
-        mainEditorDeferred: args.mainEditorDeferred,
-        // Open gate: the bridge consults it before publishing commits.
-        interactionGate: new WorkspaceGateStore(),
-        project: {
-            pickedFile: { bookCode: "GEN" },
-            pickedChapter: { chapterNumber: 1 },
-            currentChapter: 1,
-        },
-        // The bridge feeds history capture before publishing; commit
-        // classification (this suite's subject) is independent of it.
-        history: { captureEditorUpdate: () => {} },
-    } as unknown as WorkSpaceContextType;
+  return {
+    workingFilesStore: args.workingFilesStore,
+    mainEditorDeferred: args.mainEditorDeferred,
+    // Open gate: the bridge consults it before publishing commits.
+    interactionGate: new WorkspaceGateStore(),
+    project: {
+      pickedFile: { bookCode: "GEN" },
+      pickedChapter: { chapterNumber: 1 },
+      currentChapter: 1,
+    },
+    // The bridge feeds history capture before publishing; commit
+    // classification (this suite's subject) is independent of it.
+    history: { captureEditorUpdate: () => {} },
+  } as unknown as WorkSpaceContextType;
 }
 
 const INITIAL_CONFIG = {
-    namespace: "test",
-    nodes: [
-        USFMParagraphNode,
-        USFMTextNode,
-        {
-            replace: TextNode,
-            with: (node: TextNode) =>
-                $createUSFMTextNode(node.getTextContent(), {
-                    id: guidGenerator(),
-                    sid: "",
-                    inPara: "",
-                }),
-            withKlass: USFMTextNode,
-        },
-        ParagraphNode,
-        LineBreakNode,
-        BookFrontmatterFormNode,
-        USFMNestedEditorNode,
-    ],
-    onError: (err: Error) => {
-        throw err;
+  namespace: "test",
+  nodes: [
+    USFMParagraphNode,
+    USFMTextNode,
+    {
+      replace: TextNode,
+      with: (node: TextNode) =>
+        $createUSFMTextNode(node.getTextContent(), {
+          id: guidGenerator(),
+          sid: "",
+          inPara: "",
+        }),
+      withKlass: USFMTextNode,
     },
+    ParagraphNode,
+    LineBreakNode,
+    BookFrontmatterFormNode,
+    USFMNestedEditorNode,
+  ],
+  onError: (err: Error) => {
+    throw err;
+  },
 };
 
 beforeAll(() => {
-    const g = globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean };
-    g.IS_REACT_ACT_ENVIRONMENT = true;
+  const g = globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  g.IS_REACT_ACT_ENVIRONMENT = true;
 });
 
 let container: HTMLDivElement | null = null;
@@ -119,71 +120,71 @@ let root: Root | null = null;
 let collectorFiber: Fiber.Fiber<void, unknown> | null = null;
 
 afterEach(async () => {
-    if (collectorFiber) {
-        await Effect.runPromise(Fiber.interrupt(collectorFiber));
-        collectorFiber = null;
-    }
-    if (root) {
-        act(() => {
-            root?.unmount();
-        });
-        root = null;
-    }
-    if (container) {
-        container.remove();
-        container = null;
-    }
+  if (collectorFiber) {
+    await Effect.runPromise(Fiber.interrupt(collectorFiber));
+    collectorFiber = null;
+  }
+  if (root) {
+    act(() => {
+      root?.unmount();
+    });
+    root = null;
+  }
+  if (container) {
+    container.remove();
+    container = null;
+  }
 });
 
 type Mounted = {
-    editor: LexicalEditor;
-    wf: WorkingFilesStore;
-    events: CommitEvent[];
+  editor: LexicalEditor;
+  wf: WorkingFilesStore;
+  events: CommitEvent[];
 };
 
 async function mount(): Promise<Mounted> {
-    const wf = new WorkingFilesStore([makeBook({ bookCode: "GEN" })]);
-    const mainEditorDeferred = Effect.runSync(Deferred.make<LexicalEditor>());
-    const ctxValue = makeWorkspaceContextValue({
-        workingFilesStore: wf,
-        mainEditorDeferred,
-    });
+  const wf = new WorkingFilesStore([makeBook({ bookCode: "GEN" })]);
+  const mainEditorDeferred = Effect.runSync(Deferred.make<LexicalEditor>());
+  const ctxValue = makeWorkspaceContextValue({
+    workingFilesStore: wf,
+    mainEditorDeferred,
+  });
 
-    // Subscribe to commits *before* mount so we never miss an event.
-    const events: CommitEvent[] = [];
-    collectorFiber = Effect.runFork(
-        wf.changes.pipe(
-            Stream.tap((event) =>
-                Effect.sync(() => {
-                    events.push(event);
-                }),
-            ),
-            Stream.runDrain,
-        ),
+  // Subscribe to commits *before* mount so we never miss an event.
+  const events: CommitEvent[] = [];
+  collectorFiber = Effect.runFork(
+    wf.changes.pipe(
+      Stream.tap((event) =>
+        Effect.sync(() => {
+          events.push(event);
+        }),
+      ),
+      Stream.runDrain,
+    ),
+  );
+  // Let the subscriber register before we mount the bridge.
+  await new Promise<void>((r) => setImmediate(r));
+
+  container = document.createElement("div");
+  document.body.appendChild(container);
+  root = createRoot(container);
+  act(() => {
+    root?.render(
+      <WorkspaceContext.Provider value={ctxValue}>
+        <LexicalComposer initialConfig={INITIAL_CONFIG}>
+          <WorkingFilesBridgePlugin />
+        </LexicalComposer>
+      </WorkspaceContext.Provider>,
     );
-    // Let the subscriber register before we mount the bridge.
-    await new Promise<void>((r) => setImmediate(r));
+  });
 
-    container = document.createElement("div");
-    document.body.appendChild(container);
-    root = createRoot(container);
-    act(() => {
-        root?.render(
-            <WorkspaceContext.Provider value={ctxValue}>
-                <LexicalComposer initialConfig={INITIAL_CONFIG}>
-                    <WorkingFilesBridgePlugin />
-                </LexicalComposer>
-            </WorkspaceContext.Provider>,
-        );
-    });
-
-    // Bridge resolves the deferred on mount; await it for the editor handle.
-    const editor = await Effect.runPromise(Deferred.await(mainEditorDeferred));
-    return { editor, wf, events };
+  // Bridge resolves the deferred on mount; await it for the editor handle.
+  const editor = await Effect.runPromise(Deferred.await(mainEditorDeferred));
+  return { editor, wf, events };
 }
 
 const contentChanging = (events: CommitEvent[]) =>
-    events.filter((e) => e.meta.dirtyTextContent === true);
+  events.filter((e) => e.meta.dirtyTextContent === true);
 
 /**
  * Append a paragraph containing one USFM text node to the editor's
@@ -192,93 +193,95 @@ const contentChanging = (events: CommitEvent[]) =>
  * branch is skipped and a chapter-kind commit publishes.
  */
 async function appendParagraph(
-    editor: LexicalEditor,
-    text: string,
-    options: { tag?: string | string[] } = {},
+  editor: LexicalEditor,
+  text: string,
+  options: { tag?: string | string[] } = {},
 ): Promise<void> {
-    await act(async () => {
-        editor.update(
-            () => {
-                const para = $createParagraphNode();
-                para.append(
-                    $createUSFMTextNode(text, {
-                        id: `t-${text}`,
-                        sid: "GEN 1:1",
-                        inPara: "",
-                    }),
-                );
-                $getRoot().append(para);
-            },
-            // Cast through unknown — Lexical's update-options tag accepts
-            // string or string-array depending on version; the runtime
-            // honors both.
-            options.tag ? ({ tag: options.tag } as unknown as Parameters<
-                LexicalEditor["update"]
-            >[1]) : undefined,
+  await act(async () => {
+    editor.update(
+      () => {
+        const para = $createParagraphNode();
+        para.append(
+          $createUSFMTextNode(text, {
+            id: `t-${text}`,
+            sid: "GEN 1:1",
+            inPara: "",
+          }),
         );
-        // Flush the update lifecycle through the pubsub + collector.
-        await new Promise<void>((res) => setImmediate(res));
-    });
+        $getRoot().append(para);
+      },
+      // Cast through unknown — Lexical's update-options tag accepts
+      // string or string-array depending on version; the runtime
+      // honors both.
+      options.tag
+        ? ({ tag: options.tag } as unknown as Parameters<
+            LexicalEditor["update"]
+          >[1])
+        : undefined,
+    );
+    // Flush the update lifecycle through the pubsub + collector.
+    await new Promise<void>((res) => setImmediate(res));
+  });
 }
 
 describe("WorkingFilesBridgePlugin (integration)", () => {
-    it("a user edit produces at least one content-changing userEdit commit", async () => {
-        const { editor, events } = await mount();
-        events.length = 0;
+  it("a user edit produces at least one content-changing userEdit commit", async () => {
+    const { editor, events } = await mount();
+    events.length = 0;
 
-        await appendParagraph(editor, "hello");
+    await appendParagraph(editor, "hello");
 
-        const content = contentChanging(events);
-        expect(content.length).toBeGreaterThanOrEqual(1);
-        expect(content[0].meta.kind).toBe("userEdit");
-        expect(content[0].meta.dirtyTextContent).toBe(true);
-        expect(content[0].patch.kind).toBe("chapter");
+    const content = contentChanging(events);
+    expect(content.length).toBeGreaterThanOrEqual(1);
+    expect(content[0].meta.kind).toBe("userEdit");
+    expect(content[0].meta.dirtyTextContent).toBe(true);
+    expect(content[0].patch.kind).toBe("chapter");
+  });
+
+  it("programaticIgnore-tagged updates produce zero content-changing events", async () => {
+    const { editor, events } = await mount();
+    events.length = 0;
+
+    await appendParagraph(editor, "ignored", {
+      tag: EDITOR_TAGS_USED.programaticIgnore,
     });
 
-    it("programaticIgnore-tagged updates produce zero content-changing events", async () => {
-        const { editor, events } = await mount();
-        events.length = 0;
+    expect(contentChanging(events)).toHaveLength(0);
+  });
 
-        await appendParagraph(editor, "ignored", {
-            tag: EDITOR_TAGS_USED.programaticIgnore,
-        });
+  it("HISTORY_MERGE_TAG without structural-fix is skipped", async () => {
+    const { editor, events } = await mount();
+    events.length = 0;
 
-        expect(contentChanging(events)).toHaveLength(0);
+    await appendParagraph(editor, "merged", { tag: HISTORY_MERGE_TAG });
+
+    expect(contentChanging(events)).toHaveLength(0);
+  });
+
+  it("classifies as structuralFixup when programmaticStructuralFix is tagged alongside HISTORY_MERGE_TAG", async () => {
+    // Fixup writebacks set both tags: the structural-fix tag so the
+    // commit still publishes (classified as `structuralFixup`), and
+    // the history-merge tag so it stays out of undo.
+    const { editor, events } = await mount();
+    events.length = 0;
+
+    await appendParagraph(editor, "fix", {
+      tag: [HISTORY_MERGE_TAG, EDITOR_TAGS_USED.programmaticStructuralFix],
     });
 
-    it("HISTORY_MERGE_TAG without structural-fix is skipped", async () => {
-        const { editor, events } = await mount();
-        events.length = 0;
+    const content = contentChanging(events);
+    expect(content.length).toBeGreaterThanOrEqual(1);
+    expect(content[0].meta.kind).toBe("structuralFixup");
+  });
 
-        await appendParagraph(editor, "merged", { tag: HISTORY_MERGE_TAG });
+  it("HISTORIC_TAG classifies edits as undo", async () => {
+    const { editor, events } = await mount();
+    events.length = 0;
 
-        expect(contentChanging(events)).toHaveLength(0);
-    });
+    await appendParagraph(editor, "undone", { tag: HISTORIC_TAG });
 
-    it("classifies as structuralFixup when programmaticStructuralFix is tagged alongside HISTORY_MERGE_TAG", async () => {
-        // Fixup writebacks set both tags: the structural-fix tag so the
-        // commit still publishes (classified as `structuralFixup`), and
-        // the history-merge tag so it stays out of undo.
-        const { editor, events } = await mount();
-        events.length = 0;
-
-        await appendParagraph(editor, "fix", {
-            tag: [HISTORY_MERGE_TAG, EDITOR_TAGS_USED.programmaticStructuralFix],
-        });
-
-        const content = contentChanging(events);
-        expect(content.length).toBeGreaterThanOrEqual(1);
-        expect(content[0].meta.kind).toBe("structuralFixup");
-    });
-
-    it("HISTORIC_TAG classifies edits as undo", async () => {
-        const { editor, events } = await mount();
-        events.length = 0;
-
-        await appendParagraph(editor, "undone", { tag: HISTORIC_TAG });
-
-        const content = contentChanging(events);
-        expect(content.length).toBeGreaterThanOrEqual(1);
-        expect(content[0].meta.kind).toBe("undo");
-    });
+    const content = contentChanging(events);
+    expect(content.length).toBeGreaterThanOrEqual(1);
+    expect(content[0].meta.kind).toBe("undo");
+  });
 });

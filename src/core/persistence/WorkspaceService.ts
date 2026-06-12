@@ -1,37 +1,37 @@
 import type { DeclaredSource } from "@/core/domain/project/declaredSources.ts";
 import type { ImportSource } from "@/core/domain/project/import/ProjectImporter.ts";
 import type {
-    MetadataEditorDocument,
-    MetadataEditorDraft,
-    MetadataIssue,
+  MetadataEditorDocument,
+  MetadataEditorDraft,
+  MetadataIssue,
 } from "@/core/domain/project/metadataEditor.ts";
 import type {
-    ImportProjectOptions,
-    ImportProjectResult,
+  ImportProjectOptions,
+  ImportProjectResult,
 } from "@/core/library/ImportService.ts";
 import type { IndexedLibraryItemType } from "@/core/library/LibraryItemType.ts";
 import type { LoadedReferenceItem } from "@/core/library/LoadedReferenceItem.ts";
 import type {
-    ResourceLibraryGroup,
-    ResourceLibraryItem,
+  ResourceLibraryGroup,
+  ResourceLibraryItem,
 } from "@/core/library/ProjectIndex.ts";
 import type { GitRemoteProjectInfo } from "@/core/persistence/gitRemoteModels.ts";
 import type { ProjectOrigin } from "@/core/persistence/projectOriginModels.ts";
 import type {
-    RemoteRepoPage,
-    RemoteRepoSummary,
+  RemoteRepoPage,
+  RemoteRepoSummary,
 } from "@/core/persistence/RemoteRepoProvider.ts";
 import type {
-    ScriptureWorkspace,
-    ScriptureWorkspaceListItem,
+  ScriptureWorkspace,
+  ScriptureWorkspaceListItem,
 } from "@/core/persistence/ScriptureWorkspace.ts";
 
 export type {
-    ImportProgressPhase,
-    ImportProgressUpdate,
-    ImportProjectOptions,
-    ImportProjectResult,
-    ImportSourceResult,
+  ImportProgressPhase,
+  ImportProgressUpdate,
+  ImportProjectOptions,
+  ImportProjectResult,
+  ImportSourceResult,
 } from "@/core/library/ImportService.ts";
 
 /**
@@ -43,13 +43,13 @@ export type {
  */
 export type OpenWorkspaceService = Pick<WorkspaceService, "openProject">;
 export type ReadOnlyOpenWorkspaceService = Pick<
-    WorkspaceService,
-    "openProjectReadOnly"
+  WorkspaceService,
+  "openProjectReadOnly"
 >;
 
 export type ReferenceResourceQuery = {
-    types?: readonly IndexedLibraryItemType[];
-    libraryGroups?: readonly ResourceLibraryGroup[];
+  types?: readonly IndexedLibraryItemType[];
+  libraryGroups?: readonly ResourceLibraryGroup[];
 };
 
 /**
@@ -57,41 +57,41 @@ export type ReferenceResourceQuery = {
  * missing" from "item exists but is not editable scripture".
  */
 export type OpenEditableWorkspaceResult = {
-    project: ScriptureWorkspace | null;
-    rejectionReason?: "not-found" | "not-editable" | "metadata-invalid";
-    metadataIssues?: MetadataIssue[];
+  project: ScriptureWorkspace | null;
+  rejectionReason?: "not-found" | "not-editable" | "metadata-invalid";
+  metadataIssues?: MetadataIssue[];
 };
 
 export type ListWritableRemoteReposArgs = {
-    page: number;
-    pageSize: number;
-    topic?: string;
-    searchQuery?: string;
-    signal?: AbortSignal;
+  page: number;
+  pageSize: number;
+  topic?: string;
+  searchQuery?: string;
+  signal?: AbortSignal;
 };
 
 export type ListOwnedRemoteReposArgs = {
-    page: number;
-    pageSize: number;
-    topic?: string;
-    searchQuery?: string;
-    signal?: AbortSignal;
+  page: number;
+  pageSize: number;
+  topic?: string;
+  searchQuery?: string;
+  signal?: AbortSignal;
 };
 
 export type GetRemoteRepoArgs = {
-    owner: string;
-    name: string;
-    signal?: AbortSignal;
+  owner: string;
+  name: string;
+  signal?: AbortSignal;
 };
 
 export type ForkRemoteRepoArgs = {
-    owner: string;
-    name: string;
-    signal?: AbortSignal;
+  owner: string;
+  name: string;
+  signal?: AbortSignal;
 };
 
 export type CloneWritableRemoteProjectArgs = {
-    repo: RemoteRepoSummary;
+  repo: RemoteRepoSummary;
 };
 
 /**
@@ -102,65 +102,58 @@ export type CloneWritableRemoteProjectArgs = {
  * reference tools that hang off it.
  */
 export interface WorkspaceService {
-    listProjects(): Promise<ScriptureWorkspaceListItem[]>;
-    listReferenceResources(
-        query?: ReferenceResourceQuery,
-    ): Promise<ResourceLibraryItem[]>;
-    openEditableProject(
-        projectRef: string,
-    ): Promise<OpenEditableWorkspaceResult>;
-    loadMetadataEditor(
-        projectRef: string,
-        options?: {
-            includeIssues?: boolean;
-        },
-    ): Promise<MetadataEditorDocument | null>;
-    saveMetadataEditor(
-        projectRef: string,
-        draft: MetadataEditorDraft,
-    ): Promise<MetadataEditorDocument | null>;
-    openProject(projectRef: string): Promise<ScriptureWorkspace | null>;
-    openProjectReadOnly(projectRef: string): Promise<ScriptureWorkspace | null>;
-    openResource(projectRef: string): Promise<LoadedReferenceItem | null>;
-    importProject(
-        source: ImportSource,
-        options?: ImportProjectOptions,
-    ): Promise<ImportProjectResult>;
-    listWritableRemoteRepos(
-        args: ListWritableRemoteReposArgs,
-    ): Promise<RemoteRepoPage>;
-    listOwnedRemoteRepos(
-        args: ListOwnedRemoteReposArgs,
-    ): Promise<RemoteRepoPage>;
-    getRemoteRepo(args: GetRemoteRepoArgs): Promise<RemoteRepoSummary | null>;
-    forkRemoteRepo(args: ForkRemoteRepoArgs): Promise<RemoteRepoSummary>;
-    createRemoteForProject(projectRef: string): Promise<{
-        repo: RemoteRepoSummary;
-        remoteInfo: GitRemoteProjectInfo;
-    }>;
-    attachProjectToRemote(args: {
-        projectRef: string;
-        repo: Pick<
-            RemoteRepoSummary,
-            "id" | "owner" | "name" | "htmlUrl" | "cloneUrl" | "defaultBranch"
-        >;
-    }): Promise<GitRemoteProjectInfo>;
-    cloneWritableRemoteProject(
-        args: CloneWritableRemoteProjectArgs,
-    ): Promise<ImportProjectResult>;
-    readDeclaredSources(workspacePath: string): Promise<DeclaredSource[]>;
-    /**
-     * Read where a project was imported from, if recorded. Powers "you already
-     * have this" dedupe in source/reference pickers; null when the project
-     * predates provenance or was brought in without a recoverable origin.
-     */
-    readProjectOrigin(workspacePath: string): Promise<ProjectOrigin | null>;
-    deleteProject(workspacePath: string): Promise<void>;
-    renameDisplayName(
-        workspacePath: string,
-        displayName: string,
-    ): Promise<void>;
-    reconcileIndex(): Promise<void>;
+  listProjects(): Promise<ScriptureWorkspaceListItem[]>;
+  listReferenceResources(
+    query?: ReferenceResourceQuery,
+  ): Promise<ResourceLibraryItem[]>;
+  openEditableProject(projectRef: string): Promise<OpenEditableWorkspaceResult>;
+  loadMetadataEditor(
+    projectRef: string,
+    options?: {
+      includeIssues?: boolean;
+    },
+  ): Promise<MetadataEditorDocument | null>;
+  saveMetadataEditor(
+    projectRef: string,
+    draft: MetadataEditorDraft,
+  ): Promise<MetadataEditorDocument | null>;
+  openProject(projectRef: string): Promise<ScriptureWorkspace | null>;
+  openProjectReadOnly(projectRef: string): Promise<ScriptureWorkspace | null>;
+  openResource(projectRef: string): Promise<LoadedReferenceItem | null>;
+  importProject(
+    source: ImportSource,
+    options?: ImportProjectOptions,
+  ): Promise<ImportProjectResult>;
+  listWritableRemoteRepos(
+    args: ListWritableRemoteReposArgs,
+  ): Promise<RemoteRepoPage>;
+  listOwnedRemoteRepos(args: ListOwnedRemoteReposArgs): Promise<RemoteRepoPage>;
+  getRemoteRepo(args: GetRemoteRepoArgs): Promise<RemoteRepoSummary | null>;
+  forkRemoteRepo(args: ForkRemoteRepoArgs): Promise<RemoteRepoSummary>;
+  createRemoteForProject(projectRef: string): Promise<{
+    repo: RemoteRepoSummary;
+    remoteInfo: GitRemoteProjectInfo;
+  }>;
+  attachProjectToRemote(args: {
+    projectRef: string;
+    repo: Pick<
+      RemoteRepoSummary,
+      "id" | "owner" | "name" | "htmlUrl" | "cloneUrl" | "defaultBranch"
+    >;
+  }): Promise<GitRemoteProjectInfo>;
+  cloneWritableRemoteProject(
+    args: CloneWritableRemoteProjectArgs,
+  ): Promise<ImportProjectResult>;
+  readDeclaredSources(workspacePath: string): Promise<DeclaredSource[]>;
+  /**
+   * Read where a project was imported from, if recorded. Powers "you already
+   * have this" dedupe in source/reference pickers; null when the project
+   * predates provenance or was brought in without a recoverable origin.
+   */
+  readProjectOrigin(workspacePath: string): Promise<ProjectOrigin | null>;
+  deleteProject(workspacePath: string): Promise<void>;
+  renameDisplayName(workspacePath: string, displayName: string): Promise<void>;
+  reconcileIndex(): Promise<void>;
 }
 
 export type OpenProjectService = OpenWorkspaceService;

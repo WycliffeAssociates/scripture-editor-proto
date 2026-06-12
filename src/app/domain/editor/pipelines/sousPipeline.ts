@@ -1,11 +1,12 @@
 import { Effect } from "effect";
+
 import {
-    groupFindingsByChapter,
-    sousFindingsToFindings,
+  groupFindingsByChapter,
+  sousFindingsToFindings,
 } from "@/app/domain/editor/annotations/normalizeFindings.ts";
 import {
-    type FoldedBookScope,
-    makeFoldedScopePipeline,
+  type FoldedBookScope,
+  makeFoldedScopePipeline,
 } from "@/app/domain/editor/pipelines/foldedScopePipeline.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { sousScopeFor } from "@/app/state/commitFilters.ts";
@@ -32,40 +33,36 @@ const DEFAULT_SOUS_DEBOUNCE_MS = 200;
  * gain web workers + granularity controls.
  */
 function analyzeOneBook(args: {
-    file: ScriptureBookState;
-    findingsStore: FindingsStore;
-    sousService: ISousService;
+  file: ScriptureBookState;
+  findingsStore: FindingsStore;
+  sousService: ISousService;
 }): Effect.Effect<void> {
-    return Effect.gen(function* () {
-        const tokens = collectFileTokens(args.file, {
-            structuralParagraphBreaks: true,
-        });
-        if (tokens.length === 0) {
-            args.findingsStore.commitSousBookFindings(
-                args.file.bookCode,
-                {},
-                {},
-            );
-            return;
-        }
-        const result = yield* Effect.tryPromise(() =>
-            args.sousService.analyze(tokens),
-        );
-        args.findingsStore.commitSousBookFindings(
-            args.file.bookCode,
-            groupFindingsByChapter(sousFindingsToFindings(result.findings)),
-            result.segments,
-        );
-    }).pipe(
-        Effect.catch((error: unknown) =>
-            Effect.sync(() => {
-                console.error("[sousPipeline] analyze failed", {
-                    bookCode: args.file.bookCode,
-                    error,
-                });
-            }),
-        ),
+  return Effect.gen(function* () {
+    const tokens = collectFileTokens(args.file, {
+      structuralParagraphBreaks: true,
+    });
+    if (tokens.length === 0) {
+      args.findingsStore.commitSousBookFindings(args.file.bookCode, {}, {});
+      return;
+    }
+    const result = yield* Effect.tryPromise(() =>
+      args.sousService.analyze(tokens),
     );
+    args.findingsStore.commitSousBookFindings(
+      args.file.bookCode,
+      groupFindingsByChapter(sousFindingsToFindings(result.findings)),
+      result.segments,
+    );
+  }).pipe(
+    Effect.catch((error: unknown) =>
+      Effect.sync(() => {
+        console.error("[sousPipeline] analyze failed", {
+          bookCode: args.file.bookCode,
+          error,
+        });
+      }),
+    ),
+  );
 }
 
 /**
@@ -77,30 +74,30 @@ function analyzeOneBook(args: {
  * accumulated across the (larger) debounce window are drained as one pass.
  */
 export function makeSousPipeline(args: {
-    workingFilesStore: WorkingFilesStore;
-    findingsStore: FindingsStore;
-    sousService: ISousService;
-    debounceMs?: number;
+  workingFilesStore: WorkingFilesStore;
+  findingsStore: FindingsStore;
+  sousService: ISousService;
+  debounceMs?: number;
 }): Effect.Effect<void> {
-    const sousPass = (scope: FoldedBookScope): Effect.Effect<void> =>
-        Effect.gen(function* () {
-            const latest = args.workingFilesStore.read();
-            const files = scope.all
-                ? latest
-                : latest.filter((file) => scope.books.has(file.bookCode));
-            for (const file of files) {
-                yield* analyzeOneBook({
-                    file,
-                    findingsStore: args.findingsStore,
-                    sousService: args.sousService,
-                });
-            }
+  const sousPass = (scope: FoldedBookScope): Effect.Effect<void> =>
+    Effect.gen(function* () {
+      const latest = args.workingFilesStore.read();
+      const files = scope.all
+        ? latest
+        : latest.filter((file) => scope.books.has(file.bookCode));
+      for (const file of files) {
+        yield* analyzeOneBook({
+          file,
+          findingsStore: args.findingsStore,
+          sousService: args.sousService,
         });
-
-    return makeFoldedScopePipeline({
-        changes: args.workingFilesStore.changes,
-        scopeFor: sousScopeFor,
-        debounceMs: args.debounceMs ?? DEFAULT_SOUS_DEBOUNCE_MS,
-        run: sousPass,
+      }
     });
+
+  return makeFoldedScopePipeline({
+    changes: args.workingFilesStore.changes,
+    scopeFor: sousScopeFor,
+    debounceMs: args.debounceMs ?? DEFAULT_SOUS_DEBOUNCE_MS,
+    run: sousPass,
+  });
 }

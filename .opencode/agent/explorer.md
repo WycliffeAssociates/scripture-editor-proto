@@ -23,14 +23,17 @@ Your mission: Find what's needed, extract only what matters, return it condensed
 # Your Tools
 
 ## Built-in: grep & glob
+
 - Use these first for targeted searches
 - Fast, precise, minimal output
 - Pattern match before broader scans
 
 ## repomix: Codebase Compression
+
 Generates compressed views of entire repositories for codebase analysis. Key flags:
 
 **Essential Flags:**
+
 - `--compress` - Extract only structure (classes, functions, interfaces). USE THIS.
 - `--remove-comments` - Strip comments when logic is what matters
 - `--remove-empty-lines` - Reduce noise
@@ -38,10 +41,12 @@ Generates compressed views of entire repositories for codebase analysis. Key fla
 - `--output-show-line-numbers` - When caller needs line references
 
 **Targeting:**
-- `--include <patterns>` - Only process matching files (e.g., "src/**/*.js")
+
+- `--include <patterns>` - Only process matching files (e.g., "src/\*_/_.js")
 - `-i, --ignore <patterns>` - Exclude paths (e.g., "test/**,dist/**")
 
 **Remote Repos:**
+
 - `--remote <url>` - Clone and pack external repos (watch size!)
 - `--remote-branch <name>` - Specific branch/tag/commit
 
@@ -58,18 +63,20 @@ repomix --include "**/test/**" --compress --stdout --remove-comments
 repomix --include "src/**" --stdout | wc -l  # Line count first
 repomix --include "src/**" --stdout | head -50  # Preview
 
-# External repo reconnaissance 
+# External repo reconnaissance
 repomix --remote user/repo --compress --no-files  # Metadata only
 ```
 
 ## Web Research
 
 ### For Dependencies
+
 1. Check manifest files first (package.json, Cargo.toml, pyproject.toml)
 2. Note exact versions - docs change between versions
 3. Target official docs for those specific versions
 
 ### Search & Extract Pattern
+
 ```bash
 # Don't just fetch whole pages - extract what matters
 web_fetch https://docs.example.com/api/feature
@@ -79,6 +86,7 @@ web_fetch https://docs.example.com/api/feature
 # Output Formats
 
 ## For Code Structure Queries
+
 ```
 File: path/to/file.ts (lines X-Y)
 ├─ ExportedClass
@@ -90,6 +98,7 @@ Dependencies: lib1@^2.0, lib2@~3.1
 ```
 
 ## For API Documentation
+
 ```
 API: functionName(params)
 Parameters:
@@ -101,12 +110,13 @@ Source: url
 ```
 
 ## For External Docs Research
+
 ```
 Framework: [Name] v[X.Y]
 Relevant Docs:
   - [Topic](url) - covers [specific feature]
     Key API: `signature here`
-    
+
 Libraries:
   - [lib@version]: [purpose in this context]
     Docs: url
@@ -115,6 +125,7 @@ Version Notes: [breaking changes, caveats]
 ```
 
 ## For Search Results
+
 ```
 Found in [N] files:
 1. path/to/file:linenum - context snippet

@@ -8,152 +8,149 @@ import { ReferencePanel } from "@/app/ui/components/blocks/ReferencePanel/Refere
 import { EditorToolbar } from "@/app/ui/components/primitives/EditorToolbar/index.ts";
 import { FormFocusProvider } from "@/app/ui/contexts/FormFocusContext.tsx";
 import * as styles from "@/app/ui/styles/modules/Projectview.css.ts";
+
 import { SearchPanel } from "../search-panel/SearchPanel.tsx";
 
 interface EditorPaneProps {
-    isSmall: boolean;
+  isSmall: boolean;
 }
 
 function EditorPane(props: EditorPaneProps) {
-    return (
-        <div
-            data-js={DATA_JS.editorScrollContainer}
-            className={
-                props.isSmall
-                    ? styles.editorMainSmall
-                    : styles.editorWrapperDesktop
-            }
-        >
-            <MainEditor />
-        </div>
-    );
+  return (
+    <div
+      data-js={DATA_JS.editorScrollContainer}
+      className={
+        props.isSmall ? styles.editorMainSmall : styles.editorWrapperDesktop
+      }
+    >
+      <MainEditor />
+    </div>
+  );
 }
 
 interface ReferencePaneProps {
-    isSmall: boolean;
+  isSmall: boolean;
 }
 
 function ReferencePane(props: ReferencePaneProps) {
-    return (
-        <div
-            className={
-                props.isSmall
-                    ? styles.editorReferenceSmall
-                    : styles.referenceColumn
-            }
-        >
-            <ReferencePanel />
-            <ReferenceEditor />
-        </div>
-    );
+  return (
+    <div
+      className={
+        props.isSmall ? styles.editorReferenceSmall : styles.referenceColumn
+      }
+    >
+      <ReferencePanel />
+      <ReferenceEditor />
+    </div>
+  );
 }
 
 interface SettingsPaneProps {
-    onClose: () => void;
+  onClose: () => void;
 }
 
 function SettingsPane(props: SettingsPaneProps) {
-    return <SettingsPanel onClose={props.onClose} />;
+  return <SettingsPanel onClose={props.onClose} />;
 }
 
 interface ProjectsPaneProps {
-    onClose: () => void;
+  onClose: () => void;
 }
 
 function ProjectsPane(props: ProjectsPaneProps) {
-    return <ProjectBrowserPane onClose={props.onClose} />;
+  return <ProjectBrowserPane onClose={props.onClose} />;
 }
 
 export type WorkspacePane = "editor" | "settings" | "projects" | "search";
 
 interface WorkspacePaneStackProps {
-    isSmall: boolean;
+  isSmall: boolean;
 }
 
 function WorkspacePaneStack(props: WorkspacePaneStackProps) {
-    return (
-        <div className={styles.workspacePaneStack}>
-            <div className={styles.workspaceEditorPane}>
-                <EditorPane isSmall={props.isSmall} />
-            </div>
-        </div>
-    );
+  return (
+    <div className={styles.workspacePaneStack}>
+      <div className={styles.workspaceEditorPane}>
+        <EditorPane isSmall={props.isSmall} />
+      </div>
+    </div>
+  );
 }
 
 interface EditorsShellProps {
-    isSmall: boolean;
-    hasReferenceResource: boolean;
-    hasSearchPaneOpen: boolean;
-    activeWorkspacePane: WorkspacePane;
-    closeProjectsPane: () => void;
-    closeSettingsPane: () => void;
-    closeSearchPane: () => void;
-    toggleReferencePane: () => void;
-    toggleSearchPane: () => void;
+  isSmall: boolean;
+  hasReferenceResource: boolean;
+  hasSearchPaneOpen: boolean;
+  activeWorkspacePane: WorkspacePane;
+  closeProjectsPane: () => void;
+  closeSettingsPane: () => void;
+  closeSearchPane: () => void;
+  toggleReferencePane: () => void;
+  toggleSearchPane: () => void;
 }
 
 function EditorsShell(props: EditorsShellProps) {
-    const showRightPanel = props.hasReferenceResource;
+  const showRightPanel = props.hasReferenceResource;
 
-    return (
-        <section
-            className={
-                props.isSmall
-                    ? styles.workspaceShellMobile
-                    : styles.workspaceShellDesktop
-            }
-        >
-            <div className={styles.workspaceEditorsStage}>
-                {/* Full-width toolbar bar — spans the reference + editor row
+  return (
+    <section
+      className={
+        props.isSmall
+          ? styles.workspaceShellMobile
+          : styles.workspaceShellDesktop
+      }
+    >
+      <div className={styles.workspaceEditorsStage}>
+        {/* Full-width toolbar bar — spans the reference + editor row
                     beneath it. Covered by the overlay pane when a non-editor
                     pane (settings/projects/search) is active. */}
-                <div className={styles.editorToolbarRow}>
-                    <EditorToolbar
-                        isReferencePaneOpen={props.hasReferenceResource}
-                        onToggleReferencePane={props.toggleReferencePane}
-                        isSearchPaneOpen={props.hasSearchPaneOpen}
-                        onToggleSearchPane={props.toggleSearchPane}
-                    />
-                </div>
-                <div
-                    className={
-                        props.isSmall
-                            ? styles.mobileEditorsContainer
-                            : showRightPanel
-                              ? styles.desktopContentGridWithReference
-                              : styles.desktopContentGrid
-                    }
-                >
-                    {props.hasReferenceResource ? (
-                        <ReferencePane isSmall={props.isSmall} />
-                    ) : null}
-                    <WorkspacePaneStack isSmall={props.isSmall} />
-                    <SaveAndReviewChangesOverlay />
-                </div>
-                {props.activeWorkspacePane !== "editor" ? (
-                    <div className={styles.workspaceOverlayPane}>
-                        {props.activeWorkspacePane === "settings" ? (
-                            <SettingsPane onClose={props.closeSettingsPane} />
-                        ) : props.activeWorkspacePane === "projects" ? (
-                            <ProjectsPane onClose={props.closeProjectsPane} />
-                        ) : (
-                            <SearchPanel onClose={props.closeSearchPane} />
-                        )}
-                    </div>
-                ) : null}
-            </div>
-        </section>
-    );
+        <div className={styles.editorToolbarRow}>
+          <EditorToolbar
+            isReferencePaneOpen={props.hasReferenceResource}
+            onToggleReferencePane={props.toggleReferencePane}
+            isSearchPaneOpen={props.hasSearchPaneOpen}
+            onToggleSearchPane={props.toggleSearchPane}
+          />
+        </div>
+        <div
+          className={
+            props.isSmall
+              ? styles.mobileEditorsContainer
+              : showRightPanel
+                ? styles.desktopContentGridWithReference
+                : styles.desktopContentGrid
+          }
+        >
+          {props.hasReferenceResource ? (
+            <ReferencePane isSmall={props.isSmall} />
+          ) : null}
+          <WorkspacePaneStack isSmall={props.isSmall} />
+          <SaveAndReviewChangesOverlay />
+        </div>
+        {props.activeWorkspacePane !== "editor" ? (
+          <div className={styles.workspaceOverlayPane}>
+            {props.activeWorkspacePane === "settings" ? (
+              <SettingsPane onClose={props.closeSettingsPane} />
+            ) : props.activeWorkspacePane === "projects" ? (
+              <ProjectsPane onClose={props.closeProjectsPane} />
+            ) : (
+              <SearchPanel onClose={props.closeSearchPane} />
+            )}
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
 }
 
 interface WorkspaceMainShellProps extends EditorsShellProps {}
 
 export function WorkspaceMainShell(props: WorkspaceMainShellProps) {
-    return (
-        <div className={styles.workspaceMain}>
-            <FormFocusProvider>
-                <EditorsShell {...props} />
-            </FormFocusProvider>
-        </div>
-    );
+  return (
+    <div className={styles.workspaceMain}>
+      <FormFocusProvider>
+        <EditorsShell {...props} />
+      </FormFocusProvider>
+    </div>
+  );
 }

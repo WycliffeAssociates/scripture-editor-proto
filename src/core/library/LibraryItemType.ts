@@ -16,8 +16,8 @@ export type LibraryItemType = "usfmScripture" | "translationNotes";
  * them without introducing a second app-facing classification axis.
  */
 export type IndexedLibraryItemType =
-    | LibraryItemType
-    | "translationWords"
-    | "genericMarkdownCollection"
-    | "other"
-    | "unknown";
+  | LibraryItemType
+  | "translationWords"
+  | "genericMarkdownCollection"
+  | "other"
+  | "unknown";

@@ -1,9 +1,10 @@
-import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
-import { describe, expect, it } from "vitest";
-import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
-import { applyVersionSnapshotToWorkingFiles } from "@/app/domain/project/versionNavigationService.ts";
 import { serializeToUsfmString } from "@tests/helpers/serializeToUsfmString.ts";
 import { makeBook, makeChapter } from "@tests/helpers/workspaceFixtures.ts";
+import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
+import { describe, expect, it } from "vitest";
+
+import { applyVersionSnapshotToWorkingFiles } from "@/app/domain/project/versionNavigationService.ts";
+import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 
 function makeFiles(args: {
   loadedText: string;
@@ -27,7 +28,9 @@ function makeFiles(args: {
   ];
 }
 
-function chapterUsfm(state: SerializedEditorState<SerializedLexicalNode>): string {
+function chapterUsfm(
+  state: SerializedEditorState<SerializedLexicalNode>,
+): string {
   return serializeToUsfmString(state.root.children);
 }
 

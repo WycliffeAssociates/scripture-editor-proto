@@ -13,5 +13,5 @@ import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
  * shared concern only if a second appears.
  */
 export interface ISousService {
-    analyze(tokens: Token[]): Promise<SousAnalyzeResult>;
+  analyze(tokens: Token[]): Promise<SousAnalyzeResult>;
 }
