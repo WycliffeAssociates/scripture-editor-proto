@@ -9,6 +9,7 @@ import { useEffect } from "react";
 
 import type { PlatformAndWeb } from "@/app/data/constants.ts";
 import type { SettingsManager } from "@/app/data/settings.ts";
+import type { MirrorSessionFactory } from "@/app/domain/mirror/mirrorSessionFactory.ts";
 import { routeTree } from "@/app/generated/routeTree.gen.ts";
 import type { LibraryService } from "@/app/library/LibraryService.ts";
 import { UpdateBanner } from "@/app/ui/components/blocks/UpdateBanner.tsx";
@@ -51,6 +52,12 @@ type EntryPointProps = {
   platform: PlatformAndWeb;
   /** Desktop wires `TauriUpdaterService`; web passes null (no auto-updates). */
   updaterService?: IUpdaterService | null;
+  /**
+   * Builds the workspace mirror session: web attaches a worker (token mirror +
+   * wasm engines + OPFS backup off the main thread); desktop attaches an
+   * in-process session bound to its services (phase-2 interim).
+   */
+  mirrorSessionFactory: MirrorSessionFactory;
 };
 
 const queryClient = new QueryClient();
@@ -79,6 +86,7 @@ export interface RouterContext {
   opener: IOpener;
   platform: PlatformAndWeb;
   updaterService: IUpdaterService | null;
+  mirrorSessionFactory: MirrorSessionFactory;
 }
 
 const wrapCreateRouter = (
@@ -97,6 +105,7 @@ const wrapCreateRouter = (
   opener: IOpener,
   platform: PlatformAndWeb,
   updaterService: IUpdaterService | null,
+  mirrorSessionFactory: MirrorSessionFactory,
 ) => {
   const router = createRouter({
     routeTree,
@@ -117,6 +126,7 @@ const wrapCreateRouter = (
       opener,
       platform,
       updaterService,
+      mirrorSessionFactory,
     },
   });
   return router;
@@ -151,6 +161,7 @@ export function App({
   opener,
   platform,
   updaterService = null,
+  mirrorSessionFactory,
 }: EntryPointProps) {
   const router = wrapCreateRouter(
     settingsManager,
@@ -168,6 +179,7 @@ export function App({
     opener,
     platform,
     updaterService,
+    mirrorSessionFactory,
   );
 
   useEffect(() => {

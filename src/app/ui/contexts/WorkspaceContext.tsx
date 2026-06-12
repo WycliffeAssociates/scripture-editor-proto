@@ -11,12 +11,18 @@ import { onionFindingsByChapter } from "@/app/domain/editor/annotations/normaliz
 import { makeDirtyBufferPipeline } from "@/app/domain/editor/pipelines/dirtyBufferPipeline.ts";
 import { makeEditorSyncPipeline } from "@/app/domain/editor/pipelines/editorSyncPipeline.ts";
 import { makeLintPipeline } from "@/app/domain/editor/pipelines/lintPipeline.ts";
+import {
+  makeMirrorPatchProducer,
+  seedMirror,
+} from "@/app/domain/editor/pipelines/mirrorPatchProducer.ts";
+import { makeMirrorResultRouter } from "@/app/domain/editor/pipelines/mirrorResultRouter.ts";
 import { makeOverlayTickPipeline } from "@/app/domain/editor/pipelines/overlayTickPipeline.ts";
 import { makeRecoveredConflictTrackerSubscriber } from "@/app/domain/editor/pipelines/recoveredConflictTrackerSubscriber.ts";
 import { makeSaveStatusPipeline } from "@/app/domain/editor/pipelines/saveStatusPipeline.ts";
 import { makeSousPipeline } from "@/app/domain/editor/pipelines/sousPipeline.ts";
 import { makeStructureMaintenancePipeline } from "@/app/domain/editor/pipelines/structureMaintenancePipeline.ts";
 import { makeTokenFixpointPipeline } from "@/app/domain/editor/pipelines/tokenFixpointPipeline.ts";
+import { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import { bookCodeToTitle } from "@/app/domain/project/bookTitle.ts";
 import { revertChapterToLoadedState } from "@/app/domain/project/saveAndRevertService.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
@@ -293,6 +299,10 @@ export const ProjectProvider = ({
   const mainEditorDeferred = useStableInstance(() =>
     Effect.runSync(Deferred.make<LexicalEditor>()),
   );
+  // The mirror feed: the one multicast register the patch producer and the
+  // repointed lint/sous/dirty-buffer pipelines write through. A platform
+  // session (web worker / desktop in-process) attaches as its sink below.
+  const mirrorFeed = useStableInstance(() => new MirrorFeed());
 
   const {
     settingsManager,
@@ -302,9 +312,59 @@ export const ProjectProvider = ({
     authSessionProvider,
     storageRoots,
     usfmOnionService,
-    sousService,
     gitProvider,
+    mirrorSessionFactory,
   } = useRouter().options.context;
+
+  // Attach the platform mirror session to the feed, seed it with current state
+  // (the load-time full-sync), and route its results back into the stores.
+  // Re-created when the project (workspaceKey/files) swaps.
+  useEffect(() => {
+    const session = mirrorSessionFactory({
+      feed: mirrorFeed,
+      workspaceKey,
+      dirtyBufferRoot: dirtyBufferStore.rootDirectory(),
+      dirtyBufferStore,
+    });
+    const stopRouter = makeMirrorResultRouter({
+      feed: mirrorFeed,
+      workingFilesStore,
+      workspaceBaselineStore,
+      findingsStore,
+      dirtyBufferStore,
+      workspaceKey,
+    });
+    seedMirror({
+      workingFilesStore,
+      workspaceBaselineStore,
+      feed: mirrorFeed,
+      generation: workingFilesStore.generation(),
+    });
+    return () => {
+      stopRouter();
+      session.dispose();
+    };
+  }, [
+    mirrorSessionFactory,
+    mirrorFeed,
+    workspaceKey,
+    dirtyBufferStore,
+    workingFilesStore,
+    workspaceBaselineStore,
+    findingsStore,
+  ]);
+
+  // Fork the patch producer: tokenizes changed chapters once per commit and
+  // fans the delta to the feed's sinks.
+  useForkedPipeline(
+    () =>
+      makeMirrorPatchProducer({
+        workingFilesStore,
+        workspaceBaselineStore,
+        feed: mirrorFeed,
+      }),
+    [workingFilesStore, workspaceBaselineStore, mirrorFeed],
+  );
   // Workspace-scoped reactive pipelines. These are *effects* the workspace
   // owns for lifecycle, but the kernel doesn't hand-roll each fork/interrupt —
   // `useForkedPipeline` codifies that. (Not every effect has to live inline in
@@ -338,12 +398,10 @@ export const ProjectProvider = ({
     () =>
       makeDirtyBufferPipeline({
         workingFilesStore,
-        workspaceBaselineStore,
-        dirtyBufferStore,
-        workspaceKey,
+        feed: mirrorFeed,
         appVersion: DIRTY_BUFFER_APP_VERSION,
       }),
-    [workingFilesStore, workspaceBaselineStore, dirtyBufferStore, workspaceKey],
+    [workingFilesStore, mirrorFeed],
   );
 
   // Recovered-conflict tracker subscriber: clears tracker entries as their
@@ -447,10 +505,9 @@ export const ProjectProvider = ({
         ? Effect.void
         : makeLintPipeline({
             workingFilesStore,
-            findingsStore,
-            usfmOnionService,
+            feed: mirrorFeed,
           }),
-    [analysisDisabled, workingFilesStore, findingsStore, usfmOnionService],
+    [analysisDisabled, workingFilesStore, mirrorFeed],
   );
 
   // Dev-only I2 re-lex fixpoint alarm: flags any commit whose token stream
@@ -476,10 +533,9 @@ export const ProjectProvider = ({
         ? Effect.void
         : makeSousPipeline({
             workingFilesStore,
-            findingsStore,
-            sousService,
+            feed: mirrorFeed,
           }),
-    [analysisDisabled, workingFilesStore, findingsStore, sousService],
+    [analysisDisabled, workingFilesStore, mirrorFeed],
   );
   const history = useCustomHistory({
     workingFilesStore,

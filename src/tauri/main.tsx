@@ -3,6 +3,10 @@ import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 
 import type { PlatformAndWeb } from "@/app/data/constants.ts";
+import { makeServiceMirrorEngines } from "@/app/domain/editor/pipelines/serviceMirrorEngines.ts";
+import { InProcessMirrorSession } from "@/app/domain/mirror/InProcessMirrorSession.ts";
+import type { MirrorSessionFactory } from "@/app/domain/mirror/mirrorSessionFactory.ts";
+import { WorkspaceMirror } from "@/app/domain/mirror/WorkspaceMirror.ts";
 import { App } from "@/app/entrypoint.tsx";
 import { DefaultLibraryService } from "@/app/library/DefaultLibraryService.ts";
 import {
@@ -78,6 +82,28 @@ initializeUsfmMarkerCatalog(await usfmOnionService.getMarkerCatalog());
 const updaterService = new TauriUpdaterService();
 await updaterService.initialize();
 
+// Desktop interim mirror: in-process (a web worker can't `invoke`, and a Rust
+// resident mirror is phase 3). Engines are bound to the existing Tauri services
+// so lint/sous keep their invoke paths; the dirty-buffer write goes through the
+// store the caller passes in.
+const mirrorSessionFactory: MirrorSessionFactory = ({
+  feed,
+  workspaceKey,
+  dirtyBufferStore,
+}) =>
+  new InProcessMirrorSession({
+    feed,
+    mirror: new WorkspaceMirror(
+      makeServiceMirrorEngines({
+        usfmOnionService,
+        sousService,
+        md5Service,
+        dirtyBufferStore,
+        workspaceKey,
+      }),
+    ),
+  });
+
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Root element not found");
 const root = ReactDOM.createRoot(rootElement);
@@ -99,6 +125,7 @@ root.render(
       gitProvider={gitProvider}
       opener={opener}
       platform={currentPlatform}
+      mirrorSessionFactory={mirrorSessionFactory}
       updaterService={updaterService}
     />
   </StrictMode>,

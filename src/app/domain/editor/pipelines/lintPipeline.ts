@@ -1,62 +1,44 @@
 import { Effect } from "effect";
 
-import { onionFindingsByChapter } from "@/app/domain/editor/annotations/normalizeFindings.ts";
 import {
   type FoldedBookScope,
   makeFoldedScopePipeline,
 } from "@/app/domain/editor/pipelines/foldedScopePipeline.ts";
+import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
+import type { AnalyzeScope } from "@/app/domain/mirror/mirrorProtocol.ts";
 import { lintScopeFor } from "@/app/state/commitFilters.ts";
-import type { FindingsStore } from "@/app/state/FindingsStore.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
-import { relintBookFiles } from "@/app/ui/hooks/linting.ts";
-import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 
 const DEFAULT_LINT_DEBOUNCE_MS = 100;
 
 /**
- * Stream pipeline that runs lint in response to working-files commits.
+ * Stream pipeline that drives lint in response to working-files commits.
  *
  * Relevance + expansion live in `lintScopeFor` (book granularity); scopes
- * accumulated across the debounce window are drained as ONE pass — a single
- * `lintScope` service call carries every book as a token batch (one IPC
- * round-trip on Tauri). Each book's result then supersedes that book's node
- * in the findings store's onion slice wholesale — a clean book commits `{}`.
+ * accumulated across the debounce window are drained as ONE `analyzeLint`
+ * command carrying the folded book set + the commit generation. The mirror
+ * reads its resident tokens for those books and returns the raw issues per
+ * book; the result router (see `makeMirrorResultRouter`) normalizes and commits
+ * them into the findings store's onion slice — same supersession-per-book
+ * shape as before, just sourced from the mirror instead of an inline service
+ * call. The Effect debounce/fold/cancel shell is unchanged.
  */
 export function makeLintPipeline(args: {
   workingFilesStore: WorkingFilesStore;
-  findingsStore: FindingsStore;
-  usfmOnionService: IUsfmOnionService;
+  feed: MirrorFeed;
   debounceMs?: number;
 }): Effect.Effect<void> {
   const lintPass = (scope: FoldedBookScope): Effect.Effect<void> =>
-    Effect.gen(function* () {
-      const latest = args.workingFilesStore.read();
-      const files = scope.all
-        ? latest
-        : latest.filter((file) => scope.books.has(file.bookCode));
-      if (files.length === 0) return;
-      const results = yield* Effect.tryPromise(() =>
-        relintBookFiles(files, args.usfmOnionService),
-      );
-      for (const [bookCode, issues] of Object.entries(results)) {
-        args.findingsStore.commitBookFindings(
-          "onion",
-          bookCode,
-          onionFindingsByChapter(issues),
-        );
-      }
-    }).pipe(
-      Effect.catch((error: unknown) =>
-        Effect.sync(() => {
-          // eslint-disable-next-line no-console
-          console.error("[lintPipeline] lint failed", {
-            all: scope.all,
-            books: Array.from(scope.books),
-            error,
-          });
-        }),
-      ),
-    );
+    Effect.sync(() => {
+      const analyzeScope: AnalyzeScope = scope.all
+        ? "all"
+        : { books: Array.from(scope.books) };
+      args.feed.sendCommand({
+        kind: "analyzeLint",
+        scope: analyzeScope,
+        generation: args.workingFilesStore.generation(),
+      });
+    });
 
   return makeFoldedScopePipeline({
     changes: args.workingFilesStore.changes,
