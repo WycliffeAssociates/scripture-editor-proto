@@ -37,6 +37,10 @@ export class BackupWorkerSession {
       { type: "module" },
     );
     this.worker.onmessage = (event: MessageEvent<FromWorkerMessage>) => {
+      if (event.data.kind === "hello") {
+        this.flushPending();
+        return;
+      }
       if (event.data.kind === "ready") {
         this.resolveReady();
         return;
@@ -74,8 +78,23 @@ export class BackupWorkerSession {
     return this.readyPromise;
   }
 
+  // Outgoing messages buffer until the worker's `hello` (channel-open ACK)
+  // arrives — posts before the worker's module graph finishes evaluating can
+  // be silently dropped (see workerMessages.ts).
+  private pending: ToWorkerMessage[] | null = [];
+
   private post(message: ToWorkerMessage): void {
+    if (this.pending) {
+      this.pending.push(message);
+      return;
+    }
     this.worker.postMessage(message);
+  }
+
+  private flushPending(): void {
+    const queued = this.pending;
+    this.pending = null;
+    for (const message of queued ?? []) this.worker.postMessage(message);
   }
 
   dispose(): void {

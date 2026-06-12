@@ -64,3 +64,6 @@ async function handleMessage(message: ToWorkerMessage): Promise<void> {
     }
   }
 }
+
+// Channel-open ACK — see `hello` in workerMessages.ts.
+post({ kind: "hello" });

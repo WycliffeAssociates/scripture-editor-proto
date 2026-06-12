@@ -74,3 +74,8 @@ async function handleMessage(message: ToWorkerMessage): Promise<void> {
     }
   }
 }
+
+// Channel-open ACK, posted from the module's synchronous tail (the handler
+// above is registered). See `hello` in workerMessages.ts for why sessions
+// must not post anything before receiving this.
+post({ kind: "hello" });

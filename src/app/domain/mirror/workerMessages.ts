@@ -27,9 +27,18 @@ export type ToWorkerMessage =
   | { kind: "command"; command: MirrorCommand };
 
 export type FromWorkerMessage =
+  // `hello` is the channel-open ACK: the worker posts it from its module's
+  // synchronous tail, once `self.onmessage` is registered. It exists because
+  // Chromium unblocks a module worker's message port at the first top-level
+  // await in its IMPORT graph (the wasm deps have one) — anything posted
+  // before evaluation completes is dispatched into that window with no
+  // handler and silently dropped. Sessions therefore buffer every outgoing
+  // message until `hello` arrives, then flush in order.
+  | { kind: "hello" }
   // `ready` is the init ACK: the worker posts it once its async init (wasm
   // marker catalog + engines) has completed, so the main side can await the
   // load contract instead of firing the seed + initial analyze blind. On the
   // FIFO postMessage channel every later patch/command is already ordered
   // behind init; the ACK lets load *await* that ordering rather than assume it.
-  { kind: "ready" } | { kind: "result"; result: MirrorResult };
+  | { kind: "ready" }
+  | { kind: "result"; result: MirrorResult };
