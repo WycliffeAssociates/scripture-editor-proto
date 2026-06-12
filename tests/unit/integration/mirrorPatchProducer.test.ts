@@ -9,7 +9,7 @@ import { makeBook, makeChapter } from "@tests/helpers/workspaceFixtures.ts";
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  initialAnalyze,
+  awaitInitialFindings,
   patchesForCommit,
 } from "@/app/domain/editor/pipelines/mirrorPatchProducer.ts";
 import { makeMirrorResultRouter } from "@/app/domain/editor/pipelines/mirrorResultRouter.ts";
@@ -120,25 +120,47 @@ describe("patchesForCommit", () => {
   });
 });
 
-describe("initialAnalyze — the load contract's first pass", () => {
-  it("sends a project-wide lint + sous command at the load generation", () => {
+describe("awaitInitialFindings — the load contract's first pass", () => {
+  it("sends requestId-correlated lint + sous at the load generation and resolves on the matching results", async () => {
     const feed = new MirrorFeed();
     const commands: MirrorCommand[] = [];
+    // A fake mirror sink that answers each analyze with a matching result.
     feed.addSink({
       pushPatch: () => {},
-      sendCommand: (c) => commands.push(c),
+      sendCommand: (c) => {
+        commands.push(c);
+        if (c.kind === "analyzeLint") {
+          feed.deliverResult({
+            kind: "lintResult",
+            byBook: { GEN: [] },
+            ranAtGeneration: c.generation,
+            requestId: c.requestId,
+          });
+        }
+        if (c.kind === "analyzeSous") {
+          feed.deliverResult({
+            kind: "sousResult",
+            byBook: { GEN: { segments: {}, findings: [] } },
+            ranAtGeneration: c.generation,
+            requestId: c.requestId,
+          });
+        }
+      },
     });
 
-    initialAnalyze({ feed, generation: 12 });
+    const findings = await awaitInitialFindings({ feed, generation: 12 });
 
-    expect(commands).toHaveLength(2);
     expect(commands.map((c) => c.kind)).toEqual(["analyzeLint", "analyzeSous"]);
     for (const command of commands) {
       // `"all"` reads every seeded book; the load generation orders it against
-      // any edit that lands while the initial pass is in flight.
+      // any edit that lands while the initial pass is in flight. Each carries a
+      // correlation id so this awaiting caller matches its own result.
       expect("scope" in command && command.scope).toBe("all");
       expect(command.generation).toBe(12);
+      expect("requestId" in command && command.requestId).toBeTruthy();
     }
+    expect(findings.lint).toEqual({ GEN: [] });
+    expect(findings.sous).toEqual({ GEN: { segments: {}, findings: [] } });
   });
 });
 

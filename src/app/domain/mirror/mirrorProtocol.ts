@@ -122,16 +122,27 @@ export type MirrorPatch =
  */
 export type AnalyzeScope = { books: ReadonlyArray<string> } | "all";
 
+/**
+ * Optional correlation id. When present on an analyze command it is echoed on
+ * the matching result so a caller can await one specific pass — the minimal id
+ * correlation the load contract uses to await its initial lint + sous before
+ * releasing the loading gate. Live passes omit it and flow through the result
+ * router by generation as before; this adds no general RPC layer.
+ */
+export type RequestId = string;
+
 export type AnalyzeLintCommand = {
   kind: "analyzeLint";
   scope: AnalyzeScope;
   generation: Generation;
+  requestId?: RequestId;
 };
 
 export type AnalyzeSousCommand = {
   kind: "analyzeSous";
   scope: AnalyzeScope;
   generation: Generation;
+  requestId?: RequestId;
 };
 
 /** Serialize the book's dirty chapters to a backup envelope and persist it. */
@@ -167,12 +178,16 @@ export type LintResult = {
   kind: "lintResult";
   byBook: Record<string, LintIssue[]>;
   ranAtGeneration: Generation;
+  /** Echoed from the command that requested this pass, when it carried one. */
+  requestId?: RequestId;
 };
 
 export type SousResult = {
   kind: "sousResult";
   byBook: Record<string, SousAnalyzeResult>;
   ranAtGeneration: Generation;
+  /** Echoed from the command that requested this pass, when it carried one. */
+  requestId?: RequestId;
 };
 
 /**

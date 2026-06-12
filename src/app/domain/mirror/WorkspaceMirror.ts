@@ -182,9 +182,17 @@ export class WorkspaceMirror {
   async runCommand(command: MirrorCommand): Promise<MirrorResult> {
     switch (command.kind) {
       case "analyzeLint":
-        return this.runLint(command.scope, command.generation);
+        return this.runLint(
+          command.scope,
+          command.generation,
+          command.requestId,
+        );
       case "analyzeSous":
-        return this.runSous(command.scope, command.generation);
+        return this.runSous(
+          command.scope,
+          command.generation,
+          command.requestId,
+        );
       case "writeBackup":
         return this.runWriteBackup(
           command.bookCode,
@@ -219,6 +227,7 @@ export class WorkspaceMirror {
   private async runLint(
     scope: AnalyzeScope,
     generation: Generation,
+    requestId: string | undefined,
   ): Promise<LintResult> {
     const byBook: Record<string, LintIssue[]> = {};
     for (const bookCode of this.booksInScope(scope)) {
@@ -227,12 +236,18 @@ export class WorkspaceMirror {
         ? await this.engines.lintBook(tokens)
         : [];
     }
-    return { kind: "lintResult", byBook, ranAtGeneration: generation };
+    return {
+      kind: "lintResult",
+      byBook,
+      ranAtGeneration: generation,
+      requestId,
+    };
   }
 
   private async runSous(
     scope: AnalyzeScope,
     generation: Generation,
+    requestId: string | undefined,
   ): Promise<SousResult> {
     const byBook: Record<string, SousAnalyzeResult> = {};
     for (const bookCode of this.booksInScope(scope)) {
@@ -241,7 +256,12 @@ export class WorkspaceMirror {
         ? await this.engines.analyzeSousBook(tokens)
         : { segments: {}, findings: [] };
     }
-    return { kind: "sousResult", byBook, ranAtGeneration: generation };
+    return {
+      kind: "sousResult",
+      byBook,
+      ranAtGeneration: generation,
+      requestId,
+    };
   }
 
   /**

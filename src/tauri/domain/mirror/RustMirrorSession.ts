@@ -127,11 +127,14 @@ export class RustMirrorSession {
       command: "mirror_lint",
       scope: command.scope,
       generation: command.generation,
+      // Echo the command's correlation id (when present) so an awaiting caller
+      // — the load contract's initial pass — can match this specific result.
       deliver: (result) =>
         feed.deliverResult({
           kind: "lintResult",
           byBook: result.byBook,
           ranAtGeneration: result.ranAtGeneration,
+          requestId: command.requestId,
         }),
     });
   }
@@ -150,6 +153,7 @@ export class RustMirrorSession {
           kind: "sousResult",
           byBook: result.byBook,
           ranAtGeneration: result.ranAtGeneration,
+          requestId: command.requestId,
         }),
     });
   }

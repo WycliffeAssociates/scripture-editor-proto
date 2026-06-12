@@ -74,6 +74,30 @@ describe("WorkspaceMirror — patches", () => {
     }
   });
 
+  it("echoes the analyze command's requestId on the result", async () => {
+    const mirror = new WorkspaceMirror(makeEngines());
+    mirror.applyPatch({
+      kind: "pushChapter",
+      ref: { bookCode: "GEN", chapterNum: 1 },
+      chapter: chapter("hi", true),
+      generation: 1,
+    });
+    const lint = await mirror.runCommand({
+      kind: "analyzeLint",
+      scope: "all",
+      generation: 2,
+      requestId: "initial-lint-2",
+    });
+    const sous = await mirror.runCommand({
+      kind: "analyzeSous",
+      scope: "all",
+      generation: 2,
+      requestId: "initial-sous-2",
+    });
+    expect(lint.kind === "lintResult" && lint.requestId).toBe("initial-lint-2");
+    expect(sous.kind === "sousResult" && sous.requestId).toBe("initial-sous-2");
+  });
+
   it("drops a stale pushChapter (older generation is a no-op)", async () => {
     const persistBackup = vi.fn<MirrorEngines["persistBackup"]>(
       async () => true,

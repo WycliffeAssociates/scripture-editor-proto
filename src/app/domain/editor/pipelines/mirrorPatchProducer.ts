@@ -37,6 +37,8 @@ import type { DiskBaseline } from "@/app/state/DirtyBufferStore.ts";
 import type { CommitEvent } from "@/app/state/types.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import type { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
+import type { SousAnalyzeResult } from "@/core/domain/sous/sousTypes.ts";
+import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 // Match the tokenization the lint/sous pipelines use so mirror-side analysis
 // sees the same token stream the single-thread path did.
@@ -167,32 +169,79 @@ export function seedMirror(args: {
 }
 
 /**
- * Run an initial project-wide lint + sous against the freshly seeded mirror.
- * This is the load contract's "initial analyze through the mirror at load":
- * the seed `fullSync` has populated the mirror, so analyzing `"all"` reads
- * resident tokens for every book and the results flow back through the same
- * router that handles every later pass — so the user sees project findings on
- * first paint without typing. Unifies the old loader-lint path
- * (`initialLintErrorsByBook`, which `commitFilters` excluded `load` commits
- * from and which only ever carried lint, never sous) onto one mirror seam.
- *
- * Plain mode disables analysis, so the caller skips this there (matching the
- * gated lint/sous pipelines).
+ * The findings of an initial project-wide pass, in the RAW per-book engine
+ * shapes the result router normalizes. The kernel awaits these at load and the
+ * provider commits them into the FindingsStore before first paint; they ALSO
+ * flow through the result router (the live path), so committing them is
+ * idempotent against that.
  */
-export function initialAnalyze(args: {
+export type InitialFindings = {
+  lint: Record<string, LintIssue[]>;
+  sous: Record<string, SousAnalyzeResult>;
+};
+
+/** Empty initial findings — plain mode (analysis disabled) returns this. */
+export const NO_INITIAL_FINDINGS: InitialFindings = { lint: {}, sous: {} };
+
+/**
+ * Run an initial project-wide lint + sous against the freshly seeded mirror AND
+ * await both results. This is the load contract's "initial analyze through the
+ * mirror at load": the seed `fullSync` has populated the mirror, so analyzing
+ * `"all"` reads resident tokens for every book; the results flow back through
+ * the same result router that handles every later pass (so live wiring is
+ * unchanged) AND are correlated by `requestId` so this load-time caller can
+ * await its two specific passes before the loading gate releases. Unifies the
+ * old loader-lint path (`initialLintErrorsByBook`, which `commitFilters`
+ * excluded `load` commits from and which only ever carried lint, never sous)
+ * onto one mirror seam.
+ *
+ * Plain mode disables analysis, so the kernel skips this there (matching the
+ * gated lint/sous pipelines) and treats findings as empty.
+ */
+export async function awaitInitialFindings(args: {
   feed: MirrorFeed;
   generation: Generation;
-}): void {
+}): Promise<InitialFindings> {
+  const lintRequestId = `initial-lint-${args.generation}`;
+  const sousRequestId = `initial-sous-${args.generation}`;
+
+  const lintPromise = new Promise<Record<string, LintIssue[]>>((resolve) => {
+    const off = args.feed.onResult((result) => {
+      if (result.kind === "lintResult" && result.requestId === lintRequestId) {
+        off();
+        resolve(result.byBook);
+      }
+    });
+  });
+  const sousPromise = new Promise<Record<string, SousAnalyzeResult>>(
+    (resolve) => {
+      const off = args.feed.onResult((result) => {
+        if (
+          result.kind === "sousResult" &&
+          result.requestId === sousRequestId
+        ) {
+          off();
+          resolve(result.byBook);
+        }
+      });
+    },
+  );
+
   args.feed.sendCommand({
     kind: "analyzeLint",
     scope: "all",
     generation: args.generation,
+    requestId: lintRequestId,
   });
   args.feed.sendCommand({
     kind: "analyzeSous",
     scope: "all",
     generation: args.generation,
+    requestId: sousRequestId,
   });
+
+  const [lint, sous] = await Promise.all([lintPromise, sousPromise]);
+  return { lint, sous };
 }
 
 /**
