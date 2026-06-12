@@ -83,11 +83,33 @@ export type FullSyncBook = {
   chapters: Array<{ chapterNum: number; chapter: MirrorChapter }>;
 };
 
+/**
+ * Sync per-book disk baselines + per-chapter dirty flags WITHOUT touching
+ * tokens — the cheap path for a project-scope commit that moved only metadata
+ * (the save clean-mark: dirty flags clear and disk baselines advance, but no
+ * chapter's text changed). Unlike `fullSync` this carries no tokens and cannot
+ * add or remove content: the mirror updates flags/baselines on the entries it
+ * already holds. A book or chapter absent from the editor's view is simply not
+ * mentioned; nothing is dropped.
+ */
+export type SyncMetaPatch = {
+  kind: "syncMeta";
+  books: SyncMetaBook[];
+  generation: Generation;
+};
+
+export type SyncMetaBook = {
+  bookCode: string;
+  diskBaseline: DiskBaseline;
+  chapterDirty: Array<{ chapterNum: number; dirty: boolean }>;
+};
+
 export type MirrorPatch =
   | PushChapterPatch
   | DeleteChapterPatch
   | PushBaselinePatch
-  | FullSyncPatch;
+  | FullSyncPatch
+  | SyncMetaPatch;
 
 // --- Commands (main → mirror): read resident state, produce a result. ------
 

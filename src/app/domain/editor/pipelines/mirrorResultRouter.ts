@@ -25,6 +25,7 @@ import {
 import { seedMirror } from "@/app/domain/editor/pipelines/mirrorPatchProducer.ts";
 import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import type { MirrorResult } from "@/app/domain/mirror/mirrorProtocol.ts";
+import { retryBackupWrite } from "@/app/domain/mirror/retryBackupWrite.ts";
 import type {
   DirtyBufferFile,
   DirtyBufferStore,
@@ -86,12 +87,19 @@ export function makeMirrorResultRouter(args: {
         if (result.envelopeJson === undefined) return;
         // Desktop interim: the worker couldn't `invoke`, so it serialized and
         // shipped the bytes; main does the one dumb write through the seam.
+        // Bounded retry covers a transient FS hiccup so the safety-net write
+        // isn't lost silently; on exhaust we log loudly and leave the book
+        // dormant until its next commit re-triggers a write.
         const entry = JSON.parse(result.envelopeJson) as DirtyBufferFile;
-        void args.dirtyBufferStore.put(
-          args.workspaceKey,
-          result.bookCode,
-          entry,
-        );
+        const bookCode = result.bookCode;
+        void retryBackupWrite(() =>
+          args.dirtyBufferStore.put(args.workspaceKey, bookCode, entry),
+        ).catch((error: unknown) => {
+          console.error(
+            "[mirror] desktop backup write failed after retries; book left dormant",
+            { bookCode, error },
+          );
+        });
         return;
       }
       case "resyncRequest": {

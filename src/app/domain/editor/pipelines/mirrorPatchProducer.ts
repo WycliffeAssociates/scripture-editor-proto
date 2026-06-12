@@ -7,10 +7,15 @@
 // happens here exactly once per commit and never again — the mirror holds the
 // result, the engines and the backup serializer read it locally.
 //
-// `project: true` commits become a `fullSync` so mirrors drop state for books
-// that vanished (a chapter-delta list can't express removal). Chapter-scope
-// commits become per-chapter `pushChapter` patches. Baselines ride alongside so
-// the mirror's backup envelope always has the book's current `diskBaseline`.
+// A content-bearing `project: true` commit (import, version revert, mode
+// switch, accept-incoming) becomes a `fullSync` so mirrors drop state for books
+// that vanished (a chapter-delta list can't express removal) — at the cost of
+// re-tokenizing every chapter. A project commit that moved only metadata
+// (`dirtyTextContent === false`, e.g. the save clean-mark: flags clear and disk
+// baselines advance, tokens unchanged) takes the cheap `syncMeta` path instead,
+// which carries flags + baselines but no tokens. Chapter-scope commits become
+// per-chapter `pushChapter` patches. Baselines ride alongside so the mirror's
+// backup envelope always has the book's current `diskBaseline`.
 
 import { Effect, Stream } from "effect";
 
@@ -21,6 +26,7 @@ import type {
   Generation,
   MirrorChapter,
   MirrorPatch,
+  SyncMetaBook,
 } from "@/app/domain/mirror/mirrorProtocol.ts";
 import type {
   ScriptureBookState,
@@ -64,6 +70,20 @@ function fullSyncBooks(
   }));
 }
 
+function syncMetaBooks(
+  snapshot: ReadonlyArray<ScriptureBookState>,
+  baselineFor: (bookCode: string) => DiskBaseline,
+): SyncMetaBook[] {
+  return snapshot.map((book) => ({
+    bookCode: book.bookCode,
+    diskBaseline: baselineFor(book.bookCode),
+    chapterDirty: book.chapters.map((chapter) => ({
+      chapterNum: chapter.chapterNumber,
+      dirty: chapter.dirty,
+    })),
+  }));
+}
+
 /**
  * Build the full set of patches a commit implies. Pure given the post-commit
  * snapshot + baselines; the only cost is the per-chapter `lexicalToTokens`,
@@ -77,6 +97,15 @@ export function patchesForCommit(
   const scope = event.meta.scope;
 
   if ("project" in scope) {
+    if (!event.meta.dirtyTextContent) {
+      return [
+        {
+          kind: "syncMeta",
+          books: syncMetaBooks(event.snapshot, baselineFor),
+          generation,
+        },
+      ];
+    }
     return [
       {
         kind: "fullSync",

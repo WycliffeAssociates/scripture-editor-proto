@@ -36,6 +36,7 @@ import type {
   MirrorResult,
   SousResult,
 } from "./mirrorProtocol.ts";
+import { retryBackupWrite } from "./retryBackupWrite.ts";
 
 /**
  * The engine + persistence callbacks the mirror needs to do its work. Injected
@@ -87,6 +88,8 @@ export class WorkspaceMirror {
     switch (patch.kind) {
       case "fullSync":
         return this.applyFullSync(patch);
+      case "syncMeta":
+        return this.applySyncMeta(patch);
       case "pushChapter": {
         const book = this.ensureBook(patch.ref.bookCode);
         const existing = book.chapters.get(patch.ref.chapterNum);
@@ -131,6 +134,32 @@ export class WorkspaceMirror {
         baselineGeneration: patch.generation,
         chapters,
       });
+    }
+  }
+
+  /**
+   * Move dirty flags + disk baselines onto the entries we already hold without
+   * disturbing tokens. A metadata-only commit cannot add or remove content, so
+   * an unmentioned book/chapter is left intact and a mentioned book the mirror
+   * doesn't know is ignored (it would arrive via a content patch first). Each
+   * chapter's flag advances under the same generation guard tokens use.
+   */
+  private applySyncMeta(
+    patch: Extract<MirrorPatch, { kind: "syncMeta" }>,
+  ): void {
+    for (const meta of patch.books) {
+      const book = this.books.get(meta.bookCode);
+      if (!book) continue;
+      if (book.baselineGeneration <= patch.generation) {
+        book.diskBaseline = meta.diskBaseline;
+        book.baselineGeneration = patch.generation;
+      }
+      for (const { chapterNum, dirty } of meta.chapterDirty) {
+        const chapter = book.chapters.get(chapterNum);
+        if (!chapter || chapter.generation > patch.generation) continue;
+        chapter.dirty = dirty;
+        chapter.generation = patch.generation;
+      }
     }
   }
 
@@ -227,13 +256,7 @@ export class WorkspaceMirror {
   ): Promise<BackupResult> {
     const book = this.books.get(bookCode);
     if (!book || ![...book.chapters.values()].some((c) => c.dirty)) {
-      await this.engines.clearBackup(bookCode);
-      return {
-        kind: "backupResult",
-        bookCode,
-        cleared: true,
-        ranAtGeneration: generation,
-      };
+      return this.runClearBackup(bookCode, generation);
     }
 
     const content = this.serializeBook(book);
@@ -247,11 +270,25 @@ export class WorkspaceMirror {
       content,
     };
     const envelopeJson = JSON.stringify(entry);
-    const wrote = await this.engines.persistBackup(bookCode, envelopeJson);
+    let wrote = false;
+    try {
+      wrote = await retryBackupWrite(() =>
+        this.engines.persistBackup(bookCode, envelopeJson),
+      );
+    } catch (error) {
+      // Retries exhausted: log loudly and leave the book dormant until its next
+      // commit re-triggers a write. We still ship the bytes back so a host that
+      // can persist on main (desktop) gets a last chance; if that also fails the
+      // book stays uncovered until the next commit — never tear anything down.
+      console.error(
+        "[mirror] backup write failed after retries; book left dormant",
+        { bookCode, error },
+      );
+    }
     return {
       kind: "backupResult",
       bookCode,
-      // Ship the bytes back only when the host couldn't persist them.
+      // Ship the bytes back when the host couldn't persist them (or failed).
       envelopeJson: wrote ? undefined : envelopeJson,
       ranAtGeneration: generation,
     };
@@ -261,7 +298,14 @@ export class WorkspaceMirror {
     bookCode: string,
     generation: Generation,
   ): Promise<BackupResult> {
-    await this.engines.clearBackup(bookCode);
+    try {
+      await retryBackupWrite(() => this.engines.clearBackup(bookCode));
+    } catch (error) {
+      console.error(
+        "[mirror] backup clear failed after retries; book left dormant",
+        { bookCode, error },
+      );
+    }
     return {
       kind: "backupResult",
       bookCode,

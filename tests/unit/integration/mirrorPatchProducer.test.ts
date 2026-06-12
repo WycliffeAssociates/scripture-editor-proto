@@ -61,6 +61,40 @@ describe("patchesForCommit", () => {
     expect(patches[0]!.kind).toBe("fullSync");
   });
 
+  it("emits a syncMeta (not fullSync) for a metadata-only project commit", () => {
+    const book = makeBook({
+      bookCode: "GEN",
+      chapters: [
+        makeChapter({ bookCode: "GEN", chapterNumber: 1, text: "hi" }),
+      ],
+    });
+    // The save clean-mark: project scope, no text changed.
+    const event: CommitEvent = {
+      meta: {
+        kind: "metadataOnly",
+        action: "saveCleanMark",
+        scope: { project: true },
+        dirtyTextContent: false,
+        generation: 4,
+      },
+      patch: { kind: "bulk", files: [book] },
+      snapshot: [book],
+    };
+
+    const patches = patchesForCommit(event, baselineAbsent);
+    expect(patches).toHaveLength(1);
+    const patch = patches[0]!;
+    expect(patch.kind).toBe("syncMeta");
+    if (patch.kind === "syncMeta") {
+      // Carries flags + baseline, no tokens.
+      expect(patch.books).toHaveLength(1);
+      expect(patch.books[0]!.chapterDirty).toEqual([
+        { chapterNum: 1, dirty: false },
+      ]);
+      expect(patch.generation).toBe(4);
+    }
+  });
+
   it("emits a deleteChapter when a scoped chapter vanished from the snapshot", () => {
     const book = makeBook({
       bookCode: "GEN",
