@@ -3,10 +3,10 @@ import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 
 import type { PlatformAndWeb } from "@/app/data/constants.ts";
-import { makeServiceMirrorEngines } from "@/app/domain/editor/pipelines/serviceMirrorEngines.ts";
-import { InProcessMirrorSession } from "@/app/domain/mirror/InProcessMirrorSession.ts";
-import type { MirrorSessionFactory } from "@/app/domain/mirror/mirrorSessionFactory.ts";
-import { WorkspaceMirror } from "@/app/domain/mirror/WorkspaceMirror.ts";
+import type {
+  MirrorSession,
+  MirrorSessionFactory,
+} from "@/app/domain/mirror/mirrorSessionFactory.ts";
 import { App } from "@/app/entrypoint.tsx";
 import { DefaultLibraryService } from "@/app/library/DefaultLibraryService.ts";
 import {
@@ -21,6 +21,8 @@ import { normalizeGiteaHostBaseUrl } from "@/core/persistence/giteaConfig.ts";
 import { GiteaRemoteRepoProvider } from "@/core/persistence/GiteaRemoteRepoProvider.ts";
 import { TauriGitProvider } from "@/tauri/adapters/git/TauriGitProvider.ts";
 import { TauriMd5Service } from "@/tauri/domain/md5/TauriMd5Service.ts";
+import { BackupWorkerSession } from "@/tauri/domain/mirror/BackupWorkerSession.ts";
+import { RustMirrorSession } from "@/tauri/domain/mirror/RustMirrorSession.ts";
 import { createTauriSettingsManager } from "@/tauri/domain/settings/settings.ts";
 import { TauriSousService } from "@/tauri/domain/sous/TauriSousService.ts";
 import { TauriUpdaterService } from "@/tauri/domain/updater/TauriUpdaterService.ts";
@@ -82,27 +84,30 @@ initializeUsfmMarkerCatalog(await usfmOnionService.getMarkerCatalog());
 const updaterService = new TauriUpdaterService();
 await updaterService.initialize();
 
-// Desktop interim mirror: in-process (a web worker can't `invoke`, and a Rust
-// resident mirror is phase 3). Engines are bound to the existing Tauri services
-// so lint/sous keep their invoke paths; the dirty-buffer write goes through the
-// store the caller passes in.
+// Desktop mirror: two sinks on the multicast feed. The Rust resident-state
+// mirror owns lint/sous (tokens born in Rust at parse, edits flow as
+// `mirror_push_patch`; analyze reads resident State); a wasm-free backup worker
+// owns crash-recovery backup (it serializes off the main thread and bounces the
+// bytes back for main's FS write, since a worker can't `invoke` — S2).
 const mirrorSessionFactory: MirrorSessionFactory = ({
   feed,
   workspaceKey,
-  dirtyBufferStore,
-}) =>
-  new InProcessMirrorSession({
+  dirtyBufferRoot,
+}) => {
+  const rust = new RustMirrorSession({ feed });
+  const backup = new BackupWorkerSession({
     feed,
-    mirror: new WorkspaceMirror(
-      makeServiceMirrorEngines({
-        usfmOnionService,
-        sousService,
-        md5Service,
-        dirtyBufferStore,
-        workspaceKey,
-      }),
-    ),
+    workspaceKey,
+    dirtyBufferRoot,
   });
+  const session: MirrorSession = {
+    dispose() {
+      backup.dispose();
+      rust.dispose();
+    },
+  };
+  return session;
+};
 
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Root element not found");

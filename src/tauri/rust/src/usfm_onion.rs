@@ -358,7 +358,7 @@ fn map_lint_code(code: &str) -> Option<onion::LintCode> {
     serde_json::from_str::<onion::LintCode>(&format!("\"{code}\"")).ok()
 }
 
-fn map_lint_options(options: Option<LintOptionsDto>) -> onion::LintOptions {
+pub fn map_lint_options(options: Option<LintOptionsDto>) -> onion::LintOptions {
     // The editor doesn't thread chapter-grain scope; lint the whole book to
     // preserve today's behavior, matching WebUsfmOnionService's WHOLE_BOOK_SCOPE.
     // TODO(lint-scope): thread chapter-grain scope (deferred; see agent-tmp/ideas).
@@ -758,15 +758,24 @@ pub fn usfm_onion_lint_paths(
         .collect())
 }
 
+/// Lint a single batch of flat tokens against already-resolved options. Shared
+/// by the token-batch command and the resident-mirror lint command so both run
+/// the exact same `TokenStream::from_tokens` → lint projection.
+pub fn lint_flat_tokens(
+    tokens: Vec<FlatTokenDto>,
+    options: onion::LintOptions,
+) -> Vec<LintIssueDto> {
+    let stream =
+        onion::TokenStream::from_tokens(tokens.into_iter().map(map_flat_token_dto).collect());
+    stream.lint(options).issues.iter().map(map_lint_issue).collect()
+}
+
 #[tauri::command]
 pub fn usfm_onion_lint_tokens(
     tokens: Vec<FlatTokenDto>,
     options: Option<LintOptionsDto>,
 ) -> Result<Vec<LintIssueDto>, String> {
-    let stream =
-        onion::TokenStream::from_tokens(tokens.into_iter().map(map_flat_token_dto).collect());
-    let result = stream.lint(map_lint_options(options));
-    Ok(result.issues.iter().map(map_lint_issue).collect())
+    Ok(lint_flat_tokens(tokens, map_lint_options(options)))
 }
 
 #[tauri::command]

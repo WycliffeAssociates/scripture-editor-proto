@@ -8,8 +8,13 @@
 
 import type { DirtyBufferStore } from "@/app/state/DirtyBufferStore.ts";
 
-import type { MirrorSession } from "./InProcessMirrorSession.ts";
 import type { MirrorFeed } from "./MirrorFeed.ts";
+
+/** A live mirror attachment to a feed; `dispose` tears down its sink (and any
+ *  worker/transport it owns) when the workspace swaps or unmounts. */
+export interface MirrorSession {
+  dispose(): void;
+}
 
 export type MirrorSessionFactory = (args: {
   feed: MirrorFeed;
