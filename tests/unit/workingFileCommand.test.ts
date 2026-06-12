@@ -271,6 +271,45 @@ describe("withWorkingFilesDraft", () => {
       expect(commitSpy).toHaveBeenCalledTimes(1);
       expect(contentOf(store, "GEN", 1)).toBe("gen1-user");
     });
+
+    it("aborts (stale-workspace) when a concurrent commit lands on an UNRELATED book", async () => {
+      const store = new WorkingFilesStore([
+        book("GEN", chapter(1, "gen1")),
+        book("EXO", chapter(1, "exo1")),
+      ]);
+      const gate = new WorkspaceGateStore();
+      const commitSpy = vi.spyOn(store, "commit");
+
+      const result = await withWorkingFilesDraft({
+        workingFilesStore: store,
+        interactionGate: gate,
+        commitMeta,
+        mutate: async (draft) => {
+          // The rebuild touches only GEN, but a bulk commit writes the draft's
+          // whole `files` array — so a concurrent commit to EXO (outside the
+          // affected set) would be clobbered. Whole-state identity must abort.
+          const gen = draft.bookForWrite("GEN");
+          if (gen) gen.chapters = [chapter(1, "gen1-rebuilt")];
+          const concurrent = store.draftWithChapters([
+            { bookCode: "EXO", chapterNum: 1 },
+          ]);
+          const exo = concurrent
+            .find((b) => b.bookCode === "EXO")
+            ?.chapters.find((c) => c.chapterNumber === 1);
+          if (exo) exo.currentTokens = tokens("exo1-user", "eu");
+          store.commit({
+            patch: { kind: "bulk", files: concurrent },
+            meta: { ...commitMeta, scope: { project: true } },
+          });
+          return undefined;
+        },
+      });
+
+      expect(result).toEqual({ kind: "aborted", reason: "stale-workspace" });
+      // Only the concurrent commit ran; the unrelated EXO edit survived.
+      expect(commitSpy).toHaveBeenCalledTimes(1);
+      expect(contentOf(store, "EXO", 1)).toBe("exo1-user");
+    });
   });
 
   it("returns unchanged (no commit) when nothing was checked out", async () => {

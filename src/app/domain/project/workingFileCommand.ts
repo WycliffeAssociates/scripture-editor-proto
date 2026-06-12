@@ -105,21 +105,23 @@ export async function withWorkingFilesDraft<T>(args: {
   // them present ⇒ bulk commit; otherwise overlay only the affected chapters.
   const isBulk = wholesaleBooks.size > 0;
 
-  // Staleness: every checked-out chapter must still be the same object the
-  // draft branched from. Identity, not text — structural sharing replaces a
-  // touched chapter's object on ANY commit. For bulk commits the same per-
-  // chapter check stands in for the whole-array identity check, because every
-  // chapter of a wholesale book was checked out (its pre-image recorded).
-  const baseline = captureChapterIdentities(startState, affected);
-  if (
-    !chapterIdentitiesUnchanged(
-      args.workingFilesStore.read(),
-      affected,
-      baseline,
-    )
-  ) {
+  // Staleness, matched to the write's scope. A bulk commit writes the draft's
+  // whole `files` array (branched from `startState`), so it would clobber a
+  // concurrent commit to ANY chapter — including ones outside `affected`; the
+  // only safe gate is whole-state object identity (structural sharing replaces
+  // the `read()` array on any state-changing commit). A per-chapter commit
+  // overlays only `affected` onto the latest state, so it need only validate
+  // those chapters' object identities; concurrent commits elsewhere survive.
+  const isStale = isBulk
+    ? args.workingFilesStore.read() !== startState
+    : !chapterIdentitiesUnchanged(
+        args.workingFilesStore.read(),
+        affected,
+        captureChapterIdentities(startState, affected),
+      );
+  if (isStale) {
     console.info(
-      "[workingFileCommand] aborted — an affected chapter changed during the mutation; result is stale",
+      "[workingFileCommand] aborted — the workspace/affected chapter changed during the mutation; result is stale",
     );
     return {
       kind: "aborted",
