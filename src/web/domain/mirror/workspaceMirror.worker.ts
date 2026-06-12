@@ -32,9 +32,15 @@ function post(message: FromWorkerMessage): void {
 let chain: Promise<void> = Promise.resolve();
 
 self.onmessage = (event: MessageEvent<ToWorkerMessage>) => {
-  chain = chain.then(
-    () => handleMessage(event.data),
-    () => handleMessage(event.data),
+  chain = chain.then(() =>
+    handleMessage(event.data).catch((error: unknown) => {
+      // A failed init (wasm load) or command must be loud: with the mirror
+      // null or stale every later message no-ops and the symptom is silence.
+      console.error(
+        `[mirror.worker] ${event.data.kind} failed`,
+        error instanceof Error ? (error.stack ?? error.message) : error,
+      );
+    }),
   );
 };
 
@@ -50,6 +56,7 @@ async function handleMessage(message: ToWorkerMessage): Promise<void> {
           dirtyBufferRoot: message.dirtyBufferRoot,
         }),
       );
+      console.info("[mirror.worker] initialized (wasm engines ready)");
       return;
     }
     case "patch": {

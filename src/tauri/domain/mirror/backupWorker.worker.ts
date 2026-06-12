@@ -33,9 +33,13 @@ function post(message: FromWorkerMessage): void {
 let chain: Promise<void> = Promise.resolve();
 
 self.onmessage = (event: MessageEvent<ToWorkerMessage>) => {
-  chain = chain.then(
-    () => handleMessage(event.data),
-    () => handleMessage(event.data),
+  chain = chain.then(() =>
+    handleMessage(event.data).catch((error: unknown) => {
+      console.error(
+        `[mirror.backup-worker] ${event.data.kind} failed`,
+        error instanceof Error ? (error.stack ?? error.message) : error,
+      );
+    }),
   );
 };
 
