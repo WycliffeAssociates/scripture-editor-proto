@@ -1,8 +1,9 @@
 import {
-    HISTORIC_TAG,
-    HISTORY_MERGE_TAG,
-    type SerializedLineBreakNode,
+  HISTORIC_TAG,
+  HISTORY_MERGE_TAG,
+  type SerializedLineBreakNode,
 } from "lexical";
+
 import type { BookFrontmatterFormNodeJSON } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
 import type { USFMNestedEditorNodeJSON } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import type { SerializedUSFMNumberedMarkerNode } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
@@ -22,11 +23,11 @@ export type ContentEditorModeSetting = Exclude<EditorModeSetting, "view">;
  * Canonical enum-like object for editor-mode comparisons.
  */
 export const EDITOR_MODES = {
-    regular: "regular",
-    usfm: "usfm",
-    plain: "plain",
-    view: "view",
-    form: "form",
+  regular: "regular",
+  usfm: "usfm",
+  plain: "plain",
+  view: "view",
+  form: "form",
 } as const satisfies Record<EditorModeSetting, EditorModeSetting>;
 
 /**
@@ -43,9 +44,9 @@ export const EDITOR_MODES = {
 export type EditorShape = "regular" | "form" | "flat";
 
 export const EDITOR_SHAPES = {
-    regular: "regular",
-    form: "form",
-    flat: "flat",
+  regular: "regular",
+  form: "form",
+  flat: "flat",
 } as const satisfies Record<EditorShape, EditorShape>;
 
 /**
@@ -55,11 +56,11 @@ export const EDITOR_SHAPES = {
  * mode-to-shape ternary doesn't drift across call sites.
  */
 export function editorModeToShape(mode: EditorModeSetting): EditorShape {
-    if (mode === EDITOR_MODES.form) return EDITOR_SHAPES.form;
-    if (mode === EDITOR_MODES.regular || mode === EDITOR_MODES.view) {
-        return EDITOR_SHAPES.regular;
-    }
-    return EDITOR_SHAPES.flat;
+  if (mode === EDITOR_MODES.form) return EDITOR_SHAPES.form;
+  if (mode === EDITOR_MODES.regular || mode === EDITOR_MODES.view) {
+    return EDITOR_SHAPES.regular;
+  }
+  return EDITOR_SHAPES.flat;
 }
 
 /**
@@ -85,34 +86,51 @@ export function editorModeToShape(mode: EditorModeSetting): EditorShape {
  * source of it.
  */
 export type MaterializeSurface =
-    | "mainEditor"
-    | "workingRebuild"
-    | "referencePane"
-    | "savedBaseline"
-    | "compareSource";
+  | "mainEditor"
+  | "workingRebuild"
+  | "referencePane"
+  | "savedBaseline"
+  | "compareSource";
 
 export function shapeForSurface(
-    surface: "savedBaseline" | "compareSource",
+  surface: "savedBaseline" | "compareSource",
 ): EditorShape;
 export function shapeForSurface(
-    surface: "mainEditor" | "workingRebuild" | "referencePane",
-    userMode: EditorModeSetting,
+  surface: "mainEditor" | "workingRebuild" | "referencePane",
+  userMode: EditorModeSetting,
 ): EditorShape;
 export function shapeForSurface(
-    surface: MaterializeSurface,
-    userMode?: EditorModeSetting,
+  surface: MaterializeSurface,
+  userMode?: EditorModeSetting,
 ): EditorShape {
-    if (surface === "savedBaseline" || surface === "compareSource") {
-        return EDITOR_SHAPES.flat;
-    }
-    return editorModeToShape(userMode ?? EDITOR_MODES.regular);
+  if (surface === "savedBaseline" || surface === "compareSource") {
+    return EDITOR_SHAPES.flat;
+  }
+  return editorModeToShape(userMode ?? EDITOR_MODES.regular);
 }
 
 /**
  * View mode is the one read-only presentation; every other mode edits.
  */
 export function isEditableEditorMode(mode: EditorModeSetting): boolean {
-    return mode !== EDITOR_MODES.view;
+  return mode !== EDITOR_MODES.view;
+}
+
+/**
+ * THE single definition of what "plain" opts out of: all analysis and
+ * structural-repair pipelines (lint, sous, the dev re-lex alarm, and
+ * structure/metadata maintenance). Plain is the bytes-only escape hatch — it
+ * loads flat, autosaves for crash recovery, and runs nothing that inspects or
+ * rewrites content. Crash-recovery autosave, save-status, editor-sync, and
+ * layout-tick are NOT analysis and keep running in every mode.
+ *
+ * Read in two execution locations by design — the fork site for the
+ * mode-naive pipelines, and structure-maintenance's own fire-time check (it
+ * already consulted mode there for view) — but the policy itself lives only
+ * here so "what plain disables" is one readable fact.
+ */
+export function analysisDisabledInMode(mode: EditorModeSetting): boolean {
+  return mode === EDITOR_MODES.plain;
 }
 
 /**
@@ -122,9 +140,9 @@ export function isEditableEditorMode(mode: EditorModeSetting): boolean {
  * excludes view.
  */
 export function isRegularShape(mode: EditorModeSetting | undefined): boolean {
-    return (
-        mode !== undefined && editorModeToShape(mode) === EDITOR_SHAPES.regular
-    );
+  return (
+    mode !== undefined && editorModeToShape(mode) === EDITOR_SHAPES.regular
+  );
 }
 
 /**
@@ -132,7 +150,7 @@ export function isRegularShape(mode: EditorModeSetting | undefined): boolean {
  * styling; every other mode shows them.
  */
 export function markersHiddenInMode(mode: EditorModeSetting): boolean {
-    return isRegularShape(mode);
+  return isRegularShape(mode);
 }
 
 /**
@@ -141,28 +159,28 @@ export function markersHiddenInMode(mode: EditorModeSetting): boolean {
  * difference is carried separately (`data-editor-read-only` / `setEditable`).
  */
 export function domPresentationMode(
-    mode: EditorModeSetting,
+  mode: EditorModeSetting,
 ): ContentEditorModeSetting {
-    return mode === EDITOR_MODES.view ? EDITOR_MODES.regular : mode;
+  return mode === EDITOR_MODES.view ? EDITOR_MODES.regular : mode;
 }
 
 /**
  * Token categories surfaced by the USFM parsing pipeline.
  */
 export const UsfmTokenTypes = {
-    marker: "marker",
-    endMarker: "endMarker",
-    text: "text",
-    numberRange: "numberRange",
-    verticalWhitespace: "nl",
-    error: "error",
-    /**
-     * A whole marker+number unit held by one USFMNumberedMarkerNode (\c, \v;
-     * later cp/ca/va/vp). Deliberately NOT "numberRange": the node IS the
-     * marker-and-number pair, not a number token beside a hidden marker, and
-     * no adjacency logic should treat it as one.
-     */
-    numberedMarker: "numberedMarker",
+  marker: "marker",
+  endMarker: "endMarker",
+  text: "text",
+  numberRange: "numberRange",
+  verticalWhitespace: "nl",
+  error: "error",
+  /**
+   * A whole marker+number unit held by one USFMNumberedMarkerNode (\c, \v;
+   * later cp/ca/va/vp). Deliberately NOT "numberRange": the node IS the
+   * marker-and-number pair, not a number token beside a hidden marker, and
+   * no adjacency logic should treat it as one.
+   */
+  numberedMarker: "numberedMarker",
 } as const;
 
 /**
@@ -170,14 +188,14 @@ export const UsfmTokenTypes = {
  * transitions, history merges, and replay operations.
  */
 export const EDITOR_TAGS_USED = {
-    programaticIgnore: "programatic-ignore",
-    programmaticDoRunChanges: "programmatic-do-run-changes",
-    // Marks structure/metadata writebacks from the structure-maintenance
-    // pipeline. The bridge maps this to commit kind "structuralFixup"; downstream
-    // pipelines filter that kind out to break the feedback loop.
-    programmaticStructuralFix: "programmatic-structural-fix",
-    historyMerge: HISTORY_MERGE_TAG,
-    historic: HISTORIC_TAG,
+  programaticIgnore: "programatic-ignore",
+  programmaticDoRunChanges: "programmatic-do-run-changes",
+  // Marks structure/metadata writebacks from the structure-maintenance
+  // pipeline. The bridge maps this to commit kind "structuralFixup"; downstream
+  // pipelines filter that kind out to break the feedback loop.
+  programmaticStructuralFix: "programmatic-structural-fix",
+  historyMerge: HISTORY_MERGE_TAG,
+  historic: HISTORIC_TAG,
 };
 
 export const USFM_TEXT_NODE_TYPE = "usfm-text-node" as const;
@@ -188,9 +206,9 @@ export const USFM_PARAGRAPH_NODE_TYPE = "usfm-paragraph-node" as const;
  * its USFM-aware Lexical state.
  */
 export type USFMNodeJSON =
-    | BookFrontmatterFormNodeJSON
-    | USFMParagraphNodeJSON
-    | SerializedUSFMTextNode
-    | SerializedUSFMNumberedMarkerNode
-    | SerializedLineBreakNode
-    | USFMNestedEditorNodeJSON;
+  | BookFrontmatterFormNodeJSON
+  | USFMParagraphNodeJSON
+  | SerializedUSFMTextNode
+  | SerializedUSFMNumberedMarkerNode
+  | SerializedLineBreakNode
+  | USFMNestedEditorNodeJSON;
