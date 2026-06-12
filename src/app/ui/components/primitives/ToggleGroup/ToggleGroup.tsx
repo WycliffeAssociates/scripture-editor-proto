@@ -17,6 +17,8 @@ export interface ToggleGroupProps {
   onValueChange?: (value: string) => void;
   items: ToggleGroupItem[];
   variant?: "default" | "outlinePill";
+  /** Denser rows + smaller text for tight chrome like popovers. */
+  compact?: boolean;
   className?: string;
   itemClassName?: string;
 }
@@ -37,6 +39,7 @@ export function ToggleGroup({
   onValueChange,
   items,
   variant = "default",
+  compact = false,
   className,
   itemClassName,
 }: ToggleGroupProps) {
@@ -81,6 +84,7 @@ export function ToggleGroup({
           className={joinClassNames(
             styles.item,
             styles.itemVariants[variant],
+            compact ? styles.itemCompact : undefined,
             itemClassName,
           )}
         >
@@ -88,7 +92,14 @@ export function ToggleGroup({
             <span className={styles.itemIcon}>{item.icon}</span>
           ) : null}
           {item.label ? (
-            <span className={styles.itemLabel}>{item.label}</span>
+            <span
+              className={joinClassNames(
+                styles.itemLabel,
+                compact ? styles.itemLabelCompact : undefined,
+              )}
+            >
+              {item.label}
+            </span>
           ) : null}
         </Toggle>
       ))}

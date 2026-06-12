@@ -79,6 +79,7 @@ function EditorModeToggle({
       items={editorModeItems}
       value={currentValue}
       onValueChange={handleValueChange}
+      compact
       className={className ?? styles.modePickerControl}
       portalContainer={portalContainer}
       placeholder={t`Select editor mode`}

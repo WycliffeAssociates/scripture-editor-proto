@@ -19,6 +19,10 @@ import { ChapterDiffStructuredDocument } from "@/app/ui/components/blocks/DiffMo
 import { VirtualizedDiffList } from "@/app/ui/components/blocks/DiffModal/DiffModalListView.tsx";
 import { DiffViewerToolbar } from "@/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
+import type {
+  BuildPrintChangesFn,
+  PrintCheckpoint,
+} from "@/app/ui/hooks/save/useExternalCompare.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
 import type { ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
@@ -52,6 +56,8 @@ export type DiffViewerModalProps = {
   loadCompareZip: (file: File) => Promise<void>;
   loadCompareDirectory: (files: FileList) => Promise<void>;
   loadCompareVersion: (commitHash: string) => Promise<void>;
+  buildPrintChanges: BuildPrintChangesFn;
+  printCheckpoints: PrintCheckpoint[];
   loadCompareRemoteLatest: () => Promise<void>;
   compareWarnings: CompareWarning[];
   takeIncomingAll: () => void;
@@ -154,6 +160,8 @@ export function DiffViewerModal({
   loadCompareZip,
   loadCompareDirectory,
   loadCompareVersion,
+  buildPrintChanges,
+  printCheckpoints,
   loadCompareRemoteLatest,
   compareWarnings,
   takeIncomingAll,
@@ -329,6 +337,8 @@ export function DiffViewerModal({
           compareSourceVersionHash={compareSourceVersionHash}
           setCompareSourceVersionHash={setCompareSourceVersionHash}
           loadCompareVersion={loadCompareVersion}
+          buildPrintChanges={buildPrintChanges}
+          printCheckpoints={printCheckpoints}
           loadCompareRemoteLatest={loadCompareRemoteLatest}
           showUsfmMarkers={showUsfmMarkers}
           setShowUsfmMarkers={setShowUsfmMarkers}

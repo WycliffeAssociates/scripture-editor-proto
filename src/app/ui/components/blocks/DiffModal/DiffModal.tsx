@@ -42,6 +42,8 @@ export function SaveAndReviewChangesOverlay() {
       loadCompareZip={save.compare.loadFromZip}
       loadCompareDirectory={save.compare.loadFromDirectory}
       loadCompareVersion={save.compare.loadFromVersion}
+      buildPrintChanges={save.compare.buildPrintChanges}
+      printCheckpoints={save.compare.printCheckpoints}
       loadCompareRemoteLatest={save.compare.loadFromRemoteLatest}
       compareWarnings={save.compare.warnings}
       takeIncomingAll={save.compare.applyIncomingAll}

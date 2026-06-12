@@ -22,6 +22,12 @@ import type {
   DiffsByChapter,
   ProjectDiff,
 } from "@/app/domain/project/diffTypes.ts";
+import {
+  buildPrintChangeSet,
+  type PrintChangeSet,
+  type PrintGranularity,
+  type PrintScope,
+} from "@/app/domain/project/print/buildPrintChangeSet.ts";
 import { hasDiffsByChapter } from "@/app/domain/project/remoteSync/incomingReconciliationPlan.ts";
 import {
   type CompareResultState,
@@ -74,6 +80,26 @@ import {
 } from "./shared.ts";
 
 const DIFF_CHUNK_SIZE = 8;
+
+/** Outcome of {@link buildPrintChanges}; the UI renders or shows why it can't. */
+export type PrintChangesResult =
+  | { ok: true; changeSet: PrintChangeSet; baseline: VersionEntry }
+  | { ok: false; reason: "no-baseline" }
+  | { ok: false; reason: "empty"; baseline: VersionEntry };
+
+export type BuildPrintChangesFn = (opts: {
+  /** The saved checkpoint to treat as the baseline (a commit hash). */
+  baselineHash: string;
+  scope: PrintScope;
+  granularity: PrintGranularity;
+  includeUsfm: boolean;
+}) => Promise<PrintChangesResult>;
+
+/** A saved checkpoint offered as a print baseline. */
+export type PrintCheckpoint = {
+  hash: string;
+  label: string;
+};
 
 // Hoisted so version-list mapping doesn't allocate a new formatter per row.
 // Locale-undefined falls back to navigator.language.
@@ -373,6 +399,49 @@ export function useExternalCompare(args: {
     });
   }
 
+  // "Print changes" — UI sugar over the saved-version compare: pick a saved
+  // checkpoint, diff the working files against it, and hand the result to the
+  // print-document renderer. This runs its OWN snapshot + diff (it does not
+  // enter external-compare mode) so printing never disturbs whatever the modal
+  // is currently comparing.
+  async function buildPrintChanges(opts: {
+    baselineHash: string;
+    scope: PrintScope;
+    granularity: PrintGranularity;
+    includeUsfm: boolean;
+  }): Promise<PrintChangesResult> {
+    const baseline =
+      args.versions.find((version) => version.hash === opts.baselineHash) ??
+      null;
+    if (!baseline) {
+      return { ok: false, reason: "no-baseline" };
+    }
+
+    const snapshot = await args.gitProvider.readProjectSnapshotAtCommit(
+      args.loadedProject.projectPath,
+      baseline.hash,
+    );
+    const oldFiles = await snapshotToScriptureBookStates({
+      loadedProject: args.loadedProject,
+      snapshot,
+      usfmOnionService: args.usfmOnionService,
+    });
+
+    const changeSet = await buildPrintChangeSet({
+      oldFiles,
+      newFiles: args.workingFilesStore.read(),
+      usfmOnionService: args.usfmOnionService,
+      scope: opts.scope,
+      granularity: opts.granularity,
+      includeUsfm: opts.includeUsfm,
+    });
+
+    if (changeSet.totalChanges === 0) {
+      return { ok: false, reason: "empty", baseline };
+    }
+    return { ok: true, changeSet, baseline };
+  }
+
   async function loadFromRemoteLatest() {
     if (incomingFlowsBlocked()) return undefined;
     return await calculationRunnerRef.current.run(async () => {
@@ -637,6 +706,17 @@ export function useExternalCompare(args: {
     [args.versions],
   );
 
+  // Saved checkpoints offered as print baselines (newest first), each labelled
+  // with when it was saved.
+  const printCheckpoints = useMemo<PrintCheckpoint[]>(
+    () =>
+      args.versions.map((version) => ({
+        hash: version.hash,
+        label: VERSION_LABEL_FORMATTER.format(new Date(version.authoredAtIso)),
+      })),
+    [args.versions],
+  );
+
   return {
     state: {
       mode,
@@ -647,6 +727,7 @@ export function useExternalCompare(args: {
       hasComputed: compareResult !== null,
       availableProjects,
       versionOptions,
+      printCheckpoints,
       diffsByChapter: compareResult?.diffsByChapter ?? null,
       isCalculating,
       pendingRemotePartialReconciliation:
@@ -671,6 +752,7 @@ export function useExternalCompare(args: {
       loadFromZip,
       loadFromDirectory,
       loadFromVersion,
+      buildPrintChanges,
       loadFromRemoteLatest,
       openRemoteLatestReview,
       applyIncomingHunk: applyIncomingHunkToCurrent,

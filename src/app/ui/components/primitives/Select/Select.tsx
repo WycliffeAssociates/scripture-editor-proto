@@ -22,6 +22,8 @@ export interface SelectProps {
   popupClassName?: string;
   listClassName?: string;
   disabled?: boolean;
+  /** Denser rows + smaller text/indicator; for tight chrome like the mode picker. */
+  compact?: boolean;
   portalContainer?: RefObject<HTMLElement | null>;
   onValueChange?: (value: string | null) => void;
 }
@@ -36,6 +38,7 @@ export function SelectPrimitive({
   popupClassName,
   listClassName,
   disabled,
+  compact,
   portalContainer,
   onValueChange,
 }: SelectProps) {
@@ -69,7 +72,13 @@ export function SelectPrimitive({
           <Select.Popup
             className={joinClassNames(styles.popup, popupClassName)}
           >
-            <Select.List className={joinClassNames(styles.list, listClassName)}>
+            <Select.List
+              className={joinClassNames(
+                styles.list,
+                compact ? styles.listCompact : undefined,
+                listClassName,
+              )}
+            >
               {items.map((item) => (
                 <Select.Item
                   key={item.value}

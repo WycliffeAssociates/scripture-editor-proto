@@ -109,6 +109,10 @@ export const popup = style({
 export const list = style({
   padding: 0,
   backgroundColor: vars.color.surfacePrimary,
+  // Cap height so a long list (e.g. every book) scrolls inside the popup
+  // instead of running off the bottom of the screen.
+  maxHeight: "min(60vh, 22rem)",
+  overflowY: "auto",
 });
 
 export const item = style({
@@ -204,4 +208,36 @@ globalStyle(`${itemIndicatorLeading}[data-selected] .${radioCircle}`, {
 
 globalStyle(`${itemIndicatorLeading}[data-selected] .${radioCheck}`, {
   opacity: 1,
+});
+
+/** Compact dropdown — denser rows and smaller text/indicator for dense chrome
+    like the editor mode picker, where the default scale reads oversized. Opt in
+    via the SelectPrimitive `compact` prop. */
+export const listCompact = style({});
+
+globalStyle(`${listCompact} .${item}`, {
+  gap: "10px",
+  padding: "8px 12px",
+  fontSize: vars.typography.bodySmall.fontSize,
+  lineHeight: vars.typography.bodySmall.lineHeight,
+});
+
+globalStyle(`${listCompact} .${itemIndicatorLeading}`, {
+  width: "18px",
+  height: "18px",
+});
+
+globalStyle(`${listCompact} .${radioCircle}`, {
+  width: "16px",
+  height: "16px",
+});
+
+globalStyle(`${listCompact} .${radioCheck}`, {
+  width: "11px",
+  height: "11px",
+});
+
+globalStyle(`${listCompact} .${itemDescription}`, {
+  fontSize: vars.typography.bodySmallest.fontSize,
+  lineHeight: vars.typography.bodySmallest.lineHeight,
 });

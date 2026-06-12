@@ -337,6 +337,8 @@ export function useSave({
       setSourceVersionHash: compare.actions.setSourceVersionHash,
       availableProjects: compare.state.availableProjects,
       versionOptions: compare.state.versionOptions,
+      printCheckpoints: compare.state.printCheckpoints,
+      buildPrintChanges: compare.actions.buildPrintChanges,
       warnings: compare.state.warnings,
       hasComputed: compare.state.hasComputed,
       refresh: compare.actions.refresh,

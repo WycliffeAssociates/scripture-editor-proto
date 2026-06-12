@@ -116,6 +116,23 @@ export const itemVariants = styleVariants({
   },
 });
 
+/** Denser rows for tight chrome (e.g. the print popover). Opt in via `compact`. */
+export const itemCompact = style({
+  minHeight: "1.75rem",
+  padding: "0 0.6rem",
+  fontSize: vars.typography.bodySmallest.fontSize,
+  fontWeight: 600,
+});
+
+export const itemLabelCompact = style({
+  fontSize: vars.typography.bodySmallest.fontSize,
+  "@container": {
+    "(max-width: 21.25rem)": {
+      fontSize: vars.typography.bodySmallest.fontSize,
+    },
+  },
+});
+
 export const itemIcon = style({
   width: "1.25rem",
   height: "1.25rem",

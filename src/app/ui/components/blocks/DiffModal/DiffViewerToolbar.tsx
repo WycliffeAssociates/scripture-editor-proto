@@ -28,9 +28,14 @@ import type {
   CompareWarning,
 } from "@/app/domain/project/compare/types.ts";
 import { COMPARE_SOURCE_KIND } from "@/app/domain/project/compare/types.ts";
+import { PrintChangesButton } from "@/app/ui/components/blocks/DiffModal/PrintChangesButton.tsx";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import { SelectPrimitive } from "@/app/ui/components/primitives/Select/index.ts";
 import { ToggleGroup } from "@/app/ui/components/primitives/ToggleGroup/ToggleGroup.tsx";
+import type {
+  BuildPrintChangesFn,
+  PrintCheckpoint,
+} from "@/app/ui/hooks/save/useExternalCompare.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
 
@@ -54,6 +59,8 @@ type DiffViewerToolbarProps = {
   compareSourceVersionHash: string;
   setCompareSourceVersionHash: (id: string) => void;
   loadCompareVersion: (commitHash: string) => Promise<void>;
+  buildPrintChanges: BuildPrintChangesFn;
+  printCheckpoints: PrintCheckpoint[];
   loadCompareRemoteLatest: () => void | Promise<void>;
   showUsfmMarkers: boolean;
   setShowUsfmMarkers: (value: boolean) => void;
@@ -70,7 +77,11 @@ type DiffViewerToolbarProps = {
 };
 
 type ChapterOption = { value: string; label: string };
-type CompareTargetOption = { value: string; label: string };
+type CompareTargetOption = {
+  value: string;
+  label: string;
+  description?: string;
+};
 
 const COMPARE_TARGET_UNSAVED = "unsaved";
 
@@ -104,6 +115,8 @@ export function DiffViewerToolbar({
   compareSourceVersionHash,
   setCompareSourceVersionHash,
   loadCompareVersion,
+  buildPrintChanges,
+  printCheckpoints,
   loadCompareRemoteLatest,
   showUsfmMarkers,
   setShowUsfmMarkers,
@@ -139,21 +152,31 @@ export function DiffViewerToolbar({
   const selectedChapterOption =
     chapterOptions.find((option) => option.value === selectedChapter) ?? null;
   const compareTargetOptions: CompareTargetOption[] = [
-    { value: COMPARE_TARGET_UNSAVED, label: t`Current changes` },
+    {
+      value: COMPARE_TARGET_UNSAVED,
+      label: t`Current changes`,
+      description: t`Your edits since you last saved.`,
+    },
     {
       value: COMPARE_SOURCE_KIND.REMOTE_LATEST,
       label: t`Incoming shared`,
+      description: t`The latest version saved online by you or your team.`,
     },
     {
       value: COMPARE_SOURCE_KIND.PREVIOUS_VERSION,
       label: t`Saved version`,
+      description: t`An earlier snapshot saved on this device.`,
     },
     {
-      value: COMPARE_SOURCE_KIND.EXISTING_PROJECT,
-      label: t`Project`,
+      value: COMPARE_SOURCE_KIND.ZIP_FILE,
+      label: t`ZIP file`,
+      description: t`A project exported as a .zip file.`,
     },
-    { value: COMPARE_SOURCE_KIND.ZIP_FILE, label: t`ZIP file` },
-    { value: COMPARE_SOURCE_KIND.DIRECTORY, label: t`Folder` },
+    {
+      value: COMPARE_SOURCE_KIND.DIRECTORY,
+      label: t`Folder`,
+      description: t`A project stored in a folder on your device.`,
+    },
   ];
   const compareTargetValue = getCompareTargetValue({
     compareMode,
@@ -229,6 +252,7 @@ export function DiffViewerToolbar({
             icon={<FileDiff size={14} />}
             portalContainer={popupPortalContainer}
             disabled={externalCompareBlocked}
+            compact
           />
           {compareMode === "external" &&
           compareSourceKind === COMPARE_SOURCE_KIND.EXISTING_PROJECT ? (
@@ -336,6 +360,17 @@ export function DiffViewerToolbar({
               </Menu.Portal>
             </Menu.Root>
           ) : null}
+        </Toolbar.Group>
+
+        <Toolbar.Separator className={styles.ribbonSeparator} />
+
+        <Toolbar.Group className={styles.ribbonGroup} aria-label={t`Print`}>
+          <PrintChangesButton
+            buildPrintChanges={buildPrintChanges}
+            checkpoints={printCheckpoints}
+            defaultIncludeUsfm={showUsfmMarkers}
+            popupPortalContainer={popupPortalContainer}
+          />
         </Toolbar.Group>
 
         <div className={styles.ribbonSpacer} />
