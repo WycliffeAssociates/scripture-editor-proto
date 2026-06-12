@@ -27,8 +27,19 @@ function post(message: FromWorkerMessage): void {
   );
 }
 
-self.onmessage = async (event: MessageEvent<ToWorkerMessage>) => {
-  const message = event.data;
+// Messages are processed strictly in arrival order on one promise chain —
+// concurrent handling could run a book's writeBackup and clearBackup out of
+// order and leave a stale backup behind.
+let chain: Promise<void> = Promise.resolve();
+
+self.onmessage = (event: MessageEvent<ToWorkerMessage>) => {
+  chain = chain.then(
+    () => handleMessage(event.data),
+    () => handleMessage(event.data),
+  );
+};
+
+async function handleMessage(message: ToWorkerMessage): Promise<void> {
   switch (message.kind) {
     case "init": {
       mirror = new WorkspaceMirror(makeBackupOnlyMirrorEngines());
@@ -45,4 +56,4 @@ self.onmessage = async (event: MessageEvent<ToWorkerMessage>) => {
       return;
     }
   }
-};
+}

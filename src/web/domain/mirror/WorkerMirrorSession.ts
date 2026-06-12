@@ -33,6 +33,14 @@ export class WorkerMirrorSession {
         args.feed.deliverResult(event.data.result);
       }
     };
+    // A worker that fails to load or throws at top level otherwise dies
+    // silently — and with it every pipeline feeding through this sink.
+    this.worker.onerror = (event) => {
+      console.error("[mirror] workspace-mirror worker error", event);
+    };
+    this.worker.onmessageerror = (event) => {
+      console.error("[mirror] workspace-mirror worker message error", event);
+    };
     this.post({
       kind: "init",
       workspaceKey: args.workspaceKey,

@@ -36,6 +36,14 @@ export class BackupWorkerSession {
         args.feed.deliverResult(event.data.result);
       }
     };
+    // A worker that fails to load or throws at top level otherwise dies
+    // silently — and with it the crash-recovery backup writes.
+    this.worker.onerror = (event) => {
+      console.error("[mirror] backup worker error", event);
+    };
+    this.worker.onmessageerror = (event) => {
+      console.error("[mirror] backup worker message error", event);
+    };
     this.post({
       kind: "init",
       workspaceKey: args.workspaceKey,

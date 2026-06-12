@@ -25,8 +25,20 @@ function post(message: FromWorkerMessage): void {
   );
 }
 
-self.onmessage = async (event: MessageEvent<ToWorkerMessage>) => {
-  const message = event.data;
+// Messages are processed strictly in arrival order on one promise chain.
+// `init` awaits the wasm marker catalog, so a patch or command that arrives
+// behind it (the load-time fullSync seed does) must queue until the mirror
+// exists — concurrent handling would land it on `null` and silently drop it.
+let chain: Promise<void> = Promise.resolve();
+
+self.onmessage = (event: MessageEvent<ToWorkerMessage>) => {
+  chain = chain.then(
+    () => handleMessage(event.data),
+    () => handleMessage(event.data),
+  );
+};
+
+async function handleMessage(message: ToWorkerMessage): Promise<void> {
   switch (message.kind) {
     case "init": {
       // The marker catalog is module-global in onion's wasm and must be
@@ -51,4 +63,4 @@ self.onmessage = async (event: MessageEvent<ToWorkerMessage>) => {
       return;
     }
   }
-};
+}
