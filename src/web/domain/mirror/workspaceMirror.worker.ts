@@ -57,6 +57,9 @@ async function handleMessage(message: ToWorkerMessage): Promise<void> {
         }),
       );
       console.info("[mirror.worker] initialized (wasm engines ready)");
+      // ACK init so the main side's load contract can await readiness (and the
+      // seed + initial analyze it posts behind this) deterministically.
+      post({ kind: "ready" });
       return;
     }
     case "patch": {

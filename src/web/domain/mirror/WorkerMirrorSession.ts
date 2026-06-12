@@ -10,25 +10,37 @@ import type {
   MirrorCommand,
   MirrorPatch,
 } from "@/app/domain/mirror/mirrorProtocol.ts";
+import type { MirrorSession } from "@/app/domain/mirror/mirrorSessionFactory.ts";
 import type {
   FromWorkerMessage,
   ToWorkerMessage,
 } from "@/app/domain/mirror/workerMessages.ts";
 
-export class WorkerMirrorSession {
+export class WorkerMirrorSession implements MirrorSession {
   private readonly worker: Worker;
   private readonly removeSink: () => void;
+  // Resolved when the worker posts its `ready` ACK (wasm init complete). The
+  // load contract awaits this before posting the seed + initial analyze.
+  private readonly readyPromise: Promise<void>;
+  private resolveReady!: () => void;
 
   constructor(args: {
     feed: MirrorFeed;
     workspaceKey: string;
     dirtyBufferRoot: string;
   }) {
+    this.readyPromise = new Promise((resolve) => {
+      this.resolveReady = resolve;
+    });
     this.worker = new Worker(
       new URL("./workspaceMirror.worker.ts", import.meta.url),
       { type: "module" },
     );
     this.worker.onmessage = (event: MessageEvent<FromWorkerMessage>) => {
+      if (event.data.kind === "ready") {
+        this.resolveReady();
+        return;
+      }
       if (event.data.kind === "result") {
         args.feed.deliverResult(event.data.result);
       }
@@ -53,6 +65,10 @@ export class WorkerMirrorSession {
       sendCommand: (command: MirrorCommand) =>
         this.post({ kind: "command", command }),
     });
+  }
+
+  ready(): Promise<void> {
+    return this.readyPromise;
   }
 
   private post(message: ToWorkerMessage): void {

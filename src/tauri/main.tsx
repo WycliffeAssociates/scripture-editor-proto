@@ -101,6 +101,12 @@ const mirrorSessionFactory: MirrorSessionFactory = ({
     dirtyBufferRoot,
   });
   const session: MirrorSession = {
+    // The Rust mirror is ready synchronously (`invoke` is available at once);
+    // the composed session is ready when the backup worker's wasm-free init
+    // ACKs. Awaiting both keeps the load contract uniform across transports.
+    ready() {
+      return backup.ready();
+    },
     dispose() {
       backup.dispose();
       rust.dispose();

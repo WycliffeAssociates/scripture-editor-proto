@@ -6,12 +6,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { analysisDisabledInMode, shapeForSurface } from "@/app/data/editor.ts";
 import type { Settings, SettingsManager } from "@/app/data/settings.ts";
 import type { RecoveryReportEntry } from "@/app/domain/api/recoverDirtyBuffers.ts";
-import type { InitialLintByBook } from "@/app/domain/api/scriptureProjectToParsedFiles.ts";
-import { onionFindingsByChapter } from "@/app/domain/editor/annotations/normalizeFindings.ts";
 import { makeDirtyBufferPipeline } from "@/app/domain/editor/pipelines/dirtyBufferPipeline.ts";
 import { makeEditorSyncPipeline } from "@/app/domain/editor/pipelines/editorSyncPipeline.ts";
 import { makeLintPipeline } from "@/app/domain/editor/pipelines/lintPipeline.ts";
 import {
+  initialAnalyze,
   makeMirrorPatchProducer,
   seedMirror,
 } from "@/app/domain/editor/pipelines/mirrorPatchProducer.ts";
@@ -195,7 +194,6 @@ export interface WorkSpaceContextType {
 type ProjectProviderProps = {
   currentProjectRoute: string;
   projectFiles: ScriptureBookState[];
-  initialLintErrorsByBook: InitialLintByBook;
   children: React.ReactNode;
   loadedProject: Project;
   workspaceBaselineStore: WorkspaceBaselineStore;
@@ -223,7 +221,6 @@ const DIRTY_BUFFER_APP_VERSION =
 export const ProjectProvider = ({
   currentProjectRoute,
   projectFiles,
-  initialLintErrorsByBook,
   loadedProject,
   workspaceBaselineStore,
   recoveredConflictTracker,
@@ -260,17 +257,13 @@ export const ProjectProvider = ({
   // seeded once from the route loader's initial lint pass; normalization at
   // this boundary keeps the store producer-agnostic (and the chapter-0
   // bucketing means front-matter findings survive the seed, too).
-  const findingsStore = useStableInstance(() => {
-    const store = new FindingsStore();
-    for (const [bookCode, issues] of Object.entries(initialLintErrorsByBook)) {
-      store.commitBookFindings(
-        "onion",
-        bookCode,
-        onionFindingsByChapter(issues),
-      );
-    }
-    return store;
-  });
+  // Initial findings are seeded by the mirror load contract (an initial
+  // project-wide lint + sous against the seeded mirror — see the load-contract
+  // effect below), not pre-loaded into the store here. That unifies the two
+  // paths onto one seam: the old loader-lint pre-seed only ever carried lint
+  // (never sous) and `commitFilters` excluded its `load` commit from the live
+  // pipelines anyway, so it could diverge from what the mirror produces.
+  const findingsStore = useStableInstance(() => new FindingsStore());
   // One workspace-level modal slot; rendered by the outlet below.
   const workspaceModalStore = useStableInstance(
     () => new WorkspaceModalStore(),
@@ -303,6 +296,11 @@ export const ProjectProvider = ({
   // repointed lint/sous/dirty-buffer pipelines write through. A platform
   // session (web worker / desktop in-process) attaches as its sink below.
   const mirrorFeed = useStableInstance(() => new MirrorFeed());
+  // Read at load-contract fire time (after the worker readiness ACK, which
+  // resolves post-render) so the initial analyze respects plain mode without
+  // threading `analysisDisabled` — computed below — into the session effect's
+  // deps. Plain mode is the bytes-only escape hatch; it runs no analysis.
+  const analysisDisabledRef = useRef<boolean>(false);
 
   const {
     settingsManager,
@@ -316,10 +314,31 @@ export const ProjectProvider = ({
     mirrorSessionFactory,
   } = useRouter().options.context;
 
-  // Attach the platform mirror session to the feed, seed it with current state
-  // (the load-time full-sync), and route its results back into the stores.
-  // Re-created when the project (workspaceKey/files) swaps.
+  // The mirror load contract. On mount and on any project swap
+  // (`workspaceKey`/`projectFiles`), eat the load costs up front, in order:
+  //
+  //   1. reset the working-files store to this project's files FIRST, so the
+  //      seed below reads the new project — not the previous one. (`reset`
+  //      publishes no commit; subscribers key off this load instead.) This must
+  //      precede the seed: the seed snapshots the store synchronously, and
+  //      effects fire top-to-bottom, so a seed that ran before the reset would
+  //      capture stale content and nothing would re-trigger an analyze.
+  //   2. attach the platform session + the result router.
+  //   3. seed the mirror with the current store state (the full-sync).
+  //   4. once the session ACKs readiness (wasm/engine init complete), run an
+  //      initial project-wide lint + sous against the seeded mirror so the
+  //      user sees findings on first paint without typing. checkForBackups
+  //      already ran in the route loader (`recoverDirtyBuffers`) before this
+  //      component mounted; the dirty-buffer pipeline picks up from there.
+  //      (Future: localLint / chapterTallyCounting would join the initial
+  //      analyze here — not built yet.)
+  //
+  // The readiness ACK makes the ordering explicit rather than relying on the
+  // web FIFO incidentally queueing the seed + analyze behind worker init: a
+  // fire-and-forget seed/analyze against a not-yet-seeded mirror was the
+  // structural shape behind findings intermittently never surfacing.
   useEffect(() => {
+    workingFilesStore.reset(projectFiles);
     const session = mirrorSessionFactory({
       feed: mirrorFeed,
       workspaceKey,
@@ -334,13 +353,22 @@ export const ProjectProvider = ({
       dirtyBufferStore,
       workspaceKey,
     });
+    const generation = workingFilesStore.generation();
     seedMirror({
       workingFilesStore,
       workspaceBaselineStore,
       feed: mirrorFeed,
-      generation: workingFilesStore.generation(),
+      generation,
+    });
+    let disposed = false;
+    void session.ready().then(() => {
+      // The session may have been torn down (StrictMode remount, project swap)
+      // before init ACKed; don't analyze through a disposed sink.
+      if (disposed || analysisDisabledRef.current) return;
+      initialAnalyze({ feed: mirrorFeed, generation });
     });
     return () => {
+      disposed = true;
       stopRouter();
       session.dispose();
     };
@@ -348,6 +376,7 @@ export const ProjectProvider = ({
     mirrorSessionFactory,
     mirrorFeed,
     workspaceKey,
+    projectFiles,
     dirtyBufferStore,
     workingFilesStore,
     workspaceBaselineStore,
@@ -444,6 +473,9 @@ export const ProjectProvider = ({
   const analysisDisabled = analysisDisabledInMode(
     project.appSettings.editorMode,
   );
+  // Kept current for the load-contract effect's initial analyze (fires after
+  // the readiness ACK, post-render, so this ref is populated by then).
+  analysisDisabledRef.current = analysisDisabled;
 
   // Refs read by the structure + editor-sync pipelines at fire time. Kept in
   // sync below so edits made after the fibers fork still see current
@@ -644,12 +676,9 @@ export const ProjectProvider = ({
     return bookCodeToTitle(loadedProject.books, args);
   }
 
-  // Replace store state wholesale when the route swaps in a fresh project.
-  // No commit event is published — this is a structural reload, not an edit.
-  // Subscribers that need to react listen for the route-level load instead.
-  useEffect(() => {
-    workingFilesStore.reset(projectFiles);
-  }, [projectFiles, workingFilesStore]);
+  // (The working-files store reset on project swap is folded into the mirror
+  // load-contract effect above, so the reset is guaranteed to precede the seed
+  // that snapshots the store.)
 
   // Crash-recovery banner state. The restored-work banner blocks the gate
   // until the user decides; the report banner is informational.

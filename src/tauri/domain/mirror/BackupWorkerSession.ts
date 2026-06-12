@@ -21,17 +21,26 @@ import type {
 export class BackupWorkerSession {
   private readonly worker: Worker;
   private readonly removeSink: () => void;
+  private readonly readyPromise: Promise<void>;
+  private resolveReady!: () => void;
 
   constructor(args: {
     feed: MirrorFeed;
     workspaceKey: string;
     dirtyBufferRoot: string;
   }) {
+    this.readyPromise = new Promise((resolve) => {
+      this.resolveReady = resolve;
+    });
     this.worker = new Worker(
       new URL("./backupWorker.worker.ts", import.meta.url),
       { type: "module" },
     );
     this.worker.onmessage = (event: MessageEvent<FromWorkerMessage>) => {
+      if (event.data.kind === "ready") {
+        this.resolveReady();
+        return;
+      }
       if (event.data.kind === "result") {
         args.feed.deliverResult(event.data.result);
       }
@@ -59,6 +68,10 @@ export class BackupWorkerSession {
         }
       },
     });
+  }
+
+  ready(): Promise<void> {
+    return this.readyPromise;
   }
 
   private post(message: ToWorkerMessage): void {

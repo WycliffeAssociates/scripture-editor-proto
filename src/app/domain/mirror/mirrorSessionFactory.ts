@@ -13,6 +13,14 @@ import type { MirrorFeed } from "./MirrorFeed.ts";
 /** A live mirror attachment to a feed; `dispose` tears down its sink (and any
  *  worker/transport it owns) when the workspace swaps or unmounts. */
 export interface MirrorSession {
+  /**
+   * Resolves once every mirror behind this session has finished initializing
+   * (wasm/engine load), so the workspace's load contract can await readiness
+   * before posting the seed + initial analyze. A transport that is ready
+   * synchronously (the Rust mirror — `invoke` is available immediately)
+   * resolves at once; a composed session resolves when all its mirrors do.
+   */
+  ready(): Promise<void>;
   dispose(): void;
 }
 

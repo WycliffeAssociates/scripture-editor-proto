@@ -166,7 +166,6 @@ export const Route = createFileRoute("/$project/")({
 export function RouteComponent() {
   const {
     projectFiles,
-    initialLintErrorsByBook,
     loadedProject,
     rejectionReason,
     workspaceBaselineStore,
@@ -194,7 +193,6 @@ export function RouteComponent() {
     <ProjectProvider
       currentProjectRoute={project}
       projectFiles={projectFiles}
-      initialLintErrorsByBook={initialLintErrorsByBook}
       loadedProject={loadedProject}
       workspaceBaselineStore={workspaceBaselineStore}
       recoveredConflictTracker={recoveredConflictTracker}

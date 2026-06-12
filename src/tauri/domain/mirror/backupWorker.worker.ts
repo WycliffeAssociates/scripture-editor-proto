@@ -47,6 +47,9 @@ async function handleMessage(message: ToWorkerMessage): Promise<void> {
   switch (message.kind) {
     case "init": {
       mirror = new WorkspaceMirror(makeBackupOnlyMirrorEngines());
+      // ACK init so the session's `ready()` resolves (no wasm here, so this is
+      // effectively immediate — but the contract is uniform with the web worker).
+      post({ kind: "ready" });
       return;
     }
     case "patch": {

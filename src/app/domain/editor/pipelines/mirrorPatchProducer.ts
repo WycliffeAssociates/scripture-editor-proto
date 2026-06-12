@@ -167,6 +167,35 @@ export function seedMirror(args: {
 }
 
 /**
+ * Run an initial project-wide lint + sous against the freshly seeded mirror.
+ * This is the load contract's "initial analyze through the mirror at load":
+ * the seed `fullSync` has populated the mirror, so analyzing `"all"` reads
+ * resident tokens for every book and the results flow back through the same
+ * router that handles every later pass — so the user sees project findings on
+ * first paint without typing. Unifies the old loader-lint path
+ * (`initialLintErrorsByBook`, which `commitFilters` excluded `load` commits
+ * from and which only ever carried lint, never sous) onto one mirror seam.
+ *
+ * Plain mode disables analysis, so the caller skips this there (matching the
+ * gated lint/sous pipelines).
+ */
+export function initialAnalyze(args: {
+  feed: MirrorFeed;
+  generation: Generation;
+}): void {
+  args.feed.sendCommand({
+    kind: "analyzeLint",
+    scope: "all",
+    generation: args.generation,
+  });
+  args.feed.sendCommand({
+    kind: "analyzeSous",
+    scope: "all",
+    generation: args.generation,
+  });
+}
+
+/**
  * Effect subscriber that forks beside the analysis pipelines. Relevance is the
  * dirty-buffer policy (the widest — the mirror serves lint, sous AND backup, so
  * it must track every commit that changes content or flips dirty/clean).

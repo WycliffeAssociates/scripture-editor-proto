@@ -26,4 +26,10 @@ export type ToWorkerMessage =
   | { kind: "patch"; patch: MirrorPatch }
   | { kind: "command"; command: MirrorCommand };
 
-export type FromWorkerMessage = { kind: "result"; result: MirrorResult };
+export type FromWorkerMessage =
+  // `ready` is the init ACK: the worker posts it once its async init (wasm
+  // marker catalog + engines) has completed, so the main side can await the
+  // load contract instead of firing the seed + initial analyze blind. On the
+  // FIFO postMessage channel every later patch/command is already ordered
+  // behind init; the ACK lets load *await* that ordering rather than assume it.
+  { kind: "ready" } | { kind: "result"; result: MirrorResult };

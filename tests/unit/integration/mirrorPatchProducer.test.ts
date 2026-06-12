@@ -8,9 +8,13 @@
 import { makeBook, makeChapter } from "@tests/helpers/workspaceFixtures.ts";
 import { describe, expect, it, vi } from "vitest";
 
-import { patchesForCommit } from "@/app/domain/editor/pipelines/mirrorPatchProducer.ts";
+import {
+  initialAnalyze,
+  patchesForCommit,
+} from "@/app/domain/editor/pipelines/mirrorPatchProducer.ts";
 import { makeMirrorResultRouter } from "@/app/domain/editor/pipelines/mirrorResultRouter.ts";
 import { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
+import type { MirrorCommand } from "@/app/domain/mirror/mirrorProtocol.ts";
 import type { DirtyBufferStore } from "@/app/state/DirtyBufferStore.ts";
 import { FindingsStore } from "@/app/state/FindingsStore.ts";
 import type { CommitEvent } from "@/app/state/types.ts";
@@ -113,6 +117,28 @@ describe("patchesForCommit", () => {
 
     const patches = patchesForCommit(event, baselineAbsent);
     expect(patches.map((p) => p.kind)).toContain("deleteChapter");
+  });
+});
+
+describe("initialAnalyze — the load contract's first pass", () => {
+  it("sends a project-wide lint + sous command at the load generation", () => {
+    const feed = new MirrorFeed();
+    const commands: MirrorCommand[] = [];
+    feed.addSink({
+      pushPatch: () => {},
+      sendCommand: (c) => commands.push(c),
+    });
+
+    initialAnalyze({ feed, generation: 12 });
+
+    expect(commands).toHaveLength(2);
+    expect(commands.map((c) => c.kind)).toEqual(["analyzeLint", "analyzeSous"]);
+    for (const command of commands) {
+      // `"all"` reads every seeded book; the load generation orders it against
+      // any edit that lands while the initial pass is in flight.
+      expect("scope" in command && command.scope).toBe("all");
+      expect(command.generation).toBe(12);
+    }
   });
 });
 
