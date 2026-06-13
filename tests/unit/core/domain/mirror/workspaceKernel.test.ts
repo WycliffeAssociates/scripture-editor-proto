@@ -158,7 +158,8 @@ describe("acquireWorkspaceKernel — dispose grace", () => {
       ...buildArgs("p1", factory),
       preload: false,
     });
-    a?.release();
+    const claimA = a?.claim();
+    claimA?.release();
     // Within the grace window: not yet disposed.
     vi.advanceTimersByTime(1_000);
     expect(disposed()).toBe(0);
@@ -167,10 +168,27 @@ describe("acquireWorkspaceKernel — dispose grace", () => {
       ...buildArgs("p1", factory),
       preload: false,
     });
+    const claimB = b?.claim();
     vi.advanceTimersByTime(10_000);
     expect(disposed()).toBe(0);
     expect(log.filter((e) => e === "patch:fullSync")).toHaveLength(1);
-    b?.release();
+    claimB?.release();
+    vi.advanceTimersByTime(10_000);
+    expect(disposed()).toBe(1);
+  });
+
+  it("survives the loader→mount gap unclaimed, then disposes if never claimed", async () => {
+    vi.useFakeTimers();
+    const log: string[] = [];
+    const { factory, disposed } = makeFakeFactory(log);
+    // Loader warms the slot but the component never mounts (aborted nav /
+    // preload that goes nowhere): the grace reaps it.
+    await acquireWorkspaceKernel({
+      ...buildArgs("p1", factory),
+      preload: false,
+    });
+    vi.advanceTimersByTime(1_000);
+    expect(disposed()).toBe(0);
     vi.advanceTimersByTime(10_000);
     expect(disposed()).toBe(1);
   });

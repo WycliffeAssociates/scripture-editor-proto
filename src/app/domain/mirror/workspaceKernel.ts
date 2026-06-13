@@ -68,19 +68,32 @@ export type WorkspaceKernelBuildArgs = {
   analysisDisabled: boolean;
 };
 
+/** One mounted lifetime's claim on the kernel; released on unmount. */
+export type WorkspaceKernelClaim = {
+  /** Drop this claim. At refcount 0 the kernel is disposed after a grace. */
+  release(): void;
+};
+
 /**
- * A live, claimed kernel. The provider points its `MirrorFeed`-fed pipelines
- * (patch producer, result router) at `feed`, commits `initialFindings` into the
- * FindingsStore before resolving the editor Deferred, and calls `release()` on
- * unmount. `generation` is the store generation the seed + initial findings ran
- * at — the provider keeps its store reset coherent with it.
+ * The loader's reference to a built, warm kernel. The provider reads `feed`
+ * (to point its pipelines + result router at) and `initialFindings` (committed
+ * into the FindingsStore before the editor Deferred resolves), and takes a
+ * `claim()` for the duration of each mount, releasing it on unmount.
+ * `generation` is the store generation the seed + initial findings ran at — the
+ * provider keeps its store reset coherent with it.
+ *
+ * Reads need no claim: the loader holds the slot warm via the dispose grace
+ * (an unclaimed slot self-disposes after the grace, which also bridges the
+ * loader→mount gap and a preload that never navigates). `claim()` is
+ * re-entrant — a StrictMode unmount/remount releases then re-claims, and the
+ * re-claim cancels the pending grace dispose so the worker set is reused, never
+ * torn down underneath the live workspace.
  */
 export type WorkspaceKernelHandle = {
   feed: MirrorFeed;
   initialFindings: InitialFindings;
   generation: number;
-  /** Drop this claim. At refcount 0 the kernel is disposed after a grace. */
-  release(): void;
+  claim(): WorkspaceKernelClaim;
 };
 
 // --- The kernel itself (a built, ready slot) -------------------------------
@@ -160,30 +173,47 @@ function disposeKernel(kernel: LiveKernel): void {
   if (slot === kernel) slot = null;
 }
 
-function claim(kernel: LiveKernel): WorkspaceKernelHandle {
-  kernel.refcount++;
-  if (kernel.graceTimer) {
-    // Re-claimed inside the grace window — cancel the pending disposal.
-    clearTimeout(kernel.graceTimer);
+/**
+ * Schedule a grace dispose iff the kernel is idle (no active claims) and none is
+ * already pending. Arms the gap between the loader returning and the provider's
+ * first claim, the gap between a StrictMode unmount and remount, and a preload
+ * that never navigates — all reuse the same window. A `claim()` inside the
+ * window cancels it.
+ */
+function armGraceIfIdle(kernel: LiveKernel): void {
+  if (kernel.refcount > 0 || kernel.graceTimer) return;
+  kernel.graceTimer = setTimeout(() => {
     kernel.graceTimer = null;
-  }
-  let released = false;
+    if (kernel.refcount === 0) disposeKernel(kernel);
+  }, DISPOSE_GRACE_MS);
+}
+
+/**
+ * The loader's reference to the slot. Reads ride the warm slot directly; a
+ * `claim()` takes a refcount for one mounted lifetime and cancels any pending
+ * grace dispose, so a remount reuses the worker set instead of racing its
+ * teardown.
+ */
+function makeHandle(kernel: LiveKernel): WorkspaceKernelHandle {
   return {
     feed: kernel.feed,
     initialFindings: kernel.initialFindings,
     generation: kernel.generation,
-    release() {
-      if (released) return;
-      released = true;
-      kernel.refcount--;
-      if (kernel.refcount > 0) return;
-      // Last claim dropped: schedule disposal after the grace so a fast
-      // re-mount/preload-then-navigate reuses this kernel rather than
-      // rebuilding the worker set.
-      kernel.graceTimer = setTimeout(() => {
+    claim(): WorkspaceKernelClaim {
+      kernel.refcount++;
+      if (kernel.graceTimer) {
+        clearTimeout(kernel.graceTimer);
         kernel.graceTimer = null;
-        if (kernel.refcount === 0) disposeKernel(kernel);
-      }, DISPOSE_GRACE_MS);
+      }
+      let released = false;
+      return {
+        release() {
+          if (released) return;
+          released = true;
+          kernel.refcount--;
+          armGraceIfIdle(kernel);
+        },
+      };
     },
   };
 }
@@ -198,11 +228,13 @@ function claim(kernel: LiveKernel): WorkspaceKernelHandle {
  *         loader skips kernel work (parse-only). Preload never evicts.
  *       · `preload: false` → an actual navigation: dispose the old kernel and
  *         build the new one (single slot).
- *   - Empty slot: build and claim (a `preload` here warms the slot — the
+ *   - Empty slot: build and warm (a `preload` here warms the slot — the
  *     feature: hover a project → it opens with findings ready).
  *
- * Returns null ONLY for the preload-while-occupied case; every navigation
- * (preload false) resolves to a handle.
+ * Returns a handle the caller READS from and `claim()`s per mount; the slot is
+ * held warm by the dispose grace, not by acquiring. Returns null ONLY for the
+ * preload-while-occupied case; every navigation (preload false) resolves to a
+ * handle.
  */
 export async function acquireWorkspaceKernel(
   args: WorkspaceKernelBuildArgs & { preload: boolean },
@@ -211,14 +243,16 @@ export async function acquireWorkspaceKernel(
 
   // Same key already live (or in its grace window): reuse.
   if (slot && slot.projectKey === projectKey) {
-    return claim(slot);
+    armGraceIfIdle(slot);
+    return makeHandle(slot);
   }
 
   // Same key currently building (StrictMode double loader invoke, or a
   // preload then a navigation racing): join that build.
   if (building && building.projectKey === projectKey) {
     const kernel = await building.promise;
-    return claim(kernel);
+    armGraceIfIdle(kernel);
+    return makeHandle(kernel);
   }
 
   // A DIFFERENT key wants the slot.
@@ -255,10 +289,14 @@ export async function acquireWorkspaceKernel(
     disposeKernel(kernel);
     // Fall through to reuse whatever now occupies the slot only if it matches;
     // otherwise the caller (loader) will have its own handle from that path.
-    if (slot.projectKey === projectKey) return claim(slot);
+    if (slot.projectKey === projectKey) {
+      armGraceIfIdle(slot);
+      return makeHandle(slot);
+    }
   }
   slot = kernel;
-  return claim(kernel);
+  armGraceIfIdle(kernel);
+  return makeHandle(kernel);
 }
 
 /** Test-only: tear the slot down so each test starts from an empty registry. */

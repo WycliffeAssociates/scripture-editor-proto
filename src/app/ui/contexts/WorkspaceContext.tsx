@@ -352,6 +352,12 @@ export const ProjectProvider = ({
   // at generation 0 (each a fresh store over the same loader `projectFiles`),
   // so the seed and the first live commits order coherently.
   useEffect(() => {
+    // Claim the kernel for this mount and release on unmount. The claim is
+    // re-entrant: a StrictMode unmount/remount releases then re-claims, and the
+    // re-claim cancels the pending grace dispose — without this the throwaway
+    // mount's release would tear the worker set down ~grace later, orphaning the
+    // feed the live pipelines still write through (findings silently stop).
+    const claim = kernel.claim();
     workingFilesStore.reset(projectFiles);
     const stopRouter = makeMirrorResultRouter({
       feed: mirrorFeed,
@@ -363,7 +369,7 @@ export const ProjectProvider = ({
     });
     return () => {
       stopRouter();
-      kernel.release();
+      claim.release();
     };
   }, [
     kernel,
