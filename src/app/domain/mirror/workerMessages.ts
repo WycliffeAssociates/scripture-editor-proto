@@ -13,12 +13,16 @@ import type {
   MirrorPatch,
   MirrorResult,
 } from "./mirrorProtocol.ts";
+import type { MirrorTraceEntry } from "./mirrorTrace.ts";
 
 /** One-time init: tells the worker where its dirty-buffer storage root lives. */
 export type WorkerInitMessage = {
   kind: "init";
   workspaceKey: string;
   dirtyBufferRoot: string;
+  /** Forward the main thread's diagnostic trace flag (the worker has no
+   *  localStorage to read it from itself). */
+  trace: boolean;
 };
 
 export type ToWorkerMessage =
@@ -41,4 +45,8 @@ export type FromWorkerMessage =
   // FIFO postMessage channel every later patch/command is already ordered
   // behind init; the ACK lets load *await* that ordering rather than assume it.
   | { kind: "ready" }
-  | { kind: "result"; result: MirrorResult };
+  | { kind: "result"; result: MirrorResult }
+  // A diagnostic trace entry recorded inside the worker, relayed for the main
+  // thread to log in sequence with its own (the worker can't reach the page
+  // console the harness captures). Only emitted when init carried `trace`.
+  | { kind: "trace"; entry: MirrorTraceEntry };

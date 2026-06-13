@@ -13,6 +13,10 @@ import type {
   MirrorCommand,
   MirrorPatch,
 } from "@/app/domain/mirror/mirrorProtocol.ts";
+import {
+  isMirrorTraceEnabled,
+  logRelayedMirrorTrace,
+} from "@/app/domain/mirror/mirrorTrace.ts";
 import type {
   FromWorkerMessage,
   ToWorkerMessage,
@@ -45,6 +49,10 @@ export class BackupWorkerSession {
         this.resolveReady();
         return;
       }
+      if (event.data.kind === "trace") {
+        logRelayedMirrorTrace(event.data.entry);
+        return;
+      }
       if (event.data.kind === "result") {
         args.feed.deliverResult(event.data.result);
       }
@@ -61,6 +69,7 @@ export class BackupWorkerSession {
       kind: "init",
       workspaceKey: args.workspaceKey,
       dirtyBufferRoot: args.dirtyBufferRoot,
+      trace: isMirrorTraceEnabled(),
     });
     this.removeSink = args.feed.addSink({
       pushPatch: (patch: MirrorPatch) => this.post({ kind: "patch", patch }),

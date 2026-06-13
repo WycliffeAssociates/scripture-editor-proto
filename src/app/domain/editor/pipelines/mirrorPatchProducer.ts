@@ -28,6 +28,7 @@ import type {
   MirrorPatch,
   SyncMetaBook,
 } from "@/app/domain/mirror/mirrorProtocol.ts";
+import { mirrorTrace } from "@/app/domain/mirror/mirrorTrace.ts";
 import type {
   ScriptureBookState,
   ScriptureChapterState,
@@ -261,7 +262,20 @@ export function makeMirrorPatchProducer(args: {
     Stream.filter(isDirtyBufferRelevant),
     Stream.runForEach((event) =>
       Effect.sync(() => {
-        for (const patch of patchesForCommit(event, baselineFor)) {
+        const patches = patchesForCommit(event, baselineFor);
+        mirrorTrace("producer.commit", {
+          gen: event.meta.generation,
+          metaKind: event.meta.kind,
+          dirtyText: event.meta.dirtyTextContent,
+          scope:
+            "project" in event.meta.scope
+              ? "project"
+              : event.meta.scope.chapters.map(
+                  (c) => `${c.bookCode}:${c.chapterNum}`,
+                ),
+          patchKinds: patches.map((p) => p.kind),
+        });
+        for (const patch of patches) {
           args.feed.pushPatch(patch);
         }
       }),

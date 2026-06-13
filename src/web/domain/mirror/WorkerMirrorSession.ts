@@ -11,6 +11,11 @@ import type {
   MirrorPatch,
 } from "@/app/domain/mirror/mirrorProtocol.ts";
 import type { MirrorSession } from "@/app/domain/mirror/mirrorSessionFactory.ts";
+import {
+  isMirrorTraceEnabled,
+  logRelayedMirrorTrace,
+  mirrorTrace,
+} from "@/app/domain/mirror/mirrorTrace.ts";
 import type {
   FromWorkerMessage,
   ToWorkerMessage,
@@ -45,8 +50,19 @@ export class WorkerMirrorSession implements MirrorSession {
         this.resolveReady();
         return;
       }
+      if (event.data.kind === "trace") {
+        logRelayedMirrorTrace(event.data.entry);
+        return;
+      }
       if (event.data.kind === "result") {
-        args.feed.deliverResult(event.data.result);
+        const r = event.data.result;
+        mirrorTrace("session.recv.result", {
+          kind: r.kind,
+          ranAtGen: "ranAtGeneration" in r ? r.ranAtGeneration : undefined,
+          requestId: "requestId" in r ? r.requestId : undefined,
+          books: "byBook" in r ? Object.keys(r.byBook as object) : undefined,
+        });
+        args.feed.deliverResult(r);
       }
     };
     // A worker that fails to load or throws at top level otherwise dies
@@ -61,6 +77,7 @@ export class WorkerMirrorSession implements MirrorSession {
       kind: "init",
       workspaceKey: args.workspaceKey,
       dirtyBufferRoot: args.dirtyBufferRoot,
+      trace: isMirrorTraceEnabled(),
     });
     // Register as a sink — patches/commands the producer/pipelines write now
     // reach the worker.
@@ -81,6 +98,16 @@ export class WorkerMirrorSession implements MirrorSession {
   private pending: ToWorkerMessage[] | null = [];
 
   private post(message: ToWorkerMessage): void {
+    mirrorTrace("session.post", {
+      kind: message.kind,
+      buffered: this.pending !== null,
+      detail:
+        message.kind === "command"
+          ? message.command.kind
+          : message.kind === "patch"
+            ? message.patch.kind
+            : undefined,
+    });
     if (this.pending) {
       this.pending.push(message);
       return;

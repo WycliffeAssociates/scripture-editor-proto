@@ -78,10 +78,19 @@ type SerializableChapter = {
   currentTokens: Token[];
 };
 
+/** Optional diagnostic sink — the worker passes one that relays to main. */
+export type MirrorTraceFn = (
+  boundary: string,
+  data?: Record<string, unknown>,
+) => void;
+
 export class WorkspaceMirror {
   private readonly books = new Map<string, ResidentBook>();
 
-  constructor(private readonly engines: MirrorEngines) {}
+  constructor(
+    private readonly engines: MirrorEngines,
+    private readonly trace: MirrorTraceFn = () => {},
+  ) {}
 
   // --- Patch application (idempotent by generation) ------------------------
 
@@ -95,7 +104,16 @@ export class WorkspaceMirror {
         const book = this.ensureBook(patch.ref.bookCode);
         const existing = book.chapters.get(patch.ref.chapterNum);
         // Stale patch (an out-of-order/replayed transport) is a no-op.
-        if (existing && existing.generation > patch.generation) return;
+        const stale = !!existing && existing.generation > patch.generation;
+        this.trace("mirror.pushChapter", {
+          book: patch.ref.bookCode,
+          ch: patch.ref.chapterNum,
+          gen: patch.generation,
+          residentGen: existing?.generation,
+          tokens: patch.chapter.tokens.length,
+          decision: stale ? "stale-drop" : "applied",
+        });
+        if (stale) return;
         book.chapters.set(patch.ref.chapterNum, {
           ...patch.chapter,
           generation: patch.generation,
@@ -124,6 +142,10 @@ export class WorkspaceMirror {
   private applyFullSync(
     patch: Extract<MirrorPatch, { kind: "fullSync" }>,
   ): void {
+    this.trace("mirror.fullSync", {
+      gen: patch.generation,
+      books: patch.books.map((b) => b.bookCode),
+    });
     this.books.clear();
     for (const book of patch.books) {
       const chapters = new Map<number, ResidentChapter>();
@@ -236,6 +258,15 @@ export class WorkspaceMirror {
         ? await this.engines.lintBook(tokens)
         : [];
     }
+    this.trace("mirror.runLint", {
+      gen: generation,
+      requestId,
+      scope: scope === "all" ? "all" : scope.books,
+      residentBooks: [...this.books.keys()],
+      counts: Object.fromEntries(
+        Object.entries(byBook).map(([b, issues]) => [b, issues.length]),
+      ),
+    });
     return {
       kind: "lintResult",
       byBook,

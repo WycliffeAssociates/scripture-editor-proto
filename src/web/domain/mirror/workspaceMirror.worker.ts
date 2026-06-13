@@ -7,6 +7,7 @@
 // (testable without a Worker); this file only wires the engines and marshals
 // messages.
 
+import { makeMirrorTraceEntry } from "@/app/domain/mirror/mirrorTrace.ts";
 import type {
   FromWorkerMessage,
   ToWorkerMessage,
@@ -18,11 +19,19 @@ import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 import { makeWebMirrorEngines } from "./webMirrorEngines.ts";
 
 let mirror: WorkspaceMirror | null = null;
+let traceEnabled = false;
 
 function post(message: FromWorkerMessage): void {
   (self as unknown as { postMessage(message: unknown): void }).postMessage(
     message,
   );
+}
+
+// Worker-side trace: relays an entry to the main thread, which logs it in
+// sequence with its own (the worker's console isn't captured by the harness).
+function wkTrace(boundary: string, data?: Record<string, unknown>): void {
+  if (!traceEnabled) return;
+  post({ kind: "trace", entry: makeMirrorTraceEntry(boundary, data) });
 }
 
 // Messages are processed strictly in arrival order on one promise chain.
@@ -47,6 +56,7 @@ self.onmessage = (event: MessageEvent<ToWorkerMessage>) => {
 async function handleMessage(message: ToWorkerMessage): Promise<void> {
   switch (message.kind) {
     case "init": {
+      traceEnabled = message.trace;
       // The marker catalog is module-global in onion's wasm and must be
       // seeded once per worker before any lint/parse call.
       initializeUsfmMarkerCatalog(await webUsfmOnionService.getMarkerCatalog());
@@ -55,6 +65,7 @@ async function handleMessage(message: ToWorkerMessage): Promise<void> {
           workspaceKey: message.workspaceKey,
           dirtyBufferRoot: message.dirtyBufferRoot,
         }),
+        wkTrace,
       );
       console.info("[mirror.worker] initialized (wasm engines ready)");
       // ACK init so the main side's load contract can await readiness (and the
@@ -63,10 +74,16 @@ async function handleMessage(message: ToWorkerMessage): Promise<void> {
       return;
     }
     case "patch": {
+      wkTrace("wk.recv.patch", { patchKind: message.patch.kind });
       mirror?.applyPatch(message.patch);
       return;
     }
     case "command": {
+      wkTrace("wk.recv.command", {
+        cmdKind: message.command.kind,
+        gen: message.command.generation,
+        present: mirror !== null,
+      });
       if (!mirror) return;
       const result = await mirror.runCommand(message.command);
       post({ kind: "result", result });

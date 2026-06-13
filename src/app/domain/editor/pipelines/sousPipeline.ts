@@ -6,6 +6,7 @@ import {
 } from "@/app/domain/editor/pipelines/foldedScopePipeline.ts";
 import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import type { AnalyzeScope } from "@/app/domain/mirror/mirrorProtocol.ts";
+import { mirrorTrace } from "@/app/domain/mirror/mirrorTrace.ts";
 import { sousScopeFor } from "@/app/state/commitFilters.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 
@@ -35,10 +36,15 @@ export function makeSousPipeline(args: {
       const analyzeScope: AnalyzeScope = scope.all
         ? "all"
         : { books: Array.from(scope.books) };
+      const generation = args.workingFilesStore.generation();
+      mirrorTrace("pipeline.sous.send", {
+        scope: analyzeScope === "all" ? "all" : analyzeScope.books,
+        gen: generation,
+      });
       args.feed.sendCommand({
         kind: "analyzeSous",
         scope: analyzeScope,
-        generation: args.workingFilesStore.generation(),
+        generation,
       });
     });
 

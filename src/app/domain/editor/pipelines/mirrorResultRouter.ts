@@ -25,6 +25,7 @@ import {
 import { seedMirror } from "@/app/domain/editor/pipelines/mirrorPatchProducer.ts";
 import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import type { MirrorResult } from "@/app/domain/mirror/mirrorProtocol.ts";
+import { mirrorTrace } from "@/app/domain/mirror/mirrorTrace.ts";
 import { retryBackupWrite } from "@/app/domain/mirror/retryBackupWrite.ts";
 import type {
   DirtyBufferFile,
@@ -65,7 +66,15 @@ export function makeMirrorResultRouter(args: {
   const handle = (result: MirrorResult): void => {
     switch (result.kind) {
       case "lintResult": {
-        if (result.ranAtGeneration < lintHighWater) return;
+        const dropped = result.ranAtGeneration < lintHighWater;
+        mirrorTrace("router.lintResult", {
+          ranAtGen: result.ranAtGeneration,
+          highWater: lintHighWater,
+          requestId: result.requestId,
+          books: Object.keys(result.byBook),
+          decision: dropped ? "stale-drop" : "commit",
+        });
+        if (dropped) return;
         lintHighWater = result.ranAtGeneration;
         for (const [bookCode, issues] of Object.entries(result.byBook)) {
           args.findingsStore.commitBookFindings(
@@ -77,7 +86,15 @@ export function makeMirrorResultRouter(args: {
         return;
       }
       case "sousResult": {
-        if (result.ranAtGeneration < sousHighWater) return;
+        const sousDropped = result.ranAtGeneration < sousHighWater;
+        mirrorTrace("router.sousResult", {
+          ranAtGen: result.ranAtGeneration,
+          highWater: sousHighWater,
+          requestId: result.requestId,
+          books: Object.keys(result.byBook),
+          decision: sousDropped ? "stale-drop" : "commit",
+        });
+        if (sousDropped) return;
         sousHighWater = result.ranAtGeneration;
         for (const [bookCode, analysis] of Object.entries(result.byBook)) {
           args.findingsStore.commitSousBookFindings(
@@ -123,6 +140,12 @@ export function makeMirrorResultRouter(args: {
         return;
       }
       case "resyncRequest": {
+        mirrorTrace("router.resyncRequest", {
+          lastGeneration: result.lastGeneration,
+          resyncHighWater,
+          decision:
+            result.lastGeneration <= resyncHighWater ? "coalesced" : "reseed",
+        });
         if (result.lastGeneration <= resyncHighWater) return;
         resyncHighWater = result.lastGeneration;
         seedMirror({
