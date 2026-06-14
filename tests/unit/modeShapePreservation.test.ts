@@ -6,7 +6,7 @@
 // rebuilt tree honors it.
 
 import { makeBook, makeChapter } from "@tests/helpers/workspaceFixtures.ts";
-import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
+import type { SerializedEditorState } from "lexical";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -15,8 +15,6 @@ import {
   shapeForSurface,
 } from "@/app/data/editor.ts";
 import {
-  isFormModeRootChildren,
-  isRegularModeRootChildren,
   transformToShape,
   wrapFlatTokensInLexicalParagraph,
 } from "@/app/domain/editor/utils/modeTransforms.ts";
@@ -27,12 +25,6 @@ import {
 } from "@/app/domain/project/saveAndRevertService.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
-
-function rootChildren(
-  state: SerializedEditorState<SerializedLexicalNode>,
-): SerializedLexicalNode[] {
-  return state.root.children as SerializedLexicalNode[];
-}
 
 describe("shapeForSurface", () => {
   it("follows the user's mode on mode-dependent surfaces", () => {
@@ -63,43 +55,29 @@ describe("shapeForSurface", () => {
   });
 });
 
-describe("workingRebuild shape preservation (the form-collapse regressions)", () => {
-  it("revertChapterToLoadedState keeps a form chapter form-shaped", () => {
+// Shape is now a read-time derivation (the editor materializes the visible
+// chapter's tree from canonical tokens in its mode), so these mutators only
+// write `currentTokens`. The old form-collapse regression — a mutator baking a
+// flat tree over a form chapter — is structurally impossible; what remains to
+// pin is that each path produces the correct token CONTENT. Mode-flip shape
+// fidelity itself is covered by `syntheticFixtureRoundTrip.test.ts`.
+describe("workingRebuild content preservation", () => {
+  it("revertChapterToLoadedState restores the loaded tokens, clean", () => {
     const chapter = makeChapter({
       sourceText: "in the beginning",
       text: "IN THE BEGINNING edited",
       shape: "form",
     });
-    expect(isFormModeRootChildren(rootChildren(chapter.lexicalState))).toBe(
-      true,
-    );
 
-    revertChapterToLoadedState(chapter, "form");
+    revertChapterToLoadedState(chapter);
 
-    expect(isFormModeRootChildren(rootChildren(chapter.lexicalState))).toBe(
-      true,
-    );
     expect(chapter.dirty).toBe(false);
     expect(chapter.currentTokens.map((t) => t.source).join("")).toBe(
       "\\p in the beginning",
     );
   });
 
-  it("revertChapterToLoadedState keeps a regular chapter regular-shaped", () => {
-    const chapter = makeChapter({
-      sourceText: "in the beginning",
-      text: "edited",
-      shape: "regular",
-    });
-
-    revertChapterToLoadedState(chapter, "regular");
-
-    expect(isRegularModeRootChildren(rootChildren(chapter.lexicalState))).toBe(
-      true,
-    );
-  });
-
-  it("revertChapterDiffByBlockId rebuilds into the given shape", async () => {
+  it("revertChapterDiffByBlockId restores the baseline block, clean", async () => {
     const chapter = makeChapter({
       sourceText: "in the beginning",
       text: "edited",
@@ -113,16 +91,12 @@ describe("workingRebuild shape preservation (the form-collapse regressions)", ()
       chapter,
       diffBlockId: "any",
       usfmOnionService,
-      shape: "form",
     });
 
-    expect(isFormModeRootChildren(rootChildren(chapter.lexicalState))).toBe(
-      true,
-    );
     expect(chapter.dirty).toBe(false);
   });
 
-  it("applyIncomingChapter rebuilds the working chapter into the given shape", () => {
+  it("applyIncomingChapter writes the incoming tokens onto the working chapter", () => {
     const workingChapter = makeChapter({ text: "local", shape: "form" });
     const sourceChapter = makeChapter({ text: "incoming", shape: "flat" });
 
@@ -131,12 +105,8 @@ describe("workingRebuild shape preservation (the form-collapse regressions)", ()
       sourceFiles: [makeBook({ chapters: [sourceChapter] })],
       bookCode: "GEN",
       chapterNum: 1,
-      shape: "form",
     });
 
-    expect(
-      isFormModeRootChildren(rootChildren(workingChapter.lexicalState)),
-    ).toBe(true);
     expect(workingChapter.currentTokens.map((t) => t.source).join("")).toBe(
       "\\p incoming",
     );

@@ -2,7 +2,7 @@ import { Deferred, Effect } from "effect";
 import type { LexicalEditor, SerializedEditorState } from "lexical";
 import type { Dispatch, SetStateAction } from "react";
 
-import type { EditorModeSetting } from "@/app/data/editor.ts";
+import { type EditorModeSetting, shapeForSurface } from "@/app/data/editor.ts";
 import type { Settings } from "@/app/data/settings.ts";
 import type {
   ScriptureBookState,
@@ -140,6 +140,7 @@ export const useWorkspaceActions = ({
 
   const editorState = useEditorState({
     workingFilesStore,
+    getEditorShape: () => shapeForSurface("mainEditor", appSettings.editorMode),
   });
 
   const modeSwitching = useModeSwitching({
@@ -180,8 +181,7 @@ export const useWorkspaceActions = ({
     referenceResource,
     setFormatMatchReport,
     setIsFormatMatchSuggestionsOpen,
-    setEditorMode: (next) =>
-      modeSwitching.setEditorMode(next, editorRef.current ?? undefined),
+    setEditorMode: (next) => modeSwitching.setEditorMode(next),
     targetMarkerPreservationMode,
     history,
   });
@@ -203,9 +203,7 @@ export const useWorkspaceActions = ({
 
     if (!fileForLint) return [];
 
-    return collectFileTokens(fileForLint, {
-      structuralParagraphBreaks: true,
-    });
+    return collectFileTokens(fileForLint);
   }
 
   function goToReference(input: string): boolean {
@@ -238,11 +236,7 @@ export const useWorkspaceActions = ({
     // Mode switching
     setEditorMode: gated(
       (next: EditorModeSetting, options?: SetEditorModeOptions) =>
-        modeSwitching.setEditorMode(
-          next,
-          editorRef.current ?? undefined,
-          options,
-        ),
+        modeSwitching.setEditorMode(next, options),
     ),
     syncEditorToVisibleChapter: modeSwitching.syncEditorToVisibleChapter,
 

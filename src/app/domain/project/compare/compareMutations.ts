@@ -1,5 +1,3 @@
-import type { EditorShape } from "@/app/data/editor.ts";
-import { tokensToLexical } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { isChapterDirtyUsfm } from "@/app/domain/project/saveAndRevertService.ts";
 import type {
   ScriptureBookState,
@@ -61,7 +59,6 @@ function ensureWorkingChapterFromSource(args: {
     // compare is measured against.
     const newChapter: ScriptureChapterState = {
       chapterNumber: args.chapterNum,
-      lexicalState: structuredClone(sourceChapter.lexicalState),
       sourceTokens: structuredClone(sourceChapter.sourceTokens),
       currentTokens: structuredClone(sourceChapter.currentTokens),
       direction: sourceChapter.direction,
@@ -78,17 +75,7 @@ function ensureWorkingChapterFromSource(args: {
 function applyTokensToWorkingChapter(args: {
   chapter: ScriptureChapterState;
   nextTokens: Token[];
-  shape: EditorShape;
 }) {
-  const direction =
-    (args.chapter.lexicalState.root.direction ?? "ltr") === "rtl"
-      ? "rtl"
-      : "ltr";
-  args.chapter.lexicalState = tokensToLexical({
-    tokens: args.nextTokens,
-    direction,
-    mode: args.shape,
-  });
   args.chapter.currentTokens = args.nextTokens;
   args.chapter.dirty = isChapterDirtyUsfm(args.chapter);
 }
@@ -106,7 +93,6 @@ export async function applyIncomingHunk(args: {
   sourceFiles: ScriptureBookState[];
   diff: CompareDiff;
   usfmOnionService: IUsfmOnionService;
-  shape: EditorShape;
 }): Promise<void> {
   const sourceChapter = findWorkingChapter(
     args.sourceFiles,
@@ -136,7 +122,6 @@ export async function applyIncomingHunk(args: {
   applyTokensToWorkingChapter({
     chapter: workingChapter,
     nextTokens,
-    shape: args.shape,
   });
 }
 
@@ -149,7 +134,6 @@ export function applyIncomingChapter(args: {
   sourceFiles: ScriptureBookState[];
   bookCode: string;
   chapterNum: number;
-  shape: EditorShape;
 }) {
   const sourceChapter = findWorkingChapter(
     args.sourceFiles,
@@ -169,7 +153,6 @@ export function applyIncomingChapter(args: {
     applyTokensToWorkingChapter({
       chapter: workingChapter,
       nextTokens: [],
-      shape: args.shape,
     });
     return;
   }
@@ -177,7 +160,6 @@ export function applyIncomingChapter(args: {
   applyTokensToWorkingChapter({
     chapter: workingChapter,
     nextTokens: sourceChapter.currentTokens,
-    shape: args.shape,
   });
 }
 
@@ -188,7 +170,6 @@ export function applyIncomingChapter(args: {
 export function applyIncomingChapterAll(args: {
   workingFiles: ScriptureBookState[];
   sourceFiles: ScriptureBookState[];
-  shape: EditorShape;
   /** Books to leave untouched (e.g. locally-protected during reconciliation). */
   excludeBookCodes?: ReadonlySet<string>;
 }) {
@@ -215,7 +196,6 @@ export function applyIncomingChapterAll(args: {
       sourceFiles: args.sourceFiles,
       bookCode,
       chapterNum,
-      shape: args.shape,
     });
   }
 }

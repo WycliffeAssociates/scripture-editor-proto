@@ -36,9 +36,7 @@ export async function relintBookFile(
   file: ReadonlyScriptureBookState,
   usfmOnionService: IUsfmOnionService,
 ): Promise<LintIssue[]> {
-  const tokens = collectFileTokens(file, {
-    structuralParagraphBreaks: true,
-  });
+  const tokens = collectFileTokens(file);
   if (!tokens.length) {
     return [];
   }
@@ -61,7 +59,6 @@ export async function relintBookFiles(
   const lintResults = await usfmOnionService.lintScope(
     collectWorkingFileTokens({
       files,
-      options: { structuralParagraphBreaks: true },
     }).map(({ tokens }) => ({ tokens })),
     tokenOptions ? { tokenOptions } : {},
   );

@@ -117,7 +117,6 @@ describe("applyIncomingToStore concurrency", () => {
       fullChapterApplies: [{ bookCode: "MAT", chapterNum: 1 }],
       hunkApplies: [genHunk],
       sourceFiles: [book("GEN", "gen-incoming"), book("MAT", "mat-incoming")],
-      shape: "flat",
     });
 
     // Concurrent edit to the full-chapter target while the hunk is pending.
@@ -149,7 +148,6 @@ describe("applyIncomingToStore concurrency", () => {
       fullChapterApplies: [{ bookCode: "MAT", chapterNum: 1 }],
       hunkApplies: [genHunk],
       sourceFiles: [book("GEN", "gen-incoming"), book("MAT", "mat-incoming")],
-      shape: "flat",
     });
 
     expect(committed).toMatchObject({ kind: "committed" });
@@ -178,7 +176,6 @@ describe("applyIncomingToStore concurrency", () => {
       fullChapterApplies: [],
       hunkApplies: [genHunk],
       sourceFiles: [book("GEN", "gen-incoming")],
-      shape: "flat",
     });
 
     editChapterConcurrently(store, "EXO", "exo-edited");
@@ -216,7 +213,6 @@ describe("applyIncomingToStore concurrency", () => {
       fullChapterApplies: [],
       hunkApplies: [genHunk],
       sourceFiles: [book("GEN", "gen-incoming")],
-      shape: "flat",
     });
 
     // Same-text save-rebase on GEN 1: baseline → current text, dirty → false,
@@ -265,7 +261,6 @@ describe("applyIncomingToStore concurrency", () => {
       fullChapterApplies: [],
       hunkApplies: [genHunk],
       sourceFiles: [book("GEN", "gen-incoming")],
-      shape: "flat",
     });
 
     expect(committed).toMatchObject({ kind: "aborted" });

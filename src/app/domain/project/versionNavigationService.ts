@@ -1,4 +1,3 @@
-import type { EditorShape } from "@/app/data/editor.ts";
 import { applyIncomingChapterAll } from "@/app/domain/project/compare/compareMutations.ts";
 import { markFilesAsSaved } from "@/app/domain/project/saveAndRevertService.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
@@ -11,8 +10,6 @@ import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState
 export function applyVersionSnapshotToWorkingFiles(args: {
   workingFiles: ScriptureBookState[];
   sourceFiles: ScriptureBookState[];
-  /** The `workingRebuild` shape (see `shapeForSurface`). */
-  shape: EditorShape;
   /**
    * Books to leave untouched. Reconciliation passes the locally-protected
    * books so they keep their local content and baseline; everything else is
@@ -23,7 +20,6 @@ export function applyVersionSnapshotToWorkingFiles(args: {
   applyIncomingChapterAll({
     workingFiles: args.workingFiles,
     sourceFiles: args.sourceFiles,
-    shape: args.shape,
     excludeBookCodes: args.excludeBookCodes,
   });
   // Version navigation should establish a clean baseline at the selected

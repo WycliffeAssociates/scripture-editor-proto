@@ -322,7 +322,7 @@ describe("recoverDirtyBuffers classification", () => {
     const cleared = restoredChapter(result.parsedFiles, "GEN", 1);
     if (!cleared) throw new Error("expected recovered chapter 1");
     // Discard = revert to the loaded (disk) baseline.
-    revertChapterToLoadedState(cleared, "regular");
+    revertChapterToLoadedState(cleared);
     expect(cleared.currentTokens.map((t) => t.source).join("")).toBe("DISK1");
     expect(cleared.dirty).toBe(false);
   });

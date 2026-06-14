@@ -13,16 +13,6 @@ function makeChapterState(
     direction: "ltr",
     sourceTokens: [],
     currentTokens: [],
-    lexicalState: {
-      root: {
-        children: [],
-        direction: "ltr",
-        format: "",
-        indent: 0,
-        type: "root",
-        version: 1,
-      },
-    },
     ...overrides,
   };
 }

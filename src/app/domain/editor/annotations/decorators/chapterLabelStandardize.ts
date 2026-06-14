@@ -22,7 +22,6 @@ import {
 import { rebuildParsedFileFromUsfm } from "@/app/domain/editor/services/rebuildParsedFileFromUsfm.ts";
 import {
   bookLineEnding,
-  lexicalToTokens,
   tokensToUsfm,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { withWorkingFilesDraft } from "@/app/domain/project/workingFileCommand.ts";
@@ -48,11 +47,7 @@ export function computeChapterLabelTally(
   files: ScriptureBookState[],
 ): ChapterLabelTally {
   const tokens = files.flatMap((book) =>
-    book.chapters.flatMap((chapter) =>
-      lexicalToTokens(chapter.lexicalState, {
-        bookCode: book.bookCode,
-      }),
-    ),
+    book.chapters.flatMap((chapter) => chapter.currentTokens),
   );
   return tallyChapterLabels(findChapterLabelEntries(tokens));
 }
@@ -68,11 +63,7 @@ function computeChapterLabelUsfm(
   file: ReadonlyScriptureBookState,
   targetStem: string,
 ): string | null {
-  const tokens = file.chapters.flatMap((chapter) =>
-    lexicalToTokens(chapter.lexicalState, {
-      bookCode: file.bookCode,
-    }),
-  );
+  const tokens = file.chapters.flatMap((chapter) => chapter.currentTokens);
   const rewrites = fabricateChapterLabelRewrites(tokens, targetStem);
   if (rewrites.length === 0) return null;
 

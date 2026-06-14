@@ -12,7 +12,6 @@ import type {
   CapturedSelection,
   CommitEvent,
   CommitMeta,
-  SerializedLexicalChapterState,
   WorkingFilesPatch,
 } from "./types.ts";
 
@@ -69,15 +68,6 @@ export class WorkingFilesStore {
   /** Current commit generation — the high-water mark mirror seeds align to. */
   generation(): number {
     return this.gen;
-  }
-
-  readChapter(
-    bookCode: string,
-    chapter: number,
-  ): SerializedLexicalChapterState | undefined {
-    return this.state
-      .find((f) => f.bookCode === bookCode)
-      ?.chapters.find((c) => c.chapterNumber === chapter)?.lexicalState;
   }
 
   /**
@@ -250,6 +240,9 @@ function applyPatch(
           ...book,
           chapters: book.chapters.map((c) => {
             if (c.chapterNumber !== chapter) return c;
+            // The edit arrives as a shaped lexical state; we flatten it to the
+            // canonical token stream and store only that — shape is re-derived
+            // on read. Direction is a chapter property and doesn't change here.
             const currentTokens = lexicalToTokens(lexicalState, {
               bookCode,
             });
@@ -257,7 +250,7 @@ function applyPatch(
             // updateChapterLexical so undo-to-clean still flips
             // back to false.
             const dirty = !tokenSourcesEqual(currentTokens, c.sourceTokens);
-            return { ...c, lexicalState, currentTokens, dirty };
+            return { ...c, currentTokens, dirty };
           }),
         };
       });

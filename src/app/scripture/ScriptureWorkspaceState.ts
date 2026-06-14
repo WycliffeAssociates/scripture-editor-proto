@@ -1,5 +1,3 @@
-import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
-
 import type { LineEnding } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
@@ -24,7 +22,6 @@ type ScriptureBookStateBase = {
  * Editable chapter state for a scripture book inside the workspace.
  */
 export type ScriptureChapterState = {
-  lexicalState: SerializedEditorState<SerializedLexicalNode>;
   sourceTokens: Token[];
   currentTokens: Token[];
   /**

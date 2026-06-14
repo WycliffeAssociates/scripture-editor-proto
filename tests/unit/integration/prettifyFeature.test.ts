@@ -35,10 +35,21 @@ const createSerializedState = async (
   return editor.getEditorState().toJSON();
 };
 
+// These integration tests exercise `applyPrettifyToNodeTree` against a realistic
+// Lexical tree; the store no longer holds `lexicalState`, so the fixtures carry
+// the tree as a test-only field. (They never touch the store — this pins the
+// node-tree transform, not the representation.)
+type TestChapter = ScriptureChapterState & {
+  lexicalState: SerializedEditorState;
+};
+type TestBook = Omit<ScriptureBookState, "chapters"> & {
+  chapters: TestChapter[];
+};
+
 const createChapter = async (
   chapterNumber: number,
   usfmContent: string,
-): Promise<ScriptureChapterState> => {
+): Promise<TestChapter> => {
   const lexicalState = await createSerializedState(usfmContent);
   return {
     chapterNumber,
@@ -51,10 +62,7 @@ const createChapter = async (
   };
 };
 
-const createFile = (
-  bookCode: string,
-  chapters: ScriptureChapterState[],
-): ScriptureBookState => ({
+const createFile = (bookCode: string, chapters: TestChapter[]): TestBook => ({
   bookCode,
   path: `${bookCode}.usfm`,
   title: bookCode,

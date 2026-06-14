@@ -23,7 +23,7 @@
 
 import type { LexicalEditor } from "lexical";
 
-import { type EditorModeSetting, shapeForSurface } from "@/app/data/editor.ts";
+import type { EditorModeSetting } from "@/app/data/editor.ts";
 import {
   applyIncomingToStore,
   runIncomingMutation,
@@ -278,8 +278,6 @@ export async function runIncomingReconciliation(
   const { args, commitIncoming, incomingFlowsBlocked, listCompareChapterRefs } =
     deps;
 
-  const workingShape = shapeForSurface("workingRebuild", args.editorMode);
-
   // Mutation-boundary recheck: the source load that precedes this call
   // awaits the network, and a save can flip the gate to `saving` in that
   // window. The entry checks on the public actions only guard at action
@@ -374,7 +372,6 @@ export async function runIncomingReconciliation(
     applyVersionSnapshotToWorkingFiles({
       workingFiles: workingDraft,
       sourceFiles: argsForAuto.sourceFiles,
-      shape: workingShape,
       excludeBookCodes: locallyProtectedBooks,
     });
     const locallyProtectedChapters: ChapterRef[] = [];
@@ -515,7 +512,6 @@ export async function runIncomingReconciliation(
     applyVersionSnapshotToWorkingFiles({
       workingFiles: behindDraft,
       sourceFiles: argsForAuto.sourceFiles,
-      shape: workingShape,
     });
     args.workingFilesStore.commit({
       patch: { kind: "bulk", files: behindDraft },
@@ -602,7 +598,6 @@ export async function runIncomingReconciliation(
     fullChapterApplies,
     hunkApplies,
     sourceFiles: argsForAuto.sourceFiles,
-    shape: workingShape,
   });
 
   // Gate closed during the apply awaits → nothing committed; bail before
@@ -655,7 +650,6 @@ export async function runIncomingReconciliation(
         applyVersionSnapshotToWorkingFiles({
           workingFiles: cleanDraft,
           sourceFiles: argsForAuto.sourceFiles,
-          shape: workingShape,
         });
         args.workingFilesStore.commit({
           patch: { kind: "bulk", files: cleanDraft },

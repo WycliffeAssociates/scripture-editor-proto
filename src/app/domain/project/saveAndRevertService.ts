@@ -1,7 +1,5 @@
-import type { EditorShape } from "@/app/data/editor.ts";
 import {
   serializeChaptersToUsfm,
-  tokensToLexical,
   tokensToUsfm,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type {
@@ -28,19 +26,10 @@ export function isChapterDirtyUsfm(chapter: ScriptureChapterState): boolean {
 }
 
 // Revert a chapter to its last-SAVED baseline. `sourceTokens` IS that baseline
-// (it advances on every save, not just at file open), so we rebuild lexical
-// state from it in the caller's `shape` — the `workingRebuild` surface the user
-// is looking at.
-export function revertChapterToLoadedState(
-  chapter: ScriptureChapterState,
-  shape: EditorShape,
-) {
-  chapter.lexicalState = tokensToLexical({
-    tokens: chapter.sourceTokens,
-    direction:
-      (chapter.lexicalState.root.direction ?? "ltr") === "rtl" ? "rtl" : "ltr",
-    mode: shape,
-  });
+// (it advances on every save, not just at file open), so reverting is just
+// copying it back into `currentTokens`; the editor re-derives its shape from
+// the canonical tokens on read.
+export function revertChapterToLoadedState(chapter: ScriptureChapterState) {
   chapter.currentTokens = structuredClone(chapter.sourceTokens);
   chapter.dirty = false;
 }
@@ -49,7 +38,6 @@ export async function revertChapterDiffByBlockId(args: {
   chapter: ScriptureChapterState;
   diffBlockId: string;
   usfmOnionService: IUsfmOnionService;
-  shape: EditorShape;
 }) {
   const baselineTokens = args.chapter.sourceTokens;
   const currentTokens = args.chapter.currentTokens;
@@ -60,16 +48,6 @@ export async function revertChapterDiffByBlockId(args: {
     args.diffBlockId,
   );
 
-  const direction =
-    (args.chapter.lexicalState.root.direction ?? "ltr") === "rtl"
-      ? "rtl"
-      : "ltr";
-
-  args.chapter.lexicalState = tokensToLexical({
-    tokens: nextTokens,
-    direction,
-    mode: args.shape,
-  });
   args.chapter.currentTokens = nextTokens;
   args.chapter.dirty = isChapterDirtyUsfm(args.chapter);
 }

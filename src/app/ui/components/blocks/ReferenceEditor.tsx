@@ -32,7 +32,7 @@ import {
   USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
-import { transformToShape } from "@/app/domain/editor/utils/modeTransforms.ts";
+import { tokensToLexical } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as shellStyles from "@/app/ui/styles/modules/EditorShell.css.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
@@ -128,10 +128,11 @@ function ScriptureReferencePane() {
     if (!editor) return;
 
     editor.setEditable(false);
-    const clonedState = transformToShape(
-      structuredClone(referenceChapter.lexicalState),
-      referenceShape,
-    );
+    const clonedState = tokensToLexical({
+      tokens: referenceChapter.currentTokens,
+      direction: referenceChapter.direction,
+      mode: referenceShape,
+    });
 
     editor.setEditorState(editor.parseEditorState(clonedState), {
       tag: HISTORY_MERGE_TAG,

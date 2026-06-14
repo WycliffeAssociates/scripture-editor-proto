@@ -1,7 +1,7 @@
 import type { LexicalEditor, SerializedEditorState } from "lexical";
 
-import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
-import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { EDITOR_TAGS_USED, type EditorShape } from "@/app/data/editor.ts";
+import { tokensToLexical } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type {
   ReadonlyScriptureBookState,
   ScriptureBookState,
@@ -11,35 +11,40 @@ import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 /**
- * Utilities for moving between the visible Lexical editor instance and the
- * scripture workspace noun held in React state.
+ * Materialize a chapter's shaped Lexical tree for display from its canonical
+ * flat tokens. This is the editor read boundary: the store holds only token
+ * space, and the visible chapter is shaped on the way out in the editor's mode.
  */
-function collectChapterTokens(
-  bookCode: string,
-  serializedEditorState: SerializedEditorState,
-  options?: { structuralParagraphBreaks?: boolean },
-): Token[] {
-  return lexicalToTokens(serializedEditorState, {
-    ...options,
-    bookCode,
+export function deriveChapterLexical(
+  chapter: ScriptureChapterState,
+  mode: EditorShape,
+): SerializedEditorState {
+  return tokensToLexical({
+    tokens: chapter.currentTokens,
+    direction: chapter.direction,
+    mode,
   });
 }
 
+/**
+ * Utilities for moving between the visible Lexical editor instance and the
+ * scripture workspace noun held in React state.
+ */
+
+/**
+ * A book's flat USFM token stream — the concatenated canonical `currentTokens`
+ * of its chapters. This IS the lint/diff/save view: token space is the truth,
+ * independent of whatever shape the visible editor is showing.
+ */
 export function collectFileTokens(
   file: ReadonlyScriptureBookState | null,
-  options?: { structuralParagraphBreaks?: boolean },
 ): Token[] {
   if (!file) return [];
 
   const tokens: Token[] = [];
   for (const chapter of file.chapters) {
-    const flattened = collectChapterTokens(
-      file.bookCode,
-      chapter.lexicalState,
-      options,
-    );
-    if (flattened?.length) {
-      tokens.push(...flattened);
+    if (chapter.currentTokens.length) {
+      tokens.push(...chapter.currentTokens);
     }
   }
 
@@ -48,11 +53,10 @@ export function collectFileTokens(
 
 export function collectWorkingFileTokens(args: {
   files: ScriptureBookState[];
-  options?: { structuralParagraphBreaks?: boolean };
 }): Array<{ file: ScriptureBookState; tokens: Token[] }> {
   return args.files.map((file) => ({
     file,
-    tokens: collectFileTokens(file, args.options),
+    tokens: collectFileTokens(file),
   }));
 }
 
@@ -67,6 +71,7 @@ export function setEditorContent(
   chapter: number,
   chapterContent: ScriptureChapterState | undefined,
   workingFilesStore: WorkingFilesStore,
+  mode: EditorShape,
   selectionOverride?: unknown,
   editorStateOverride?: SerializedEditorState,
 ) {
@@ -89,7 +94,8 @@ export function setEditorContent(
 
   // Avoid wrapping setEditorState in editor.update(). Lexical treats setEditorState
   // as its own kind of update, and nesting it can interfere with history behavior.
-  const baseEditorState = editorStateOverride ?? chapterState.lexicalState;
+  const baseEditorState =
+    editorStateOverride ?? deriveChapterLexical(chapterState, mode);
   const nextEditorState =
     selectionOverride === undefined
       ? baseEditorState

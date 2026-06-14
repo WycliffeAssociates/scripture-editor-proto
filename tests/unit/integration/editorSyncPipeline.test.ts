@@ -22,7 +22,7 @@ import { TestClock } from "effect/testing";
 import type { LexicalEditor } from "lexical";
 import { describe, expect, it, vi } from "vitest";
 
-import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
+import { EDITOR_SHAPES, EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import { makeEditorSyncPipeline } from "@/app/domain/editor/pipelines/editorSyncPipeline.ts";
 import { LayoutTickStore } from "@/app/state/LayoutTickStore.ts";
 import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
@@ -55,6 +55,7 @@ function makeHarness(args: { visibleBook: string; visibleChapter: number }) {
     mainEditorDeferred,
     getVisibleBookCode: () => args.visibleBook,
     getVisibleChapter: () => args.visibleChapter,
+    getEditorShape: () => EDITOR_SHAPES.regular,
     layoutTickStore,
   });
   return { wf, pipeline, setEditorState };

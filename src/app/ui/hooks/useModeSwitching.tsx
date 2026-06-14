@@ -1,14 +1,8 @@
 import type { LexicalEditor } from "lexical";
 import { useEffect, useRef } from "react";
 
-import {
-  EDITOR_MODES,
-  type EditorModeSetting,
-  shapeForSurface,
-} from "@/app/data/editor.ts";
+import { EDITOR_MODES, type EditorModeSetting } from "@/app/data/editor.ts";
 import type { Settings } from "@/app/data/settings.ts";
-import { transformToShape } from "@/app/domain/editor/utils/modeTransforms.ts";
-import { walkChapters } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import type { ScriptureChapterState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 
@@ -151,7 +145,6 @@ export function useModeSwitching({
    */
   function setEditorMode(
     next: EditorModeSetting,
-    editor?: LexicalEditor,
     options?: SetEditorModeOptions,
   ) {
     if (options?.onComplete) {
@@ -174,77 +167,12 @@ export function useModeSwitching({
       return;
     }
 
-    // Discovery flow: transformToShape returns the same ref on a no-op
-    // and a new ref when the shape needs to change. We can't know
-    // which chapters will change without running the transform, so
-    // draft every chapter writable up front — shallow object spreads
-    // for the whole project (O(N), still vastly cheaper than the
-    // previous structuredClone deep walk).
-    const workingFiles = workingFilesStore.read();
-    const allRefs = workingFiles.flatMap((file) =>
-      file.chapters.map((c) => ({
-        bookCode: file.bookCode,
-        chapterNum: c.chapterNumber,
-      })),
-    );
-    const filesToUse = workingFilesStore.draftWithChapters(allRefs);
-    let thisChapterUpdated: ScriptureChapterState | undefined;
-    let anyChanged = false;
-
-    const targetShape = shapeForSurface("mainEditor", next);
-
-    for (const { file, chapter } of walkChapters(filesToUse)) {
-      const transformed = transformToShape(chapter.lexicalState, targetShape);
-
-      if (transformed !== chapter.lexicalState) {
-        chapter.lexicalState = transformed;
-        anyChanged = true;
-      }
-
-      if (
-        chapter.chapterNumber === currentChapter &&
-        file.bookCode === currentFileBibleIdentifier
-      ) {
-        thisChapterUpdated = chapter;
-      }
-    }
-    if (anyChanged) {
-      // `kind: "programmaticFix"` (not `"structuralFixup"`):
-      // `structuralFixup` is reserved for `maintainDocumentStructure`'s
-      // own write-back so that consumer can filter its own commits out of
-      // its input stream and avoid a feedback loop. Mode switching is a
-      // user-initiated programmatic rewrite — the same character as
-      // match-formatting / prettify, which also use `programmaticFix`.
-      //
-      // `dirtyTextContent: false`: mode switching changes the *lexical
-      // tree shape* (paragraph ↔ poetry markers etc.) but does NOT
-      // change the underlying USFM token stream. Lint, save-status, and
-      // structure-maintenance pipelines all gate on `dirtyTextContent`
-      // and should NOT re-run on a mode switch — lint results are
-      // invariant across modes and re-running every book per switch is
-      // visibly expensive. The overlay-tick pipeline doesn't filter on
-      // `dirtyTextContent`, so DOM annotation reposition still fires
-      // for the new layout.
-      workingFilesStore.commit({
-        patch: { kind: "bulk", files: filesToUse },
-        meta: {
-          kind: "programmaticFix",
-          action: "modeSwitch",
-          scope: { project: true },
-          dirtyTextContent: false,
-        },
-      });
-    }
-
-    if (thisChapterUpdated) {
-      setEditorContent(
-        currentFileBibleIdentifier,
-        currentChapter,
-        thisChapterUpdated,
-        editor,
-      );
-    }
-
+    // Mode is a read-time concern now: the store holds mode-independent
+    // tokens, so switching rewrites NOTHING there — it flips the setting and
+    // lets the visible chapter re-derive its shape. Resetting
+    // `appliedVisibleTargetRef` forces `syncEditorToVisibleChapter` (the
+    // USFMPlugin effect, re-run when the mode change re-creates `actions`) to
+    // re-apply the visible chapter's content in the new mode.
     updateAppSettings({
       editorMode: next,
     });

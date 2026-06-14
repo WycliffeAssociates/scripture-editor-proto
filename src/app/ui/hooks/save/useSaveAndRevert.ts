@@ -1,7 +1,7 @@
 import type { LexicalEditor } from "lexical";
 import { useSyncExternalStore } from "react";
 
-import { type EditorModeSetting, shapeForSurface } from "@/app/data/editor.ts";
+import type { EditorModeSetting } from "@/app/data/editor.ts";
 import type { SettingsManager } from "@/app/data/settings.ts";
 import type {
   DiffsByChapter,
@@ -100,8 +100,6 @@ export function useSaveAndRevert(args: {
     file.chapters.some((chapter) => chapter.dirty),
   );
 
-  const workingShape = () => shapeForSurface("workingRebuild", args.editorMode);
-
   // Save is orchestrated by the UI-free `runSavePipeline`; this hook hands it
   // the workspace nouns/sinks (the hook `args` is a superset of
   // `SavePipelineDeps`) and is the UI boundary that renders the pipeline's
@@ -168,7 +166,7 @@ export function useSaveAndRevert(args: {
       mutate: (draft) => {
         for (const ref of dirtyRefs) {
           const chapter = draft.chapterForWrite(ref);
-          if (chapter) revertChapterToLoadedState(chapter, workingShape());
+          if (chapter) revertChapterToLoadedState(chapter);
         }
       },
     });
@@ -199,7 +197,6 @@ export function useSaveAndRevert(args: {
             chapter,
             diffBlockId: diffToRevert.uniqueKey,
             usfmOnionService: args.usfmOnionService,
-            shape: workingShape(),
           });
         },
       });
@@ -231,7 +228,7 @@ export function useSaveAndRevert(args: {
         },
         mutate: (draft) => {
           const chapter = draft.chapterForWrite({ bookCode, chapterNum });
-          if (chapter) revertChapterToLoadedState(chapter, workingShape());
+          if (chapter) revertChapterToLoadedState(chapter);
         },
       });
       if (outcome.kind === "committed") {

@@ -495,6 +495,8 @@ export const ProjectProvider = ({
         mainEditorDeferred,
         getVisibleBookCode: () => visibleBookCodeRef.current,
         getVisibleChapter: () => visibleChapterRef.current,
+        getEditorShape: () =>
+          shapeForSurface("mainEditor", appSettingsRef.current.editorMode),
         layoutTickStore,
       }),
     [workingFilesStore, mainEditorDeferred, layoutTickStore],
@@ -570,6 +572,8 @@ export const ProjectProvider = ({
     currentFileBibleIdentifier: project.pickedFile.bookCode,
     currentChapter:
       project.pickedChapter?.chapterNumber || project.currentChapter,
+    getEditorShape: () =>
+      shapeForSurface("mainEditor", appSettingsRef.current.editorMode),
   });
   const remoteStatusSetterRef = useRef<
     (status: GitRemoteProjectStatus | null) => void
@@ -710,12 +714,6 @@ export const ProjectProvider = ({
         }
       }
     }
-    // Mode read off the ref at fire time — same contract as the pipeline refs
-    // above.
-    const workingShape = shapeForSurface(
-      "workingRebuild",
-      appSettingsRef.current.editorMode,
-    );
     const historyToken = history.captureHistory();
     const outcome = withWorkingFilesDraftSync({
       workingFilesStore,
@@ -728,7 +726,7 @@ export const ProjectProvider = ({
       mutate: (draft) => {
         for (const ref of refs) {
           const chapter = draft.chapterForWrite(ref);
-          if (chapter) revertChapterToLoadedState(chapter, workingShape);
+          if (chapter) revertChapterToLoadedState(chapter);
         }
       },
     });

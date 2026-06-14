@@ -1,11 +1,12 @@
 import { useLingui } from "@lingui/react/macro";
-import type { SerializedLexicalNode } from "lexical";
+import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 import type { Dispatch, SetStateAction } from "react";
 
-import { EDITOR_MODES } from "@/app/data/editor.ts";
+import { EDITOR_MODES, EDITOR_SHAPES } from "@/app/data/editor.ts";
 import {
   lexicalRootChildrenToUsfmTokenStream,
   lexicalToTokens,
+  tokensToLexical,
   tokensToUsfm,
   usfmTokenStreamToLexicalRootChildren,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
@@ -48,7 +49,7 @@ type ChapterMatchApplyResult = {
   stats: VerseAnchorMatchStats;
   suggestions: SkippedMarkerSuggestion[];
   /** The next chapter lexical state — present only when `changed`. */
-  nextLexical?: ScriptureChapterState["lexicalState"];
+  nextLexical?: SerializedEditorState;
 };
 
 function sumStats(
@@ -122,10 +123,21 @@ export function useFormatMatching({
     scope: MatchFormattingScope;
     targetMarkerPreservation: TargetMarkerPreservationMode;
   }): ChapterMatchApplyResult => {
-    const targetRootChildren = chapter.lexicalState.root
+    // Matching is structural, so derive both sides in the regular shape from
+    // their canonical tokens (mode-independent); the result is flattened back
+    // to tokens on write.
+    const targetState = tokensToLexical({
+      tokens: chapter.currentTokens,
+      direction: chapter.direction,
+      mode: EDITOR_SHAPES.regular,
+    });
+    const targetRootChildren = targetState.root
       .children as SerializedLexicalNode[];
-    const sourceRootChildren = sourceChapter.lexicalState.root
-      .children as SerializedLexicalNode[];
+    const sourceRootChildren = tokensToLexical({
+      tokens: sourceChapter.currentTokens,
+      direction: sourceChapter.direction,
+      mode: EDITOR_SHAPES.regular,
+    }).root.children as SerializedLexicalNode[];
 
     const targetEnvelope =
       lexicalRootChildrenToUsfmTokenStream(targetRootChildren);
@@ -165,7 +177,7 @@ export function useFormatMatching({
       };
     }
 
-    const nextLexical = structuredClone(chapter.lexicalState);
+    const nextLexical = targetState;
     nextLexical.root.children =
       nextRootChildren as typeof nextLexical.root.children;
 
@@ -177,13 +189,14 @@ export function useFormatMatching({
     };
   };
 
-  // Write a computed match onto a checked-out chapter (per-chapter overlay).
+  // Write a computed match onto a checked-out chapter (per-chapter overlay):
+  // flatten the matched shaped tree to canonical tokens; shape is re-derived
+  // on read.
   const writeChapterMatch = (
     chapter: ScriptureChapterState,
-    nextLexical: ScriptureChapterState["lexicalState"],
+    nextLexical: SerializedEditorState,
     bookCode: string,
   ) => {
-    chapter.lexicalState = nextLexical;
     chapter.currentTokens = lexicalToTokens(nextLexical, { bookCode });
     chapter.dirty =
       tokensToUsfm(chapter.currentTokens, chapter.eol) !==

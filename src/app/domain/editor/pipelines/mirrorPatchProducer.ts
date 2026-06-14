@@ -1,11 +1,10 @@
 // mirrorPatchProducer.ts
 //
 // The single writer of the mirror feed. Subscribes to working-files commits
-// and, per relevant commit, tokenizes ONLY the changed chapters once
-// (`lexicalToTokens`, matching the options the analysis pipelines tokenize
-// with) and fans the token delta to every registered sink. Token serialization
-// happens here exactly once per commit and never again — the mirror holds the
-// result, the engines and the backup serializer read it locally.
+// and, per relevant commit, reads the canonical `currentTokens` of ONLY the
+// changed chapters and fans the token delta to every registered sink. The
+// mirror holds the result; the engines and the backup serializer read it
+// locally.
 //
 // A content-bearing `project: true` commit (import, version revert, mode
 // switch, accept-incoming) becomes a `fullSync` so mirrors drop state for books
@@ -19,7 +18,6 @@
 
 import { Effect, Stream } from "effect";
 
-import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import type {
   FullSyncBook,
@@ -41,19 +39,11 @@ import type { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.
 import type { SousAnalyzeResult } from "@/core/domain/sous/sousTypes.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
-// Match the tokenization the lint/sous pipelines use so mirror-side analysis
-// sees the same token stream the single-thread path did.
-const TOKENIZE_OPTIONS = { structuralParagraphBreaks: true } as const;
-
-function tokenizeChapter(
-  bookCode: string,
-  chapter: ScriptureChapterState,
-): MirrorChapter {
+function tokenizeChapter(chapter: ScriptureChapterState): MirrorChapter {
   return {
-    tokens: lexicalToTokens(chapter.lexicalState, {
-      ...TOKENIZE_OPTIONS,
-      bookCode,
-    }),
+    // The canonical flat token stream IS the mirror's view — token space is the
+    // truth, independent of the visible editor's shape.
+    tokens: chapter.currentTokens,
     eol: chapter.eol,
     dirty: chapter.dirty,
   };
@@ -68,7 +58,7 @@ function fullSyncBooks(
     diskBaseline: baselineFor(book.bookCode),
     chapters: book.chapters.map((chapter) => ({
       chapterNum: chapter.chapterNumber,
-      chapter: tokenizeChapter(book.bookCode, chapter),
+      chapter: tokenizeChapter(chapter),
     })),
   }));
 }
@@ -89,8 +79,7 @@ function syncMetaBooks(
 
 /**
  * Build the full set of patches a commit implies. Pure given the post-commit
- * snapshot + baselines; the only cost is the per-chapter `lexicalToTokens`,
- * paid once here.
+ * snapshot + baselines; reads each changed chapter's resident `currentTokens`.
  */
 export function patchesForCommit(
   event: CommitEvent,
@@ -142,7 +131,7 @@ export function patchesForCommit(
     patches.push({
       kind: "pushChapter",
       ref,
-      chapter: tokenizeChapter(ref.bookCode, chapter),
+      chapter: tokenizeChapter(chapter),
       generation,
     });
   }

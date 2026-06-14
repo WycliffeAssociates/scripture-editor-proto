@@ -1,4 +1,6 @@
+import { EDITOR_SHAPES } from "@/app/data/editor.ts";
 import { walkChapters } from "@/app/domain/editor/utils/serializedTraversal.ts";
+import { tokensToLexical } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { reduceSerializedNodesToText } from "@/app/domain/search/search.utils.ts";
 import type {
   ScriptureBookState,
@@ -42,6 +44,16 @@ export function chapterKey(bookCode: string, chapterNum: number): string {
   return `${bookCode}:${chapterNum}`;
 }
 
+// Search indexes content by sid; the flat shape preserves every token's
+// sid+text, so derive it from the canonical tokens (mode-independent).
+function chapterFlatChildren(chapter: ScriptureChapterState) {
+  return tokensToLexical({
+    tokens: chapter.currentTokens,
+    direction: chapter.direction,
+    mode: EDITOR_SHAPES.flat,
+  }).root.children;
+}
+
 export function listChapterKeys(files: ScriptureBookState[]): Set<string> {
   return new Set(
     files.flatMap((file) =>
@@ -66,7 +78,7 @@ export function buildSearchChapters(args: {
     }
 
     const sidRecord = reduceSerializedNodesToText(
-      chapter.lexicalState.root.children,
+      chapterFlatChildren(chapter),
       args.searchUSFM,
     );
     out.push({
@@ -90,7 +102,7 @@ export function buildTargetSidTextLookup(args: {
 
   for (const { chapter } of walkChapters(args.files)) {
     const sidRecord = reduceSerializedNodesToText(
-      chapter.lexicalState.root.children,
+      chapterFlatChildren(chapter),
       args.searchUSFM,
     );
     for (const [sid, text] of Object.entries(sidRecord)) {

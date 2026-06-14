@@ -29,7 +29,6 @@ import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 
 import { type EditorShape, UsfmTokenTypes } from "@/app/data/editor.ts";
 import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { tokensToLexical } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type {
   ScriptureBookState,
   ScriptureChapterState,
@@ -176,16 +175,6 @@ export function makeChapter(
     direction: "ltr",
     sourceTokens,
     currentTokens,
-    lexicalState: opts.shape
-      ? tokensToLexical({
-          tokens: currentTokens,
-          direction: "ltr",
-          mode: opts.shape,
-        })
-      : makeFlatRegularState(text, {
-          sid,
-          id: `${sid}-current`,
-        }),
   };
 }
 

@@ -8,7 +8,12 @@ import {
   transformToShape,
   wrapFlatTokensInLexicalParagraph,
 } from "@/app/domain/editor/utils/modeTransforms.ts";
+import {
+  lexicalToTokens,
+  tokensToLexical,
+} from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { LanguageDirection } from "@/core/domain/project/project.ts";
+import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 /**
  * History/version features need a mode-independent representation of a chapter.
@@ -73,6 +78,33 @@ export function canonicalSnapshotToChapterState(args: {
   };
 
   return transformToShape(baseState, args.targetShape);
+}
+
+/**
+ * Canonical snapshot straight from a chapter's flat token stream — the
+ * token-space equivalent of `chapterStateToCanonicalSnapshot`. Routes through
+ * the flat shape so the produced `flatNodes` match what flattening any shaped
+ * tree of the same content would yield (the flat↔shape round-trip is lossless).
+ */
+export function chapterTokensToCanonicalSnapshot(
+  tokens: Token[],
+  direction: LanguageDirection,
+): CanonicalChapterSnapshot {
+  return chapterStateToCanonicalSnapshot(
+    tokensToLexical({ tokens, direction, mode: EDITOR_SHAPES.flat }),
+  );
+}
+
+/** Inverse of `chapterTokensToCanonicalSnapshot`: snapshot → flat token stream. */
+export function canonicalSnapshotToTokens(
+  snapshot: CanonicalChapterSnapshot,
+): Token[] {
+  return lexicalToTokens(
+    canonicalSnapshotToChapterState({
+      snapshot,
+      targetShape: EDITOR_SHAPES.flat,
+    }),
+  );
 }
 
 export function chapterSnapshotsAreEqual(

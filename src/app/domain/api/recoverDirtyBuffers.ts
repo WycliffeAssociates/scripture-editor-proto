@@ -25,7 +25,6 @@ import { parseRecoveredBookContents } from "@/app/domain/api/parseRecoveredBookC
 import type { InitialLintByBook } from "@/app/domain/api/scriptureProjectToParsedFiles.ts";
 import {
   detectLineEnding,
-  tokensToLexical,
   tokensToUsfm,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { mergeBookChapters } from "@/app/domain/project/workingFileMutations.ts";
@@ -224,14 +223,12 @@ export async function recoverDirtyBuffers(args: {
         ? {
             ...diskChapter,
             currentTokens: restored.tokens,
-            lexicalState: restored.lexicalState,
             dirty: true,
           }
         : {
             chapterNumber: chapterNum,
             sourceTokens: [],
             currentTokens: restored.tokens,
-            lexicalState: restored.lexicalState,
             direction: args.direction,
             dirty: true,
             eol,
@@ -258,14 +255,6 @@ export async function recoverDirtyBuffers(args: {
         chapter: {
           ...diskChapter,
           currentTokens: [],
-          // Empty content materializes the same under every shape
-          // (tokensToLexical keeps the wrapped-flat empty paragraph),
-          // so the user's shape is correct AND Lexical-valid here.
-          lexicalState: tokensToLexical({
-            tokens: [],
-            direction: args.direction,
-            mode: args.shape,
-          }),
           dirty: true,
         },
       });

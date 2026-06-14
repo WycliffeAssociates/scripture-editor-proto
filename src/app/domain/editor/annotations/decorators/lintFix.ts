@@ -14,7 +14,6 @@ import { onionFindingsByChapter } from "@/app/domain/editor/annotations/normaliz
 import { rebuildParsedFileFromUsfm } from "@/app/domain/editor/services/rebuildParsedFileFromUsfm.ts";
 import {
   bookLineEnding,
-  lexicalToTokens,
   tokensToUsfm,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { withWorkingFilesDraft } from "@/app/domain/project/workingFileCommand.ts";
@@ -116,11 +115,7 @@ export async function applyLintFixToFile(args: {
   targetChapterNumber: number;
   usfmOnionService: IUsfmOnionService;
 }): Promise<LintFixComputeResult> {
-  const baselineTokens = args.file.chapters.flatMap((c) =>
-    lexicalToTokens(c.lexicalState, {
-      bookCode: args.file.bookCode,
-    }),
-  );
+  const baselineTokens = args.file.chapters.flatMap((c) => c.currentTokens);
   let activeFix = args.issueFix;
   let result = await args.usfmOnionService.applyTokenFixes(baselineTokens, [
     activeFix,

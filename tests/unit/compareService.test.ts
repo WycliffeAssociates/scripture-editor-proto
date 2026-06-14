@@ -1,8 +1,5 @@
-import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
 
-import { UsfmTokenTypes } from "@/app/data/editor.ts";
-import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import {
   applyIncomingChapter,
   applyIncomingChapterAll,
@@ -28,41 +25,6 @@ function makeTokens(text: string, sid: string, id: string): Token[] {
       source: text,
     },
   ];
-}
-
-function makeEditorState(
-  text: string,
-  sid: string,
-  id: string,
-): SerializedEditorState<SerializedLexicalNode> {
-  return {
-    root: {
-      type: "root",
-      version: 1,
-      direction: "ltr",
-      format: "start",
-      indent: 0,
-      children: [
-        {
-          type: "paragraph",
-          version: 1,
-          direction: "ltr",
-          format: "",
-          indent: 0,
-          textFormat: 0,
-          textStyle: "",
-          children: [
-            createSerializedUSFMTextNode({
-              text,
-              sid,
-              id,
-              tokenType: UsfmTokenTypes.text,
-            }),
-          ],
-        } as unknown as SerializedLexicalNode,
-      ],
-    },
-  };
 }
 
 function makeFiles(args: {
@@ -95,11 +57,6 @@ function makeFiles(args: {
             args.currentText,
             `${bookCode} ${chapterNum}:1`,
             `${bookCode}-current`,
-          ),
-          lexicalState: makeEditorState(
-            args.currentText,
-            `${bookCode} ${chapterNum}:1`,
-            `${bookCode}-tok`,
           ),
         },
       ],
@@ -302,7 +259,6 @@ describe("compareService apply incoming", () => {
       sourceFiles: source,
       diff,
       usfmOnionService,
-      shape: "flat",
     });
 
     const after = await buildCompareResultAsync({
@@ -332,7 +288,6 @@ describe("compareService apply incoming", () => {
       sourceFiles: source,
       bookCode: "GEN",
       chapterNum: 1,
-      shape: "flat",
     });
 
     const after = await buildCompareResultAsync({
@@ -370,7 +325,6 @@ describe("compareService apply incoming", () => {
     applyIncomingChapterAll({
       workingFiles: current,
       sourceFiles: source,
-      shape: "flat",
     });
 
     const after = await buildCompareResultAsync({

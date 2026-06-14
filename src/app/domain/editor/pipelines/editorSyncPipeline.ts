@@ -1,6 +1,7 @@
 import { Deferred, Effect, Stream } from "effect";
 import type { LexicalEditor } from "lexical";
 
+import type { EditorShape } from "@/app/data/editor.ts";
 import { editorSyncScopeFor } from "@/app/state/commitFilters.ts";
 import type { LayoutTickStore } from "@/app/state/LayoutTickStore.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
@@ -30,6 +31,7 @@ export function makeEditorSyncPipeline(args: {
   mainEditorDeferred: Deferred.Deferred<LexicalEditor>;
   getVisibleBookCode: () => string;
   getVisibleChapter: () => number;
+  getEditorShape: () => EditorShape;
   layoutTickStore: LayoutTickStore;
 }): Effect.Effect<void> {
   return args.workingFilesStore.changes.pipe(
@@ -57,6 +59,7 @@ export function makeEditorSyncPipeline(args: {
             chapterNum,
             undefined,
             args.workingFilesStore,
+            args.getEditorShape(),
           );
           // The content swap bypasses the bridge (programaticIgnore
           // tag), so overlay hit-targets re-resolve via an explicit

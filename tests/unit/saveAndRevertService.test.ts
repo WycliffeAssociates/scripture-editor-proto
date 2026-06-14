@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { UsfmTokenTypes } from "@/app/data/editor.ts";
-import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import {
   BOOK_PERSISTENCE_ACTION_ADD_NEW,
   BOOK_PERSISTENCE_ACTION_SAVE_EXISTING,
@@ -21,37 +19,6 @@ function makeTokens(text: string, sid: string, id: string): Token[] {
       source: text,
     },
   ];
-}
-
-function makeEditorState(text: string, sid: string, id: string) {
-  return {
-    root: {
-      type: "root" as const,
-      version: 1,
-      direction: "ltr" as const,
-      format: "start" as const,
-      indent: 0,
-      children: [
-        {
-          type: "paragraph",
-          version: 1,
-          direction: "ltr" as const,
-          format: "" as const,
-          indent: 0,
-          textFormat: 0,
-          textStyle: "",
-          children: [
-            createSerializedUSFMTextNode({
-              text,
-              sid,
-              id,
-              tokenType: UsfmTokenTypes.text,
-            }),
-          ],
-        },
-      ],
-    },
-  };
 }
 
 describe("buildBooksSavePayload", () => {
@@ -79,11 +46,6 @@ describe("buildBooksSavePayload", () => {
               "MRK 1:1",
               "m1-current",
             ),
-            lexicalState: makeEditorState(
-              "\\c 1\n\\p\nChapter one.\n",
-              "MRK 1:1",
-              "m1",
-            ),
           },
           {
             chapterNumber: 15,
@@ -99,11 +61,6 @@ describe("buildBooksSavePayload", () => {
               "\\c 15\n\\p\nNew text.\n",
               "MRK 15:1",
               "m15-current",
-            ),
-            lexicalState: makeEditorState(
-              "\\c 15\n\\p\nNew text.\n",
-              "MRK 15:1",
-              "m15",
             ),
           },
         ],

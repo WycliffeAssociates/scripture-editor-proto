@@ -5,7 +5,6 @@ import { type EditorModeSetting, shapeForSurface } from "@/app/data/editor.ts";
 import { rebuildParsedFileFromUsfm } from "@/app/domain/editor/services/rebuildParsedFileFromUsfm.ts";
 import {
   bookLineEnding,
-  tokensToLexical,
   tokensToUsfm,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { withWorkingFilesDraft } from "@/app/domain/project/workingFileCommand.ts";
@@ -60,17 +59,11 @@ export function useFormatOperations({
     chapter.currentTokens;
 
   // Write the formatted result onto a checked-out chapter (per-chapter scope).
+  // Only the canonical tokens are stored; the editor re-derives shape on read.
   const writeFormattedChapter = (
     chapter: ScriptureChapterState,
     tokens: ScriptureChapterState["currentTokens"],
   ) => {
-    const direction =
-      (chapter.lexicalState.root.direction ?? "ltr") === "rtl" ? "rtl" : "ltr";
-    chapter.lexicalState = tokensToLexical({
-      tokens,
-      direction,
-      mode: workingShape(),
-    });
     chapter.currentTokens = tokens;
     chapter.dirty =
       tokensToUsfm(tokens, chapter.eol) !==

@@ -9,17 +9,14 @@ import type {
 } from "lexical";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
-import {
-  lexicalToTokens,
-  tokensToUsfm,
-} from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { EDITOR_TAGS_USED, type EditorShape } from "@/app/data/editor.ts";
+import { tokensToUsfm } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import {
   type CanonicalChapterSnapshot,
-  canonicalSnapshotToChapterState,
+  canonicalSnapshotToTokens,
   chapterSnapshotsAreEqual,
   chapterStateToCanonicalSnapshot,
-  inferChapterShapeFromState,
+  chapterTokensToCanonicalSnapshot,
 } from "@/app/domain/history/canonicalChapterState.ts";
 import { classifyEditorContentUpdate } from "@/app/domain/history/classifyEditorUpdate.ts";
 import {
@@ -88,6 +85,8 @@ type UseCustomHistoryArgs = {
   editorRef: React.RefObject<LexicalEditor | null>;
   currentFileBibleIdentifier: string;
   currentChapter: number;
+  /** Current main-editor shape — undo/redo replay re-renders the visible chapter in it. */
+  getEditorShape: () => EditorShape;
   maxEntries?: number;
   coalesceWindowMs?: number;
 };
@@ -120,6 +119,7 @@ export function useCustomHistory({
   editorRef,
   currentFileBibleIdentifier,
   currentChapter,
+  getEditorShape,
   maxEntries = DEFAULT_MAX_ENTRIES,
   coalesceWindowMs = DEFAULT_COALESCE_WINDOW_MS,
 }: UseCustomHistoryArgs) {
@@ -184,7 +184,10 @@ export function useCustomHistory({
     (chapterRef: HistoryChapterRef): CanonicalChapterSnapshot | null => {
       const record = findChapterRecord(chapterRef);
       if (!record) return null;
-      return chapterStateToCanonicalSnapshot(record.chapter.lexicalState);
+      return chapterTokensToCanonicalSnapshot(
+        record.chapter.currentTokens,
+        record.chapter.direction,
+      );
     },
     [findChapterRecord],
   );
@@ -224,17 +227,13 @@ export function useCustomHistory({
     [workingFilesStore],
   );
 
-  const markChapterDirty = useCallback(
-    (chapter: ScriptureChapterState) => {
-      chapter.currentTokens = lexicalToTokens(chapter.lexicalState, {
-        bookCode: currentFileBibleIdentifier,
-      });
-      chapter.dirty =
-        tokensToUsfm(chapter.currentTokens, chapter.eol) !==
-        tokensToUsfm(chapter.sourceTokens, chapter.eol);
-    },
-    [currentFileBibleIdentifier],
-  );
+  const markChapterDirty = useCallback((chapter: ScriptureChapterState) => {
+    // currentTokens is the canonical content (set by the caller from the
+    // replayed snapshot); dirty is purely derived from it vs the baseline.
+    chapter.dirty =
+      tokensToUsfm(chapter.currentTokens, chapter.eol) !==
+      tokensToUsfm(chapter.sourceTokens, chapter.eol);
+  }, []);
 
   // Undo/redo replay swaps chapter content; this hook then restores
   // focus, cursor (by USFMTextNode `data-id`, which survives
@@ -283,6 +282,7 @@ export function useCustomHistory({
         currentRef.chapterNum,
         currentRecord.chapter,
         workingFilesStore,
+        getEditorShape(),
       );
 
       // Cancel any in-flight restore; the newest replay supersedes.
@@ -435,14 +435,11 @@ export function useCustomHistory({
           direction === "before"
             ? change.selectionBefore
             : change.selectionAfter;
-        const targetShape = inferChapterShapeFromState(
-          record.chapter.lexicalState,
-        );
 
-        record.chapter.lexicalState = canonicalSnapshotToChapterState({
-          snapshot: targetSnapshot,
-          targetShape,
-        });
+        // Write the canonical token stream; the visible editor re-derives its
+        // shape from it on read (refreshVisibleEditorIfTouched below).
+        record.chapter.currentTokens =
+          canonicalSnapshotToTokens(targetSnapshot);
         markChapterDirty(record.chapter);
 
         setBaselineSnapshot(change.chapter, targetSnapshot);
@@ -694,11 +691,13 @@ export function useCustomHistory({
           if (!beforeChapter || !afterChapter) return null;
           // Same object under structural sharing ⇒ untouched: nothing changed.
           if (beforeChapter === afterChapter) return null;
-          const before = chapterStateToCanonicalSnapshot(
-            beforeChapter.lexicalState,
+          const before = chapterTokensToCanonicalSnapshot(
+            beforeChapter.currentTokens,
+            beforeChapter.direction,
           );
-          const after = chapterStateToCanonicalSnapshot(
-            afterChapter.lexicalState,
+          const after = chapterTokensToCanonicalSnapshot(
+            afterChapter.currentTokens,
+            afterChapter.direction,
           );
           if (chapterSnapshotsAreEqual(before, after)) return null;
           setBaselineSnapshot(chapterRef, after);

@@ -1,48 +1,10 @@
-import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { applyLintFixToFile } from "@/app/domain/editor/annotations/decorators/lintFix.ts";
-import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
-
-function makeEditorState(
-  text: string,
-  sid: string,
-  id: string,
-): SerializedEditorState<SerializedLexicalNode> {
-  return {
-    root: {
-      type: "root",
-      version: 1,
-      direction: "ltr",
-      format: "start",
-      indent: 0,
-      children: [
-        {
-          type: "paragraph",
-          version: 1,
-          direction: "ltr",
-          format: "",
-          indent: 0,
-          textFormat: 0,
-          textStyle: "",
-          children: [
-            createSerializedUSFMTextNode({
-              text,
-              sid,
-              id,
-              tokenType: UsfmTokenTypes.text,
-            }),
-          ],
-        } as unknown as SerializedLexicalNode,
-      ],
-    },
-  };
-}
 
 function makeScriptureBookState(): ScriptureBookState {
   return {
@@ -58,8 +20,15 @@ function makeScriptureBookState(): ScriptureBookState {
         eol: "\n",
         direction: "ltr",
         sourceTokens: [],
-        currentTokens: [],
-        lexicalState: makeEditorState("one", "GEN 1:1", "tok-1"),
+        currentTokens: [
+          {
+            id: "tok-1",
+            kind: "text",
+            source: "one",
+            sid: "GEN 1:1",
+            span: { start: 0, end: 3 },
+          },
+        ],
       },
       {
         chapterNumber: 2,
@@ -67,8 +36,15 @@ function makeScriptureBookState(): ScriptureBookState {
         eol: "\n",
         direction: "ltr",
         sourceTokens: [],
-        currentTokens: [],
-        lexicalState: makeEditorState("two", "GEN 2:1", "tok-2"),
+        currentTokens: [
+          {
+            id: "tok-2",
+            kind: "text",
+            source: "two",
+            sid: "GEN 2:1",
+            span: { start: 0, end: 3 },
+          },
+        ],
       },
     ],
   };
