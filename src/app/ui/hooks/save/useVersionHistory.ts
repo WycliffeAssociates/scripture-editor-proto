@@ -98,27 +98,23 @@ export function useVersionHistory(args: {
         })),
       );
       const draft = args.workingFilesStore.draftWithChapters(allRefs);
-      await args.history.runTransaction({
-        label: "Load Previous Version",
-        candidates: allRefs,
-        run: async () => {
-          applyVersionSnapshotToWorkingFiles({
-            workingFiles: draft,
-            sourceFiles: preview.parsedFiles,
-            shape: shapeForSurface("workingRebuild", args.editorMode),
-          });
-          args.workingFilesStore.commit({
-            patch: { kind: "bulk", files: draft },
-            meta: {
-              kind: "import",
-              action: "versionRevert",
-              scope: { project: true },
-              dirtyTextContent: true,
-            },
-          });
-          args.bumpDirtyVersion();
+      // No history entry: loading a previous version resets undo (clearHistory
+      // below), so recording the swap would only be wiped immediately.
+      applyVersionSnapshotToWorkingFiles({
+        workingFiles: draft,
+        sourceFiles: preview.parsedFiles,
+        shape: shapeForSurface("workingRebuild", args.editorMode),
+      });
+      args.workingFilesStore.commit({
+        patch: { kind: "bulk", files: draft },
+        meta: {
+          kind: "import",
+          action: "versionRevert",
+          scope: { project: true },
+          dirtyTextContent: true,
         },
       });
+      args.bumpDirtyVersion();
       args.history.clearHistory();
       setSelectedHash(hash);
     } finally {

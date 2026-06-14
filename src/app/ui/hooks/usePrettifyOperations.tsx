@@ -9,10 +9,6 @@ import {
   tokensToUsfm,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { withWorkingFilesDraft } from "@/app/domain/project/workingFileCommand.ts";
-import {
-  allChapterRefs,
-  chapterRefsForBook,
-} from "@/app/domain/project/workingFileMutations.ts";
 import type {
   ScriptureBookState,
   ScriptureChapterState,
@@ -120,65 +116,59 @@ export function useFormatOperations({
         const file = workingFiles.find((f) => f.bookCode === targetBookCode);
         if (!file) return;
 
-        await history.runTransaction({
-          label: t`Format Chapter (${targetBookCode} ${targetChapterNumber})`,
-          candidates: [
-            {
+        // Only the target chapter needs to be writable; formatChapterInPlace
+        // mutates just that chapter's lexicalState/currentTokens/dirty on the
+        // scratch.
+        const historyToken = history.captureHistory();
+        const outcome = await withWorkingFilesDraft({
+          workingFilesStore,
+          interactionGate,
+          commitMeta: {
+            kind: "programmaticFix",
+            action: "prettify",
+            dirtyTextContent: true,
+          },
+          mutate: async (draft) => {
+            const draftFile = draft
+              .read()
+              .find((f) => f.bookCode === targetBookCode);
+            const chapter = draftFile?.chapters.find(
+              (c) => c.chapterNumber === targetChapterNumber,
+            );
+            if (!chapter) return;
+            const [result] = await usfmOnionService.formatScope([
+              { tokens: chapterTokensForFormatting(chapter) },
+            ]);
+            if (!result.appliedChanges.length) return;
+            const writable = draft.chapterForWrite({
               bookCode: targetBookCode,
               chapterNum: targetChapterNumber,
-            },
-          ],
-          run: async () => {
-            // Only the target chapter needs to be writable;
-            // formatChapterInPlace mutates just that chapter's
-            // lexicalState/currentTokens/dirty on the scratch.
-            const outcome = await withWorkingFilesDraft({
-              workingFilesStore,
-              interactionGate,
-              commitMeta: {
-                kind: "programmaticFix",
-                action: "prettify",
-                dirtyTextContent: true,
-              },
-              mutate: async (draft) => {
-                const draftFile = draft
-                  .read()
-                  .find((f) => f.bookCode === targetBookCode);
-                const chapter = draftFile?.chapters.find(
-                  (c) => c.chapterNumber === targetChapterNumber,
-                );
-                if (!chapter) return;
-                const [result] = await usfmOnionService.formatScope([
-                  { tokens: chapterTokensForFormatting(chapter) },
-                ]);
-                if (!result.appliedChanges.length) return;
-                const writable = draft.chapterForWrite({
-                  bookCode: targetBookCode,
-                  chapterNum: targetChapterNumber,
-                });
-                if (writable) writeFormattedChapter(writable, result.tokens);
-              },
             });
-
-            if (outcome.kind === "unchanged") {
-              showNotificationInfo({
-                notification: {
-                  title: t`Nothing changed`,
-                  message: t`This chapter is already formatted`,
-                },
-              });
-              return;
-            }
-            if (outcome.kind === "committed") {
-              showNotificationSuccess({
-                notification: {
-                  title: t`Chapter Formatted`,
-                  message: t`Formatted ${file.title || file.bookCode} ${targetChapterNumber}`,
-                },
-              });
-            }
+            if (writable) writeFormattedChapter(writable, result.tokens);
           },
         });
+
+        if (outcome.kind === "unchanged") {
+          showNotificationInfo({
+            notification: {
+              title: t`Nothing changed`,
+              message: t`This chapter is already formatted`,
+            },
+          });
+          return;
+        }
+        if (outcome.kind === "committed") {
+          showNotificationSuccess({
+            notification: {
+              title: t`Chapter Formatted`,
+              message: t`Formatted ${file.title || file.bookCode} ${targetChapterNumber}`,
+            },
+          });
+          history.recordHistory(historyToken, {
+            label: t`Format Chapter (${targetBookCode} ${targetChapterNumber})`,
+            affected: outcome.committedChapters,
+          });
+        }
         return;
       }
 
@@ -188,60 +178,58 @@ export function useFormatOperations({
         const file = workingFiles.find((f) => f.bookCode === targetBookCode);
         if (!file) return;
 
-        await history.runTransaction({
-          label: t`Format Book (${targetBookCode})`,
-          candidates: chapterRefsForBook(file),
-          run: async () => {
-            // formatBookInPlace → rebuildParsedFileFromUsfm replaces
-            // the book's chapters array wholesale, so this is a
-            // workspace-scope (validate-then-bulk) commit, not a
-            // per-chapter overlay.
-            const outcome = await withWorkingFilesDraft({
-              workingFilesStore,
-              interactionGate,
-              commitMeta: {
-                kind: "programmaticFix",
-                action: "prettify",
-                dirtyTextContent: true,
+        // formatBookInPlace → rebuildParsedFileFromUsfm replaces the book's
+        // chapters array wholesale, so this is a workspace-scope (validate-
+        // then-bulk) commit, not a per-chapter overlay.
+        const historyToken = history.captureHistory();
+        const outcome = await withWorkingFilesDraft({
+          workingFilesStore,
+          interactionGate,
+          commitMeta: {
+            kind: "programmaticFix",
+            action: "prettify",
+            dirtyTextContent: true,
+          },
+          mutate: async (draft) => {
+            const draftFile = draft
+              .read()
+              .find((f) => f.bookCode === targetBookCode);
+            if (!draftFile) return;
+            const [result] = await usfmOnionService.formatScope([
+              {
+                tokens: draftFile.chapters.flatMap((chapter) =>
+                  chapterTokensForFormatting(chapter),
+                ),
               },
-              mutate: async (draft) => {
-                const draftFile = draft
-                  .read()
-                  .find((f) => f.bookCode === targetBookCode);
-                if (!draftFile) return;
-                const [result] = await usfmOnionService.formatScope([
-                  {
-                    tokens: draftFile.chapters.flatMap((chapter) =>
-                      chapterTokensForFormatting(chapter),
-                    ),
-                  },
-                ]);
-                if (!result.appliedChanges.length) return;
-                const writableFile = draft.bookForWrite(targetBookCode);
-                if (writableFile)
-                  await writeFormattedBook(writableFile, result.tokens);
-              },
-            });
-
-            if (outcome.kind === "unchanged") {
-              showNotificationInfo({
-                notification: {
-                  title: t`Nothing changed`,
-                  message: t`This book is already formatted`,
-                },
-              });
-              return;
-            }
-            if (outcome.kind === "committed") {
-              showNotificationSuccess({
-                notification: {
-                  title: t`Book Formatted`,
-                  message: t`Formatted ${file.title || file.bookCode}`,
-                },
-              });
-            }
+            ]);
+            if (!result.appliedChanges.length) return;
+            const writableFile = draft.bookForWrite(targetBookCode);
+            if (writableFile)
+              await writeFormattedBook(writableFile, result.tokens);
           },
         });
+
+        if (outcome.kind === "unchanged") {
+          showNotificationInfo({
+            notification: {
+              title: t`Nothing changed`,
+              message: t`This book is already formatted`,
+            },
+          });
+          return;
+        }
+        if (outcome.kind === "committed") {
+          showNotificationSuccess({
+            notification: {
+              title: t`Book Formatted`,
+              message: t`Formatted ${file.title || file.bookCode}`,
+            },
+          });
+          history.recordHistory(historyToken, {
+            label: t`Format Book (${targetBookCode})`,
+            affected: outcome.committedChapters,
+          });
+        }
         return;
       }
 
@@ -258,77 +246,75 @@ export function useFormatOperations({
       const previous = workingFilesStore.read();
       let modifiedBooksCount = 0;
 
-      const backup = await history.runTransaction({
-        label: t`Format Project`,
-        candidates: allChapterRefs(workingFiles),
-        run: async () => {
-          // Discovery flow: formatScope returns per-book results; we
-          // don't know which books change until we see appliedChanges.
-          // rebuildParsedFileFromUsfm replaces each touched book's
-          // `chapters` array wholesale → workspace-scope commit.
-          const outcome = await withWorkingFilesDraft({
-            workingFilesStore,
-            interactionGate,
-            commitMeta: {
-              kind: "programmaticFix",
-              action: "prettify",
-              dirtyTextContent: true,
-            },
-            mutate: async (draft) => {
-              // Discovery flow: formatScope returns per-book results; we don't
-              // know which books change until we see appliedChanges. Check each
-              // changed book out and rebuild it wholesale.
-              const books = draft.read();
-              const batchResults = await usfmOnionService.formatScope(
-                books.map((file) => ({
-                  tokens: file.chapters.flatMap((chapter) =>
-                    chapterTokensForFormatting(chapter),
-                  ),
-                })),
-              );
+      // Discovery flow: formatScope returns per-book results; we don't know
+      // which books change until we see appliedChanges.
+      // rebuildParsedFileFromUsfm replaces each touched book's `chapters` array
+      // wholesale → workspace-scope commit.
+      const historyToken = history.captureHistory();
+      const outcome = await withWorkingFilesDraft({
+        workingFilesStore,
+        interactionGate,
+        commitMeta: {
+          kind: "programmaticFix",
+          action: "prettify",
+          dirtyTextContent: true,
+        },
+        mutate: async (draft) => {
+          // Discovery flow: formatScope returns per-book results; we don't
+          // know which books change until we see appliedChanges. Check each
+          // changed book out and rebuild it wholesale.
+          const books = draft.read();
+          const batchResults = await usfmOnionService.formatScope(
+            books.map((file) => ({
+              tokens: file.chapters.flatMap((chapter) =>
+                chapterTokensForFormatting(chapter),
+              ),
+            })),
+          );
 
-              const modifiedBookCodes = new Set<string>();
-              for (let i = 0; i < books.length; i++) {
-                const file = books[i];
-                const result = batchResults[i];
-                if (!result || !result.appliedChanges.length) continue;
-                updateProgressNotification(progressNotificationId, {
-                  title: t`Formatting Project`,
-                  message: t`Processing ${file.title || file.bookCode} (${i + 1}/${totalBooks})...`,
-                });
-                const writableFile = draft.bookForWrite(file.bookCode);
-                if (!writableFile) continue;
-                await writeFormattedBook(writableFile, result.tokens);
-                modifiedBookCodes.add(file.bookCode);
-              }
-
-              modifiedBooksCount = modifiedBookCodes.size;
-              return { modifiedBookCodes };
-            },
-          });
-
-          hideNotification(progressNotificationId);
-          notificationId = null;
-          if (outcome.kind === "committed") {
-            showNotificationSuccess({
-              notification: {
-                title: t`Project Formatted`,
-                message: t`Formatted ${modifiedBooksCount} book(s)`,
-              },
+          const modifiedBookCodes = new Set<string>();
+          for (let i = 0; i < books.length; i++) {
+            const file = books[i];
+            const result = batchResults[i];
+            if (!result || !result.appliedChanges.length) continue;
+            updateProgressNotification(progressNotificationId, {
+              title: t`Formatting Project`,
+              message: t`Processing ${file.title || file.bookCode} (${i + 1}/${totalBooks})...`,
             });
-          } else if (outcome.kind === "unchanged") {
-            showNotificationInfo({
-              notification: {
-                title: t`Nothing changed`,
-                message: t`This project is already formatted`,
-              },
-            });
+            const writableFile = draft.bookForWrite(file.bookCode);
+            if (!writableFile) continue;
+            await writeFormattedBook(writableFile, result.tokens);
+            modifiedBookCodes.add(file.bookCode);
           }
-          return previous;
+
+          modifiedBooksCount = modifiedBookCodes.size;
+          return { modifiedBookCodes };
         },
       });
 
-      return backup;
+      hideNotification(progressNotificationId);
+      notificationId = null;
+      if (outcome.kind === "committed") {
+        showNotificationSuccess({
+          notification: {
+            title: t`Project Formatted`,
+            message: t`Formatted ${modifiedBooksCount} book(s)`,
+          },
+        });
+        history.recordHistory(historyToken, {
+          label: t`Format Project`,
+          affected: outcome.committedChapters,
+        });
+      } else if (outcome.kind === "unchanged") {
+        showNotificationInfo({
+          notification: {
+            title: t`Nothing changed`,
+            message: t`This project is already formatted`,
+          },
+        });
+      }
+
+      return previous;
     } finally {
       if (notificationId) hideNotification(notificationId);
       setIsProcessing(false);

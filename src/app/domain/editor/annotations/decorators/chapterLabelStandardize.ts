@@ -26,7 +26,6 @@ import {
   tokensToUsfm,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { withWorkingFilesDraft } from "@/app/domain/project/workingFileCommand.ts";
-import { chapterRefsForBook } from "@/app/domain/project/workingFileMutations.ts";
 import type {
   ReadonlyScriptureBookState,
   ScriptureBookState,
@@ -110,58 +109,55 @@ export async function standardizeChapterLabels(
   // also rechecks at commit time).
   if (!requireGateOpen(deps.interactionGate.get())) return;
 
-  // Scope the history transaction to every chapter that could be touched (each
-  // book carrying an off-target label rebuilds wholesale). The seam measures
-  // the actually-changed books from its own checkouts; this list only narrows
-  // history's before-snapshot capture.
-  const startState = deps.workingFilesStore.read();
-  const candidates = startState
-    .filter((file) => computeChapterLabelUsfm(file, targetStem) !== null)
-    .flatMap(chapterRefsForBook);
-  if (candidates.length === 0) return;
+  // Cheap pre-check: bail before capturing history if no book carries an
+  // off-target label. The seam measures the actually-changed books from its
+  // own checkouts.
+  const hasCandidate = deps.workingFilesStore
+    .read()
+    .some((file) => computeChapterLabelUsfm(file, targetStem) !== null);
+  if (!hasCandidate) return;
 
-  await deps.history.runTransaction({
+  const historyToken = deps.history.captureHistory();
+  const outcome = await withWorkingFilesDraft<{
+    changedBookCodes: string[];
+  }>({
+    workingFilesStore: deps.workingFilesStore,
+    interactionGate: deps.interactionGate,
+    commitMeta: {
+      kind: "programmaticFix",
+      action: "chapterLabelStandardize",
+      dirtyTextContent: true,
+    },
+    mutate: async (draft) => {
+      const changedBookCodes: string[] = [];
+      for (const file of draft.read()) {
+        const nextUsfm = computeChapterLabelUsfm(file, targetStem);
+        if (nextUsfm === null) continue;
+        // Off-target labels found — check the book out and rebuild it
+        // wholesale from the rewritten USFM.
+        const writableFile = draft.bookForWrite(file.bookCode);
+        if (!writableFile) continue;
+        await rebuildParsedFileFromUsfm({
+          targetFile: writableFile,
+          sourceUsfm: nextUsfm,
+          usfmOnionService: deps.usfmOnionService,
+          shape: shapeForSurface("workingRebuild", deps.editorMode),
+        });
+        changedBookCodes.push(file.bookCode);
+      }
+      return { changedBookCodes };
+    },
+  });
+
+  if (outcome.kind !== "committed") return;
+  deps.history.recordHistory(historyToken, {
     label: t`Standardize chapter labels to "${targetStem}"`,
-    candidates,
-    run: async () => {
-      const outcome = await withWorkingFilesDraft<{
-        changedBookCodes: string[];
-      }>({
-        workingFilesStore: deps.workingFilesStore,
-        interactionGate: deps.interactionGate,
-        commitMeta: {
-          kind: "programmaticFix",
-          action: "chapterLabelStandardize",
-          dirtyTextContent: true,
-        },
-        mutate: async (draft) => {
-          const changedBookCodes: string[] = [];
-          for (const file of draft.read()) {
-            const nextUsfm = computeChapterLabelUsfm(file, targetStem);
-            if (nextUsfm === null) continue;
-            // Off-target labels found — check the book out and rebuild it
-            // wholesale from the rewritten USFM.
-            const writableFile = draft.bookForWrite(file.bookCode);
-            if (!writableFile) continue;
-            await rebuildParsedFileFromUsfm({
-              targetFile: writableFile,
-              sourceUsfm: nextUsfm,
-              usfmOnionService: deps.usfmOnionService,
-              shape: shapeForSurface("workingRebuild", deps.editorMode),
-            });
-            changedBookCodes.push(file.bookCode);
-          }
-          return { changedBookCodes };
-        },
-      });
-
-      if (outcome.kind !== "committed") return;
-      showNotificationSuccess({
-        notification: {
-          title: t`Chapter labels standardized`,
-          message: t`Set chapter labels to "${targetStem}" across ${outcome.value.changedBookCodes.length} book(s)`,
-        },
-      });
+    affected: outcome.committedChapters,
+  });
+  showNotificationSuccess({
+    notification: {
+      title: t`Chapter labels standardized`,
+      message: t`Set chapter labels to "${targetStem}" across ${outcome.value.changedBookCodes.length} book(s)`,
     },
   });
 }

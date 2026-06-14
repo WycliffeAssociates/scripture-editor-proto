@@ -149,9 +149,12 @@ function createHistory(): CustomHistoryHook {
     peekUndoLabel: () => null,
     peekRedoLabel: () => null,
     captureEditorUpdate: vi.fn(),
-    runTransaction: async ({ run }) => {
-      return await run();
-    },
+    captureHistory: vi.fn(() => ({
+      beforeFiles: [],
+      selectionBefore: null,
+      currentKey: "",
+    })),
+    recordHistory: vi.fn(),
     setNextTypingLabel: vi.fn(),
     undo: vi.fn(),
     redo: vi.fn(),

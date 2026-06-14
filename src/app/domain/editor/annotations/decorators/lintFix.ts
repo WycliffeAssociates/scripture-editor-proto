@@ -213,71 +213,64 @@ export async function fixLintFinding(err: LintIssue, deps: LintFixDeps) {
     return;
   }
 
-  await deps.history.runTransaction({
-    label: t`Apply Autofix (${localizedFixLabel})`,
-    candidates: [
-      {
-        bookCode: originalFile.bookCode,
-        chapterNum: targetChapterNumber,
-      },
-    ],
-    run: async () => {
-      const outcome = await withWorkingFilesDraft({
-        workingFilesStore: deps.workingFilesStore,
-        interactionGate: deps.interactionGate,
-        commitMeta: {
-          kind: "programmaticFix",
-          action: "lintFix",
-          dirtyTextContent: true,
-        },
-        mutate: async (draft): Promise<LintFixComputeResult> => {
-          const file = draft.read().find((f) => f.bookCode === sidParsed.book);
-          if (!file) return { applied: false };
-          const computed = await applyLintFixToFile({
-            err,
-            issueFix,
-            file,
-            targetBookCode: file.bookCode,
-            targetChapterNumber,
-            usfmOnionService: deps.usfmOnionService,
-          });
-          if (!computed.applied) return computed;
-
-          // The fix produced changes — check out the book and rebuild it in
-          // place from the new USFM (replaces its chapters wholesale).
-          const writableFile = draft.bookForWrite(sidParsed.book);
-          if (!writableFile) return { applied: false };
-          await rebuildParsedFileFromUsfm({
-            targetFile: writableFile,
-            sourceUsfm: computed.nextUsfm,
-            usfmOnionService: deps.usfmOnionService,
-            shape: shapeForSurface("workingRebuild", deps.editorMode),
-          });
-          return computed;
-        },
+  const historyToken = deps.history.captureHistory();
+  const outcome = await withWorkingFilesDraft({
+    workingFilesStore: deps.workingFilesStore,
+    interactionGate: deps.interactionGate,
+    commitMeta: {
+      kind: "programmaticFix",
+      action: "lintFix",
+      dirtyTextContent: true,
+    },
+    mutate: async (draft): Promise<LintFixComputeResult> => {
+      const file = draft.read().find((f) => f.bookCode === sidParsed.book);
+      if (!file) return { applied: false };
+      const computed = await applyLintFixToFile({
+        err,
+        issueFix,
+        file,
+        targetBookCode: file.bookCode,
+        targetChapterNumber,
+        usfmOnionService: deps.usfmOnionService,
       });
+      if (!computed.applied) return computed;
 
-      if (outcome.kind === "committed") {
-        showNotificationSuccess({
-          notification: {
-            title: t`Fix Applied`,
-            message: t`Autofix applied for ${localizedFixLabel}`,
-          },
-        });
-      }
-
-      // No-op path: the fix didn't apply, but a fallback relint may
-      // have refreshed the issue set. Publish it so the findings
-      // surfaces reflect current truth — without having committed
-      // mid-mutation (no commit ⇒ no subscriber fires; this is the one
-      // legitimate manual findings write).
-      if (outcome.kind === "unchanged" && outcome.value.fallbackIssues) {
-        deps.findingsStore.commitBookFindings(
-          "onion",
-          sidParsed.book,
-          onionFindingsByChapter(outcome.value.fallbackIssues),
-        );
-      }
+      // The fix produced changes — check out the book and rebuild it in
+      // place from the new USFM (replaces its chapters wholesale).
+      const writableFile = draft.bookForWrite(sidParsed.book);
+      if (!writableFile) return { applied: false };
+      await rebuildParsedFileFromUsfm({
+        targetFile: writableFile,
+        sourceUsfm: computed.nextUsfm,
+        usfmOnionService: deps.usfmOnionService,
+        shape: shapeForSurface("workingRebuild", deps.editorMode),
+      });
+      return computed;
     },
   });
+
+  if (outcome.kind === "committed") {
+    deps.history.recordHistory(historyToken, {
+      label: t`Apply Autofix (${localizedFixLabel})`,
+      affected: outcome.committedChapters,
+    });
+    showNotificationSuccess({
+      notification: {
+        title: t`Fix Applied`,
+        message: t`Autofix applied for ${localizedFixLabel}`,
+      },
+    });
+  }
+
+  // No-op path: the fix didn't apply, but a fallback relint may have
+  // refreshed the issue set. Publish it so the findings surfaces reflect
+  // current truth — without having committed mid-mutation (no commit ⇒ no
+  // subscriber fires; this is the one legitimate manual findings write).
+  if (outcome.kind === "unchanged" && outcome.value.fallbackIssues) {
+    deps.findingsStore.commitBookFindings(
+      "onion",
+      sidParsed.book,
+      onionFindingsByChapter(outcome.value.fallbackIssues),
+    );
+  }
 }

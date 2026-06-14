@@ -249,97 +249,97 @@ export function useFormatMatching({
           ?.chapters.find((c) => c.chapterNumber === chapterNum);
     }
 
-    const backup = await history.runTransaction({
-      label,
-      candidates: draftRefs,
-      run: async () => {
-        // Rollback baseline aliases the pre-mutation snapshot; safe because the
-        // seam mutates only its scratch, never read().
-        const previous = workingFilesStore.read();
-        let aggregateStats = ZERO_STATS;
-        const aggregateSuggestions: SkippedMarkerSuggestion[] = [];
-        let chaptersScanned = 0;
-        let modifiedChaptersCount = 0;
-        const modifiedBooks = new Set<string>();
+    // Rollback baseline aliases the pre-mutation snapshot; safe because the
+    // seam mutates only its scratch, never read().
+    const previous = workingFilesStore.read();
+    let aggregateStats = ZERO_STATS;
+    const aggregateSuggestions: SkippedMarkerSuggestion[] = [];
+    let chaptersScanned = 0;
+    let modifiedChaptersCount = 0;
+    const modifiedBooks = new Set<string>();
 
-        const outcome = await withWorkingFilesDraft({
-          workingFilesStore,
-          interactionGate,
-          commitMeta: {
-            kind: "programmaticFix",
-            action: "formatMatch",
-            dirtyTextContent: true,
-          },
-          mutate: async (draft) => {
-            // Walk only the candidate chapters; match each against its resolved
-            // source. A chapter with no counterpart in the reference is skipped
-            // (and not counted as scanned). Read first, check out only the
-            // chapters that actually change.
-            const files = draft.read();
-            for (const ref of draftRefs) {
-              const chapter = files
-                .find((b) => b.bookCode === ref.bookCode)
-                ?.chapters.find((c) => c.chapterNumber === ref.chapterNum);
-              const sourceChapter = sourceFor(ref.bookCode, ref.chapterNum);
-              if (!chapter || !sourceChapter) continue;
-              chaptersScanned++;
-              const result = computeChapterMatch({
-                chapter,
-                sourceChapter,
-                scope,
-                targetMarkerPreservation: targetMarkerPreservationMode,
-              });
-              aggregateStats = sumStats(aggregateStats, result.stats);
-              aggregateSuggestions.push(...result.suggestions);
-              if (!result.changed || !result.nextLexical) continue;
-              const writable = draft.chapterForWrite(ref);
-              if (!writable) continue;
-              writeChapterMatch(writable, result.nextLexical, ref.bookCode);
-              modifiedChaptersCount++;
-              modifiedBooks.add(ref.bookCode);
-            }
-          },
-        });
-
-        // If the commit aborted (a save raced us / the gate closed), the
-        // counters reflect scratch work that never landed — don't report or
-        // toast a match that didn't happen.
-        if (outcome.kind === "aborted") return previous;
-
-        publishReport({
-          generatedAt: new Date().toISOString(),
-          scope,
-          chaptersScanned,
-          chaptersModified: modifiedChaptersCount,
-          booksModified: modifiedBooks.size,
-          stats: aggregateStats,
-          suggestions: aggregateSuggestions,
-        });
-
-        // Single-chapter matches jump to form mode on success so the user lands
-        // on the result; book/project only switch when there are suggestions to
-        // review (handled inside publishReport).
-        if (scope === "chapter" && modifiedChaptersCount > 0) {
-          setEditorMode(EDITOR_MODES.form);
-        }
-
-        if (modifiedChaptersCount > 0) {
-          const message =
-            scope === "chapter"
-              ? t`Matched formatting for Chapter ${currentChapter}`
-              : scope === "book"
-                ? t`Matched formatting for ${modifiedChaptersCount} chapters in ${file?.title || currentFileBibleIdentifier}`
-                : t`Matched formatting across ${modifiedBooks.size} books`;
-          showNotificationSuccess({
-            notification: { title: t`Formatting Matched`, message },
+    const historyToken = history.captureHistory();
+    const outcome = await withWorkingFilesDraft({
+      workingFilesStore,
+      interactionGate,
+      commitMeta: {
+        kind: "programmaticFix",
+        action: "formatMatch",
+        dirtyTextContent: true,
+      },
+      mutate: async (draft) => {
+        // Walk only the candidate chapters; match each against its resolved
+        // source. A chapter with no counterpart in the reference is skipped
+        // (and not counted as scanned). Read first, check out only the
+        // chapters that actually change.
+        const files = draft.read();
+        for (const ref of draftRefs) {
+          const chapter = files
+            .find((b) => b.bookCode === ref.bookCode)
+            ?.chapters.find((c) => c.chapterNumber === ref.chapterNum);
+          const sourceChapter = sourceFor(ref.bookCode, ref.chapterNum);
+          if (!chapter || !sourceChapter) continue;
+          chaptersScanned++;
+          const result = computeChapterMatch({
+            chapter,
+            sourceChapter,
+            scope,
+            targetMarkerPreservation: targetMarkerPreservationMode,
           });
+          aggregateStats = sumStats(aggregateStats, result.stats);
+          aggregateSuggestions.push(...result.suggestions);
+          if (!result.changed || !result.nextLexical) continue;
+          const writable = draft.chapterForWrite(ref);
+          if (!writable) continue;
+          writeChapterMatch(writable, result.nextLexical, ref.bookCode);
+          modifiedChaptersCount++;
+          modifiedBooks.add(ref.bookCode);
         }
-
-        return previous;
       },
     });
 
-    return backup;
+    // If the commit aborted (a save raced us / the gate closed), the
+    // counters reflect scratch work that never landed — don't report or
+    // toast a match that didn't happen.
+    if (outcome.kind === "aborted") return previous;
+
+    publishReport({
+      generatedAt: new Date().toISOString(),
+      scope,
+      chaptersScanned,
+      chaptersModified: modifiedChaptersCount,
+      booksModified: modifiedBooks.size,
+      stats: aggregateStats,
+      suggestions: aggregateSuggestions,
+    });
+
+    // Single-chapter matches jump to form mode on success so the user lands
+    // on the result; book/project only switch when there are suggestions to
+    // review (handled inside publishReport).
+    if (scope === "chapter" && modifiedChaptersCount > 0) {
+      setEditorMode(EDITOR_MODES.form);
+    }
+
+    if (modifiedChaptersCount > 0) {
+      const message =
+        scope === "chapter"
+          ? t`Matched formatting for Chapter ${currentChapter}`
+          : scope === "book"
+            ? t`Matched formatting for ${modifiedChaptersCount} chapters in ${file?.title || currentFileBibleIdentifier}`
+            : t`Matched formatting across ${modifiedBooks.size} books`;
+      showNotificationSuccess({
+        notification: { title: t`Formatting Matched`, message },
+      });
+    }
+
+    if (outcome.kind === "committed") {
+      history.recordHistory(historyToken, {
+        label,
+        affected: outcome.committedChapters,
+      });
+    }
+
+    return previous;
   }
 
   return {

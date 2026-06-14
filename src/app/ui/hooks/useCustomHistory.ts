@@ -44,7 +44,10 @@ import {
   typingRunContiguous,
 } from "@/app/domain/history/historySelection.ts";
 import { getUndoRedoNotificationTarget } from "@/app/domain/history/historyUndoRedoNotifications.ts";
-import type { ScriptureChapterState } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type {
+  ScriptureBookState,
+  ScriptureChapterState,
+} from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import {
   requireGateOpen,
@@ -67,10 +70,16 @@ type CaptureEditorUpdateArgs = {
   nextSelection: ChapterCursor;
 };
 
-type TransactionArgs<T> = {
-  label: string;
-  candidates: HistoryChapterRef[];
-  run: () => Promise<T> | T;
+/**
+ * Pre-commit world captured by `captureHistory`, consumed by `recordHistory`
+ * after the verb commits. Holds the pre-commit files array (valid pre-images
+ * because the store never mutates a chapter object in place) and the visible
+ * chapter's selection.
+ */
+type HistoryRecordToken = {
+  beforeFiles: ScriptureBookState[];
+  selectionBefore: ChapterCursor;
+  currentKey: string;
 };
 
 type UseCustomHistoryArgs = {
@@ -635,48 +644,55 @@ export function useCustomHistory({
     ],
   );
 
-  const runTransaction = useCallback(
-    async <T>({ label, candidates, run }: TransactionArgs<T>): Promise<T> => {
-      const uniqueCandidates = dedupeChapterRefs(candidates);
-      const currentRef: HistoryChapterRef = {
-        bookCode: currentFileBibleIdentifier,
-        chapterNum: currentChapter,
-      };
-      const currentKey = chapterKey(currentRef);
+  // The single door for programmatic-mutation history: capture the pre-commit
+  // world, let the verb mutate + commit however it likes (recording-draft seam,
+  // sync door, or a direct draft+commit), then record what actually changed.
+  // No upfront candidate list and no closure wrapping the mutation — the
+  // `affected` the verb's commit MEASURED is what gets recorded.
+  const captureHistory = useCallback((): HistoryRecordToken => {
+    const currentRef: HistoryChapterRef = {
+      bookCode: currentFileBibleIdentifier,
+      chapterNum: currentChapter,
+    };
+    return {
+      // Retained pre-commit array: the store never mutates a chapter object in
+      // place (every write produces a fresh object via structural sharing), so
+      // these chapters stay valid pre-images even after the commit lands.
+      beforeFiles: workingFilesStore.read(),
+      selectionBefore:
+        getCurrentEditorSelection() ?? readStoreLatestSelection(currentRef),
+      currentKey: chapterKey(currentRef),
+    };
+  }, [
+    currentFileBibleIdentifier,
+    currentChapter,
+    workingFilesStore,
+    getCurrentEditorSelection,
+    readStoreLatestSelection,
+  ]);
 
-      // Lazy before-capture: hold each candidate's pre-run chapter OBJECT
-      // (O(1) per ref, no canonicalisation) plus the visible chapter's
-      // selection. Every store write goes through structural sharing, so a
-      // chapter `run()` leaves untouched keeps its object identity, while a
-      // mutated one is replaced by a fresh object — its predecessor still
-      // carrying the pre-run `lexicalState`. We canonicalise only the
-      // chapters whose identity actually changed; a stale-abort or no-op
-      // run canonicalises none, instead of eagerly snapshotting the whole
-      // candidate set up front.
-      const beforeChapterByKey = new Map<string, ScriptureChapterState>();
-      let beforeSelectionForCurrent: ChapterCursor = null;
-      for (const chapterRef of uniqueCandidates) {
-        const record = findChapterRecord(chapterRef);
-        if (!record) continue;
-        const key = chapterKey(chapterRef);
-        beforeChapterByKey.set(key, record.chapter);
-        if (key === currentKey) {
-          beforeSelectionForCurrent =
-            getCurrentEditorSelection() ?? readStoreLatestSelection(chapterRef);
-        }
-      }
-
-      const result = await run();
-
-      const changes = uniqueCandidates
+  const recordHistory = useCallback(
+    (
+      token: HistoryRecordToken,
+      args: { label: string; affected: HistoryChapterRef[] },
+    ) => {
+      const afterFiles = workingFilesStore.read();
+      const changes = dedupeChapterRefs(args.affected)
         .map((chapterRef) => {
           const key = chapterKey(chapterRef);
-          const beforeChapter = beforeChapterByKey.get(key);
-          if (!beforeChapter) return null;
-          const afterChapter = findChapterRecord(chapterRef)?.chapter;
-          if (!afterChapter) return null;
-          // Same object under structural sharing ⇒ untouched: nothing to
-          // record, and (the point of this path) nothing to canonicalise.
+          const beforeChapter = findChapterRecordIn(
+            token.beforeFiles,
+            chapterRef,
+          )?.chapter;
+          const afterChapter = findChapterRecordIn(
+            afterFiles,
+            chapterRef,
+          )?.chapter;
+          // Add/remove of a chapter is not yet replayable; only record
+          // chapters present before AND after (same as the prior transaction
+          // recorder).
+          if (!beforeChapter || !afterChapter) return null;
+          // Same object under structural sharing ⇒ untouched: nothing changed.
           if (beforeChapter === afterChapter) return null;
           const before = chapterStateToCanonicalSnapshot(
             beforeChapter.lexicalState,
@@ -687,13 +703,13 @@ export function useCustomHistory({
           if (chapterSnapshotsAreEqual(before, after)) return null;
           setBaselineSnapshot(chapterRef, after);
           const selectionAfter: ChapterCursor =
-            key === currentKey ? getCurrentEditorSelection() : null;
+            key === token.currentKey ? getCurrentEditorSelection() : null;
           return {
             chapter: chapterRef,
             before,
             after,
             selectionBefore:
-              key === currentKey ? beforeSelectionForCurrent : null,
+              key === token.currentKey ? token.selectionBefore : null,
             selectionAfter,
           };
         })
@@ -702,22 +718,14 @@ export function useCustomHistory({
         );
 
       if (changes.length) {
-        managerRef.current.pushTransaction({
-          label,
-          changes,
-        });
+        managerRef.current.pushTransaction({ label: args.label, changes });
         bumpVersion();
       }
-
-      return result;
     },
     [
-      currentFileBibleIdentifier,
-      currentChapter,
-      findChapterRecord,
+      workingFilesStore,
       setBaselineSnapshot,
       getCurrentEditorSelection,
-      readStoreLatestSelection,
       bumpVersion,
     ],
   );
@@ -761,7 +769,8 @@ export function useCustomHistory({
       peekUndoLabel: () => managerRef.current.peekUndoLabel(),
       peekRedoLabel: () => managerRef.current.peekRedoLabel(),
       captureEditorUpdate,
-      runTransaction,
+      captureHistory,
+      recordHistory,
       setNextTypingLabel,
       undo,
       redo,
@@ -770,7 +779,8 @@ export function useCustomHistory({
     [
       version,
       captureEditorUpdate,
-      runTransaction,
+      captureHistory,
+      recordHistory,
       setNextTypingLabel,
       undo,
       redo,

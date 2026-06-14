@@ -285,9 +285,9 @@ export function useSave({
       isOpen: versions.state.isDirtyPromptOpen,
       dismiss: versions.actions.dismissDirtyPrompt,
       discardAndContinue: async () => {
-        await versions.actions.discardAndContinue(
-          saveAndRevert.actions.discardAllChanges,
-        );
+        await versions.actions.discardAndContinue(async () => {
+          await saveAndRevert.actions.discardAllChanges();
+        });
       },
       saveAndContinue: () => {
         versions.actions.saveAndContinue(() => {

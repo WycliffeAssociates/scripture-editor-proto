@@ -25,6 +25,7 @@ import { makeTokenFixpointPipeline } from "@/app/domain/editor/pipelines/tokenFi
 import type { WorkspaceKernelHandle } from "@/app/domain/mirror/workspaceKernel.ts";
 import { bookCodeToTitle } from "@/app/domain/project/bookTitle.ts";
 import { revertChapterToLoadedState } from "@/app/domain/project/saveAndRevertService.ts";
+import { withWorkingFilesDraftSync } from "@/app/domain/project/workingFileCommand.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { DirtyBufferStore } from "@/app/state/DirtyBufferStore.ts";
 import { FindingsStore } from "@/app/state/FindingsStore.ts";
@@ -32,10 +33,7 @@ import { LayoutTickStore } from "@/app/state/LayoutTickStore.ts";
 import type { RecoveredConflictTracker } from "@/app/state/RecoveredConflictTracker.ts";
 import { SaveStatusStore } from "@/app/state/SaveStatusStore.ts";
 import { SearchHighlightStore } from "@/app/state/SearchHighlightStore.ts";
-import {
-  findChapterInDraft,
-  WorkingFilesStore,
-} from "@/app/state/WorkingFilesStore.ts";
+import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import type { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
 import { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
 import { WorkspaceModalStore } from "@/app/state/WorkspaceModalStore.ts";
@@ -712,36 +710,34 @@ export const ProjectProvider = ({
         }
       }
     }
-    await history.runTransaction({
-      label: "Discard recovered work",
-      candidates: refs,
-      run: async () => {
-        const draft = workingFilesStore.draftWithChapters(refs);
-        // Mode read off the ref at fire time — same contract as the
-        // pipeline refs above.
-        const workingShape = shapeForSurface(
-          "workingRebuild",
-          appSettingsRef.current.editorMode,
-        );
+    // Mode read off the ref at fire time — same contract as the pipeline refs
+    // above.
+    const workingShape = shapeForSurface(
+      "workingRebuild",
+      appSettingsRef.current.editorMode,
+    );
+    const historyToken = history.captureHistory();
+    const outcome = withWorkingFilesDraftSync({
+      workingFilesStore,
+      commitMeta: {
+        kind: "import",
+        action: "discardRecoveredWork",
+        scope: { project: true },
+        dirtyTextContent: true,
+      },
+      mutate: (draft) => {
         for (const ref of refs) {
-          const chapter = findChapterInDraft(
-            draft,
-            ref.bookCode,
-            ref.chapterNum,
-          );
+          const chapter = draft.chapterForWrite(ref);
           if (chapter) revertChapterToLoadedState(chapter, workingShape);
         }
-        workingFilesStore.commit({
-          patch: { kind: "bulk", files: draft },
-          meta: {
-            kind: "import",
-            action: "discardRecoveredWork",
-            scope: { project: true },
-            dirtyTextContent: true,
-          },
-        });
       },
     });
+    if (outcome.kind === "committed") {
+      history.recordHistory(historyToken, {
+        label: "Discard recovered work",
+        affected: outcome.committedChapters,
+      });
+    }
     recoveredConflictTracker.clearAll();
     interactionGate.set({ kind: "open" });
     setIsRestoredBannerOpen(false);

@@ -556,137 +556,140 @@ export function useExternalCompare(args: {
   function applyIncomingHunkToCurrent(diff: ProjectDiff) {
     if (!requireGateOpen(args.interactionGate.get())) return;
     if (!compareResult?.sourceFiles) return;
-    void args.history.runTransaction({
-      label: `Take Incoming (${diff.semanticSid})`,
-      candidates: [{ bookCode: diff.bookCode, chapterNum: diff.chapterNum }],
-      run: async () => {
-        // Scratch-apply then synchronous overlay-from-latest commit
-        // (lost-update-safe) through the gate. Bail if the gate closed.
-        const applied = await applyIncomingToStore({
-          workingFilesStore: args.workingFilesStore,
-          interactionGate: args.interactionGate,
-          usfmOnionService: args.usfmOnionService,
-          fullChapterApplies: [],
-          hunkApplies: [diff],
-          sourceFiles: compareResult.sourceFiles ?? [],
-          shape: workingShape(),
-        });
-        if (applied.kind !== "committed") return;
-        args.bumpDirtyVersion();
-        await rerunForChapters([
-          {
-            bookCode: diff.bookCode,
-            chapterNum: diff.chapterNum,
-          },
-        ]);
-      },
-    });
+    void (async () => {
+      // Scratch-apply then synchronous overlay-from-latest commit
+      // (lost-update-safe) through the gate. Bail if the gate closed.
+      const historyToken = args.history.captureHistory();
+      const applied = await applyIncomingToStore({
+        workingFilesStore: args.workingFilesStore,
+        interactionGate: args.interactionGate,
+        usfmOnionService: args.usfmOnionService,
+        fullChapterApplies: [],
+        hunkApplies: [diff],
+        sourceFiles: compareResult.sourceFiles ?? [],
+        shape: workingShape(),
+      });
+      if (applied.kind !== "committed") return;
+      args.history.recordHistory(historyToken, {
+        label: `Take Incoming (${diff.semanticSid})`,
+        affected: [{ bookCode: diff.bookCode, chapterNum: diff.chapterNum }],
+      });
+      args.bumpDirtyVersion();
+      await rerunForChapters([
+        {
+          bookCode: diff.bookCode,
+          chapterNum: diff.chapterNum,
+        },
+      ]);
+    })();
   }
 
   function applyIncomingChapterToCurrent(bookCode: string, chapterNum: number) {
     if (!requireGateOpen(args.interactionGate.get())) return;
     if (!compareResult?.sourceFiles) return;
-    void args.history.runTransaction({
-      label: `Take Incoming Chapter (${bookCode} ${chapterNum})`,
-      candidates: [{ bookCode, chapterNum }],
-      run: async () => {
-        const allRefs = allChapterRefs(args.workingFilesStore.read());
-        const draft = args.workingFilesStore.draftWithChapters(allRefs);
-        applyIncomingChapter({
-          workingFiles: draft,
-          sourceFiles: compareResult.sourceFiles ?? [],
-          bookCode,
-          chapterNum,
-          shape: workingShape(),
-        });
-        // Sync applier (no await between draft and commit), so only the
-        // gate recheck is needed at the commit boundary.
-        if (
-          !commitIncoming({
-            patch: { kind: "bulk", files: draft },
-            meta: {
-              kind: "import",
-              action: "applyIncoming",
-              scope: { project: true },
-              dirtyTextContent: true,
-            },
-          })
-        ) {
-          return;
-        }
-        args.bumpDirtyVersion();
-        await rerunForChapters([{ bookCode, chapterNum }]);
-      },
-    });
+    void (async () => {
+      const historyToken = args.history.captureHistory();
+      const allRefs = allChapterRefs(args.workingFilesStore.read());
+      const draft = args.workingFilesStore.draftWithChapters(allRefs);
+      applyIncomingChapter({
+        workingFiles: draft,
+        sourceFiles: compareResult.sourceFiles ?? [],
+        bookCode,
+        chapterNum,
+        shape: workingShape(),
+      });
+      // Sync applier (no await between draft and commit), so only the
+      // gate recheck is needed at the commit boundary.
+      if (
+        !commitIncoming({
+          patch: { kind: "bulk", files: draft },
+          meta: {
+            kind: "import",
+            action: "applyIncoming",
+            scope: { project: true },
+            dirtyTextContent: true,
+          },
+        })
+      ) {
+        return;
+      }
+      args.history.recordHistory(historyToken, {
+        label: `Take Incoming Chapter (${bookCode} ${chapterNum})`,
+        affected: [{ bookCode, chapterNum }],
+      });
+      args.bumpDirtyVersion();
+      await rerunForChapters([{ bookCode, chapterNum }]);
+    })();
   }
 
   function applyIncomingAllToCurrent() {
     if (!requireGateOpen(args.interactionGate.get())) return;
     if (!compareResult?.sourceFiles) return;
-    void args.history.runTransaction({
-      label: "Take All Incoming Chapters",
-      candidates: allChapterRefs(args.workingFilesStore.read()),
-      run: async () => {
-        const allRefs = allChapterRefs(args.workingFilesStore.read());
-        const draft = args.workingFilesStore.draftWithChapters(allRefs);
-        applyIncomingChapterAll({
+    void (async () => {
+      const historyToken = args.history.captureHistory();
+      const allRefs = allChapterRefs(args.workingFilesStore.read());
+      const draft = args.workingFilesStore.draftWithChapters(allRefs);
+      applyIncomingChapterAll({
+        workingFiles: draft,
+        sourceFiles: compareResult.sourceFiles ?? [],
+        shape: workingShape(),
+      });
+      if (
+        compareResult.remoteSync?.relationship ===
+        GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY
+      ) {
+        applyVersionSnapshotToWorkingFiles({
           workingFiles: draft,
           sourceFiles: compareResult.sourceFiles ?? [],
           shape: workingShape(),
         });
-        if (
-          compareResult.remoteSync?.relationship ===
-          GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY
-        ) {
-          applyVersionSnapshotToWorkingFiles({
-            workingFiles: draft,
-            sourceFiles: compareResult.sourceFiles ?? [],
-            shape: workingShape(),
-          });
-        }
-        // Sync appliers (no await between draft and commit); gate-recheck
-        // at the commit boundary and bail before the remote-accept below.
-        if (
-          !commitIncoming({
-            patch: { kind: "bulk", files: draft },
-            meta: {
-              kind: "import",
-              action: "applyIncoming",
-              scope: { project: true },
-              dirtyTextContent: true,
-            },
-          })
-        ) {
-          return;
-        }
-        args.bumpDirtyVersion();
-        if (
-          compareResult.remoteSync?.relationship ===
-          GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY
-        ) {
-          const nextStatus = await acceptRemoteLatestReview({
-            projectPath: args.loadedProject.projectPath,
-            trackedBranch: compareResult.remoteSync.trackedBranch,
-            remoteHead: compareResult.remoteSync.remoteHead,
-            fileSystem: args.fileSystem,
-            storageRoots: args.storageRoots,
-            gitProvider: args.gitProvider,
-          });
-          args.onGitRemoteStatusChanged?.(nextStatus);
-          setCompareResult((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  diffsByChapter: {},
-                  warnings: [],
-                }
-              : prev,
-          );
-          return;
-        }
-        refresh();
-      },
-    });
+      }
+      // Sync appliers (no await between draft and commit); gate-recheck
+      // at the commit boundary and bail before the remote-accept below.
+      if (
+        !commitIncoming({
+          patch: { kind: "bulk", files: draft },
+          meta: {
+            kind: "import",
+            action: "applyIncoming",
+            scope: { project: true },
+            dirtyTextContent: true,
+          },
+        })
+      ) {
+        return;
+      }
+      args.history.recordHistory(historyToken, {
+        label: "Take All Incoming Chapters",
+        affected: allRefs,
+      });
+      args.bumpDirtyVersion();
+      if (
+        compareResult.remoteSync?.relationship ===
+        GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY
+      ) {
+        const nextStatus = await acceptRemoteLatestReview({
+          projectPath: args.loadedProject.projectPath,
+          trackedBranch: compareResult.remoteSync.trackedBranch,
+          remoteHead: compareResult.remoteSync.remoteHead,
+          fileSystem: args.fileSystem,
+          storageRoots: args.storageRoots,
+          gitProvider: args.gitProvider,
+        });
+        args.onGitRemoteStatusChanged?.(nextStatus);
+        setCompareResult((prev) =>
+          prev
+            ? {
+                ...prev,
+                diffsByChapter: {},
+                warnings: [],
+              }
+            : prev,
+        );
+        return;
+      }
+      refresh();
+    })();
   }
 
   const availableProjects = useMemo(

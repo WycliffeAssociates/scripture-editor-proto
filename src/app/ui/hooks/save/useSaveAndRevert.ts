@@ -157,7 +157,7 @@ export function useSaveAndRevert(args: {
     }
     args.setUnsavedDiffsByChapter({});
     args.bumpDirtyVersion();
-    withWorkingFilesDraftSync({
+    return withWorkingFilesDraftSync({
       workingFilesStore: args.workingFilesStore,
       commitMeta: {
         kind: "import",
@@ -176,86 +176,86 @@ export function useSaveAndRevert(args: {
 
   function revertDiff(diffToRevert: ProjectDiff) {
     if (!requireGateOpen(args.interactionGate.get())) return;
-    void args.history.runTransaction({
-      label: `Revert Change (${diffToRevert.semanticSid})`,
-      candidates: [
+    void (async () => {
+      // Async: the diff-block revert awaits the onion service, so this rides
+      // the validated seam (a concurrent commit to the chapter aborts it
+      // rather than clobbering) — not the sync door.
+      const historyToken = args.history.captureHistory();
+      const outcome = await withWorkingFilesDraft({
+        workingFilesStore: args.workingFilesStore,
+        interactionGate: args.interactionGate,
+        commitMeta: {
+          kind: "import",
+          action: "revertHunk",
+          dirtyTextContent: true,
+        },
+        mutate: async (draft) => {
+          const chapter = draft.chapterForWrite({
+            bookCode: diffToRevert.bookCode,
+            chapterNum: diffToRevert.chapterNum,
+          });
+          if (!chapter) return;
+          await revertChapterDiffByBlockId({
+            chapter,
+            diffBlockId: diffToRevert.uniqueKey,
+            usfmOnionService: args.usfmOnionService,
+            shape: workingShape(),
+          });
+        },
+      });
+      if (outcome.kind === "committed") {
+        args.history.recordHistory(historyToken, {
+          label: `Revert Change (${diffToRevert.semanticSid})`,
+          affected: outcome.committedChapters,
+        });
+      }
+      await args.rerunCompareForChapters([
         {
           bookCode: diffToRevert.bookCode,
           chapterNum: diffToRevert.chapterNum,
         },
-      ],
-      run: async () => {
-        // Async: the diff-block revert awaits the onion service, so this rides
-        // the validated seam (a concurrent commit to the chapter aborts it
-        // rather than clobbering) — not the sync door.
-        await withWorkingFilesDraft({
-          workingFilesStore: args.workingFilesStore,
-          interactionGate: args.interactionGate,
-          commitMeta: {
-            kind: "import",
-            action: "revertHunk",
-            dirtyTextContent: true,
-          },
-          mutate: async (draft) => {
-            const chapter = draft.chapterForWrite({
-              bookCode: diffToRevert.bookCode,
-              chapterNum: diffToRevert.chapterNum,
-            });
-            if (!chapter) return;
-            await revertChapterDiffByBlockId({
-              chapter,
-              diffBlockId: diffToRevert.uniqueKey,
-              usfmOnionService: args.usfmOnionService,
-              shape: workingShape(),
-            });
-          },
-        });
-        await args.rerunCompareForChapters([
-          {
-            bookCode: diffToRevert.bookCode,
-            chapterNum: diffToRevert.chapterNum,
-          },
-        ]);
-      },
-    });
+      ]);
+    })();
   }
 
   function revertChapter(bookCode: string, chapterNum: number) {
     if (!requireGateOpen(args.interactionGate.get())) return;
-    void args.history.runTransaction({
-      label: `Revert Chapter Changes (${bookCode} ${chapterNum})`,
-      candidates: [{ bookCode, chapterNum }],
-      run: async () => {
-        withWorkingFilesDraftSync({
-          workingFilesStore: args.workingFilesStore,
-          commitMeta: {
-            kind: "import",
-            action: "revertChapter",
-            dirtyTextContent: true,
-          },
-          mutate: (draft) => {
-            const chapter = draft.chapterForWrite({ bookCode, chapterNum });
-            if (chapter) revertChapterToLoadedState(chapter, workingShape());
-          },
+    void (async () => {
+      const historyToken = args.history.captureHistory();
+      const outcome = withWorkingFilesDraftSync({
+        workingFilesStore: args.workingFilesStore,
+        commitMeta: {
+          kind: "import",
+          action: "revertChapter",
+          dirtyTextContent: true,
+        },
+        mutate: (draft) => {
+          const chapter = draft.chapterForWrite({ bookCode, chapterNum });
+          if (chapter) revertChapterToLoadedState(chapter, workingShape());
+        },
+      });
+      if (outcome.kind === "committed") {
+        args.history.recordHistory(historyToken, {
+          label: `Revert Chapter Changes (${bookCode} ${chapterNum})`,
+          affected: outcome.committedChapters,
         });
-        await args.rerunCompareForChapters([{ bookCode, chapterNum }]);
-      },
-    });
+      }
+      await args.rerunCompareForChapters([{ bookCode, chapterNum }]);
+    })();
   }
 
   function revertAll() {
     if (!requireGateOpen(args.interactionGate.get())) return;
-    const candidates = args.workingFilesStore.read().flatMap((file) =>
-      file.chapters.map((chapter) => ({
-        bookCode: file.bookCode,
-        chapterNum: chapter.chapterNumber,
-      })),
-    );
-    void args.history.runTransaction({
-      label: "Revert All Changes",
-      candidates,
-      run: discardAllChanges,
-    });
+    void (async () => {
+      const historyToken = args.history.captureHistory();
+      const outcome = await discardAllChanges();
+      if (outcome?.kind === "committed") {
+        args.history.recordHistory(historyToken, {
+          label: "Revert All Changes",
+          affected: outcome.committedChapters,
+        });
+      }
+    })();
   }
 
   return {

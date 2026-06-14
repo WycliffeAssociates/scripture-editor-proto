@@ -591,32 +591,29 @@ export async function runIncomingReconciliation(
     }
   }
 
-  let autoAcceptApplied = false;
-  await args.history.runTransaction({
-    label: "Auto Accept Incoming Changes",
-    candidates: touchedChapters,
-    run: async () => {
-      // Scratch-apply then synchronous overlay-from-latest commit:
-      // no commit landing during the hunk awaits can be clobbered, and
-      // the gate is rechecked at the synchronous commit boundary.
-      const result = await applyIncomingToStore({
-        workingFilesStore: args.workingFilesStore,
-        interactionGate: args.interactionGate,
-        usfmOnionService: args.usfmOnionService,
-        fullChapterApplies,
-        hunkApplies,
-        sourceFiles: argsForAuto.sourceFiles,
-        shape: workingShape,
-      });
-      autoAcceptApplied = result.kind === "committed";
-    },
+  // Scratch-apply then synchronous overlay-from-latest commit: no commit
+  // landing during the hunk awaits can be clobbered, and the gate is rechecked
+  // at the synchronous commit boundary.
+  const historyToken = args.history.captureHistory();
+  const autoAcceptResult = await applyIncomingToStore({
+    workingFilesStore: args.workingFilesStore,
+    interactionGate: args.interactionGate,
+    usfmOnionService: args.usfmOnionService,
+    fullChapterApplies,
+    hunkApplies,
+    sourceFiles: argsForAuto.sourceFiles,
+    shape: workingShape,
   });
 
   // Gate closed during the apply awaits → nothing committed; bail before
   // the remote-accept side effect so we don't mark synced without applying.
-  if (!autoAcceptApplied) {
+  if (autoAcceptResult.kind !== "committed") {
     return { requiresReview: false };
   }
+  args.history.recordHistory(historyToken, {
+    label: "Auto Accept Incoming Changes",
+    affected: touchedChapters,
+  });
 
   args.bumpDirtyVersion();
 
