@@ -33,13 +33,12 @@
 //   - Callers branch on the returned `kind` before running any follow-through;
 //     the typed result makes "did this actually commit?" impossible to skip.
 
-import {
-  captureChapterIdentities,
-  chapterIdentitiesUnchanged,
-  overlayAffectedChapters,
-} from "@/app/domain/project/compare/applyIncomingToStore.ts";
 import type { IncomingMutationAbortReason } from "@/app/domain/project/remoteSync/commandResults.ts";
-import type { ChapterRef } from "@/app/domain/project/workingFileMutations.ts";
+import { commitIfNotStale } from "@/app/domain/project/validatedStoreMutation.ts";
+import {
+  type ChapterRef,
+  overlayAffectedChapters,
+} from "@/app/domain/project/workingFileMutations.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import {
   makeRecordingDraft,
@@ -47,10 +46,7 @@ import {
 } from "@/app/state/recordingDraft.ts";
 import type { CommitMeta } from "@/app/state/types.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
-import {
-  requireGateOpen,
-  type WorkspaceGateStore,
-} from "@/app/state/WorkspaceInteractionGate.ts";
+import type { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
 
 /**
  * Caller-provided meta, MINUS `scope` — the seam stamps it from measurement.
@@ -103,61 +99,53 @@ export async function withWorkingFilesDraft<T>(args: {
   // A wholesale book replaces its `chapters` array, so there is no safe per-
   // chapter overlay — the draft IS the next full state for those books. Any of
   // them present ⇒ bulk commit; otherwise overlay only the affected chapters.
+  //
+  // The staleness scope follows: a bulk commit writes the draft's whole `files`
+  // array (branched from `startState`), so it would clobber a concurrent commit
+  // to ANY chapter — only whole-state identity is a safe gate (`workspace`). A
+  // per-chapter overlay touches only `affected`, so validating those chapters'
+  // identities suffices (`chapters`); concurrent commits elsewhere survive.
   const isBulk = wholesaleBooks.size > 0;
 
-  // Staleness, matched to the write's scope. A bulk commit writes the draft's
-  // whole `files` array (branched from `startState`), so it would clobber a
-  // concurrent commit to ANY chapter — including ones outside `affected`; the
-  // only safe gate is whole-state object identity (structural sharing replaces
-  // the `read()` array on any state-changing commit). A per-chapter commit
-  // overlays only `affected` onto the latest state, so it need only validate
-  // those chapters' object identities; concurrent commits elsewhere survive.
-  const isStale = isBulk
-    ? args.workingFilesStore.read() !== startState
-    : !chapterIdentitiesUnchanged(
-        args.workingFilesStore.read(),
-        affected,
-        captureChapterIdentities(startState, affected),
-      );
-  if (isStale) {
-    console.info(
-      "[workingFileCommand] aborted — the workspace/affected chapter changed during the mutation; result is stale",
-    );
-    return {
-      kind: "aborted",
-      reason: isBulk ? "stale-workspace" : "stale-chapter",
-    };
-  }
-  if (!requireGateOpen(args.interactionGate.get())) {
-    return { kind: "aborted", reason: "gate-closed" };
-  }
-
-  args.workingFilesStore.commit({
-    patch: {
-      kind: "bulk",
-      files: isBulk
-        ? files
-        : overlayAffectedChapters(
-            args.workingFilesStore.read(),
-            files,
-            affected,
-          ),
-    },
-    meta: {
-      ...args.commitMeta,
-      // Producers state facts: scope is the measured chapter list, widened to
-      // `{ project: true }` when a wholesale rebuild changed a book's chapter
-      // SET (added/removed chapters — a list cannot express absence) or when
-      // the caller explicitly opted into whole-snapshot semantics.
-      scope:
-        args.commitMeta.scope ??
-        (chapterSetChanged(files, wholesaleBooks, wholesaleOriginalChapterNums)
-          ? { project: true }
-          : { chapters: affected }),
+  const outcome = commitIfNotStale({
+    workingFilesStore: args.workingFilesStore,
+    interactionGate: args.interactionGate,
+    startState,
+    scope: isBulk
+      ? { kind: "workspace" }
+      : { kind: "chapters", candidates: affected },
+    commit: (latest) => {
+      args.workingFilesStore.commit({
+        patch: {
+          kind: "bulk",
+          files: isBulk
+            ? files
+            : overlayAffectedChapters(latest, files, affected),
+        },
+        meta: {
+          ...args.commitMeta,
+          // Producers state facts: scope is the measured chapter list, widened
+          // to `{ project: true }` when a wholesale rebuild changed a book's
+          // chapter SET (added/removed chapters — a list cannot express
+          // absence) or when the caller explicitly opted into whole-snapshot
+          // semantics.
+          scope:
+            args.commitMeta.scope ??
+            (chapterSetChanged(
+              files,
+              wholesaleBooks,
+              wholesaleOriginalChapterNums,
+            )
+              ? { project: true }
+              : { chapters: affected }),
+        },
+      });
     },
   });
 
-  return { kind: "committed", value, committedChapters: affected };
+  return outcome.kind === "committed"
+    ? { kind: "committed", value, committedChapters: affected }
+    : { kind: "aborted", reason: outcome.reason };
 }
 
 /**

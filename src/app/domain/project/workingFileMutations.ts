@@ -74,3 +74,50 @@ export function mergeBookChapters(
   }
   return [...byNum.values()].sort((a, b) => a.chapterNumber - b.chapterNumber);
 }
+
+/**
+ * Build the post-apply state by taking the LATEST store state and overlaying
+ * only the affected chapters from a scratch draft. Untouched chapters alias
+ * `latest`, so a concurrent commit to them is preserved; chapters/books the
+ * scratch created (absent from `latest`) are folded in.
+ */
+export function overlayAffectedChapters(
+  latest: ScriptureBookState[],
+  scratch: ScriptureBookState[],
+  affectedRefs: ChapterRef[],
+): ScriptureBookState[] {
+  const affectedByBook = new Map<string, Set<number>>();
+  for (const ref of affectedRefs) {
+    const set = affectedByBook.get(ref.bookCode) ?? new Set<number>();
+    set.add(ref.chapterNum);
+    affectedByBook.set(ref.bookCode, set);
+  }
+  const scratchByCode = new Map(scratch.map((book) => [book.bookCode, book]));
+  const result = latest.map((book) => {
+    const affectedNums = affectedByBook.get(book.bookCode);
+    const scratchBook = scratchByCode.get(book.bookCode);
+    if (!affectedNums || !scratchBook) return book;
+    const scratchByNum = new Map(
+      scratchBook.chapters.map((c) => [c.chapterNumber, c]),
+    );
+    // Replace only the affected chapters with their scratch versions; an
+    // affected chapter absent from the scratch keeps its latest version.
+    const replacements = new Map<number, ScriptureChapterState>();
+    for (const num of affectedNums) {
+      const chapter = scratchByNum.get(num);
+      if (chapter) replacements.set(num, chapter);
+    }
+    return {
+      ...book,
+      chapters: mergeBookChapters(book.chapters, replacements),
+    };
+  });
+  // Books that exist only in the scratch (newly created by the apply).
+  const latestCodes = new Set(latest.map((book) => book.bookCode));
+  for (const bookCode of affectedByBook.keys()) {
+    if (latestCodes.has(bookCode)) continue;
+    const scratchBook = scratchByCode.get(bookCode);
+    if (scratchBook) result.push(scratchBook);
+  }
+  return result;
+}
