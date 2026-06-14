@@ -10,6 +10,7 @@ function makeChapterState(
     chapterNumber: 1,
     dirty: false,
     eol: "\n",
+    direction: "ltr",
     sourceTokens: [],
     currentTokens: [],
     lexicalState: {

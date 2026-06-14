@@ -173,6 +173,7 @@ export function makeChapter(
     chapterNumber,
     dirty,
     eol: "\n",
+    direction: "ltr",
     sourceTokens,
     currentTokens,
     loadedLexicalState: opts.shape

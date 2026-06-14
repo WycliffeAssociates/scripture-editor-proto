@@ -43,6 +43,7 @@ const createChapter = async (
   return {
     chapterNumber,
     eol: "\n",
+    direction: "ltr",
     lexicalState,
     loadedLexicalState: structuredClone(lexicalState),
     sourceTokens: [] as Token[],

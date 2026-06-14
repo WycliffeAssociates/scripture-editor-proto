@@ -65,6 +65,7 @@ function ensureWorkingChapterFromSource(args: {
       loadedLexicalState: structuredClone(sourceChapter.loadedLexicalState),
       sourceTokens: structuredClone(sourceChapter.sourceTokens),
       currentTokens: structuredClone(sourceChapter.currentTokens),
+      direction: sourceChapter.direction,
       dirty: false,
       eol: sourceChapter.eol,
     };

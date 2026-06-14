@@ -86,6 +86,7 @@ function makeChapter(markerText: string): ScriptureChapterState {
     chapterNumber: 1,
     dirty: false,
     eol: "\n",
+    direction: "ltr",
     sourceTokens: [
       {
         id: "tok-1",

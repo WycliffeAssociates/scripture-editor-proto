@@ -1,6 +1,7 @@
 import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 
 import type { LineEnding } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 /**
@@ -27,6 +28,13 @@ export type ScriptureChapterState = {
   loadedLexicalState: SerializedEditorState<SerializedLexicalNode>;
   sourceTokens: Token[];
   currentTokens: Token[];
+  /**
+   * Text direction for this chapter (a project/language property). The
+   * canonical home for direction as the shaped `lexicalState` becomes a
+   * read-time derivation — token space carries no direction, so the shape
+   * derivation and history snapshots read it from here.
+   */
+  direction: LanguageDirection;
   dirty: boolean;
   chapterNumber: number;
   /**

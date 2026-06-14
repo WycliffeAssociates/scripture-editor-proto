@@ -208,6 +208,7 @@ export async function scriptureProjectToParsedFiles(args: {
             loadedLexicalState,
             sourceTokens,
             currentTokens: structuredClone(sourceTokens),
+            direction,
             chapterNumber: chapterNum,
             dirty: false,
             eol: detectLineEnding(sourceTokens),

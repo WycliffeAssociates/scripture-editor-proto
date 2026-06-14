@@ -33,8 +33,8 @@ export async function rebuildParsedFileFromUsfm(args: {
   });
 
   const direction =
-    (args.targetFile.chapters[0]?.lexicalState.root.direction ??
-      LanguageDirection.LTR) === LanguageDirection.RTL
+    (args.targetFile.chapters[0]?.direction ?? LanguageDirection.LTR) ===
+    LanguageDirection.RTL
       ? LanguageDirection.RTL
       : LanguageDirection.LTR;
 
@@ -70,6 +70,7 @@ export async function rebuildParsedFileFromUsfm(args: {
         loadedLexicalState: nextLoadedState,
         sourceTokens: structuredClone(nextSourceTokens),
         currentTokens: structuredClone(nextCurrentTokens),
+        direction,
         chapterNumber,
         dirty:
           tokensToUsfm(nextCurrentTokens, eol) !==

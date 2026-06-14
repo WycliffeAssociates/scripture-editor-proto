@@ -237,6 +237,7 @@ export async function recoverDirtyBuffers(args: {
               direction: args.direction,
               mode: shapeForSurface("savedBaseline"),
             }),
+            direction: args.direction,
             dirty: true,
             eol,
           };

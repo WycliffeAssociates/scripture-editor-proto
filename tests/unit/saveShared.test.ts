@@ -21,6 +21,7 @@ function makeScriptureBookState(args: {
     chapters: args.chapters.map((chapterNumber) => ({
       chapterNumber,
       eol: "\n" as const,
+      direction: "ltr" as const,
       lexicalState: { root: { children: [], direction: "ltr" } } as never,
       loadedLexicalState: {
         root: { children: [], direction: "ltr" },
