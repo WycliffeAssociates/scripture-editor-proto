@@ -32,8 +32,8 @@ import {
   buildBooksSavePayload,
   rebaseChapterToCapturedSave,
 } from "@/app/domain/project/saveAndRevertService.ts";
+import { withWorkingFilesDraftSync } from "@/app/domain/project/workingFileCommand.ts";
 import {
-  type ChapterRef,
   getDirtyFiles,
   listDirtyChapterRefs,
 } from "@/app/domain/project/workingFileMutations.ts";
@@ -357,41 +357,39 @@ export async function runSavePipeline(
     // which flips `dirty` back to false. Books that failed to persist keep their
     // dirty state. The recovered-conflict tracker isn't touched here; its
     // subscriber watches these chapters go clean and clears them.
-    const refs: ChapterRef[] = [];
-    for (const file of args.workingFilesStore.read()) {
-      if (!persistedBooks.has(file.bookCode)) continue;
-      for (const chapter of file.chapters) {
-        refs.push({
-          bookCode: file.bookCode,
-          chapterNum: chapter.chapterNumber,
-        });
-      }
-    }
-    const draft = args.workingFilesStore.draftWithChapters(refs);
-    const rebasedDraft = draft.map((file) => {
-      if (!persistedBooks.has(file.bookCode)) return file;
-      return {
-        ...file,
-        chapters: file.chapters.map((chapter) => {
-          const captured = capturedTokensByChapter.get(
-            `${file.bookCode}:${chapter.chapterNumber}`,
-          );
-          if (!captured) return chapter;
-          return rebaseChapterToCapturedSave(
-            chapter,
-            captured,
-            chapterSaveDirection(chapter),
-          );
-        }),
-      };
-    });
-    args.workingFilesStore.commit({
-      patch: { kind: "bulk", files: rebasedDraft },
-      meta: {
+    // Check out and rebase only the chapters we captured tokens for (the
+    // persisted ones); the measured scope is exactly those chapters, not the
+    // whole project.
+    withWorkingFilesDraftSync({
+      workingFilesStore: args.workingFilesStore,
+      commitMeta: {
         kind: "metadataOnly",
         action: "saveCleanMark",
-        scope: { project: true },
         dirtyTextContent: false,
+      },
+      mutate: (draft) => {
+        for (const file of args.workingFilesStore.read()) {
+          if (!persistedBooks.has(file.bookCode)) continue;
+          for (const { chapterNumber } of file.chapters) {
+            const captured = capturedTokensByChapter.get(
+              `${file.bookCode}:${chapterNumber}`,
+            );
+            if (!captured) continue;
+            const chapter = draft.chapterForWrite({
+              bookCode: file.bookCode,
+              chapterNum: chapterNumber,
+            });
+            if (!chapter) continue;
+            Object.assign(
+              chapter,
+              rebaseChapterToCapturedSave(
+                chapter,
+                captured,
+                chapterSaveDirection(chapter),
+              ),
+            );
+          }
+        }
       },
     });
     args.clearUnsavedDiffs();

@@ -16,17 +16,17 @@ import {
   type SaveOptions,
   type SaveResult,
 } from "@/app/domain/project/savePipeline.ts";
-import { withWorkingFilesDraftSync } from "@/app/domain/project/workingFileCommand.ts";
+import {
+  withWorkingFilesDraft,
+  withWorkingFilesDraftSync,
+} from "@/app/domain/project/workingFileCommand.ts";
 import type {
   ScriptureBookState,
   ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { RecoveredConflictTracker } from "@/app/state/RecoveredConflictTracker.ts";
 import type { SaveStatusStore } from "@/app/state/SaveStatusStore.ts";
-import {
-  findChapterInDraft,
-  type WorkingFilesStore,
-} from "@/app/state/WorkingFilesStore.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import type { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
 import {
   requireGateOpen,
@@ -185,44 +185,29 @@ export function useSaveAndRevert(args: {
         },
       ],
       run: async () => {
-        const draft = args.workingFilesStore.draftWithChapters([
-          {
-            bookCode: diffToRevert.bookCode,
-            chapterNum: diffToRevert.chapterNum,
-          },
-        ]);
-        const changedChapter = findChapterInDraft(
-          draft,
-          diffToRevert.bookCode,
-          diffToRevert.chapterNum,
-        );
-        if (!changedChapter) return;
-
-        await revertChapterDiffByBlockId({
-          chapter: changedChapter,
-          diffBlockId: diffToRevert.uniqueKey,
-          usfmOnionService: args.usfmOnionService,
-          shape: workingShape(),
-        });
-        args.workingFilesStore.commit({
-          patch: {
-            kind: "chapter",
-            bookCode: diffToRevert.bookCode,
-            chapter: diffToRevert.chapterNum,
-            lexicalState: changedChapter.lexicalState,
-          },
-          meta: {
+        // Async: the diff-block revert awaits the onion service, so this rides
+        // the validated seam (a concurrent commit to the chapter aborts it
+        // rather than clobbering) — not the sync door.
+        await withWorkingFilesDraft({
+          workingFilesStore: args.workingFilesStore,
+          interactionGate: args.interactionGate,
+          commitMeta: {
             kind: "import",
             action: "revertHunk",
-            scope: {
-              chapters: [
-                {
-                  bookCode: diffToRevert.bookCode,
-                  chapterNum: diffToRevert.chapterNum,
-                },
-              ],
-            },
             dirtyTextContent: true,
+          },
+          mutate: async (draft) => {
+            const chapter = draft.chapterForWrite({
+              bookCode: diffToRevert.bookCode,
+              chapterNum: diffToRevert.chapterNum,
+            });
+            if (!chapter) return;
+            await revertChapterDiffByBlockId({
+              chapter,
+              diffBlockId: diffToRevert.uniqueKey,
+              usfmOnionService: args.usfmOnionService,
+              shape: workingShape(),
+            });
           },
         });
         await args.rerunCompareForChapters([
