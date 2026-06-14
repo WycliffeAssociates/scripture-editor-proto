@@ -2,8 +2,6 @@ import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 
 import { EDITOR_SHAPES, type EditorShape } from "@/app/data/editor.ts";
 import {
-  isFormModeRootChildren,
-  isRegularModeRootChildren,
   materializeFlatTokensArray,
   transformToShape,
   wrapFlatTokensInLexicalParagraph,
@@ -24,24 +22,6 @@ export type CanonicalChapterSnapshot = {
   direction: LanguageDirection;
   flatNodes: SerializedLexicalNode[];
 };
-
-/**
- * Detect the tree shape of a chapter's current state so a canonical snapshot
- * rehydrates into the SAME presentation the chapter is showing.
- *
- * This is the one sanctioned shape *detection* outside `transformToShape`:
- * undo/redo restores what the user is looking at, and the live tree — not the
- * mode setting — is the authority on that (the two only diverge transiently,
- * mid mode-switch). It compares shapes; it never decides mode intent.
- */
-export function inferChapterShapeFromState(
-  state: SerializedEditorState,
-): EditorShape {
-  const rootChildren = state.root.children as SerializedLexicalNode[];
-  if (isFormModeRootChildren(rootChildren)) return EDITOR_SHAPES.form;
-  if (isRegularModeRootChildren(rootChildren)) return EDITOR_SHAPES.regular;
-  return EDITOR_SHAPES.flat;
-}
 
 export function chapterStateToCanonicalSnapshot(
   state: SerializedEditorState,

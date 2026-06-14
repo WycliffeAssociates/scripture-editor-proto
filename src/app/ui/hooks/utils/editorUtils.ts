@@ -15,7 +15,7 @@ import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
  * flat tokens. This is the editor read boundary: the store holds only token
  * space, and the visible chapter is shaped on the way out in the editor's mode.
  */
-export function deriveChapterLexical(
+function deriveChapterLexical(
   chapter: ScriptureChapterState,
   mode: EditorShape,
 ): SerializedEditorState {

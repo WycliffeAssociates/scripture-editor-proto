@@ -36,7 +36,7 @@ export type ChapterIdentitySnapshot = ReadonlyMap<
 >;
 
 /** Snapshot the current object identity of each candidate chapter (or undefined). */
-export function captureChapterIdentities(
+function captureChapterIdentities(
   files: ScriptureBookState[],
   candidates: ChapterRef[],
 ): ChapterIdentitySnapshot {
@@ -51,7 +51,7 @@ export function captureChapterIdentities(
 }
 
 /** True iff every candidate chapter is the SAME object as when `baseline` was captured. */
-export function chapterIdentitiesUnchanged(
+function chapterIdentitiesUnchanged(
   files: ScriptureBookState[],
   candidates: ChapterRef[],
   baseline: ChapterIdentitySnapshot,
