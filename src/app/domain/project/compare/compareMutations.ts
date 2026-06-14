@@ -189,14 +189,18 @@ export function applyIncomingChapterAll(args: {
   workingFiles: ScriptureBookState[];
   sourceFiles: ScriptureBookState[];
   shape: EditorShape;
+  /** Books to leave untouched (e.g. locally-protected during reconciliation). */
+  excludeBookCodes?: ReadonlySet<string>;
 }) {
   const chapterKeys = new Set<string>();
   for (const file of args.workingFiles) {
+    if (args.excludeBookCodes?.has(file.bookCode)) continue;
     for (const chapter of file.chapters) {
       chapterKeys.add(`${file.bookCode}:${chapter.chapterNumber}`);
     }
   }
   for (const file of args.sourceFiles) {
+    if (args.excludeBookCodes?.has(file.bookCode)) continue;
     for (const chapter of file.chapters) {
       chapterKeys.add(`${file.bookCode}:${chapter.chapterNumber}`);
     }

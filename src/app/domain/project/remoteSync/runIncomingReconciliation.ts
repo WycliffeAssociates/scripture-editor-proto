@@ -359,21 +359,12 @@ export async function runIncomingReconciliation(
       return null;
     }
 
-    // Capture pre-mutation snapshots of locally-protected books
-    // BEFORE building the draft — we'll splice these back over the
-    // touched draft entries below, and we need writable chapters
-    // because the loop further down sets dirty = true on them.
-    const original = args.workingFilesStore.read();
-    const preservedByBook = new Map<string, (typeof original)[number]>();
-    for (const file of original) {
-      if (locallyProtectedBooks.has(file.bookCode)) {
-        preservedByBook.set(file.bookCode, {
-          ...file,
-          chapters: file.chapters.map((c) => ({ ...c })),
-        });
-      }
-    }
-    const allRefs = original.flatMap((file) =>
+    // Apply the incoming snapshot to every book EXCEPT the locally-protected
+    // ones. Protected books are never overwritten, so they keep their local
+    // content and baseline for free — no pre-image capture or splice-back. We
+    // still check them out (to flip dirty) so the local edits read dirty
+    // against the project baseline the reconciliation advances to.
+    const allRefs = args.workingFilesStore.read().flatMap((file) =>
       file.chapters.map((chapter) => ({
         bookCode: file.bookCode,
         chapterNum: chapter.chapterNumber,
@@ -384,37 +375,18 @@ export async function runIncomingReconciliation(
       workingFiles: workingDraft,
       sourceFiles: argsForAuto.sourceFiles,
       shape: workingShape,
+      excludeBookCodes: locallyProtectedBooks,
     });
-    // workingDraft is mutated below (book entries replaced in place),
-    // so any future bookCode→book index must be rebuilt AFTER this loop.
-    for (const bookCode of locallyProtectedBooks) {
-      const preserved = preservedByBook.get(bookCode);
-      if (!preserved) continue;
-      const existingIndex = workingDraft.findIndex(
-        (file) => file.bookCode === bookCode,
-      );
-      if (existingIndex >= 0) {
-        workingDraft[existingIndex] = preserved;
-      } else {
-        workingDraft.push(preserved);
+    const locallyProtectedChapters: ChapterRef[] = [];
+    for (const file of workingDraft) {
+      if (!locallyProtectedBooks.has(file.bookCode)) continue;
+      for (const chapter of file.chapters) {
+        chapter.dirty = true;
+        locallyProtectedChapters.push({
+          bookCode: file.bookCode,
+          chapterNum: chapter.chapterNumber,
+        });
       }
-    }
-    const locallyProtectedChapters = workingDraft.flatMap((file) =>
-      locallyProtectedBooks.has(file.bookCode)
-        ? file.chapters.map((chapter) => ({
-            bookCode: file.bookCode,
-            chapterNum: chapter.chapterNumber,
-          }))
-        : [],
-    );
-    for (const chapterRef of locallyProtectedChapters) {
-      const chapter = workingDraft
-        .find((file) => file.bookCode === chapterRef.bookCode)
-        ?.chapters.find(
-          (entry) => entry.chapterNumber === chapterRef.chapterNum,
-        );
-      if (!chapter) continue;
-      chapter.dirty = true;
     }
     // Gate closed mid-flight → don't apply; fall through to manual review.
     if (
