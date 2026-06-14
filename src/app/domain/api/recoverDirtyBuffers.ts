@@ -28,6 +28,7 @@ import {
   tokensToLexical,
   tokensToUsfm,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { mergeBookChapters } from "@/app/domain/project/workingFileMutations.ts";
 import type {
   ScriptureBookState,
   ScriptureChapterState,
@@ -311,16 +312,7 @@ export async function recoverDirtyBuffers(args: {
   const layeredFiles = args.parsedFiles.map((book) => {
     const layered = layeredChaptersByBook.get(book.bookCode);
     if (!layered) return book;
-    const byNum = new Map(
-      book.chapters.map((chapter) => [chapter.chapterNumber, chapter]),
-    );
-    for (const [chapterNum, chapter] of layered) {
-      byNum.set(chapterNum, chapter);
-    }
-    const chapters = [...byNum.values()].sort(
-      (a, b) => a.chapterNumber - b.chapterNumber,
-    );
-    return { ...book, chapters };
+    return { ...book, chapters: mergeBookChapters(book.chapters, layered) };
   });
 
   // Re-lint the restored books so diagnostics reflect the layered content.

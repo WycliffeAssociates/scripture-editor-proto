@@ -7,6 +7,7 @@ import type {
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
+import { makeRecordingDraft } from "./recordingDraft.ts";
 import type {
   CapturedSelection,
   CommitEvent,
@@ -106,23 +107,15 @@ export class WorkingFilesStore {
     refs: ReadonlyArray<{ bookCode: string; chapterNum: number }>,
   ): ScriptureBookState[] {
     if (refs.length === 0) return this.state;
-    const touchedBooks = new Set<string>();
-    const touchedChapterKeys = new Set<string>();
+    // One copy-on-write codepath: eagerly check out the named chapters on a
+    // recording draft and hand back its files. The draft's per-write tracking
+    // (originals / wholesale) is discarded here — this door declares its refs
+    // up front and the caller mutates the returned copies in place.
+    const draft = makeRecordingDraft(this.state);
     for (const ref of refs) {
-      touchedBooks.add(ref.bookCode);
-      touchedChapterKeys.add(`${ref.bookCode}:${ref.chapterNum}`);
+      draft.chapterForWrite(ref);
     }
-    return this.state.map((book) => {
-      if (!touchedBooks.has(book.bookCode)) return book;
-      return {
-        ...book,
-        chapters: book.chapters.map((c) =>
-          touchedChapterKeys.has(`${book.bookCode}:${c.chapterNumber}`)
-            ? { ...c }
-            : c,
-        ),
-      };
-    });
+    return draft.result().files;
   }
 
   /**

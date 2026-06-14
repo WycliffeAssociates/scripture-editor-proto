@@ -53,3 +53,24 @@ export function getDirtyFiles(
 ): ScriptureBookState[] {
   return files.filter((file) => file.chapters.some((chapter) => chapter.dirty));
 }
+
+/**
+ * Layer a set of replacement chapters (keyed by chapter number) over a book's
+ * existing chapters: a replacement for an existing number overrides it, a new
+ * number is inserted, and the result is sorted ascending. Pure — the caller
+ * wraps the returned array in a fresh book object. Shared by the incoming-
+ * overlay and dirty-buffer recovery flows, which both merge a known set of
+ * chapters onto a base book in chapter order.
+ */
+export function mergeBookChapters(
+  base: readonly ScriptureChapterState[],
+  replacements: ReadonlyMap<number, ScriptureChapterState>,
+): ScriptureChapterState[] {
+  const byNum = new Map<number, ScriptureChapterState>(
+    base.map((chapter) => [chapter.chapterNumber, chapter]),
+  );
+  for (const [chapterNum, chapter] of replacements) {
+    byNum.set(chapterNum, chapter);
+  }
+  return [...byNum.values()].sort((a, b) => a.chapterNumber - b.chapterNumber);
+}

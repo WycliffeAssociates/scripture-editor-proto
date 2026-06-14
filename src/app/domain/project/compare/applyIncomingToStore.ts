@@ -34,6 +34,7 @@ import {
 import {
   type ChapterRef,
   findChapter,
+  mergeBookChapters,
 } from "@/app/domain/project/workingFileMutations.ts";
 import type {
   ScriptureBookState,
@@ -121,20 +122,20 @@ export function overlayAffectedChapters(
     const affectedNums = affectedByBook.get(book.bookCode);
     const scratchBook = scratchByCode.get(book.bookCode);
     if (!affectedNums || !scratchBook) return book;
-    const latestByNum = new Map(book.chapters.map((c) => [c.chapterNumber, c]));
     const scratchByNum = new Map(
       scratchBook.chapters.map((c) => [c.chapterNumber, c]),
     );
-    const allNums = new Set<number>([...latestByNum.keys(), ...affectedNums]);
-    const chapters = [...allNums]
-      .sort((a, b) => a - b)
-      .map((num) =>
-        affectedNums.has(num)
-          ? (scratchByNum.get(num) ?? latestByNum.get(num))
-          : latestByNum.get(num),
-      )
-      .filter((c): c is ScriptureChapterState => Boolean(c));
-    return { ...book, chapters };
+    // Replace only the affected chapters with their scratch versions; an
+    // affected chapter absent from the scratch keeps its latest version.
+    const replacements = new Map<number, ScriptureChapterState>();
+    for (const num of affectedNums) {
+      const chapter = scratchByNum.get(num);
+      if (chapter) replacements.set(num, chapter);
+    }
+    return {
+      ...book,
+      chapters: mergeBookChapters(book.chapters, replacements),
+    };
   });
   // Books that exist only in the scratch (newly created by the apply).
   const latestCodes = new Set(latest.map((book) => book.bookCode));
