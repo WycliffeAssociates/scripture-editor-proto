@@ -1,4 +1,4 @@
-import { type EditorShape, shapeForSurface } from "@/app/data/editor.ts";
+import type { EditorShape } from "@/app/data/editor.ts";
 import { groupFlatTokensByChapter } from "@/app/domain/editor/serialization/flatTokensByChapter.ts";
 import {
   detectLineEnding,
@@ -197,15 +197,9 @@ export async function scriptureProjectToParsedFiles(args: {
             direction,
             mode: args.shape,
           });
-          const loadedLexicalState = tokensToLexical({
-            tokens: sourceTokens,
-            direction,
-            mode: shapeForSurface("savedBaseline"),
-          });
 
           return {
             lexicalState,
-            loadedLexicalState,
             sourceTokens,
             currentTokens: structuredClone(sourceTokens),
             direction,

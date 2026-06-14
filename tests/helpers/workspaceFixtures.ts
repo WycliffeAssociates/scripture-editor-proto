@@ -176,16 +176,6 @@ export function makeChapter(
     direction: "ltr",
     sourceTokens,
     currentTokens,
-    loadedLexicalState: opts.shape
-      ? tokensToLexical({
-          tokens: sourceTokens,
-          direction: "ltr",
-          mode: "flat",
-        })
-      : makeFlatRegularState(sourceText, {
-          sid,
-          id: `${sid}-source`,
-        }),
     lexicalState: opts.shape
       ? tokensToLexical({
           tokens: currentTokens,

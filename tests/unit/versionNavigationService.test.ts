@@ -3,6 +3,7 @@ import { makeBook, makeChapter } from "@tests/helpers/workspaceFixtures.ts";
 import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
 
+import { tokensToUsfm } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { applyVersionSnapshotToWorkingFiles } from "@/app/domain/project/versionNavigationService.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 
@@ -53,7 +54,7 @@ describe("versionNavigationService.applyVersionSnapshotToWorkingFiles", () => {
 
     const chapter = working[0]?.chapters[0];
     expect(chapterUsfm(chapter.lexicalState)).toContain("older");
-    expect(chapterUsfm(chapter.loadedLexicalState)).toContain("older");
+    expect(tokensToUsfm(chapter.sourceTokens, chapter.eol)).toContain("older");
     expect(chapter.dirty).toBe(false);
   });
 
@@ -84,7 +85,9 @@ describe("versionNavigationService.applyVersionSnapshotToWorkingFiles", () => {
 
     const chapter = working[0]?.chapters[0];
     expect(chapterUsfm(chapter.lexicalState)).toContain("older-2");
-    expect(chapterUsfm(chapter.loadedLexicalState)).toContain("older-2");
+    expect(tokensToUsfm(chapter.sourceTokens, chapter.eol)).toContain(
+      "older-2",
+    );
     expect(chapter.dirty).toBe(false);
   });
 });

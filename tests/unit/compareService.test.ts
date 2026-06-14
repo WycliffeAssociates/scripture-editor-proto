@@ -96,11 +96,6 @@ function makeFiles(args: {
             `${bookCode} ${chapterNum}:1`,
             `${bookCode}-current`,
           ),
-          loadedLexicalState: makeEditorState(
-            args.loadedText,
-            `${bookCode} ${chapterNum}:1`,
-            `${bookCode}-tok`,
-          ),
           lexicalState: makeEditorState(
             args.currentText,
             `${bookCode} ${chapterNum}:1`,

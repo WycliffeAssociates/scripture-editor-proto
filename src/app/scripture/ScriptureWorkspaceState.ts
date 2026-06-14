@@ -25,7 +25,6 @@ type ScriptureBookStateBase = {
  */
 export type ScriptureChapterState = {
   lexicalState: SerializedEditorState<SerializedLexicalNode>;
-  loadedLexicalState: SerializedEditorState<SerializedLexicalNode>;
   sourceTokens: Token[];
   currentTokens: Token[];
   /**

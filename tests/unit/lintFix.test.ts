@@ -59,7 +59,6 @@ function makeScriptureBookState(): ScriptureBookState {
         direction: "ltr",
         sourceTokens: [],
         currentTokens: [],
-        loadedLexicalState: makeEditorState("one", "GEN 1:1", "tok-1"),
         lexicalState: makeEditorState("one", "GEN 1:1", "tok-1"),
       },
       {
@@ -69,7 +68,6 @@ function makeScriptureBookState(): ScriptureBookState {
         direction: "ltr",
         sourceTokens: [],
         currentTokens: [],
-        loadedLexicalState: makeEditorState("two", "GEN 2:1", "tok-2"),
         lexicalState: makeEditorState("two", "GEN 2:1", "tok-2"),
       },
     ],

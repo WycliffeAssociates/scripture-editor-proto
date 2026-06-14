@@ -1,4 +1,4 @@
-import { type EditorShape, shapeForSurface } from "@/app/data/editor.ts";
+import type { EditorShape } from "@/app/data/editor.ts";
 import {
   serializeChaptersToUsfm,
   tokensToLexical,
@@ -8,7 +8,6 @@ import type {
   ScriptureBookState,
   ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
-import { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { BookRef } from "@/core/persistence/ScriptureWorkspace.ts";
@@ -28,14 +27,10 @@ export function isChapterDirtyUsfm(chapter: ScriptureChapterState): boolean {
   );
 }
 
-// Revert a chapter to its last-SAVED baseline. There IS a kept snapshot
-// (`loadedLexicalState`), and it stays current — every save rebases it — so you
-// might expect `lexicalState = loadedLexicalState`. We can't: that snapshot is
-// always stored in "flat" mode, while the editor may be in regular/form. So we
-// rebuild lexical state from `sourceTokens` (same content) in the caller's
-// `shape` (the `workingRebuild` surface — the shape the user is looking at).
-// ("Loaded" here means the saved baseline — `sourceTokens` advances on every
-// save, not just at file open.)
+// Revert a chapter to its last-SAVED baseline. `sourceTokens` IS that baseline
+// (it advances on every save, not just at file open), so we rebuild lexical
+// state from it in the caller's `shape` — the `workingRebuild` surface the user
+// is looking at.
 export function revertChapterToLoadedState(
   chapter: ScriptureChapterState,
   shape: EditorShape,
@@ -162,16 +157,10 @@ export function buildBookPersistencePlan(args: {
 export function rebaseChapterToCapturedSave(
   chapter: ScriptureChapterState,
   captured: { tokens: Token[] },
-  direction: "ltr" | "rtl",
 ): ScriptureChapterState {
   const rebased: ScriptureChapterState = {
     ...chapter,
     sourceTokens: captured.tokens,
-    loadedLexicalState: tokensToLexical({
-      tokens: captured.tokens,
-      direction,
-      mode: shapeForSurface("savedBaseline"),
-    }),
   };
   return { ...rebased, dirty: isChapterDirtyUsfm(rebased) };
 }
@@ -179,18 +168,7 @@ export function rebaseChapterToCapturedSave(
 export function markFilesAsSaved(files: ScriptureBookState[]) {
   for (const file of files) {
     for (const chapter of file.chapters) {
-      const direction =
-        (chapter.loadedLexicalState.root.direction ??
-          chapter.lexicalState.root.direction ??
-          LanguageDirection.LTR) === LanguageDirection.RTL
-          ? LanguageDirection.RTL
-          : LanguageDirection.LTR;
       chapter.sourceTokens = structuredClone(chapter.currentTokens);
-      chapter.loadedLexicalState = tokensToLexical({
-        tokens: chapter.sourceTokens,
-        direction,
-        mode: shapeForSurface("savedBaseline"),
-      });
       chapter.dirty = false;
     }
   }

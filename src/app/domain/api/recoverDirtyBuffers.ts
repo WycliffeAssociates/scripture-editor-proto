@@ -20,7 +20,7 @@
 //   present(X)      | present(X)    -> restore (baseline match -> no tracker)
 //   present(X)      | present(Y!=X) -> restore (baseline mismatch -> tracker)
 
-import { type EditorShape, shapeForSurface } from "@/app/data/editor.ts";
+import type { EditorShape } from "@/app/data/editor.ts";
 import { parseRecoveredBookContents } from "@/app/domain/api/parseRecoveredBookContents.ts";
 import type { InitialLintByBook } from "@/app/domain/api/scriptureProjectToParsedFiles.ts";
 import {
@@ -232,11 +232,6 @@ export async function recoverDirtyBuffers(args: {
             sourceTokens: [],
             currentTokens: restored.tokens,
             lexicalState: restored.lexicalState,
-            loadedLexicalState: tokensToLexical({
-              tokens: [],
-              direction: args.direction,
-              mode: shapeForSurface("savedBaseline"),
-            }),
             direction: args.direction,
             dirty: true,
             eol,

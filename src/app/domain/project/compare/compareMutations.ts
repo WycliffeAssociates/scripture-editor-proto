@@ -62,7 +62,6 @@ function ensureWorkingChapterFromSource(args: {
     const newChapter: ScriptureChapterState = {
       chapterNumber: args.chapterNum,
       lexicalState: structuredClone(sourceChapter.lexicalState),
-      loadedLexicalState: structuredClone(sourceChapter.loadedLexicalState),
       sourceTokens: structuredClone(sourceChapter.sourceTokens),
       currentTokens: structuredClone(sourceChapter.currentTokens),
       direction: sourceChapter.direction,

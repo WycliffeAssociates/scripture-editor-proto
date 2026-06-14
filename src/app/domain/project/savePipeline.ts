@@ -126,15 +126,6 @@ export type SaveOptions = {
   reviewedRecoveredWork?: boolean;
 };
 
-/** Resolve a chapter's text direction the same way `markFilesAsSaved` does. */
-function chapterSaveDirection(chapter: ScriptureChapterState): "ltr" | "rtl" {
-  const direction =
-    chapter.loadedLexicalState.root.direction ??
-    chapter.lexicalState.root.direction ??
-    "ltr";
-  return direction === "rtl" ? "rtl" : "ltr";
-}
-
 /**
  * Save phase 0 — command preconditions, evaluated before any disk I/O.
  *
@@ -382,11 +373,7 @@ export async function runSavePipeline(
             if (!chapter) continue;
             Object.assign(
               chapter,
-              rebaseChapterToCapturedSave(
-                chapter,
-                captured,
-                chapterSaveDirection(chapter),
-              ),
+              rebaseChapterToCapturedSave(chapter, captured),
             );
           }
         }

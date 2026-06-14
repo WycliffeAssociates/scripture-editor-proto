@@ -1,4 +1,4 @@
-import { type EditorShape, shapeForSurface } from "@/app/data/editor.ts";
+import type { EditorShape } from "@/app/data/editor.ts";
 import { groupFlatTokensByChapter } from "@/app/domain/editor/serialization/flatTokensByChapter.ts";
 import {
   detectLineEnding,
@@ -54,11 +54,6 @@ export async function rebuildParsedFileFromUsfm(args: {
         existingChapter?.sourceTokens ??
         sourceTokensByChapter[chapterNumber] ??
         [];
-      const nextLoadedState = tokensToLexical({
-        tokens: nextSourceTokens,
-        direction,
-        mode: shapeForSurface("savedBaseline"),
-      });
       const nextLexicalState = tokensToLexical({
         tokens: nextCurrentTokens,
         direction,
@@ -67,7 +62,6 @@ export async function rebuildParsedFileFromUsfm(args: {
       const eol = existingChapter?.eol ?? detectLineEnding(nextSourceTokens);
       return {
         lexicalState: nextLexicalState,
-        loadedLexicalState: nextLoadedState,
         sourceTokens: structuredClone(nextSourceTokens),
         currentTokens: structuredClone(nextCurrentTokens),
         direction,

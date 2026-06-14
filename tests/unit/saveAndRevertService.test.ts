@@ -79,11 +79,6 @@ describe("buildBooksSavePayload", () => {
               "MRK 1:1",
               "m1-current",
             ),
-            loadedLexicalState: makeEditorState(
-              "\\c 1\n\\p\nChapter one.\n",
-              "MRK 1:1",
-              "m1",
-            ),
             lexicalState: makeEditorState(
               "\\c 1\n\\p\nChapter one.\n",
               "MRK 1:1",
@@ -104,11 +99,6 @@ describe("buildBooksSavePayload", () => {
               "\\c 15\n\\p\nNew text.\n",
               "MRK 15:1",
               "m15-current",
-            ),
-            loadedLexicalState: makeEditorState(
-              "\\c 15\n\\p\nOld text.\n",
-              "MRK 15:1",
-              "m15",
             ),
             lexicalState: makeEditorState(
               "\\c 15\n\\p\nNew text.\n",

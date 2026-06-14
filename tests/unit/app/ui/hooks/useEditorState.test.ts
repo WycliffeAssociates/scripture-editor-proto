@@ -23,16 +23,6 @@ function makeChapterState(
         version: 1,
       },
     },
-    loadedLexicalState: {
-      root: {
-        children: [],
-        direction: "ltr",
-        format: "",
-        indent: 0,
-        type: "root",
-        version: 1,
-      },
-    },
     ...overrides,
   };
 }

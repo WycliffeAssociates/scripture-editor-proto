@@ -56,7 +56,6 @@ function makeChapterPinnedToSource(text: string): ScriptureChapterState {
     direction: "ltr",
     sourceTokens: tokens,
     currentTokens: tokens,
-    loadedLexicalState: lexicalState,
     lexicalState,
   };
 }

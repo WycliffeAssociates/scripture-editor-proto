@@ -105,7 +105,6 @@ function makeChapter(markerText: string): ScriptureChapterState {
         source: markerText,
       },
     ],
-    loadedLexicalState: makeFlatRegularState(markerText),
     lexicalState: makeFlatRegularState(markerText),
   };
 }

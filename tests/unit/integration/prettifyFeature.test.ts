@@ -45,7 +45,6 @@ const createChapter = async (
     eol: "\n",
     direction: "ltr",
     lexicalState,
-    loadedLexicalState: structuredClone(lexicalState),
     sourceTokens: [] as Token[],
     currentTokens: [] as Token[],
     dirty: false,
@@ -300,7 +299,7 @@ These are the   names`,
   });
 
   describe("Revert Logic", () => {
-    it("should correctly revert changes using loadedLexicalState", async () => {
+    it("should correctly revert changes to the saved baseline", async () => {
       const chapter = await createChapter(
         1,
         `\\id GEN
@@ -329,7 +328,7 @@ Original text`,
 
       mutWorkingFilesRef.forEach((f) => {
         f.chapters.forEach((c) => {
-          c.lexicalState = structuredClone(c.loadedLexicalState);
+          c.lexicalState.root.children = structuredClone(originalNodes);
           c.dirty = false;
         });
       });
