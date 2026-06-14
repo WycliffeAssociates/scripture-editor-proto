@@ -16,6 +16,7 @@ import {
   type SaveOptions,
   type SaveResult,
 } from "@/app/domain/project/savePipeline.ts";
+import { withWorkingFilesDraftSync } from "@/app/domain/project/workingFileCommand.ts";
 import type {
   ScriptureBookState,
   ScriptureChapterState,
@@ -142,10 +143,7 @@ export function useSaveAndRevert(args: {
 
   async function discardAllChanges() {
     if (!requireGateOpen(args.interactionGate.get())) return;
-    // Discovery pass: only dirty chapters need reverting. revertAllChanges'
-    // previous "walk every chapter" implementation was structurally
-    // incompatible with the draft pattern (would mutate chapters that
-    // share refs with the store).
+    // Discovery pass: only dirty chapters need reverting.
     const dirtyRefs: ChapterRef[] = [];
     for (const file of args.workingFilesStore.read()) {
       for (const chapter of file.chapters) {
@@ -157,20 +155,21 @@ export function useSaveAndRevert(args: {
         }
       }
     }
-    const draft = args.workingFilesStore.draftWithChapters(dirtyRefs);
-    for (const ref of dirtyRefs) {
-      const chapter = findChapterInDraft(draft, ref.bookCode, ref.chapterNum);
-      if (chapter) revertChapterToLoadedState(chapter, workingShape());
-    }
     args.setUnsavedDiffsByChapter({});
     args.bumpDirtyVersion();
-    args.workingFilesStore.commit({
-      patch: { kind: "bulk", files: draft },
-      meta: {
+    withWorkingFilesDraftSync({
+      workingFilesStore: args.workingFilesStore,
+      commitMeta: {
         kind: "import",
         action: "revertAll",
         scope: { project: true },
         dirtyTextContent: true,
+      },
+      mutate: (draft) => {
+        for (const ref of dirtyRefs) {
+          const chapter = draft.chapterForWrite(ref);
+          if (chapter) revertChapterToLoadedState(chapter, workingShape());
+        }
       },
     });
   }
@@ -242,24 +241,16 @@ export function useSaveAndRevert(args: {
       label: `Revert Chapter Changes (${bookCode} ${chapterNum})`,
       candidates: [{ bookCode, chapterNum }],
       run: async () => {
-        const draft = args.workingFilesStore.draftWithChapters([
-          { bookCode, chapterNum },
-        ]);
-        const changedChapter = findChapterInDraft(draft, bookCode, chapterNum);
-        if (!changedChapter) return;
-        revertChapterToLoadedState(changedChapter, workingShape());
-        args.workingFilesStore.commit({
-          patch: {
-            kind: "chapter",
-            bookCode,
-            chapter: chapterNum,
-            lexicalState: changedChapter.lexicalState,
-          },
-          meta: {
+        withWorkingFilesDraftSync({
+          workingFilesStore: args.workingFilesStore,
+          commitMeta: {
             kind: "import",
             action: "revertChapter",
-            scope: { chapters: [{ bookCode, chapterNum }] },
             dirtyTextContent: true,
+          },
+          mutate: (draft) => {
+            const chapter = draft.chapterForWrite({ bookCode, chapterNum });
+            if (chapter) revertChapterToLoadedState(chapter, workingShape());
           },
         });
         await args.rerunCompareForChapters([{ bookCode, chapterNum }]);

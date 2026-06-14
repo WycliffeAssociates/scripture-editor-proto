@@ -39,7 +39,10 @@ import {
   type ChapterRef,
   overlayAffectedChapters,
 } from "@/app/domain/project/workingFileMutations.ts";
-import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type {
+  ScriptureBookState,
+  ScriptureChapterState,
+} from "@/app/scripture/ScriptureWorkspaceState.ts";
 import {
   makeRecordingDraft,
   type RecordingDraft,
@@ -146,6 +149,61 @@ export async function withWorkingFilesDraft<T>(args: {
   return outcome.kind === "committed"
     ? { kind: "committed", value, committedChapters: affected }
     : { kind: "aborted", reason: outcome.reason };
+}
+
+export type SyncDraftResult<T> =
+  | {
+      kind: "committed";
+      value: T;
+      committedChapters: ChapterRef[];
+      originals: Map<string, ScriptureChapterState>;
+    }
+  | { kind: "unchanged"; value: T };
+
+/**
+ * The synchronous sibling of `withWorkingFilesDraft`, for verbs whose entire
+ * draft→mutate→commit runs in one stack frame (revert, discard, save-clean
+ * rebase). With no `await` between branching and committing, no concurrent
+ * commit can land in between, so there is nothing to validate and no gate to
+ * recheck — the recording draft's measured `files` IS the next state. The
+ * measured `affected` / `originals` are returned for the caller's history
+ * follow-through.
+ *
+ * `mutate` reads the draft and checks out a chapter (`chapterForWrite`) or book
+ * (`bookForWrite`) only when it actually writes; no checkout ⇒ no commit.
+ */
+export function withWorkingFilesDraftSync<T>(args: {
+  workingFilesStore: WorkingFilesStore;
+  commitMeta: CommitMetaInput;
+  mutate: (draft: RecordingDraft) => T;
+}): SyncDraftResult<T> {
+  const draft = makeRecordingDraft(args.workingFilesStore.read());
+  const value = args.mutate(draft);
+  const {
+    files,
+    affected,
+    originals,
+    wholesaleBooks,
+    wholesaleOriginalChapterNums,
+  } = draft.result();
+
+  if (affected.length === 0) {
+    return { kind: "unchanged", value };
+  }
+
+  args.workingFilesStore.commit({
+    patch: { kind: "bulk", files },
+    meta: {
+      ...args.commitMeta,
+      scope:
+        args.commitMeta.scope ??
+        (chapterSetChanged(files, wholesaleBooks, wholesaleOriginalChapterNums)
+          ? { project: true }
+          : { chapters: affected }),
+    },
+  });
+
+  return { kind: "committed", value, committedChapters: affected, originals };
 }
 
 /**
