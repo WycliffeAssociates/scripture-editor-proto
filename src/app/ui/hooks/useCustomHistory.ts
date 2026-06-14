@@ -638,23 +638,31 @@ export function useCustomHistory({
   const runTransaction = useCallback(
     async <T>({ label, candidates, run }: TransactionArgs<T>): Promise<T> => {
       const uniqueCandidates = dedupeChapterRefs(candidates);
-      const beforeByChapter = new Map<string, CanonicalChapterSnapshot>();
-      const beforeSelectionByChapter = new Map<string, ChapterCursor>();
       const currentRef: HistoryChapterRef = {
         bookCode: currentFileBibleIdentifier,
         chapterNum: currentChapter,
       };
+      const currentKey = chapterKey(currentRef);
 
+      // Lazy before-capture: hold each candidate's pre-run chapter OBJECT
+      // (O(1) per ref, no canonicalisation) plus the visible chapter's
+      // selection. Every store write goes through structural sharing, so a
+      // chapter `run()` leaves untouched keeps its object identity, while a
+      // mutated one is replaced by a fresh object — its predecessor still
+      // carrying the pre-run `lexicalState`. We canonicalise only the
+      // chapters whose identity actually changed; a stale-abort or no-op
+      // run canonicalises none, instead of eagerly snapshotting the whole
+      // candidate set up front.
+      const beforeChapterByKey = new Map<string, ScriptureChapterState>();
+      let beforeSelectionForCurrent: ChapterCursor = null;
       for (const chapterRef of uniqueCandidates) {
-        const snapshot = readSnapshotFromChapter(chapterRef);
-        if (!snapshot) continue;
+        const record = findChapterRecord(chapterRef);
+        if (!record) continue;
         const key = chapterKey(chapterRef);
-        beforeByChapter.set(key, snapshot);
-        if (key === chapterKey(currentRef)) {
-          beforeSelectionByChapter.set(
-            key,
-            getCurrentEditorSelection() ?? readStoreLatestSelection(chapterRef),
-          );
+        beforeChapterByKey.set(key, record.chapter);
+        if (key === currentKey) {
+          beforeSelectionForCurrent =
+            getCurrentEditorSelection() ?? readStoreLatestSelection(chapterRef);
         }
       }
 
@@ -663,18 +671,29 @@ export function useCustomHistory({
       const changes = uniqueCandidates
         .map((chapterRef) => {
           const key = chapterKey(chapterRef);
-          const before = beforeByChapter.get(key);
-          const after = readSnapshotFromChapter(chapterRef);
-          if (!before || !after) return null;
+          const beforeChapter = beforeChapterByKey.get(key);
+          if (!beforeChapter) return null;
+          const afterChapter = findChapterRecord(chapterRef)?.chapter;
+          if (!afterChapter) return null;
+          // Same object under structural sharing ⇒ untouched: nothing to
+          // record, and (the point of this path) nothing to canonicalise.
+          if (beforeChapter === afterChapter) return null;
+          const before = chapterStateToCanonicalSnapshot(
+            beforeChapter.lexicalState,
+          );
+          const after = chapterStateToCanonicalSnapshot(
+            afterChapter.lexicalState,
+          );
           if (chapterSnapshotsAreEqual(before, after)) return null;
           setBaselineSnapshot(chapterRef, after);
           const selectionAfter: ChapterCursor =
-            key === chapterKey(currentRef) ? getCurrentEditorSelection() : null;
+            key === currentKey ? getCurrentEditorSelection() : null;
           return {
             chapter: chapterRef,
             before,
             after,
-            selectionBefore: beforeSelectionByChapter.get(key) ?? null,
+            selectionBefore:
+              key === currentKey ? beforeSelectionForCurrent : null,
             selectionAfter,
           };
         })
@@ -695,7 +714,7 @@ export function useCustomHistory({
     [
       currentFileBibleIdentifier,
       currentChapter,
-      readSnapshotFromChapter,
+      findChapterRecord,
       setBaselineSnapshot,
       getCurrentEditorSelection,
       readStoreLatestSelection,
