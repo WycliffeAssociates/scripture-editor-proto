@@ -75,8 +75,6 @@ export function editorModeToShape(mode: EditorModeSetting): EditorShape {
  *   user's mode so a rebuild never changes what the user is looking at.
  * - `referencePane` — the read-only reference scripture pane; follows the
  *   user's mode (view collapses to the regular shape via `editorModeToShape`).
- * - `savedBaseline` — `loadedLexicalState`, the canonical saved-baseline
- *   snapshot. Always flat: it is compared and rebased, never displayed.
  * - `compareSource` — compare/version-preview source files. Always flat:
  *   diffing is token-based and the source lexical state is never rendered.
  *
@@ -89,12 +87,9 @@ export type MaterializeSurface =
   | "mainEditor"
   | "workingRebuild"
   | "referencePane"
-  | "savedBaseline"
   | "compareSource";
 
-export function shapeForSurface(
-  surface: "savedBaseline" | "compareSource",
-): EditorShape;
+export function shapeForSurface(surface: "compareSource"): EditorShape;
 export function shapeForSurface(
   surface: "mainEditor" | "workingRebuild" | "referencePane",
   userMode: EditorModeSetting,
@@ -103,7 +98,7 @@ export function shapeForSurface(
   surface: MaterializeSurface,
   userMode?: EditorModeSetting,
 ): EditorShape {
-  if (surface === "savedBaseline" || surface === "compareSource") {
+  if (surface === "compareSource") {
     return EDITOR_SHAPES.flat;
   }
   return editorModeToShape(userMode ?? EDITOR_MODES.regular);

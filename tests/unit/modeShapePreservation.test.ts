@@ -41,8 +41,7 @@ describe("shapeForSurface", () => {
     }
   });
 
-  it("pins baseline and compare-source surfaces to flat", () => {
-    expect(shapeForSurface("savedBaseline")).toBe(EDITOR_SHAPES.flat);
+  it("pins the compare-source surface to flat", () => {
     expect(shapeForSurface("compareSource")).toBe(EDITOR_SHAPES.flat);
   });
 
