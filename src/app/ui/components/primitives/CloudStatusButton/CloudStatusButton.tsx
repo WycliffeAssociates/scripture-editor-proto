@@ -1,14 +1,45 @@
-import { Cloud, CloudCheck, CloudOff, RefreshCw } from "lucide-react";
+import {
+  Cloud,
+  CloudAlert,
+  CloudCheck,
+  CloudDownload,
+  CloudOff,
+  CloudUpload,
+  RefreshCw,
+} from "lucide-react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 import { joinClassNames } from "../classNames.ts";
 import * as styles from "./cloudStatusButton.css.ts";
 
+/**
+ * The semantic shared-project state. The button owns the visual mapping
+ * (tone + icon) so the producer only has to name the situation, not pick a
+ * colour — see `tone`/`getStateIcon` below for the single source of truth.
+ */
 export type CloudStatusButtonState =
+  | "refreshing"
+  | "none"
   | "connected"
-  | "behind"
-  | "diverged"
-  | "syncing";
+  | "changesToSend"
+  | "updatesToReceive"
+  | "needsReview"
+  | "offline"
+  | "signInAgain";
+
+/** Foreground tone buckets the states collapse into. */
+type CloudStatusTone = "brand" | "warning" | "error" | "muted";
+
+const stateTone: Record<CloudStatusButtonState, CloudStatusTone> = {
+  refreshing: "brand",
+  none: "brand",
+  connected: "brand",
+  changesToSend: "warning",
+  updatesToReceive: "warning",
+  needsReview: "warning",
+  offline: "muted",
+  signInAgain: "error",
+};
 
 export interface CloudStatusButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   state: CloudStatusButtonState;
@@ -20,27 +51,43 @@ export interface CloudStatusButtonProps extends ButtonHTMLAttributes<HTMLButtonE
 
 function getDefaultTooltipLabel(state: CloudStatusButtonState) {
   switch (state) {
+    case "refreshing":
+      return "Checking…";
+    case "none":
+      return "Shared project";
     case "connected":
-      return "Connected";
-    case "behind":
-      return "Behind";
-    case "diverged":
-      return "Diverged";
-    case "syncing":
-      return "Syncing";
+      return "Up to date";
+    case "changesToSend":
+      return "Changes to send";
+    case "updatesToReceive":
+      return "Updates to receive";
+    case "needsReview":
+      return "Needs review";
+    case "offline":
+      return "Offline";
+    case "signInAgain":
+      return "Sign in again";
   }
 }
 
 function getStateIcon(state: CloudStatusButtonState) {
   switch (state) {
+    case "refreshing":
+      return <RefreshCw size={16} className={styles.spinningIcon} />;
+    case "none":
+      return <Cloud size={16} />;
     case "connected":
-      return <CloudCheck size={14} />;
-    case "behind":
-      return <Cloud size={14} />;
-    case "diverged":
-      return <CloudOff size={14} />;
-    case "syncing":
-      return <RefreshCw size={14} className={styles.spinningIcon} />;
+      return <CloudCheck size={16} />;
+    case "changesToSend":
+      return <CloudUpload size={16} />;
+    case "updatesToReceive":
+      return <CloudDownload size={16} />;
+    case "needsReview":
+      return <CloudAlert size={16} />;
+    case "offline":
+      return <CloudOff size={16} />;
+    case "signInAgain":
+      return <CloudAlert size={16} />;
   }
 }
 
@@ -63,7 +110,7 @@ export function CloudStatusButton({
       type={type}
       className={joinClassNames(
         styles.root,
-        styles.stateVariants[state],
+        styles.toneVariants[stateTone[state]],
         className,
       )}
       data-state={state}

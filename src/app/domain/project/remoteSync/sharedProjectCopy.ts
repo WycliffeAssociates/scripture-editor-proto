@@ -54,13 +54,13 @@ const SHARED_PROJECT_STATES: Record<
   SharedProjectStatePresentation
 > = {
   refreshing: {
-    buttonState: "syncing",
+    buttonState: "refreshing",
     chip: msg`Checking…`,
     headline: msg`Checking the shared project…`,
     detail: msg`Looking for changes to send or receive.`,
   },
   none: {
-    buttonState: "connected",
+    buttonState: "none",
     chip: msg`Shared project`,
     headline: msg`Shared project`,
     detail: msg`Open shared project status.`,
@@ -72,31 +72,31 @@ const SHARED_PROJECT_STATES: Record<
     detail: msg`Your project is up to date and safely stored locally and online.`,
   },
   changesToSend: {
-    buttonState: "behind",
+    buttonState: "changesToSend",
     chip: msg`Changes to send`,
     headline: msg`You have changes to send`,
     detail: msg`Click Sync now to save your changes to the shared project.`,
   },
   updatesToReceive: {
-    buttonState: "behind",
+    buttonState: "updatesToReceive",
     chip: msg`Updates to receive`,
     headline: msg`There are updates to receive`,
     detail: msg`The shared project has new changes you don't have yet.`,
   },
   needsReview: {
-    buttonState: "diverged",
+    buttonState: "needsReview",
     chip: msg`Needs review`,
     headline: msg`Some changes need your review`,
     detail: msg`You are connected and your work has been saved, but some changes require review.`,
   },
   offline: {
-    buttonState: "behind",
+    buttonState: "offline",
     chip: msg`Offline`,
     headline: msg`You're offline`,
     detail: msg`Your work is still saved here. You can send it once you're back online.`,
   },
   signInAgain: {
-    buttonState: "diverged",
+    buttonState: "signInAgain",
     chip: msg`Sign in again`,
     headline: msg`Sign in to keep sharing`,
     detail: msg`Sending and receiving updates is paused until you sign in again.`,

@@ -3,8 +3,13 @@ import { globalStyle, keyframes, style } from "@vanilla-extract/css";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
 
 export const triggerButton = style({
+  position: "relative",
   height: "2rem",
-  minWidth: "2rem",
+  width: "2rem",
+  // Reserve a sliver at the inline-end so the corner badge overflows into
+  // whitespace rather than onto the neighbouring toolbar button. Constant in
+  // every state, so it never reflows neighbours.
+  marginInlineEnd: "0.25rem",
   padding: 0,
   borderRadius: vars.border.radius.md,
   border: `${vars.border.width.thin} solid transparent`,
@@ -29,29 +34,37 @@ export const triggerButton = style({
   },
 });
 
-export const triggerButtonWithCount = style({
-  padding: "0 0.5rem 0 0.625rem",
-});
-
 export const triggerButtonActive = style({
   backgroundColor: vars.button.tertiary.surfaceActive,
   color: vars.color.brandBase,
 });
 
 export const countPill = style({
+  // Notification badge: pulled out of flow and anchored to the button's
+  // block-start/inline-end corner so the trigger stays a fixed 2rem square in
+  // every state — neither the pill's presence nor its digit count can reflow
+  // neighbouring toolbar items as the chapter changes. Anchored at inline-end,
+  // its inline-start edge is pinned to the icon's block-start/inline-end
+  // corner and it grows only toward the inline-end, so longer counts never
+  // creep back over the centre of the glyph.
+  position: "absolute",
+  insetBlockStart: "-0.25rem",
+  insetInlineStart: "1.125rem",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  minWidth: "1.25rem",
-  height: "1.25rem",
-  padding: "0 0.4375rem",
+  minWidth: "0.9375rem",
+  height: "0.9375rem",
+  padding: "0 0.25rem",
   borderRadius: vars.border.radius.full,
   backgroundColor: vars.color.surfaceError,
   color: vars.color.onSurfaceError,
-  fontSize: "0.75rem",
+  fontSize: "0.625rem",
   fontWeight: 700,
   lineHeight: 1,
   fontVariantNumeric: "tabular-nums",
+  boxShadow: `0 0 0 1.5px ${vars.color.surfacePrimary}`,
+  pointerEvents: "none",
 });
 
 const dropdownIn = keyframes({

@@ -13,7 +13,7 @@ import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 // sous work is more expensive than lint and wants its own clock — a calmer
 // cadence than lint's ~100ms. A superseded pass is still cancelled, so this
 // is "lint at typing cadence + sous at a calmer cadence", not 2x traffic.
-const DEFAULT_SOUS_DEBOUNCE_MS = 200;
+const DEFAULT_SOUS_DEBOUNCE_MS = 100;
 
 /**
  * Stream pipeline that drives sous content analysis in response to working-

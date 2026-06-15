@@ -278,7 +278,6 @@ function TriggerButton(props: {
       aria-expanded={active}
       className={joinClassNames(
         styles.triggerButton,
-        hasErrors && styles.triggerButtonWithCount,
         active && styles.triggerButtonActive,
       )}
       {...rest}

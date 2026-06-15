@@ -3,27 +3,25 @@ import { keyframes, style, styleVariants } from "@vanilla-extract/css";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
 
 export const root = style({
+  // Bare icon button (no chip chrome): a fixed 2rem square that carries its
+  // status purely through icon shape + tone colour. Hover lifts a faint
+  // tertiary tint, like the other toolbar triggers.
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
   gap: vars.spacing.xs,
-  minHeight: "2rem",
-  padding: `0 ${vars.spacing.sm}`,
+  height: "2rem",
+  minWidth: "2rem",
+  padding: `0 ${vars.spacing.xs}`,
   borderRadius: vars.border.radius.md,
-  border: `${vars.border.width.thin} solid ${vars.color.surfaceBorder}`,
-  backgroundColor: vars.color.surfacePrimary,
-  color: vars.color.onSurfaceSecondary,
-  fontSize: vars.typography.bodySmallest.fontSize,
-  fontWeight: 600,
-  letterSpacing: "0.01em",
+  border: `${vars.border.width.thin} solid transparent`,
+  backgroundColor: "transparent",
   whiteSpace: "nowrap",
   cursor: "pointer",
-  transition:
-    "background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease, box-shadow 140ms ease",
+  transition: "background-color 140ms ease, color 140ms ease",
   selectors: {
     "&:hover": {
-      transform: "translateY(-1px)",
-      boxShadow: vars.shadow.small,
+      backgroundColor: vars.button.tertiary.surfaceHover,
     },
     "&:focus-visible": {
       outline: "none",
@@ -32,8 +30,6 @@ export const root = style({
     "&:disabled": {
       cursor: "not-allowed",
       opacity: 0.6,
-      transform: "none",
-      boxShadow: "none",
     },
   },
 });
@@ -59,25 +55,9 @@ export const iconSlot = style({
   flexShrink: 0,
 });
 
-export const stateVariants = styleVariants({
-  connected: {
-    borderColor: vars.color.brandBase,
-    backgroundColor: `color-mix(in srgb, ${vars.color.brandBase} 10%, ${vars.color.surfacePrimary})`,
-    color: vars.color.brandBase,
-  },
-  behind: {
-    borderColor: "#c99700",
-    backgroundColor: `color-mix(in srgb, #f6c343 16%, ${vars.color.surfacePrimary})`,
-    color: "#8a5e00",
-  },
-  diverged: {
-    borderColor: "#c99700",
-    backgroundColor: `color-mix(in srgb, #f6c343 16%, ${vars.color.surfacePrimary})`,
-    color: "#8a5e00",
-  },
-  syncing: {
-    borderColor: vars.color.brandBase,
-    backgroundColor: `color-mix(in srgb, ${vars.color.brandBase} 12%, ${vars.color.surfacePrimary})`,
-    color: vars.color.brandBase,
-  },
+export const toneVariants = styleVariants({
+  brand: { color: vars.color.brandBase },
+  warning: { color: vars.color.onSurfaceWarning },
+  error: { color: vars.color.onSurfaceError },
+  muted: { color: vars.color.onSurfaceTertiary },
 });
