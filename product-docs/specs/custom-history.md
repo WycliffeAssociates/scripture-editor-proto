@@ -32,8 +32,13 @@
   chapter diffs through `history.captureEditorUpdate`. Typing entries are
   coalesced within a 2500 ms window so a continuous typing run is a single
   entry.
-- **Programmatic actions**: features must opt in by wrapping mutations in
-  `history.runTransaction({ label, candidates, run })`.
+- **Programmatic actions**: features opt in by bracketing the mutation with
+  `history.captureHistory()` (call it *before* the verb — it retains the
+  pre-commit files array as pre-images) and `history.recordHistory(token,
+  { label, affected })` (*after* the verb commits — it diffs the `affected`
+  chapters the commit measured against the captured pre-images and pushes one
+  entry). No candidate set is declared up front; `recordHistory` records exactly
+  the measured `affected` chapters.
 - **Merge path**: programmatic guardrail updates tagged with
   `HISTORY_MERGE_TAG` merge into the latest typing entry so undo does not
   discard guardrail work.
@@ -103,17 +108,18 @@ last edit in <Book> <Chapter>`).
 
 ## Instrumentation contract (manual opt-in)
 
-- Any feature that commits across chapters must use `runTransaction` (the
-  hook captures the before-snapshot of `candidates`, runs the
-  programmatic flow, and records the diff as one history entry).
-- Supply the smallest accurate candidate set (`chapter` / `book` /
-  `project`) to avoid over-capturing.
+- Any feature that commits across chapters must bracket the mutation with
+  `captureHistory()` / `recordHistory(token, { label, affected })` (capture
+  retains the pre-commit pre-images, record diffs the measured `affected`
+  chapters against them and pushes one entry).
+- No candidate set is declared: `recordHistory` records exactly the chapters
+  the commit measured as `affected`, so the entry can never over-capture.
 - Set explicit labels:
   - `setNextTypingLabel(...)` for the next typing-derived entry (e.g.
     find/replace).
-  - `runTransaction({ label: ... })` for programmatic batches.
-- If a mutator is not wrapped, undo/redo will not represent that
-  operation.
+  - `recordHistory(token, { label })` for programmatic batches.
+- If a mutation is not bracketed by capture/record, undo/redo will not
+  represent that operation.
 
 ## Post undo/redo reactions
 

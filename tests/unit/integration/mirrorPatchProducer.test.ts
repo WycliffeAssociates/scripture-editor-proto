@@ -148,7 +148,11 @@ describe("awaitInitialFindings — the load contract's first pass", () => {
       },
     });
 
-    const findings = await awaitInitialFindings({ feed, generation: 12 });
+    const findings = await awaitInitialFindings({
+      feed,
+      generation: 12,
+      reseed: () => {},
+    });
 
     expect(commands.map((c) => c.kind)).toEqual(["analyzeLint", "analyzeSous"]);
     for (const command of commands) {
@@ -161,6 +165,97 @@ describe("awaitInitialFindings — the load contract's first pass", () => {
     }
     expect(findings.lint).toEqual({ GEN: [] });
     expect(findings.sous).toEqual({ GEN: { segments: {}, findings: [] } });
+  });
+
+  it("recovers a load-time resyncRequest by re-seeding once and re-issuing the pending analyses", async () => {
+    // At load no result router is mounted, so a session that answers the first
+    // analyze with `resyncRequest` (seed not landed) would hang the loading gate
+    // forever. The awaiter must service the resync itself: re-seed, re-issue.
+    const feed = new MirrorFeed();
+    let seeded = false;
+    const analyzeCount = { lint: 0, sous: 0 };
+    feed.addSink({
+      pushPatch: () => {},
+      sendCommand: (c) => {
+        if (c.kind === "analyzeLint") {
+          analyzeCount.lint++;
+          // Before the re-seed both engines report `behind` → resyncRequest at
+          // the same generation; after it they answer with real results.
+          feed.deliverResult(
+            seeded
+              ? {
+                  kind: "lintResult",
+                  byBook: { GEN: [] },
+                  ranAtGeneration: c.generation,
+                  requestId: c.requestId,
+                }
+              : { kind: "resyncRequest", lastGeneration: c.generation },
+          );
+        }
+        if (c.kind === "analyzeSous") {
+          analyzeCount.sous++;
+          feed.deliverResult(
+            seeded
+              ? {
+                  kind: "sousResult",
+                  byBook: { GEN: { segments: {}, findings: [] } },
+                  ranAtGeneration: c.generation,
+                  requestId: c.requestId,
+                }
+              : { kind: "resyncRequest", lastGeneration: c.generation },
+          );
+        }
+      },
+    });
+
+    let reseeds = 0;
+    const findings = await awaitInitialFindings({
+      feed,
+      generation: 7,
+      reseed: () => {
+        reseeds++;
+        seeded = true;
+      },
+    });
+
+    // The resync burst (one per engine, same generation) coalesces into exactly
+    // one re-seed (not one per resyncRequest); the analyses then re-run and
+    // resolve with real findings rather than hanging.
+    expect(reseeds).toBe(1);
+    expect(analyzeCount.lint + analyzeCount.sous).toBeGreaterThanOrEqual(3);
+    expect(findings.lint).toEqual({ GEN: [] });
+    expect(findings.sous).toEqual({ GEN: { segments: {}, findings: [] } });
+  });
+
+  it("degrades to empty findings (never hangs) when a re-seed still does not land", async () => {
+    vi.useFakeTimers();
+    try {
+      const feed = new MirrorFeed();
+      // Every analyze always reports behind → resyncRequest, even after re-seed.
+      feed.addSink({
+        pushPatch: () => {},
+        sendCommand: (c) => {
+          if (c.kind === "analyzeLint" || c.kind === "analyzeSous") {
+            feed.deliverResult({
+              kind: "resyncRequest",
+              lastGeneration: c.generation,
+            });
+          }
+        },
+      });
+
+      const pending = awaitInitialFindings({
+        feed,
+        generation: 3,
+        reseed: () => {},
+      });
+      await vi.runAllTimersAsync();
+      const findings = await pending;
+
+      expect(findings).toEqual({ lint: {}, sous: {} });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

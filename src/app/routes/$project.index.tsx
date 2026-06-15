@@ -11,8 +11,7 @@ import {
 import { DirtyBufferStore } from "@/app/state/DirtyBufferStore.ts";
 import { RecoveredConflictTracker } from "@/app/state/RecoveredConflictTracker.ts";
 import { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
-import { ProjectView } from "@/app/ui/components/views/ProjectView.tsx";
-import { ProjectProvider } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { ProjectEditorRoute } from "@/app/ui/components/views/ProjectEditorRoute.tsx";
 import * as styles from "@/app/ui/styles/modules/projectIndex.css.ts";
 
 const DIRTY_BUFFER_ROOT_SUBDIR = "dirty-buffers";
@@ -25,7 +24,7 @@ const DIRTY_BUFFER_ROOT_SUBDIR = "dirty-buffers";
  * editor shell around that already-resolved scripture workspace.
  */
 export const Route = createFileRoute("/$project/")({
-  component: RouteComponent,
+  component: ProjectEditorRoute,
   pendingComponent: () => (
     <div className={styles.pendingRoot}>
       <div className={styles.pendingPaper}>
@@ -80,19 +79,13 @@ export const Route = createFileRoute("/$project/")({
       // baseline without re-reading or re-serializing.
       includeSourceMd5: true,
     });
-    const {
-      parsedFiles,
-      initialLintErrorsByBook,
-      loadedProject,
-      rejectionReason,
-      diskMd5ByBook,
-    } = result || {
-      parsedFiles: [],
-      initialLintErrorsByBook: {},
-      loadedProject: null,
-      rejectionReason: "not-found" as const,
-      diskMd5ByBook: new Map<string, string>(),
-    };
+    const { parsedFiles, loadedProject, rejectionReason, diskMd5ByBook } =
+      result || {
+        parsedFiles: [],
+        loadedProject: null,
+        rejectionReason: "not-found" as const,
+        diskMd5ByBook: new Map<string, string>(),
+      };
     if (rejectionReason === "metadata-invalid") {
       throw redirect({
         to: "/$project/metadata",
@@ -157,7 +150,6 @@ export const Route = createFileRoute("/$project/")({
       direction: loadedProject.language.direction,
       shape: editorShape,
       usfmOnionService,
-      initialLintErrorsByBook,
     });
 
     // spawnMirrors → awaitEnginesReady → seedMirrors → initialFindings, all
@@ -192,62 +184,3 @@ export const Route = createFileRoute("/$project/")({
     };
   },
 });
-
-export function RouteComponent() {
-  const {
-    projectFiles,
-    loadedProject,
-    rejectionReason,
-    workspaceBaselineStore,
-    recoveredConflictTracker,
-    dirtyBufferStore,
-    workspaceKey,
-    restoredBookCodes,
-    conflictedBookCodes,
-    recoveryReportEntries,
-    kernel,
-  } = Route.useLoaderData();
-
-  const { project } = Route.useParams();
-  const search = Route.useSearch();
-
-  if (!loadedProject) {
-    return (
-      <div className={styles.pendingPaper}>
-        {rejectionReason === "not-editable"
-          ? "This resource cannot be opened in the editable workspace."
-          : "Project not found"}
-      </div>
-    );
-  }
-  // A null kernel is only ever the preload-while-occupied skip (the registry
-  // declined to evict the open workspace); such a loader result never mounts
-  // because the open project isn't being navigated away from. A real
-  // navigation always re-runs the loader and yields a claimed handle.
-  if (!kernel) {
-    return (
-      <div className={styles.pendingPaper}>
-        <Trans>Loading...</Trans>
-      </div>
-    );
-  }
-  return (
-    <ProjectProvider
-      currentProjectRoute={project}
-      projectFiles={projectFiles}
-      loadedProject={loadedProject}
-      workspaceBaselineStore={workspaceBaselineStore}
-      recoveredConflictTracker={recoveredConflictTracker}
-      dirtyBufferStore={dirtyBufferStore}
-      workspaceKey={workspaceKey}
-      restoredBookCodes={restoredBookCodes}
-      conflictedBookCodes={conflictedBookCodes}
-      recoveryReportEntries={recoveryReportEntries}
-      kernel={kernel}
-      queryBookOverride={search.book}
-      queryChapterOverride={search.chapter}
-    >
-      <ProjectView />
-    </ProjectProvider>
-  );
-}

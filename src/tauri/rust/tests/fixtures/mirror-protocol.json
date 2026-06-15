@@ -1,0 +1,56 @@
+{
+  "_comment": "Canonical wire examples for the mirror protocol — ONE per MirrorPatch kind plus both AnalyzeScope forms. The TS test (tests/unit/mirrorProtocolFixtures.test.ts) pins these to the TS types; the Rust test (mirror.rs mod tests) deserializes them into the Rust DTOs. If either side's wire shape drifts, its test fails. Adding a patch kind must add a fixture here (the TS Record<MirrorPatch['kind']> coverage check forces it).",
+  "patches": [
+    {
+      "kind": "pushChapter",
+      "ref": { "bookCode": "GEN", "chapterNum": 1 },
+      "chapter": {
+        "tokens": [
+          { "id": "GEN 1:1-t", "kind": "text", "span": { "start": 0, "end": 5 }, "sid": "GEN 1:1", "source": "Hello" }
+        ],
+        "eol": "\n",
+        "dirty": true
+      },
+      "generation": 5
+    },
+    {
+      "kind": "deleteChapter",
+      "ref": { "bookCode": "GEN", "chapterNum": 2 },
+      "generation": 6
+    },
+    {
+      "kind": "pushBaseline",
+      "bookCode": "GEN",
+      "diskBaseline": { "kind": "present", "md5": "abc123" },
+      "generation": 7
+    },
+    {
+      "kind": "fullSync",
+      "books": [
+        {
+          "bookCode": "EXO",
+          "diskBaseline": { "kind": "absent" },
+          "chapters": [
+            { "chapterNum": 1, "chapter": { "tokens": [], "eol": "\n", "dirty": false } }
+          ]
+        }
+      ],
+      "generation": 8
+    },
+    {
+      "kind": "syncMeta",
+      "books": [
+        {
+          "bookCode": "GEN",
+          "diskBaseline": { "kind": "present", "md5": "def456" },
+          "chapterDirty": [ { "chapterNum": 1, "dirty": false } ]
+        }
+      ],
+      "generation": 9
+    }
+  ],
+  "scopes": [
+    { "books": ["GEN", "EXO"] },
+    "all"
+  ]
+}

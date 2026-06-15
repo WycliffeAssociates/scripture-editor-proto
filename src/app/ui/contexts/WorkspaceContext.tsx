@@ -269,6 +269,12 @@ export const ProjectProvider = ({
   // These same passes ALSO flowed through the result router (the live path), so
   // committing them here is idempotent against that; in plain mode the kernel's
   // findings are empty.
+  //
+  // COUPLING: this seed runs ONCE per provider instance (useStableInstance) and
+  // the kernel's initial findings were consumed at kernel-build time, before any
+  // result router is mounted to replay them. So a same-instance project swap
+  // would keep the previous project's findings — which is why the route remounts
+  // the provider on project change (`key={workspaceKey}` in $project.index.tsx).
   const findingsStore = useStableInstance(() => {
     const store = new FindingsStore();
     for (const [bookCode, issues] of Object.entries(
@@ -691,7 +697,8 @@ export const ProjectProvider = ({
   }, [interactionGate]);
 
   // Discard: revert the restored chapters back to their disk baseline and drop
-  // the tracker. Wrapped in `history.runTransaction` for undoability. The
+  // the tracker. Made undoable by the `captureHistory`/`recordHistory` pair
+  // around the commit (record runs only on a committed outcome). The
   // commit is `kind: "import"` + `action: "discardRecoveredWork"` (an
   // ordinary programmatic content mutation, same class as a version revert);
   // the lint/sous/save-status pipelines react to it like any content commit,

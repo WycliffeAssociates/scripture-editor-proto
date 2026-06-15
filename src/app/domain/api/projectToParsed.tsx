@@ -61,7 +61,6 @@ export async function projectParamToParsedScripture(args: {
   if (!loadedProject) {
     return {
       parsedFiles: [],
-      initialLintErrorsByBook: {},
       loadedProject: null,
       rejectionReason: editableResult?.rejectionReason ?? "not-found",
       diskMd5ByBook: new Map<string, string>(),
@@ -75,16 +74,14 @@ export async function projectParamToParsedScripture(args: {
       loadedProject,
     });
   }
-  const { parsedFiles, initialLintErrorsByBook, diskMd5ByBook } =
-    await scriptureProjectToParsedFiles({
-      loadedProject,
-      shape: args.shape,
-      usfmOnionService: args.usfmOnionService,
-      includeSourceMd5: args.includeSourceMd5,
-    });
+  const { parsedFiles, diskMd5ByBook } = await scriptureProjectToParsedFiles({
+    loadedProject,
+    shape: args.shape,
+    usfmOnionService: args.usfmOnionService,
+    includeSourceMd5: args.includeSourceMd5,
+  });
   return {
     parsedFiles,
-    initialLintErrorsByBook,
     loadedProject,
     rejectionReason: null,
     diskMd5ByBook,

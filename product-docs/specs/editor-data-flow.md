@@ -16,10 +16,10 @@ Anything that mutates `WorkingFilesStore` is one of these:
 2. **Hooks running programmatic flows** (format, prettify, lint-fix,
    match-formatting, external-compare apply, save mark-clean, mode switch,
    revert). Active mutations go through the `withWorkingFilesDraft` seam
-   (draft scratch → compute → validate → re-check gate → commit →
-   invalidate); incoming-content applies go through the sibling
-   `runIncomingMutation` boundary. Both are built on `draftWithChapters` →
-   `commit`.
+   (recording draft → compute + check out changed chapters → validate →
+   re-check gate → commit → typed result); incoming-content applies go
+   through the sibling `runIncomingMutation` boundary. Both are built on the
+   recording draft (`makeRecordingDraft` / `chapterForWrite`) → `commit`.
 3. **History replay** (`useCustomHistory.undo` / `redo`). Replays canonical
    chapter snapshots through the same draft + bulk-commit path.
 
@@ -87,60 +87,61 @@ publish (no `toJSON`, no token recompute).
 
 Every active mutation — format, prettify, match-formatting, lint-fix — goes
 through one validated seam, `withWorkingFilesDraft` in
-`src/app/domain/project/workingFileCommand.ts`. The call site supplies the
-chapters to draft, a `mutate` that computes on a structural-sharing scratch
-(it may `await` freely — the scratch is not the store), and an `invalidate`
-post-commit hook:
+`src/app/domain/project/workingFileCommand.ts`. The call site supplies a
+`mutate` that computes on a **recording draft** (it may `await` freely — the
+draft is not the store) and **checks out** only the chapters it actually
+changes; the seam measures `affected` from those checkouts and returns a typed
+result the caller branches on:
 
 ```ts
 const result = await withWorkingFilesDraft({
   workingFilesStore,
   interactionGate,
-  draftRefs: refs, // chapters to make writable in the scratch
   commitMeta: {
     kind: "programmaticFix",
-    scope: { project: true },
     dirtyTextContent: true,
+    // scope is MEASURED from checkouts (the affected chapter list). Opt into
+    // { project: true } only for genuine whole-snapshot semantics (a version
+    // switch / import, where books may be added or removed).
   },
-  // scope?: "chapters" (default, overlay only affected) | "workspace"
-  mutate: async (scratch) => {
-    // Compute ONLY — no UI/lint/editor side effects (the commit is not
-    // validated yet). Return the chapters changed + a value.
-    const affected = [];
-    for (const ref of refs) {
-      const chapter = findChapterInDraft(
-        scratch,
-        ref.bookCode,
-        ref.chapterNum,
-      )!;
-      chapter.lexicalState = await transform(chapter.lexicalState);
-      chapter.currentTokens = recompute(chapter);
-      affected.push(ref);
+  // Compute ONLY — no UI/lint/editor side effects (the commit is not validated
+  // yet). May `await` freely (the draft is not the store). Check out a chapter
+  // with `chapterForWrite` ONLY when actually changing it; the seam derives
+  // `affected` from those checkouts. Return the business value only.
+  mutate: async (draft) => {
+    for (const ref of candidates) {
+      const next = await transform(ref);
+      if (!next) continue; // unchanged — don't check out
+      const chapter = draft.chapterForWrite(ref); // checkout ⇒ affected
+      if (chapter) chapter.currentTokens = next;
     }
-    return { affected, value: report };
-  },
-  invalidate: ({ committedChapters, value }) => {
-    // Runs ONLY after a validated commit: diff/lint refresh, editor sync,
-    // toast. Never runs on abort.
+    return report;
   },
 });
 // result.kind: "committed" | "unchanged" | "aborted"
+if (result.kind === "committed") {
+  // Follow-through (history record, diff/lint refresh, editor sync, toast)
+  // sequences on the result here — it never runs on an abort.
+}
 ```
 
-Internally the seam does: draft scratch → run `mutate` (compute, awaits ok) →
-if nothing affected, `unchanged` → re-read latest and **validate** the
-affected chapters weren't replaced underneath (identity, not text) → **re-check
-the interaction gate** → **commit** by overlaying only the affected chapters
-onto the latest read (`chapters` scope) or the scratch wholesale (`workspace`
-scope, validated by array identity) → run `invalidate`. On a stale or
-gate-closed abort, neither `invalidate` nor any caller side effect fires.
+Internally the seam does: branch a recording draft → run `mutate` (compute,
+awaits ok, checks out the chapters it changes) → if nothing was checked out,
+`unchanged` → re-read latest and **validate** the checked-out chapters weren't
+replaced underneath (identity, not text) → **re-check the interaction gate** →
+**commit** by overlaying only the affected chapters onto the latest read, or —
+when a book was rebuilt wholesale — committing the draft's books wholesale
+(validated by whole-state identity) → return a typed result. On a stale or
+gate-closed abort, the result is `aborted` and no caller follow-through fires.
 
 The seam composes the **same** validated primitives
 (`captureChapterIdentities` / `chapterIdentitiesUnchanged` /
 `overlayAffectedChapters`) as the incoming-reconciliation boundary below, so
-there is one lost-update contract in the codebase, not two. The
-`history.runTransaction` wrapper, notifications, and per-action reports stay
-at the call site — they're genuinely per-action UX.
+there is one lost-update contract in the codebase, not two. The history
+capture/record pair (`captureHistory` before the mutation, `recordHistory` with
+the measured `affected` after it commits), notifications, and per-action reports
+stay at the call site — they're genuinely per-action UX, sequenced on the
+returned result.
 
 ### The underlying primitive: `draftWithChapters`
 

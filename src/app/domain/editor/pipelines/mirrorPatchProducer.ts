@@ -173,6 +173,13 @@ export type InitialFindings = {
 /** Empty initial findings — plain mode (analysis disabled) returns this. */
 export const NO_INITIAL_FINDINGS: InitialFindings = { lint: {}, sous: {} };
 
+// Backstop for the load-time resync recovery below: if a re-seed still doesn't
+// let the analyses land, resolve with whatever findings arrived (empty for the
+// stragglers) rather than block the loading gate forever. Generous against the
+// session's own behind-retry budget (a couple hundred ms per analyze) so a
+// merely-slow seed isn't cut short, but bounded so load can't hang.
+const INITIAL_FINDINGS_GIVE_UP_MS = 2_000;
+
 /**
  * Run an initial project-wide lint + sous against the freshly seeded mirror AND
  * await both results. This is the load contract's "initial analyze through the
@@ -180,58 +187,97 @@ export const NO_INITIAL_FINDINGS: InitialFindings = { lint: {}, sous: {} };
  * `"all"` reads resident tokens for every book; the results flow back through
  * the same result router that handles every later pass (so live wiring is
  * unchanged) AND are correlated by `requestId` so this load-time caller can
- * await its two specific passes before the loading gate releases. Unifies the
- * old loader-lint path (`initialLintErrorsByBook`, which `commitFilters`
- * excluded `load` commits from and which only ever carried lint, never sous)
- * onto one mirror seam.
+ * await its two specific passes before the loading gate releases. This is the
+ * single source of first-paint findings — lint AND sous — so no separate
+ * parse-time lint pass runs on the main thread.
  *
  * Plain mode disables analysis, so the kernel skips this there (matching the
  * gated lint/sous pipelines) and treats findings as empty.
+ *
+ * Resync recovery: a session can answer an analyze with a `resyncRequest`
+ * instead of a result when the seed patch hasn't landed yet (the mirror is
+ * `behind` past its retries). The live `mirrorResultRouter` services that by
+ * re-seeding — but at load the router isn't mounted, so this awaiter would
+ * otherwise hang on the loading gate forever. We service it here the same way:
+ * re-seed once (coalesced by generation, matching the router) and re-issue the
+ * still-pending analyses, with `INITIAL_FINDINGS_GIVE_UP_MS` as the backstop so
+ * a seed that refuses to land degrades to empty findings (the live router
+ * re-analyzes on the next commit) instead of a hung load.
  */
 export async function awaitInitialFindings(args: {
   feed: MirrorFeed;
   generation: Generation;
+  /** Re-push the seed `fullSync` — caller-supplied so this stays decoupled from the store. */
+  reseed: () => void;
 }): Promise<InitialFindings> {
   const lintRequestId = `initial-lint-${args.generation}`;
   const sousRequestId = `initial-sous-${args.generation}`;
 
-  const lintPromise = new Promise<Record<string, LintIssue[]>>((resolve) => {
-    const off = args.feed.onResult((result) => {
+  return new Promise<InitialFindings>((resolveAll) => {
+    let lint: Record<string, LintIssue[]> | null = null;
+    let sous: Record<string, SousAnalyzeResult> | null = null;
+    // Coalesce the resync burst (one per analyze class, same trailing
+    // generation) into a single re-seed, exactly as the router does.
+    let resyncHighWater = -1;
+    let giveUpTimer: ReturnType<typeof setTimeout> | null = null;
+    let off = (): void => {};
+
+    const finish = (): void => {
+      off();
+      if (giveUpTimer !== null) clearTimeout(giveUpTimer);
+      resolveAll({ lint: lint ?? {}, sous: sous ?? {} });
+    };
+    const settleIfBothIn = (): void => {
+      if (lint !== null && sous !== null) finish();
+    };
+    const sendPending = (): void => {
+      if (lint === null) {
+        args.feed.sendCommand({
+          kind: "analyzeLint",
+          scope: "all",
+          generation: args.generation,
+          requestId: lintRequestId,
+        });
+      }
+      if (sous === null) {
+        args.feed.sendCommand({
+          kind: "analyzeSous",
+          scope: "all",
+          generation: args.generation,
+          requestId: sousRequestId,
+        });
+      }
+    };
+
+    off = args.feed.onResult((result) => {
       if (result.kind === "lintResult" && result.requestId === lintRequestId) {
-        off();
-        resolve(result.byBook);
+        lint = result.byBook;
+        settleIfBothIn();
+      } else if (
+        result.kind === "sousResult" &&
+        result.requestId === sousRequestId
+      ) {
+        sous = result.byBook;
+        settleIfBothIn();
+      } else if (
+        result.kind === "resyncRequest" &&
+        result.lastGeneration > resyncHighWater
+      ) {
+        resyncHighWater = result.lastGeneration;
+        args.reseed();
+        sendPending();
+        // Arm the backstop on the first re-seed; a still-stuck seed resolves
+        // empty here rather than hanging (no router exists to recover further).
+        // `sendPending` may have already settled both (synchronous transport) —
+        // don't arm a dangling timer in that case.
+        if (giveUpTimer === null && (lint === null || sous === null)) {
+          giveUpTimer = setTimeout(finish, INITIAL_FINDINGS_GIVE_UP_MS);
+        }
       }
     });
-  });
-  const sousPromise = new Promise<Record<string, SousAnalyzeResult>>(
-    (resolve) => {
-      const off = args.feed.onResult((result) => {
-        if (
-          result.kind === "sousResult" &&
-          result.requestId === sousRequestId
-        ) {
-          off();
-          resolve(result.byBook);
-        }
-      });
-    },
-  );
 
-  args.feed.sendCommand({
-    kind: "analyzeLint",
-    scope: "all",
-    generation: args.generation,
-    requestId: lintRequestId,
+    sendPending();
   });
-  args.feed.sendCommand({
-    kind: "analyzeSous",
-    scope: "all",
-    generation: args.generation,
-    requestId: sousRequestId,
-  });
-
-  const [lint, sous] = await Promise.all([lintPromise, sousPromise]);
-  return { lint, sous };
 }
 
 /**

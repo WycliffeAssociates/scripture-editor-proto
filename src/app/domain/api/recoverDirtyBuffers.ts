@@ -22,7 +22,6 @@
 
 import type { EditorShape } from "@/app/data/editor.ts";
 import { parseRecoveredBookContents } from "@/app/domain/api/parseRecoveredBookContents.ts";
-import type { InitialLintByBook } from "@/app/domain/api/scriptureProjectToParsedFiles.ts";
 import {
   detectLineEnding,
   tokensToUsfm,
@@ -38,7 +37,6 @@ import type {
 } from "@/app/state/DirtyBufferStore.ts";
 import type { RecoveredConflictTracker } from "@/app/state/RecoveredConflictTracker.ts";
 import type { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
-import { relintBookFiles } from "@/app/ui/hooks/linting.ts";
 import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 
@@ -75,7 +73,6 @@ export type RecoveryResult = {
    */
   conflictedBookCodes: string[];
   recoveryReportEntries: RecoveryReportEntry[];
-  initialLintErrorsByBook: InitialLintByBook;
 };
 
 export async function recoverDirtyBuffers(args: {
@@ -95,7 +92,6 @@ export async function recoverDirtyBuffers(args: {
   /** The `mainEditor` shape (see `shapeForSurface`). */
   shape: EditorShape;
   usfmOnionService: IUsfmOnionService;
-  initialLintErrorsByBook: InitialLintByBook;
 }): Promise<RecoveryResult> {
   const {
     workspaceBaselineStore,
@@ -288,7 +284,6 @@ export async function recoverDirtyBuffers(args: {
       restoredBookCodes: [],
       conflictedBookCodes: [],
       recoveryReportEntries,
-      initialLintErrorsByBook: args.initialLintErrorsByBook,
     };
   }
 
@@ -300,21 +295,10 @@ export async function recoverDirtyBuffers(args: {
     return { ...book, chapters: mergeBookChapters(book.chapters, layered) };
   });
 
-  // Re-lint the restored books so diagnostics reflect the layered content.
-  const restoredFiles = layeredFiles.filter((book) =>
-    restoredBookCodes.has(book.bookCode),
-  );
-  const relinted = await relintBookFiles(restoredFiles, args.usfmOnionService);
-  const initialLintErrorsByBook: InitialLintByBook = {
-    ...args.initialLintErrorsByBook,
-    ...relinted,
-  };
-
   return {
     parsedFiles: layeredFiles,
     restoredBookCodes: [...restoredBookCodes],
     conflictedBookCodes: [...conflictedBookCodes],
     recoveryReportEntries,
-    initialLintErrorsByBook,
   };
 }

@@ -49,9 +49,10 @@ direction to grow into, not a closed door.
         │                                            │
         ▼                                            ▼
    WorkingFilesBridgePlugin               withWorkingFilesDraft seam
-        │                                  (draft → compute → validate
-        │                                   → re-check gate → commit
-        │                                   → invalidate)
+        │                                  (recording draft → compute +
+        │                                   check out changed chapters →
+        │                                   validate → re-check gate → commit
+        │                                   → typed result)
         └──────────────► WorkingFilesStore ◄─────────┘
                           │              │
               React subscribe            Effect changes: Stream<CommitEvent>
@@ -152,22 +153,31 @@ commit.
 genuinely need to `await` mid-mutation (re-tokenizing, calling the usfm-onion
 service), active mutations don't open-code the synchronous draft-and-commit —
 they go through the `withWorkingFilesDraft` seam in
-`src/app/domain/project/workingFileCommand.ts`. The seam lets `mutate` await
-freely on a structural-sharing scratch, then re-reads latest and **validates
-the affected chapters weren't replaced** (object identity), **re-checks the
-interaction gate**, and only then commits (overlaying the affected chapters
-onto the latest read, or — `workspace` scope — committing the scratch
-wholesale after an array-identity check). Side effects move to a post-commit
-`invalidate` hook that never runs on abort. It composes the same
-identity-CAS primitives as `runIncomingMutation`, so there is one lost-update
-contract. Open-coding `draftWithChapters` + `commit` directly is reserved for
-flows that are genuinely synchronous (e.g. history replay, save mark-clean).
+`src/app/domain/project/workingFileCommand.ts`. The seam branches a **recording
+draft** off the current `read()`; `mutate` awaits freely on it (it works on the
+draft, never the store) and **checks out** a chapter (`chapterForWrite`) or book
+(`bookForWrite`) only when its engine actually produces a change. The set of
+affected chapters is **measured** from those checkouts — never declared up
+front; no checkout ⇒ no commit (`unchanged`). The seam then re-reads latest,
+**validates the affected chapters weren't replaced** (object identity),
+**re-checks the interaction gate**, and only then commits (overlaying only the
+affected chapters onto the latest read, or — when a book was rebuilt wholesale —
+committing the draft's books wholesale after a whole-state identity check). It
+returns a typed `{ kind: "committed" | "unchanged" | "aborted" }`; the caller
+branches on that result for its own follow-through (history capture/record,
+notifications, reports), so nothing the caller sequences can run on an abort. It
+composes the same identity-CAS primitives as `runIncomingMutation`, so there is
+one lost-update contract. Verbs whose entire draft→commit runs in one stack
+frame (revert, discard, save mark-clean) use the synchronous sibling
+`withWorkingFilesDraftSync` — no `await` between branching and committing means
+nothing to validate.
 
 **Discovery flows** (e.g. lint fix-its that don't know which chapters they'll
-touch until they walk the data): pass every candidate chapter as `draftRefs`
-and let the seam's `mutate` return only the `affected` ones — only those drive
-the commit and report. Drafting all candidates is cheap (structural sharing);
-only touched chapters get fresh objects.
+touch until they walk the data): just read the draft and call `chapterForWrite`
+for each chapter the walk actually changes — the seam derives `affected` from
+those checkouts, so a discovery flow needs no candidate list. A checkout is
+cheap (structural sharing): only checked-out chapters get fresh objects, every
+other chapter stays the same reference.
 
 ### The four `WorkingFilesPatch` shapes
 

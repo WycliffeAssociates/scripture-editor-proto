@@ -12,7 +12,6 @@ import {
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import { normalizeTokenSids } from "@/core/domain/usfm/tokenSidNormalization.ts";
 import type {
-  LintIssue,
   ProjectedUsfmDocument,
   ProjectUsfmOptions,
 } from "@/core/domain/usfm/usfmOnionTypes.ts";
@@ -103,17 +102,12 @@ async function projectEntriesForApp(args: {
 }
 
 /**
- * Initial per-book lint results from the project load — the seed for the
- * findings store's onion slice (normalized at the workspace boundary).
- */
-export type InitialLintByBook = Record<string, LintIssue[]>;
-
-/**
  * Build the editable scripture workspace state from a loaded scripture noun.
  *
  * This is the final step before the editor UI takes over. It batches parsing,
- * normalizes canonical order, collects initial lint issues, and produces the
- * per-book/per-chapter state shape used by the scripture editing hooks.
+ * normalizes canonical order, and produces the per-book/per-chapter state shape
+ * used by the scripture editing hooks. Findings are NOT computed here — the
+ * workspace mirror runs the initial lint/sous pass at load (see `workspaceKernel`).
  */
 export async function scriptureProjectToParsedFiles(args: {
   loadedProject: Project;
@@ -129,7 +123,6 @@ export async function scriptureProjectToParsedFiles(args: {
   includeSourceMd5?: boolean;
 }): Promise<{
   parsedFiles: ScriptureBookState[];
-  initialLintErrorsByBook: InitialLintByBook;
   diskMd5ByBook: Map<string, string>;
 }> {
   const entries = args.usfmOnionService.supportsPathIo
@@ -145,7 +138,8 @@ export async function scriptureProjectToParsedFiles(args: {
     tokenOptions: {
       mergeHorizontalWhitespace: false,
     },
-    lintOptions: {},
+    // No lint at parse: the workspace mirror runs the initial lint/sous pass at
+    // load, so computing it here would be a redundant main-thread pass.
     includeSourceMd5: args.includeSourceMd5 ?? false,
   };
   const projections = args.usfmOnionService.supportsPathIo
@@ -159,7 +153,6 @@ export async function scriptureProjectToParsedFiles(args: {
         usfmOnionService: args.usfmOnionService,
         projectionOptions,
       });
-  const initialLintErrorsByBook: InitialLintByBook = {};
   const parsed: ScriptureBookState[] = [];
   const diskMd5ByBook = new Map<string, string>();
   for (let i = 0; i < sorted.length; i++) {
@@ -167,17 +160,12 @@ export async function scriptureProjectToParsedFiles(args: {
     const projection = projections[i] ?? null;
     if (!projection) continue;
     const mergedTokens = projection.tokens;
-    const lintIssues = projection.lintIssues ?? [];
     const bookCode = getBookSlug(book.code);
     if (projection.sourceMd5 !== undefined) {
       diskMd5ByBook.set(bookCode, projection.sourceMd5);
     }
     const normalizedTokens = normalizeTokenSids(mergedTokens, bookCode);
     const sourceTokensByChapter = groupFlatTokensByChapter(normalizedTokens);
-    // Keyed by the LOOP's book — the authoritative scope — so issues with
-    // no/odd sids (front matter) still seed under their book instead of
-    // being dropped by sid parsing.
-    initialLintErrorsByBook[bookCode] = lintIssues;
     const nextBookCode =
       i === sorted.length - 1 ? null : getBookSlug(sorted[i + 1]?.code ?? "");
     const prevBookCode =
@@ -213,7 +201,6 @@ export async function scriptureProjectToParsedFiles(args: {
   }
   return {
     parsedFiles: parsed,
-    initialLintErrorsByBook,
     diskMd5ByBook,
   };
 }

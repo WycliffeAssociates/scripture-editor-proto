@@ -117,6 +117,7 @@ export class WorkingFilesStore {
   commit(input: { patch: WorkingFilesPatch; meta: CommitMetaInput }): void {
     const { patch, meta } = input;
     this.state = applyPatch(this.state, patch);
+    freezeCommittedChapters(this.state);
     const fullMeta: CommitMeta = { ...meta, generation: ++this.gen };
     this.recordSelectionFacts(patch, fullMeta.generation);
     const event: CommitEvent = {
@@ -184,6 +185,7 @@ export class WorkingFilesStore {
    */
   reset(next: ScriptureBookState[]): void {
     this.state = next;
+    freezeCommittedChapters(this.state);
     this.selectionFacts.clear();
   }
 
@@ -201,6 +203,32 @@ export class WorkingFilesStore {
    * `switchMap`; `Effect.runFork(Stream.runDrain(...))` to start a fiber. */
   get changes(): Stream.Stream<CommitEvent> {
     return Stream.fromPubSub(this.pubsub);
+  }
+}
+
+/**
+ * Dev-only invariant guard for the identity-based staleness contract (see
+ * `validatedStoreMutation.commitIfNotStale`): committed chapter state is
+ * immutable, and every content commit produces a NEW chapter object. Freezing
+ * each committed chapter turns an accidental in-place field write on a chapter
+ * read from the store (`chapter.currentTokens = …`, `chapter.dirty = …`) into a
+ * loud throw at the offending line, instead of a silent lost-update that the
+ * identity check can't see.
+ *
+ * Cheap by construction: only the CHAPTER OBJECT is frozen (≈6 own props), never
+ * its token arrays — `Object.freeze` on an array is O(length), which on Psalm
+ * 119 (~1969 tokens) would be a real per-commit cost. Structural sharing keeps
+ * unchanged chapters as the same (already-frozen) objects, so a typing commit
+ * freezes exactly the one new chapter; the `isFrozen` skip makes the walk O(n)
+ * cheap checks, not O(n) freezes. The recording draft shallow-copies a chapter
+ * before mutating it, so the COW write path is unaffected. No-op in production.
+ */
+function freezeCommittedChapters(state: ScriptureBookState[]): void {
+  if (!import.meta.env?.DEV) return;
+  for (const book of state) {
+    for (const chapter of book.chapters) {
+      if (!Object.isFrozen(chapter)) Object.freeze(chapter);
+    }
   }
 }
 

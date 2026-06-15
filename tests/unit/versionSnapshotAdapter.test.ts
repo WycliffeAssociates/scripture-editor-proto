@@ -104,7 +104,6 @@ describe("snapshotToScriptureBookStates", () => {
       ["\\id GEN Snapshot\n"],
       {
         tokenOptions: { mergeHorizontalWhitespace: false },
-        lintOptions: {},
         includeSourceMd5: false,
       },
     );

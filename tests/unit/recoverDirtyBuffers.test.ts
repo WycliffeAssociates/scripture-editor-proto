@@ -146,7 +146,6 @@ async function runRecovery(opts: {
     direction: "ltr",
     shape: "regular" as EditorShape,
     usfmOnionService,
-    initialLintErrorsByBook: {},
   });
   return { result, tracker, clearSpy };
 }

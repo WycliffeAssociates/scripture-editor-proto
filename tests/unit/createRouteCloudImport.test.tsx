@@ -15,7 +15,7 @@ import {
   vi,
 } from "vitest";
 
-import { CreateProject } from "@/app/routes/create.tsx";
+import { CreateProject } from "@/app/ui/components/views/CreateProject.tsx";
 
 const useRouterMock = vi.fn();
 const notifications = {

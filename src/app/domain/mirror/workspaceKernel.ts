@@ -154,7 +154,19 @@ async function buildKernel(
   //    mode runs no analysis (then findings are empty, matching the live gate).
   const initialFindings = args.analysisDisabled
     ? NO_INITIAL_FINDINGS
-    : await awaitInitialFindings({ feed, generation });
+    : await awaitInitialFindings({
+        feed,
+        generation,
+        // Recovery for a load-time `resyncRequest`: re-push the seed exactly as
+        // step 3 did. No router is mounted yet to service the resync otherwise.
+        reseed: () =>
+          seedMirror({
+            workingFilesStore: seedStore,
+            workspaceBaselineStore: args.workspaceBaselineStore,
+            feed,
+            generation,
+          }),
+      });
 
   return {
     projectKey: args.projectKey,

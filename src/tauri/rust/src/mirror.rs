@@ -111,7 +111,11 @@ impl Default for DiskBaselineDto {
 // --- Patches (main → mirror) -----------------------------------------------
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
+// `deny_unknown_fields`: this envelope is an EXACT 1:1 mirror of the TS
+// `MirrorChapter` (unlike `MirrorTokenDto`, which is a deliberate subset of the
+// rich `Token`). Rejecting unknown fields turns a TS-side field add/rename into
+// a loud deserialize error here instead of a silent drop.
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct MirrorChapterDto {
     pub tokens: Vec<MirrorTokenDto>,
     // Part of the wire DTO (per-chapter line ending). The desktop mirror doesn't
@@ -123,14 +127,14 @@ pub struct MirrorChapterDto {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FullSyncChapterDto {
     pub chapter_num: i64,
     pub chapter: MirrorChapterDto,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FullSyncBookDto {
     pub book_code: String,
     pub disk_baseline: DiskBaselineDto,
@@ -138,14 +142,14 @@ pub struct FullSyncBookDto {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SyncMetaChapterDto {
     pub chapter_num: i64,
     pub dirty: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SyncMetaBookDto {
     pub book_code: String,
     pub disk_baseline: DiskBaselineDto,
@@ -188,7 +192,7 @@ pub enum MirrorPatchDto {
 
 // `ref` is a Rust keyword; serde renames the field so the wire stays `ref`.
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ChapterRefForPatch {
     pub book_code: String,
     pub chapter_num: i64,
@@ -575,5 +579,62 @@ mod tests {
             mirror.books_in_scope(&AnalyzeScopeDto::All("all".to_string())),
             vec!["GEN".to_string()]
         );
+    }
+
+    // --- Cross-language protocol contract (TS <-> Rust) ---------------------
+    //
+    // The fixture below is the SAME file the TS test pins to its types
+    // (tests/unit/mirrorProtocolFixtures.test.ts). Deserializing it here pins
+    // the Rust DTOs to that wire shape; with `deny_unknown_fields` on the exact
+    // envelope structs, a TS-side field rename/add fails one of the two tests.
+    // No codegen — this is the lightweight drift guard for the hand-maintained
+    // contract.
+
+    #[derive(Deserialize)]
+    struct ProtocolFixtures {
+        patches: Vec<MirrorPatchDto>,
+        scopes: Vec<AnalyzeScopeDto>,
+    }
+
+    const PROTOCOL_FIXTURE_JSON: &str =
+        include_str!("../tests/fixtures/mirror-protocol.json");
+
+    #[test]
+    fn fixture_patches_and_scopes_deserialize() {
+        let fixtures: ProtocolFixtures =
+            serde_json::from_str(PROTOCOL_FIXTURE_JSON).expect("fixture must deserialize");
+        // One per MirrorPatch kind; both AnalyzeScope forms.
+        assert_eq!(fixtures.patches.len(), 5);
+        assert_eq!(fixtures.scopes.len(), 2);
+        // Spot-check decoded shapes so a wrong-but-parseable mapping (e.g. a
+        // generation that silently defaulted to 0) still fails.
+        assert!(matches!(
+            &fixtures.patches[0],
+            MirrorPatchDto::PushChapter { generation: 5, .. }
+        ));
+        assert!(matches!(
+            &fixtures.patches[3],
+            MirrorPatchDto::FullSync { generation: 8, .. }
+        ));
+    }
+
+    #[test]
+    fn token_dto_ignores_unmodeled_fields() {
+        // `MirrorTokenDto` is a DELIBERATE subset of the rich TS `Token`: the
+        // full token crosses the wire and serde drops fields the engines don't
+        // need. Guard that leniency (no `deny_unknown_fields` here, or valid
+        // messages would be rejected).
+        let json = r#"{"id":"x","kind":"text","source":"hi","payload":"numberRange","paragraphCategory":"poetry"}"#;
+        let token: MirrorTokenDto =
+            serde_json::from_str(json).expect("subset token must parse");
+        assert_eq!(token.source, "hi");
+    }
+
+    #[test]
+    fn exact_envelope_rejects_unknown_field() {
+        // The flip side of the subset rule: an EXACT envelope struct must reject
+        // an unknown field so a TS-side drift surfaces loudly here.
+        let json = r#"{"bookCode":"GEN","chapterNum":1,"surprise":true}"#;
+        assert!(serde_json::from_str::<ChapterRefForPatch>(json).is_err());
     }
 }

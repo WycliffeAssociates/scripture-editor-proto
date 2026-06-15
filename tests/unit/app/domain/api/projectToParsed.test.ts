@@ -13,7 +13,6 @@ import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
 vi.mock("@/app/domain/api/scriptureProjectToParsedFiles.ts", () => ({
   scriptureProjectToParsedFiles: vi.fn(async () => ({
     parsedFiles: [],
-    initialLintErrorsByBook: {},
     diskMd5ByBook: new Map<string, string>(),
   })),
 }));
@@ -118,7 +117,6 @@ describe("projectParamToParsedFiles", () => {
     );
     expect(result).toEqual({
       parsedFiles: [],
-      initialLintErrorsByBook: {},
       loadedProject: mockProject,
       rejectionReason: null,
       diskMd5ByBook: new Map<string, string>(),
@@ -166,7 +164,6 @@ describe("projectParamToParsedFiles", () => {
     expect(ensureProjectGitReady).not.toHaveBeenCalled();
     expect(result).toEqual({
       parsedFiles: [],
-      initialLintErrorsByBook: {},
       loadedProject: null,
       rejectionReason: "not-found",
       diskMd5ByBook: new Map<string, string>(),

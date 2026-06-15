@@ -22,8 +22,9 @@
 // sync) is owned by commit-stream subscribers — the commit this seam publishes
 // carries the precise scope they react to, so callers do NOT re-derive any of
 // it. What stays at the call site is the verb's own follow-through: the
-// `history.runTransaction` wrapper, user notifications, and per-action
-// reports, sequenced on the returned result.
+// history capture/record pair (`captureHistory` before the mutation,
+// `recordHistory` with the measured `affected` after it commits), user
+// notifications, and per-action reports, sequenced on the returned result.
 //
 // CONTRACT (so a stale/gate abort can't publish a side effect for a write that
 // never landed):

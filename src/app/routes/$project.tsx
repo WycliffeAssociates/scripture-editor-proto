@@ -1,4 +1,6 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+
+import { ProjectRouteLayout } from "@/app/ui/components/views/ProjectRouteLayout.tsx";
 
 /**
  * Project route layout.
@@ -10,7 +12,3 @@ import { createFileRoute, Outlet } from "@tanstack/react-router";
 export const Route = createFileRoute("/$project")({
   component: ProjectRouteLayout,
 });
-
-export function ProjectRouteLayout() {
-  return <Outlet />;
-}
