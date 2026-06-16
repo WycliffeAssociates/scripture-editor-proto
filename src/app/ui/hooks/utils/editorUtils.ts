@@ -4,7 +4,6 @@ import { EDITOR_TAGS_USED, type EditorShape } from "@/app/data/editor.ts";
 import { tokensToLexical } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type {
   ReadonlyScriptureBookState,
-  ScriptureBookState,
   ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
@@ -49,15 +48,6 @@ export function collectFileTokens(
   }
 
   return tokens;
-}
-
-export function collectWorkingFileTokens(args: {
-  files: ScriptureBookState[];
-}): Array<{ file: ScriptureBookState; tokens: Token[] }> {
-  return args.files.map((file) => ({
-    file,
-    tokens: collectFileTokens(file),
-  }));
 }
 
 /**

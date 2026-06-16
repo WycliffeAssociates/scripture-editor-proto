@@ -40,11 +40,6 @@ export function isMirrorTraceEnabled(): boolean {
   return enabled;
 }
 
-/** Force-enable (e.g. the worker, told via its init message). */
-export function setMirrorTraceEnabled(value: boolean): void {
-  enabled = value;
-}
-
 function now(): number {
   return (typeof performance !== "undefined" ? performance.now() : 0) - start;
 }

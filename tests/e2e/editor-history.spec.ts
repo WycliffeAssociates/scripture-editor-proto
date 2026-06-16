@@ -13,14 +13,6 @@ import {
 } from "../helpers/e2e/editor.ts";
 import { expect, test } from "../helpers/e2e/fixtures.ts";
 
-async function openSettings(editorPage: Page) {
-  await editorPage.getByRole("button", { name: "Open settings pane" }).click();
-  // The settings UI no longer uses an accordion — opening the pane is enough.
-  await expect(
-    editorPage.getByTestId(TESTING_IDS.settings.themeToggle),
-  ).toBeVisible();
-}
-
 test.describe("Editor History", () => {
   test("manual typing can undo and redo", async ({ editorPage }) => {
     const editor = editorPage.getByRole("textbox", { name: "USFM Editor" });
@@ -451,16 +443,14 @@ test.describe("Editor History", () => {
     await appendToEditor(editorPage, appendedText);
     await expect(editor).toContainText(appendedText);
 
-    await openSettings(editorPage);
-    // The editor-mode SelectPrimitive does not expose its current value
-    // as the accessible name on the combobox. Locate the trigger by the
-    // visible "Regular mode" text instead, click it, then pick Plain mode.
-    await editorPage.getByText("Regular mode", { exact: true }).click();
+    // Switch to Plain mode via the toolbar's inline mode picker. The
+    // SelectPrimitive doesn't expose its current value as an accessible name,
+    // so locate the trigger by its visible current-mode label ("Revision mode"
+    // is the default), click it, then pick Plain mode. (The settings pane has a
+    // duplicate picker; using the toolbar keeps a single match and avoids the
+    // drawer open/close, which is flaky.)
+    await editorPage.getByText("Revision mode", { exact: true }).click();
     await editorPage.getByRole("option", { name: /Plain mode/i }).click();
-
-    // Close the settings pane so the toolbar Undo/Redo buttons are
-    // reachable. The settings panel has a footer "Save and Close" action.
-    await editorPage.getByRole("button", { name: "Save and Close" }).click();
 
     await expect(editor).toContainText("\\");
 
