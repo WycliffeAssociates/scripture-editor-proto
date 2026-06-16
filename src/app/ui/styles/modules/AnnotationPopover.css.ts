@@ -15,8 +15,11 @@ const popIn = keyframes({
 // Floating surface — mirrors FindingsPopover.popover, sized down for an inline
 // affordance rather than a full panel. Shared by lint mode and custom content.
 export const popup = style({
-  minWidth: "16rem",
-  maxWidth: "24rem",
+  minWidth: "11rem",
+  // Cap to the design width, but shrink to the boundary's available width
+  // (set by the Positioner's collisionBoundary) so the card fits a narrow
+  // docked column and wraps its message instead of spilling out.
+  maxWidth: "min(24rem, var(--available-width, 24rem))",
   backgroundColor: vars.color.surfacePrimary,
   border: `${vars.border.width.thin} solid ${vars.color.surfaceBorder}`,
   borderRadius: vars.border.radius.lg,

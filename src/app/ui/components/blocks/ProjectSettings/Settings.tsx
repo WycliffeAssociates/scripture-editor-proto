@@ -37,7 +37,7 @@ import * as styles from "./settings.css.ts";
 import { UpdateSettingsSection } from "./UpdateSettingsSection.tsx";
 import ZoomControl from "./ZoomControl.tsx";
 
-type SettingsTab = "app-appearance" | "reference-panel" | "advanced";
+type SettingsTab = "app-appearance" | "advanced";
 
 interface SettingsPanelProps {
   onClose?: () => void;
@@ -143,12 +143,6 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 >
                   <Trans>App Appearance</Trans>
                 </BaseTabs.Tab>
-                <BaseTabs.Tab
-                  value="reference-panel"
-                  className={styles.tabsTrigger}
-                >
-                  <Trans>Reference Panel</Trans>
-                </BaseTabs.Tab>
                 <BaseTabs.Tab value="advanced" className={styles.tabsTrigger}>
                   <Trans>Advanced</Trans>
                 </BaseTabs.Tab>
@@ -163,12 +157,6 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 applyUpdates={handleSettingsChange}
                 portalContainer={overlayPortalRef}
               />
-            </div>
-          </BaseTabs.Panel>
-
-          <BaseTabs.Panel value="reference-panel" className={styles.tabsPanel}>
-            <div className={styles.tabsPanelInner}>
-              <ReferencePanelTab />
             </div>
           </BaseTabs.Panel>
 
@@ -361,23 +349,6 @@ function AppAppearanceTab({
           }
         />
       ) : null}
-    </div>
-  );
-}
-
-function ReferencePanelTab() {
-  return (
-    <div className={styles.placeholder}>
-      <div className={styles.rowTitle}>
-        <Trans>Reference panel settings</Trans>
-      </div>
-      <div className={styles.rowDescription}>
-        <Trans>
-          This tab shell is in place. The remaining reference-specific persisted
-          settings still need to be defined before we wire real controls into
-          it.
-        </Trans>
-      </div>
     </div>
   );
 }

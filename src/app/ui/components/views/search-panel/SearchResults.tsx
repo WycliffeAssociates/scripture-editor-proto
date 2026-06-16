@@ -126,13 +126,23 @@ export function SearchResults() {
   const isGroupedMode = groupedItems.length > 0;
 
   const handleReplace = useCallback(
-    async (target: SearchResult, replacement: string, isActive: boolean) => {
-      // The active row may have cycled to a later occurrence — replace exactly
-      // that one. Other rows replace their (first) match by picking it first.
-      if (isActive) {
-        await search.replaceCurrentMatch(replacement);
+    async (
+      target: SearchResult,
+      replacement: string,
+      occurrenceIndex: number,
+      isActive: boolean,
+    ) => {
+      // Un-cycled rows (cursor on the first match) keep the proven paths: the
+      // active row replaces its current match, others replace their first.
+      // A cycled row targets the exact occurrence the stepper is sitting on.
+      if (occurrenceIndex === 0) {
+        if (isActive) await search.replaceCurrentMatch(replacement);
+        else await search.replaceSearchResult(target, replacement);
       } else {
-        await search.replaceSearchResult(target, replacement);
+        await search.replaceSearchResult(
+          { ...target, sidOccurrenceIndex: occurrenceIndex },
+          replacement,
+        );
       }
     },
     [search],
@@ -204,19 +214,6 @@ export function SearchResults() {
             result,
             groupedItem,
           );
-          // Every verse with more than one match gets a stepper — not just the
-          // active row. Non-active rows show "1/N"; stepping enters that verse
-          // (occurrence 0 on prev, 1 on next) and makes it active.
-          const occurrence =
-            result.occurrenceCount > 1
-              ? {
-                  count: result.occurrenceCount,
-                  position: isActiveRow
-                    ? (search.activeMatchOccurrence?.position ?? 0)
-                    : 0,
-                  entered: isActiveRow,
-                }
-              : null;
           return (
             <SearchResultRow
               key={
@@ -243,22 +240,12 @@ export function SearchResults() {
               })}
               sourceProjectName={sourceProjectName}
               currentProjectName={currentProjectName}
-              occurrence={occurrence}
-              onStep={(direction) => {
-                if (isActiveRow) {
-                  search.stepActiveMatch(direction);
-                } else {
-                  search.goToResultOccurrence(
-                    result,
-                    direction === "next" ? 1 : 0,
-                  );
-                }
-              }}
               onPick={(pick) => {
+                // The navigate arrow focuses the row AND opens the editor: dock
+                // it beside find on desktop (no-op if already docked), or reveal
+                // it on small screens. Occurrence cycling stays independent of
+                // this — it's row-local and never needs the editor.
                 search.pickSearchResult(pick);
-                // Desktop: keep find open and dock it beside the now-visible
-                // editor. Small screens can't fit side-by-side, so fall back to
-                // the old navigate-and-close.
                 if (isSm) {
                   search.setIsSearchPaneOpen(false);
                 } else {
@@ -330,12 +317,11 @@ function SearchResultRow(props: {
   localizedBookName: string;
   sourceProjectName: string;
   currentProjectName: string;
-  occurrence: { count: number; position: number; entered: boolean } | null;
-  onStep: (direction: "next" | "prev") => void;
   onPick: (pick: SearchResult) => void;
   onReplace: (
     target: SearchResult,
     replacement: string,
+    occurrenceIndex: number,
     isActive: boolean,
   ) => Promise<void>;
 }) {
@@ -362,12 +348,11 @@ function SearchResultRow(props: {
         targetResult={groupedItem?.targetResult}
         canReplace={props.canReplace}
         defaultReplaceTerm={props.defaultReplaceTerm}
-        occurrence={props.occurrence}
-        onStep={props.onStep}
-        onReplace={(replacement) =>
+        onReplace={(replacement, occurrenceIndex) =>
           props.onReplace(
             groupedItem?.targetResult ?? result,
             replacement,
+            occurrenceIndex,
             props.isActive,
           )
         }

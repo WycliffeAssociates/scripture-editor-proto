@@ -59,6 +59,11 @@ function catalogLabelOf(repo: ConsolidatedRepo): string {
   return repo.title || repo.repo_name;
 }
 
+// Sentinel stored in `referenceByProject` to mean "the user explicitly wants no
+// reference" — distinct from "never chose one" (absent). Suppresses auto-pick so
+// the choice to search only your own project sticks across opens.
+const NO_REFERENCE_KEY = "__no_reference__";
+
 /**
  * Reference picker surface for the reference pane.
  *
@@ -115,12 +120,18 @@ export function ReferencePanel({
     if (referenceResourcesQuery.isLoading) return;
     didAutoPick.current = true;
     const remembered = settingsManager.get("referenceByProject")[projectKey];
+    // The user explicitly chose "no reference" — honor it, don't re-default.
+    if (remembered === NO_REFERENCE_KEY) return;
     const onDevice =
       !!remembered && deviceResources.some((r) => r.projectPath === remembered);
     if (onDevice) {
       setActiveReferenceResourcePath(remembered);
       return;
     }
+    // Only the reference pane invents a default. The search picker (deviceOnly)
+    // starts empty so you can search just your own project without a forced
+    // side-by-side comparison; pick a reference explicitly to compare.
+    if (deviceOnly) return;
     const alternatives = deviceResources.filter(
       (r) => r.projectPath !== projectKey,
     );
@@ -129,6 +140,7 @@ export function ReferencePanel({
     }
   }, [
     activeReferenceResourcePath,
+    deviceOnly,
     deviceResources,
     projectKey,
     referenceResourcesQuery.isLoading,
@@ -204,6 +216,14 @@ export function ReferencePanel({
     setOpen(false);
   }
 
+  // Clear the reference so search runs against your project alone (single-column
+  // results, no comparison). Persisted so it sticks across opens.
+  function handleClearReference() {
+    setActiveReferenceResourcePath(undefined);
+    rememberReference(NO_REFERENCE_KEY);
+    setOpen(false);
+  }
+
   function handleOpenChange(nextOpen: boolean) {
     if (nextOpen) {
       const rect = triggerRef.current?.getBoundingClientRect();
@@ -227,7 +247,8 @@ export function ReferencePanel({
 
   const triggerLabel = referenceResourcesQuery.isLoading
     ? t`Loading…`
-    : (activeReferenceResourceDisplayName ?? t`Select a reference`);
+    : (activeReferenceResourceDisplayName ??
+      (deviceOnly ? t`No source text` : t`Select a reference`));
 
   return (
     <div className={styles.root}>
@@ -279,6 +300,23 @@ export function ReferencePanel({
                 />
               </div>
               <div className={styles.scroll}>
+                {/* The search picker's default: search only your project, no
+                    side-by-side source. Sits above the on-device list as a
+                    standalone sentinel. */}
+                {deviceOnly ? (
+                  <button
+                    type="button"
+                    className={styles.row}
+                    onClick={handleClearReference}
+                    data-testid={TESTING_IDS.referenceProjectItem}
+                  >
+                    <span className={styles.rowIndicator}>
+                      {activeReferenceResourcePath ? null : <Check size={14} />}
+                    </span>
+                    <span className={styles.rowLabel}>{t`No source text`}</span>
+                    <span />
+                  </button>
+                ) : null}
                 <DeviceSection
                   groups={deviceGroups}
                   activePath={activeReferenceResourcePath}

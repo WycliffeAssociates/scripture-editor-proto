@@ -16,8 +16,14 @@ export const searchPanel = style({
   minWidth: 0,
   minHeight: 0,
   backgroundColor: vars.color.surfacePrimary,
-  paddingTop: vars.spacing.md,
-  gap: vars.spacing.lg,
+  paddingTop: vars.spacing.sm,
+  // Tight gap between the controls block and the results list (lg is 3rem —
+  // far too airy for this seam).
+  gap: vars.spacing.md,
+  // The seam between find and the editor. When docked, the panel's trailing
+  // edge tiles exactly with the editor's leading edge, so this single border
+  // reads as the divider of the find ┊ editor row.
+  borderInlineEnd: `1px solid ${vars.color.surfaceBorder}`,
 });
 
 export const searchPopoverDropdown = style({
@@ -139,7 +145,7 @@ export const searchPanelHeaderTop = style({
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  marginBottom: vars.spacing.md,
+  marginBottom: vars.spacing.sm,
 });
 
 // Trailing cluster: dock toggle + close button.
@@ -149,25 +155,13 @@ export const searchPanelHeaderActions = style({
   gap: vars.spacing.sm,
 });
 
-export const searchPanelDockToggle = style({
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "2.25rem",
-  height: "2.25rem",
-  border: `1px solid ${vars.color.surfaceBorder}`,
-  borderRadius: vars.border.radius.sm,
-  backgroundColor: vars.color.surfacePrimary,
-  color: vars.color.onSurfaceSecondary,
-  cursor: "pointer",
-  transition: "background-color 0.15s ease, border-color 0.15s ease",
-  selectors: {
-    "&:hover": {
-      backgroundColor: vars.color.surfaceSecondary,
-      borderColor: vars.color.brandBase,
-      color: vars.color.brandBase,
-    },
-  },
+// Explicit Open/Close Editor control beside the replace field. Kept on the
+// control-ribbon height so it lines up with the toggle squares + replace input,
+// and doesn't shrink/wrap when the row gets tight.
+export const editorDockButton = style({
+  height: controlRibbonHeight,
+  flexShrink: 0,
+  whiteSpace: "nowrap",
 });
 
 export const searchPanelTitle = style({
@@ -204,7 +198,7 @@ export const searchControls = style({
   display: "flex",
   flexDirection: "column",
   // Keep the three rows (input · options · reference) as one tight cluster.
-  gap: vars.spacing.sm,
+  gap: vars.spacing.xs,
 });
 
 export const searchInputRow = style({
@@ -527,9 +521,13 @@ export const searchResultItem = style({
   cursor: "pointer",
 });
 
+// The focused (picked) row — its occurrences are the ones the stepper walks, so
+// make the focus unmistakable: a thick brand ring (box-shadow keeps the 1px
+// border's box, so the +2px ring adds no layout shift).
 export const searchResultItemActive = style({
   backgroundColor: vars.toggleGroup.itemSelectedSurface,
   borderColor: vars.color.brandBase,
+  boxShadow: `0 0 0 2px ${vars.color.brandBase}`,
   selectors: {
     "&:hover": {
       backgroundColor: vars.toggleGroup.itemSelectedSurface,
@@ -658,6 +656,16 @@ export const searchHighlight = style({
   backgroundColor: "rgba(255, 193, 7, 0.4)",
   color: vars.color.onSurfacePrimary,
   fontWeight: 600,
+  padding: "0 2px",
+  borderRadius: "2px",
+});
+
+// The selected occurrence among several in a verse — reads loudest, matching
+// the editor's active-match highlight (`::highlight(matched-search-current)`).
+export const searchHighlightActive = style({
+  backgroundColor: "rgb(249, 115, 22)",
+  color: "white",
+  fontWeight: 700,
   padding: "0 2px",
   borderRadius: "2px",
 });

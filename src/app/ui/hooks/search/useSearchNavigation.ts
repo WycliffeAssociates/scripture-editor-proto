@@ -1,5 +1,5 @@
 import { $getRoot, type LexicalEditor } from "lexical";
-import { type RefObject, useCallback, useMemo, useState } from "react";
+import { type RefObject, useCallback, useState } from "react";
 
 import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { escapeRegex } from "@/app/domain/search/search.utils.ts";
@@ -13,10 +13,7 @@ import type {
   SearchMatch,
   SearchRunOptionOverrides,
 } from "@/app/ui/hooks/search/searchTypes.ts";
-import {
-  type MatchInNode,
-  scrollToActiveMatchInEditor,
-} from "@/app/ui/hooks/useSearchHighlighter.ts";
+import { scrollToActiveMatchInEditor } from "@/app/ui/hooks/useSearchHighlighter.ts";
 
 type Params = {
   editorRef: RefObject<LexicalEditor | null>;
@@ -315,149 +312,6 @@ export function useSearchNavigation({
     [preparePickedResult],
   );
 
-  const getPickedResultIdx = useCallback(
-    (results: SearchResult[]) =>
-      pickedResult ? results.indexOf(pickedResult) : -1,
-    [pickedResult],
-  );
-
-  const nextMatch = useCallback(
-    (
-      results: SearchResult[],
-      args: {
-        activeSearchTerm: string;
-        searchReference: boolean;
-        matchCase: boolean;
-        matchWholeWord: boolean;
-      },
-    ) => {
-      const pickedResultIdx = getPickedResultIdx(results);
-      if (
-        !pickedResult ||
-        pickedResultIdx === -1 ||
-        pickedResultIdx === results.length - 1
-      ) {
-        const first = results[0];
-        if (!first) return;
-        return pick(first, args);
-      }
-
-      const next = results[pickedResultIdx + 1];
-      if (!next) return;
-      return pick(next, args);
-    },
-    [getPickedResultIdx, pick, pickedResult],
-  );
-
-  const prevMatch = useCallback(
-    (
-      results: SearchResult[],
-      args: {
-        activeSearchTerm: string;
-        searchReference: boolean;
-        matchCase: boolean;
-        matchWholeWord: boolean;
-      },
-    ) => {
-      const pickedResultIdx = getPickedResultIdx(results);
-      if (!pickedResultIdx || pickedResultIdx === 0) {
-        const last = results[results.length - 1];
-        if (!last) return;
-        return pick(last, args);
-      }
-      const prev = results[pickedResultIdx - 1];
-      if (!prev) return;
-      return pick(prev, args);
-    },
-    [getPickedResultIdx, pick],
-  );
-
-  function findMatchIndex(target: MatchInNode) {
-    return currentMatches.findIndex(
-      (candidate) =>
-        candidate.node.getKey() === target.node.getKey() &&
-        candidate.start === target.start &&
-        candidate.end === target.end,
-    );
-  }
-
-  // Occurrences of the picked verse within the loaded editor, in document order.
-  // `currentMatches` holds every match in the visible editor(s); a verse can carry
-  // several when the term repeats inside it. Cycling steps the active match across
-  // these without leaving the verse — inter-verse movement stays nextMatch/prevMatch.
-  const pickedOccurrences = useMemo(() => {
-    if (!pickedResult) return [];
-    return currentMatches.filter(
-      (m) => m.source === pickedResult.source && m.sid === pickedResult.sid,
-    );
-  }, [currentMatches, pickedResult]);
-
-  // The active occurrence's place within its verse — drives the result row's
-  // stepper (shown only when count > 1). Null when nothing is picked.
-  const activeMatchOccurrence = useMemo(() => {
-    if (pickedOccurrences.length === 0) return null;
-    const active = currentMatches[currentMatchIndex];
-    const position = active ? pickedOccurrences.indexOf(active) : -1;
-    return {
-      count: pickedOccurrences.length,
-      position: position === -1 ? 0 : position,
-    };
-  }, [pickedOccurrences, currentMatches, currentMatchIndex]);
-
-  const repaintActiveMatch = useCallback(
-    (nextActive: SearchMatch) => {
-      const targetEditor = editorRef.current;
-      const referenceEditor = referenceEditorRef.current;
-      const targetMatches = currentMatches.filter((m) => m.source === "target");
-      const referenceMatches = currentMatches.filter(
-        (m) => m.source === "reference",
-      );
-      searchHighlightStore.set([
-        ...(targetEditor
-          ? [
-              {
-                editor: targetEditor,
-                matches: targetMatches,
-                activeMatch:
-                  nextActive.source === "target" ? nextActive : undefined,
-              },
-            ]
-          : []),
-        ...(referenceEditor
-          ? [
-              {
-                editor: referenceEditor,
-                matches: referenceMatches,
-                activeMatch:
-                  nextActive.source === "reference" ? nextActive : undefined,
-              },
-            ]
-          : []),
-      ]);
-      const editor =
-        nextActive.source === "reference" ? referenceEditor : targetEditor;
-      if (editor) scrollToActiveMatchInEditor(editor, nextActive);
-    },
-    [currentMatches, editorRef, referenceEditorRef, searchHighlightStore],
-  );
-
-  // Move the active highlight to the next/prev occurrence WITHIN the picked verse.
-  // Clamped at the ends (no wrap): the verse boundary is deliberate, so reaching the
-  // last occurrence doesn't silently jump into another verse's matches.
-  const stepActiveMatch = useCallback(
-    (direction: "next" | "prev") => {
-      if (pickedOccurrences.length <= 1) return;
-      const active = currentMatches[currentMatchIndex];
-      const pos = active ? pickedOccurrences.indexOf(active) : 0;
-      const nextPos = direction === "next" ? pos + 1 : pos - 1;
-      if (nextPos < 0 || nextPos >= pickedOccurrences.length) return;
-      const nextActive = pickedOccurrences[nextPos];
-      setCurrentMatchIndex(currentMatches.indexOf(nextActive));
-      repaintActiveMatch(nextActive);
-    },
-    [pickedOccurrences, currentMatches, currentMatchIndex, repaintActiveMatch],
-  );
-
   return {
     currentMatches,
     setCurrentMatches,
@@ -467,12 +321,6 @@ export function useSearchNavigation({
     setPickedResult,
     collectMatchesInCurrentEditor,
     pick,
-    nextMatch,
-    prevMatch,
-    stepActiveMatch,
-    activeMatchOccurrence,
-    getPickedResultIdx,
-    findMatchIndex,
     preparePickedResult,
   };
 }

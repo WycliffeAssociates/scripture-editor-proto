@@ -128,8 +128,6 @@ export function useProjectSearch({
     preparePickedResult: navigation.preparePickedResult,
   });
 
-  const pickedResultIdx = navigation.getPickedResultIdx(execution.results);
-
   // Auto-rerun on programmatic working-files changes (undo/redo,
   // programmaticFix, import). Pipeline + policy live in
   // `makeSearchRerunPipeline`; this hook just wires it. The
@@ -168,36 +166,8 @@ export function useProjectSearch({
     referenceResults: execution.referenceResults,
     results: execution.results,
     pickedResult: navigation.pickedResult,
-    pickedResultIdx,
     pickSearchResult: (r: SearchResult) =>
       navigation.pick(r, {
-        activeSearchTerm: execution.searchTerm,
-        searchReference: execution.searchReference,
-        matchCase: execution.matchCase,
-        matchWholeWord: execution.matchWholeWord,
-      }),
-    // Make a specific occurrence within a verse the active match — used by a
-    // result row's stepper to enter (or move within) that verse without leaving
-    // the list. Picking the occurrence variant lands the active highlight on it.
-    goToResultOccurrence: (r: SearchResult, occurrenceIndex: number) =>
-      navigation.pick(
-        { ...r, sidOccurrenceIndex: occurrenceIndex },
-        {
-          activeSearchTerm: execution.searchTerm,
-          searchReference: execution.searchReference,
-          matchCase: execution.matchCase,
-          matchWholeWord: execution.matchWholeWord,
-        },
-      ),
-    nextMatch: () =>
-      navigation.nextMatch(execution.results, {
-        activeSearchTerm: execution.searchTerm,
-        searchReference: execution.searchReference,
-        matchCase: execution.matchCase,
-        matchWholeWord: execution.matchWholeWord,
-      }),
-    prevMatch: () =>
-      navigation.prevMatch(execution.results, {
         activeSearchTerm: execution.searchTerm,
         searchReference: execution.searchReference,
         matchCase: execution.matchCase,
@@ -206,17 +176,10 @@ export function useProjectSearch({
     replaceCurrentMatch: replace.replaceCurrentMatch,
     replaceSearchResult: replace.replaceSearchResult,
     replaceMatch: replace.replaceMatch,
-    stepActiveMatch: navigation.stepActiveMatch,
-    activeMatchOccurrence: navigation.activeMatchOccurrence,
-    rerunForCurrentChapter: execution.rerunForCurrentChapter,
     currentMatches: navigation.currentMatches,
-    currentMatchIndex: navigation.currentMatchIndex,
-    totalMatches: navigation.currentMatches.length,
-    numCaseMismatches: execution.results.filter((r) => r.isCaseMismatch).length,
-    hasNext: execution.results.length > 0,
-    hasPrev: execution.results.length > 0,
     isSearchPaneOpen: execution.isSearchPaneOpen,
     setIsSearchPaneOpen: execution.setSearchPaneOpen,
+    clearSearch: execution.clearSearch,
     isSearchDocked: execution.isSearchDocked,
     dockSearchPane: execution.dockSearchPane,
     toggleSearchDock: execution.toggleSearchDock,

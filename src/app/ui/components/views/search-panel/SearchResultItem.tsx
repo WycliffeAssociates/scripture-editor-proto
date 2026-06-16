@@ -21,15 +21,10 @@ interface SearchResultItemProps {
   targetResult?: SearchResult;
   canReplace?: boolean;
   defaultReplaceTerm?: string;
-  onReplace?: (replacement: string) => Promise<void> | void;
-  /**
-   * Occurrence cursor for this verse, present when the verse holds more than one
-   * match. `entered` is true only for the active row (real position + clamped
-   * arrows); non-active rows show "1/N" with both arrows live (they enter the
-   * verse). Drives the header stepper.
-   */
-  occurrence?: { count: number; position: number; entered: boolean } | null;
-  onStep?: (direction: "next" | "prev") => void;
+  onReplace?: (
+    replacement: string,
+    occurrenceIndex: number,
+  ) => Promise<void> | void;
 }
 
 export function SearchResultItem(props: SearchResultItemProps) {
@@ -47,22 +42,37 @@ export function SearchResultItem(props: SearchResultItemProps) {
     canReplace = false,
     defaultReplaceTerm = "",
     onReplace,
-    occurrence,
-    onStep,
   } = props;
   const { t } = useLingui();
   const [replacement, setReplacement] = useState(defaultReplaceTerm);
   const [hasCustomReplacement, setHasCustomReplacement] = useState(false);
   const [isReplacing, setIsReplacing] = useState(false);
+  // The occurrence cursor is row-local: the verse's match count comes from the
+  // result itself and the active occurrence is plain UI state, so cycling moves
+  // the highlight in this row's preview with no editor / pick / dock involved.
+  const occurrenceCount = result.occurrenceCount;
+  const [activeOccurrence, setActiveOccurrence] = useState(0);
+  // Clamp against the live count (a replace can shrink it out from under us).
+  const safeOccurrence = Math.min(
+    activeOccurrence,
+    Math.max(0, occurrenceCount - 1),
+  );
+  const stepOccurrence = (direction: "next" | "prev") => {
+    setActiveOccurrence((current) => {
+      const next = direction === "next" ? current + 1 : current - 1;
+      return Math.min(Math.max(next, 0), Math.max(0, occurrenceCount - 1));
+    });
+  };
   const locationLabel =
     result.chapNum === 0
       ? t`Introduction`
       : formatResultLocationLabel(result, localizedBookName);
   const isGrouped = Boolean(sourceProjectName && currentProjectName);
   const missingVerseFallback = t`Verse not available in this text`;
-  // Preview the replacement on the occurrence Replace will actually hit: the
-  // active (cycled-to) one on the active row, the first occurrence otherwise.
-  const previewOccurrenceIndex = occurrence?.position ?? 0;
+  // Preview (and Replace) act on the cycled-to occurrence; it also reads loudest
+  // (orange) when the verse holds several matches.
+  const previewOccurrenceIndex = safeOccurrence;
+  const activeOccurrenceIndex = occurrenceCount > 1 ? safeOccurrence : null;
 
   useEffect(() => {
     if (hasCustomReplacement) return;
@@ -75,7 +85,7 @@ export function SearchResultItem(props: SearchResultItemProps) {
     if (!replacement.trim() || !onReplace) return;
     setIsReplacing(true);
     try {
-      await onReplace(replacement);
+      await onReplace(replacement, safeOccurrence);
       setReplacement("");
     } finally {
       setIsReplacing(false);
@@ -106,8 +116,9 @@ export function SearchResultItem(props: SearchResultItemProps) {
         locationLabel={locationLabel}
         onPick={onPick}
         navigateLabel={t`Navigate to ${locationLabel}`}
-        occurrence={occurrence}
-        onStep={onStep}
+        occurrenceCount={occurrenceCount}
+        occurrencePosition={safeOccurrence}
+        onStep={stepOccurrence}
         prevLabel={t`Previous match in this verse`}
         nextLabel={t`Next match in this verse`}
       />
@@ -125,6 +136,7 @@ export function SearchResultItem(props: SearchResultItemProps) {
             missingVerseFallback={missingVerseFallback}
             replaceControls={replaceControls}
             previewOccurrenceIndex={previewOccurrenceIndex}
+            activeOccurrenceIndex={activeOccurrenceIndex}
           />
         ) : (
           <SinglePreview
@@ -134,6 +146,7 @@ export function SearchResultItem(props: SearchResultItemProps) {
             matchCase={matchCase}
             matchWholeWord={matchWholeWord}
             previewOccurrenceIndex={previewOccurrenceIndex}
+            activeOccurrenceIndex={activeOccurrenceIndex}
           />
         )}
       </PreviewSurface>
@@ -146,20 +159,20 @@ function ResultHeader(props: {
   locationLabel: string;
   navigateLabel: string;
   onPick: () => void;
-  occurrence?: { count: number; position: number; entered: boolean } | null;
-  onStep?: (direction: "next" | "prev") => void;
+  occurrenceCount: number;
+  occurrencePosition: number;
+  onStep: (direction: "next" | "prev") => void;
   prevLabel: string;
   nextLabel: string;
 }) {
-  const showStepper = Boolean(
-    props.occurrence && props.occurrence.count > 1 && props.onStep,
-  );
+  const showStepper = props.occurrenceCount > 1;
   return (
     <div className={styles.searchResultHeader}>
       <span className={styles.searchResultLocation}>{props.locationLabel}</span>
-      {showStepper && props.occurrence ? (
+      {showStepper ? (
         <OccurrenceStepper
-          occurrence={props.occurrence}
+          count={props.occurrenceCount}
+          position={props.occurrencePosition}
           onStep={props.onStep}
           prevLabel={props.prevLabel}
           nextLabel={props.nextLabel}
@@ -179,23 +192,22 @@ function ResultHeader(props: {
 }
 
 function OccurrenceStepper(props: {
-  occurrence: { count: number; position: number; entered: boolean };
-  onStep?: (direction: "next" | "prev") => void;
+  count: number;
+  position: number;
+  onStep: (direction: "next" | "prev") => void;
   prevLabel: string;
   nextLabel: string;
 }) {
-  const { count, position, entered } = props.occurrence;
-  // The active row clamps at the verse ends; a non-active row keeps both arrows
-  // live so either one enters the verse.
-  const prevDisabled = entered && position <= 0;
-  const nextDisabled = entered && position >= count - 1;
+  const { count, position } = props;
+  const prevDisabled = position <= 0;
+  const nextDisabled = position >= count - 1;
   return (
     <div className={styles.occurrenceStepper}>
       <button
         type="button"
         className={styles.occurrenceStepButton}
         data-testid={TESTING_IDS.searchPrevButton}
-        onClick={() => props.onStep?.("prev")}
+        onClick={() => props.onStep("prev")}
         disabled={prevDisabled}
         aria-label={props.prevLabel}
         title={props.prevLabel}
@@ -209,7 +221,7 @@ function OccurrenceStepper(props: {
         type="button"
         className={styles.occurrenceStepButton}
         data-testid={TESTING_IDS.searchNextButton}
-        onClick={() => props.onStep?.("next")}
+        onClick={() => props.onStep("next")}
         disabled={nextDisabled}
         aria-label={props.nextLabel}
         title={props.nextLabel}
@@ -239,6 +251,7 @@ function GroupedPreview(props: {
   missingVerseFallback: string;
   replaceControls: React.ReactNode;
   previewOccurrenceIndex: number;
+  activeOccurrenceIndex: number | null;
 }) {
   return (
     <div className={styles.searchResultPair} data-search-row-type="grouped">
@@ -252,6 +265,7 @@ function GroupedPreview(props: {
         matchWholeWord={props.matchWholeWord}
         missingVerseFallback={props.missingVerseFallback}
         previewOccurrenceIndex={0}
+        activeOccurrenceIndex={null}
       />
       <PreviewBlock
         projectName={props.currentProjectName}
@@ -264,6 +278,7 @@ function GroupedPreview(props: {
         missingVerseFallback={props.missingVerseFallback}
         trailing={props.replaceControls}
         previewOccurrenceIndex={props.previewOccurrenceIndex}
+        activeOccurrenceIndex={props.activeOccurrenceIndex}
       />
     </div>
   );
@@ -280,6 +295,7 @@ function PreviewBlock(props: {
   missingVerseFallback: string;
   trailing?: React.ReactNode;
   previewOccurrenceIndex: number;
+  activeOccurrenceIndex: number | null;
 }) {
   return (
     <div className={styles.searchResultPairBlock}>
@@ -298,6 +314,7 @@ function PreviewBlock(props: {
           matchWholeWord={props.matchWholeWord}
           missingVerseFallback={props.missingVerseFallback}
           previewOccurrenceIndex={props.previewOccurrenceIndex}
+          activeOccurrenceIndex={props.activeOccurrenceIndex}
         />
       </div>
       {props.trailing}
@@ -312,6 +329,7 @@ function SinglePreview(props: {
   matchCase: boolean;
   matchWholeWord: boolean;
   previewOccurrenceIndex: number;
+  activeOccurrenceIndex: number | null;
 }) {
   return (
     <span data-search-row-type="single">
@@ -322,6 +340,7 @@ function SinglePreview(props: {
         props.matchCase,
         props.matchWholeWord,
         props.previewOccurrenceIndex,
+        props.activeOccurrenceIndex,
       )}
     </span>
   );
@@ -335,6 +354,7 @@ function VersePreviewText(props: {
   matchWholeWord: boolean;
   missingVerseFallback: string;
   previewOccurrenceIndex: number;
+  activeOccurrenceIndex: number | null;
 }) {
   if (!props.text.trim()) {
     return (
@@ -352,6 +372,7 @@ function VersePreviewText(props: {
         props.matchCase,
         props.matchWholeWord,
         props.previewOccurrenceIndex,
+        props.activeOccurrenceIndex,
       )}
     </>
   );
@@ -424,6 +445,7 @@ function renderSearchPreview(
   matchCase: boolean,
   matchWholeWord: boolean,
   previewOccurrenceIndex = 0,
+  activeOccurrenceIndex: number | null = null,
 ): React.ReactNode {
   if (!searchTerm) return text;
 
@@ -456,8 +478,16 @@ function renderSearchPreview(
           </span>
         );
       }
+      const isActiveOccurrence = matchOrdinal === activeOccurrenceIndex;
       return (
-        <mark key={`${index}-${part}`} className={styles.searchHighlight}>
+        <mark
+          key={`${index}-${part}`}
+          className={
+            isActiveOccurrence
+              ? styles.searchHighlightActive
+              : styles.searchHighlight
+          }
+        >
           {part}
         </mark>
       );

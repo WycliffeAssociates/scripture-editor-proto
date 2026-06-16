@@ -4,6 +4,8 @@ import {
   Braces,
   CaseSensitive,
   CornerRightDown,
+  PanelRightClose,
+  PanelRightOpen,
   Search,
   WholeWord,
 } from "lucide-react";
@@ -11,7 +13,9 @@ import type { KeyboardEvent } from "react";
 
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
 import { ReferencePanel } from "@/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx";
+import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import { Switch } from "@/app/ui/components/primitives/Switch/Switch.tsx";
+import { useWorkspaceMediaQuery } from "@/app/ui/contexts/useWorkspaceMediaQuery.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/SearchPanel.css.ts";
 
@@ -151,8 +155,34 @@ function SearchToggles(props: { search: SearchHook }) {
         }
         testId={TESTING_IDS.includeUSFMMarkersCheckbox}
       />
+      <EditorDockButton search={search} />
       <ReplaceTermInput search={search} />
     </div>
+  );
+}
+
+// Explicit, labelled Open/Close Editor control (replaces the icon-only header
+// toggle). Desktop-only: the editor docks beside find here; small screens take
+// over the full surface, so picking a result reveals the editor instead.
+function EditorDockButton(props: { search: SearchHook }) {
+  const { t } = useLingui();
+  const { isSm } = useWorkspaceMediaQuery();
+  const { search } = props;
+  if (isSm) return null;
+  const docked = search.isSearchDocked;
+  return (
+    <Button
+      variant={docked ? "primary" : "secondary"}
+      size="sm"
+      className={styles.editorDockButton}
+      leftIcon={
+        docked ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />
+      }
+      onClick={search.toggleSearchDock}
+      data-testid={TESTING_IDS.searchDockToggle}
+    >
+      {docked ? t`Close Editor` : t`Open Editor`}
+    </Button>
   );
 }
 

@@ -87,6 +87,17 @@ export const workspaceEditorsStage = style({
   },
 });
 
+// Docked find: drop the canvas padding so the editor (and the find overlay)
+// run flush to the viewport edges — no light-blue canvas framing the editor.
+export const workspaceEditorsStageDocked = style({
+  "@media": {
+    [mediaQuery.up("lg")]: {
+      padding: 0,
+      gap: 0,
+    },
+  },
+});
+
 // Wrapper for the hoisted toolbar; keeps the bar a single full-width row that
 // spans both columns beneath it.
 export const editorToolbarRow = style({
@@ -326,10 +337,10 @@ export const desktopContentGridDocked = style({
 
 // Docked beside find, the editor should read as the trailing half of a single
 // flex row — not a card floating on the canvas. Fill the slot with the editor
-// surface and draw one seam between the find controls and the editor.
+// surface; the seam between find and editor is drawn by the find panel's
+// border-inline-end (see SearchPanel.css.ts).
 globalStyle(`${desktopContentGridDocked} ${editorWrapperDesktop}`, {
   backgroundColor: vars.color.surfacePrimary,
-  borderInlineStart: `1px solid ${vars.color.surfaceBorder}`,
 });
 
 // Drop the floating-card chrome so the white surface runs edge-to-edge. The

@@ -562,6 +562,24 @@ export function useSearchExecution({
     [runSearchLogic, searchTerm],
   );
 
+  // Done searching: drop the term and wipe the highlight sink + results so the
+  // (now-visible) editor isn't left with stale search highlights. Distinct from
+  // the small-screen navigate-and-close, which keeps the highlight on the verse
+  // it revealed.
+  const clearSearch = useCallback(() => {
+    setSearchTerm("");
+    resetSearchUiState({
+      searchAbortController,
+      searchHighlightStore,
+      setTargetResults,
+      setReferenceResults,
+      setCurrentMatches: currentMatchesControls.setCurrentMatches,
+      setCurrentMatchIndex: currentMatchesControls.setCurrentMatchIndex,
+      setPickedResult: currentMatchesControls.setPickedResult,
+      setIsSearching,
+    });
+  }, [currentMatchesControls, searchAbortController, searchHighlightStore]);
+
   // Reveal the editor beside the find panel (desktop). Called by "go to SID"
   // instead of closing the pane.
   const dockSearchPane = useCallback(() => setIsSearchDocked(true), []);
@@ -597,6 +615,7 @@ export function useSearchExecution({
     setSearchUSFM,
     setSearchReference,
     setSearchPaneOpen,
+    clearSearch,
     runSearchLogic,
     setSearchReferenceState,
     setTargetResults,

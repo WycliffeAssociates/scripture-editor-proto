@@ -121,7 +121,11 @@ function EditorsShell(props: EditorsShellProps) {
           : styles.workspaceShellDesktop
       }
     >
-      <div className={styles.workspaceEditorsStage}>
+      <div
+        className={`${styles.workspaceEditorsStage}${
+          isSearchDocked ? ` ${styles.workspaceEditorsStageDocked}` : ""
+        }`}
+      >
         {/* Full-width toolbar bar — spans the reference + editor row beneath
                     it. Covered by the overlay pane when a non-editor pane
                     (settings/projects/search) is active, and hidden entirely

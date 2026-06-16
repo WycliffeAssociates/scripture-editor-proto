@@ -46,6 +46,13 @@ export type AnnotationPopoverProps = {
   side?: "top" | "bottom" | "left" | "right";
   /** Optional `data-js` on the popup, so external hover logic can detect it. */
   popupDataJs?: string;
+  /**
+   * Element the popup must stay within for flip/shift collision and
+   * available-width sizing. Defaults to the viewport; pass the editor surface
+   * so the popup can't spill out of a narrow column (e.g. the docked-find
+   * editor) and under the find panel.
+   */
+  collisionBoundary?: Element | null;
 };
 
 export function AnnotationPopover({
@@ -57,6 +64,7 @@ export function AnnotationPopover({
   onMouseLeave,
   side = "top",
   popupDataJs,
+  collisionBoundary,
 }: AnnotationPopoverProps) {
   const isOpen =
     Boolean(anchor) && (open ?? Boolean(annotations && annotations.length > 0));
@@ -70,6 +78,7 @@ export function AnnotationPopover({
           align="center"
           sideOffset={8}
           collisionPadding={8}
+          collisionBoundary={collisionBoundary ?? undefined}
           style={{ zIndex: zLayer.floatingOverlay }}
         >
           <BasePopover.Popup

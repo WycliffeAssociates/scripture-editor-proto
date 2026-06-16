@@ -307,10 +307,10 @@ test.describe("Search Functionality", () => {
     // Now replace targets read-only source: replace input is disabled.
     await expect(page.getByTestId(TESTING_IDS.replaceInput)).toBeDisabled();
 
-    // A reference result should appear; clicking it navigates the main editor
-    // to that location and docks the find panel beside the now-revealed editor
-    // (desktop). The docked view hides the toolbar (and its location label), so
-    // assert the dock happened: the toolbar is gone and find stays open.
+    // A reference result should appear; clicking its arrow focuses the row and
+    // opens the editor beside find (docks on desktop). The docked view hides
+    // the toolbar (and its location label), so assert the dock happened: the
+    // toolbar is gone and find stays open.
     const resultItem = page.getByTestId(TESTING_IDS.searchResultItem).first();
     await expect(resultItem).toBeVisible({ timeout: 15_000 });
     await resultItem.getByRole("button", { name: /Navigate to/ }).click();
@@ -350,7 +350,7 @@ test.describe("Search Functionality", () => {
     ).toBeVisible();
   });
 
-  test("re-runs search on reopen and chapter navigation for highlight sync", async ({
+  test("closing search clears the term and editor highlights", async ({
     editorPage,
   }, testInfo) => {
     test.skip(
@@ -369,35 +369,23 @@ test.describe("Search Functionality", () => {
       return Boolean(highlight && highlight.size > 0);
     });
 
-    // Close search via the internal SearchPanel close button (the toolbar
-    // Close button is occluded by the panel header). Then navigate chapter
-    // and reopen.
+    // Closing the panel (the internal Close button — the toolbar one is
+    // occluded by the panel header) clears the search: the editor is visible
+    // again, so its search highlights are wiped rather than left stale.
     await editorPage
       .getByRole("button", { name: "Close search" })
       .last()
       .click();
 
-    const nextButton = editorPage.getByRole("button", {
-      name: "Next chapter",
-    });
-    await expect(nextButton).toBeVisible();
-    await nextButton.click();
-    const locationAfterNext =
-      (await editorPage
-        .getByTestId(TESTING_IDS.currentLocation)
-        .textContent()) ?? "";
-
-    await openSearchPanel(editorPage);
-    await expect(editorPage.getByTestId(TESTING_IDS.searchInput)).toHaveValue(
-      "a",
-    );
     await editorPage.waitForFunction(() => {
       const highlight = CSS.highlights.get("matched-search");
-      return Boolean(highlight && highlight.size > 0);
+      return !highlight || highlight.size === 0;
     });
-    // Re-opening search and the page state should still reflect the new chapter.
-    await expect(
-      editorPage.getByTestId(TESTING_IDS.currentLocation),
-    ).toHaveText(locationAfterNext);
+
+    // Reopening starts from a clean slate — the term is gone.
+    await openSearchPanel(editorPage);
+    await expect(editorPage.getByTestId(TESTING_IDS.searchInput)).toHaveValue(
+      "",
+    );
   });
 });
