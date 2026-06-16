@@ -184,3 +184,35 @@ rebuilt-but-same-version wasm (e.g. debug→release) goes stale and won't refres
 without nuking the virtual store. Git deps are content-addressed by commit, so
 a moved/bumped tag just refetches. Vitest must list both packages in
 `server.deps.inline` so `vite-plugin-wasm` transforms them.
+
+# Workspace mirror (web worker + Rust resident State)
+
+Lint/sous/backup run off-main in a token-replica mirror (see
+`product-docs/specs/workspace-mirror.md`). The bring-up gotchas, which cost real
+time and aren't obvious from the code:
+
+- **The worker module graph must stay DOM-free and wasm-deliberate.** Anything a
+  worker imports is bundled into the worker; a stray DOM/`window` import (or
+  pulling wasm into the *desktop backup* worker, which is meant to be wasm-free)
+  breaks the bundle. The USFM serializer was split into a DOM-free
+  `src/core/domain/usfm/usfmBytes.ts` precisely so workers can serialize without
+  dragging in editor/DOM code. Vite needs wasm wired in `worker.plugins` for the
+  web mirror worker.
+- **Sessions buffer posts until a worker `hello` ACK.** Chromium doesn't open
+  the worker's message port until the first top-level `await` in its import
+  graph resolves, so messages sent before that are dropped. Workers post a
+  channel-open `hello`; the session queues patches/commands until it arrives.
+- **The kernel claim must be re-entrant.** StrictMode (and HMR) unmount→remount
+  the provider; a one-shot claim releases on the throwaway unmount and tears the
+  worker set down ~grace later, orphaning the feed the live pipelines still
+  write through (findings silently stop). `workspaceKernel.claim()` is
+  re-entrant + grace-disposed so a remount reuses the warm set.
+- **Generation stamping is what makes the unordered desktop transport safe.**
+  Tauri `invoke`s race; the mirror applies patches idempotently by generation
+  and drops stale results by a high-water mark, so nothing depends on ordered
+  delivery. Don't "fix" an out-of-order symptom by forcing ordering — check the
+  generation handling first.
+- **Tracing is gated standing infra, not scaffolding.** `localStorage.mirrorTrace
+  = "1"` turns on per-boundary tracing (zero cost off); workers relay entries to
+  the main console (worker logs aren't Playwright-captured). Reach for it before
+  instrumenting by hand.

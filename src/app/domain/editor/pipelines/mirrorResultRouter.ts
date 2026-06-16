@@ -1,8 +1,8 @@
 // mirrorResultRouter.ts
 //
 // The return path: consumes results a mirror ships back and lands them in the
-// existing main-thread stores — exactly the writes the inline pipelines used to
-// make, so every downstream consumer sees unchanged shapes.
+// main-thread stores in the shapes downstream consumers expect (findings onion
+// slice, sous slice, dirty-buffer writes).
 //
 //  - lintResult  → normalize + commit each book into the findings onion slice.
 //  - sousResult  → normalize + commit findings + segment map into the sous slice.

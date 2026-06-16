@@ -47,6 +47,7 @@ Most document operations should be reasoned about as a flat, ordered token strea
   - `src/core/domain/usfm/sidBlockDiff.ts`
   - `src/core/domain/usfm/sidBlockRevert.ts`
 - Practical rule: treat paragraph nesting as a projection for editing UX, not as source-of-truth semantics.
+- Stored truth: each chapter's live state IS its flat `Token[]` (`currentTokens` + `sourceTokens` + `direction` on `ScriptureChapterState`). The Lexical display tree is materialized on read for the one visible chapter — no serialized editor state is persisted in the store.
 
 ### 3) Serialized Traversal and Flattening Are Core Bridge Abstractions
 
@@ -99,12 +100,18 @@ by `WorkingFilesStore`. Subscribers react on two channels:
   cancellation, or async work (lint, sous content analysis, save-status,
   structure-maintenance, editor-sync, overlay-tick).
 
-Programmatic mutations use Copy-on-Write drafting via
-`workingFilesStore.draftWithChapters(refs)` — touched chapters become
-shallow copies, every other chapter still aliases the store. Callers mutate
-the draft synchronously, then `commit({ kind: "bulk", files: draft }, …)`.
-This replaces the legacy `structuredClone` rollback baseline (~1.5 s per
-project on Psalm 119) and keeps React memoization quiet on untouched paths.
+Programmatic mutations go through one Copy-on-Write **recording draft**
+(`src/app/state/recordingDraft.ts`): a mutator checks out a chapter/book only
+when it actually writes (`chapterForWrite` / `bookForWrite`), and the checkout
+IS the affected-set measurement — `affected` is measured, never declared.
+Touched chapters become shallow copies; every other chapter aliases the store,
+keeping React memoization quiet (structural sharing replaced a ~1.5 s
+`structuredClone` rollback on Psalm 119). Active flows enter via
+`withWorkingFilesDraft` (async) / `withWorkingFilesDraftSync` (sync) in
+`workingFileCommand.ts`; both — and the incoming-reconciliation boundary —
+share ONE lost-update contract, `commitIfNotStale`
+(`validatedStoreMutation.ts`), which validates by chapter-object identity (not
+text), re-checks the interaction gate, and commits from the latest state.
 
 Effect is opt-in per-pipeline today: pipelines are forked individually in
 `WorkspaceContext` and there is no app-wide service container yet. We
@@ -115,6 +122,21 @@ for this refactor.
 
 See `product-docs/specs/state-architecture.md` and
 `product-docs/specs/editor-data-flow.md` for the full contract.
+
+### 6) Off-Main Analysis & Backup Mirror
+
+Lint, sous content analysis, and crash-recovery backup serialization run OFF
+the main thread against a passive token **mirror** that lives where the engines
+live — a web worker on web, a Rust-managed resident `State` (over IPC) on
+desktop. The main thread tokenizes a changed chapter once per commit and pushes
+a token delta; the lint / sous / dirty-buffer pipelines send commands; results
+route back into the stores through one router (`mirrorResultRouter`). Policy
+(debounce, scope folding, ordering) stays on main; the replica does the heavy
+wasm + serialization work. A single-slot `workspaceKernel` registry builds +
+seeds the mirror at load and awaits an initial project-wide lint + sous so first
+paint shows findings without typing. Messages are generation-stamped so the
+unordered desktop transport stays correct. See
+`product-docs/specs/workspace-mirror.md`.
 
 ## Editor Stack (USFM)
 
@@ -175,6 +197,7 @@ See `product-docs/specs/state-architecture.md` and
 
 - Per-book USFM backup wrappers under `${appDataRoot}/dirty-buffers/${workspaceKey}/${bookCode}.json`, written via the `FileSystem.atomicWriteText` adapter (OPFS / Tauri).
 - Disk-baseline MD5 attached to every backup wrapper. Computed via `IMd5Service` (`crypto-es` MD5 on web, the Rust `md5` crate on desktop) and returned from the parse interface itself (one IPC on Tauri) via the `includeSourceMd5` flag.
+- Serialization and the dirty/clean decision run off-main in the workspace mirror: web persists in-worker via OPFS; the desktop backup worker ships the envelope bytes back to main for the Tauri FS write (a worker can't `invoke`). See `product-docs/specs/workspace-mirror.md`.
 - Project files are never autosaved — explicit save remains the only thing that changes disk. The backup is a safety net only.
 - See `product-docs/specs/crash-recovery-autosave.md` for the full contract (classification matrix, gate + tracker safety surfaces, banners, forced-review attestation, validated incoming-mutation boundary).
 

@@ -55,18 +55,21 @@ WorkingFilesStore.commit
   ▼
 Stream<CommitEvent>
   │
-  ├── lintPipeline           filter(isLintRelevant)            → debounce(100) → switchMap → LintStore
+  ├── lintPipeline           filter(lintScopeFor)              → debounce(100) → switchMap → MirrorFeed.analyzeLint command → (result router) → FindingsStore (onion slice)
+  │                          // gated off (Effect.void) in plain mode via analysisDisabledInMode
+  ├── sousPipeline           filter(sousScopeFor)              → debounce(100) → switchMap → MirrorFeed.analyzeSous command → (result router) → FindingsStore (sous slice)
+  │                          // gated off in plain mode; parallel to lint on its own clock
   ├── saveStatusPipeline     filter(isSaveStatusRelevant)      → tap → SaveStatusStore
   ├── structureMaintenancePipeline  filter(userEdit && dirtyTextContent) → debounce(16) → mapEffect → editor writeback (metadata: sid/inPara/structural-empty + residual char repair)
+  │                          // gated off at fire time in plain mode
   ├── overlayTickPipeline    filter(kind ≠ metadataOnly)       → debounce(16)  → LayoutTickStore.bump
   ├── searchRerunPipeline    filter(isSearchRerunRelevant)     → debounce(250) → tap → rerunSearch(currentTerm)
   │                          // undo/redo/programmaticFix/import only — userEdit excluded
   │                          // (replace already re-runs synchronously)
-  ├── sousPipeline           filter(sousScopeFor — dirty text, not structuralFixup/load) → debounce(200) → mapEffect → FindingsStore (sous slice)
-  ├── dirtyBufferPipeline    filter(isDirtyBufferRelevant)     → groupByKey(book) → debounce(2000)/ceiling(30000)
-  │                          → atomicWriteText|clear (DirtyBufferStore) — crash-recovery; see crash-recovery-autosave.md
+  ├── dirtyBufferPipeline    filter(isDirtyBufferRelevant)     → MirrorFeed.writeBackup command → (result router) → DirtyBufferStore
+  │                          // crash-recovery; see crash-recovery-autosave.md
   ├── tokenFixpointPipeline  filter(lintScopeFor) → debounce(250) → re-lex bytes → console.error on I2 divergence
-  │                          // DEV only (import.meta.env.DEV); never mutates state
+  │                          // DEV only (import.meta.env.DEV && !analysisDisabled); never mutates state
   └── recoveredConflictTrackerSubscriber
                              → for each tracked chapter still in tracker, clear if post-commit `dirty === false`
 ```
@@ -204,17 +207,19 @@ need to formalize this boundary).
 each chapter the entry touched:
 
 1. `draftWithChapters` with every chapter in the entry's `changes`.
-2. For each chapter, materialize the canonical snapshot
-   (`canonicalSnapshotToChapterState(snapshot, currentMode)`), then
-   `markChapterDirty` to re-derive the dirty flag.
+2. For each chapter, write `canonicalSnapshotToTokens(targetSnapshot)` into
+   `chapter.currentTokens`, then `markChapterDirty` to re-derive the dirty
+   flag. No mode parameter — tokens are mode-independent.
 3. Bulk-commit with `kind: "undo"` (or `"redo"`).
-4. If the visible chapter was touched, schedule a deferred restore fiber:
-   sleep 50 ms, then push the new state into Lexical via `setEditorContent`
-   (tagged `programaticIgnore` so the bridge does not re-publish), focus
-   the editor, restore selection by `data-id`, and restore scroll position.
-5. Notify post-undo/redo listeners. `WorkspaceContext` registers one that
-   re-lints touched books targeted (the main lint pipeline filters undo/redo
-   out, so this is how lint stays in sync after replay).
+4. If the visible chapter was touched, `setEditorContent` re-derives the
+   shaped display tree from the new tokens and pushes it into Lexical (tagged
+   `programaticIgnore` so the bridge does not re-publish), then schedules a
+   deferred restore fiber: sleep 50 ms → focus the editor, restore selection
+   by `data-id`, restore scroll position.
+5. `lintScopeFor` in `commitFilters.ts` **includes** `undo`/`redo` — replay
+   commits carry precise chapter scope, so the main lint pipeline re-lints
+   exactly the touched books automatically. No separate post-undo relint hook
+   is needed or wired.
 
 The deferred restore exists because pushing content into Lexical, focusing,
 and scrolling all fight each other if they happen in one frame. The 50 ms
@@ -325,10 +330,10 @@ and is the smell we explicitly avoid.
   `runIncomingMutation` (the incoming-content boundary)
 - `src/app/domain/editor/pipelines/*.ts`
   - `structureMaintenancePipeline.ts` — metadata pass (sid/inPara/structural-empty) + residual char repair, 16 ms
-  - `sousPipeline.ts` — content findings via sous-chef, 200 ms
+  - `sousPipeline.ts` — sends `analyzeSous` to MirrorFeed, 100 ms debounce
+  - `lintPipeline.ts` — sends `analyzeLint` to MirrorFeed, 100 ms debounce
   - `tokenFixpointPipeline.ts` — dev-only I2 re-lex alarm, 250 ms
-- `src/app/ui/contexts/WorkspaceContext.tsx` — pipeline forks +
-  post-undo/redo relint
+- `src/app/ui/contexts/WorkspaceContext.tsx` — pipeline forks + store wiring
 - `src/app/ui/hooks/useCustomHistory.ts` — replay path
 - `src/app/ui/hooks/utils/editorUtils.ts` — `setEditorContent`,
   `collectFileTokens`

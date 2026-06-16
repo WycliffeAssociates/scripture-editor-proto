@@ -79,4 +79,3 @@ against known markers → `parseUsfm` → the same pairing pass), not a regex.
 - `src/app/domain/editor/utils/modeTransforms.ts` — pairing pass
 - `src/app/domain/editor/pipelines/structureMaintenancePipeline.ts`,
   `tokenFixpointPipeline.ts`
-- Settled design + rationale: `agent-tmp/plans/regular-mode-structured-nodes/`

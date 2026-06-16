@@ -1,9 +1,8 @@
 // dirtyBufferPipeline.ts
 //
 // Paces per-book crash-recovery backup commands against the live working-files
-// state. The DECISION of what to back up (which chapters, with what bytes) and
-// the WRITE both moved into the mirror: main no longer serializes USFM or
-// touches the filesystem here. This pipeline keeps the per-book pacing policy —
+// state. Serialization (which chapters, what bytes) and the FS write live in
+// the mirror, not here; this pipeline owns only the per-book pacing policy —
 // the part that belongs on the main thread beside the other commit pipelines —
 // and turns each fire into a `writeBackup` command. The mirror reads its
 // resident tokens, makes the dirty/clean decision (any dirty chapter → write

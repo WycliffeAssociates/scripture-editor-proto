@@ -68,6 +68,14 @@ _when to repaint_:
   scroll / resize listeners, so highlights stay in lockstep with the live
   DOM.
 
+Search reads `currentTokens` directly from each `ScriptureChapterState` via
+`tokensToLexical` in flat mode (`chapterFlatChildren` in `SearchService.ts`).
+This is mode-independent: the flat token projection carries every token's
+`sid` and text regardless of whether the editor is in regular, form, or flat
+shape. A separate Lexical in-editor scan (`collectMatchesInCurrentEditor`)
+handles the active-chapter highlight matches — it runs against the live editor
+tree so caret positions are exact.
+
 Replace operations mutate Lexical directly in `editor.update()`, then
 re-run `runSearchLogic()` so the result list and highlights stay
 consistent with the new content.

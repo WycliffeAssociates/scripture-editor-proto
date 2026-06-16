@@ -62,13 +62,11 @@
 - `src/app/routes/index.tsx`
 - `src/app/routes/create.tsx`
 - `src/app/ui/components/import/CloudProjectImporter.tsx`
-- `src/app/domain/api/import.tsx`
 - `src/core/domain/project/import/ProjectImporter.ts`
 - `src/core/domain/project/import/ProjectFileImporter.ts`
 - `src/core/domain/project/import/ProjectDirectoryImporter.ts`
 - `src/core/domain/project/import/ZipImportPipeline.ts`
-- `src/core/domain/project/ProjectLoader.ts`
 - `src/core/domain/project/ScriptureBurritoProjectLoader.ts`
 - `src/core/domain/project/ResourceContainerProjectLoader.ts`
-- `src/app/ui/components/blocks/ProjectCreator.tsx`
+- `src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx`
 - `src/app/ui/components/blocks/ProjectRow.tsx`

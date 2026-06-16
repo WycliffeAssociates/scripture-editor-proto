@@ -1231,20 +1231,25 @@
             <p>
               Pipelines filter on this so not every commit triggers every
               pipeline — e.g. lint ignores
-              <code>metadataOnly</code>/<code>load</code>/<code>undo</code>;
-              structure-maintenance only reacts to <code>userEdit</code> with
+              <code>metadataOnly</code>/<code>structuralFixup</code>/<code>load</code>
+              (but re-lints on <code>undo</code>/<code>redo</code>, which carry
+              precise chapter scope); structure-maintenance only reacts to
+              <code>userEdit</code> with
               <code>dirtyTextContent</code> (so it never feeds its own loop).
             </p>
           </div>
         </div>
         <div class="callout tip animate">
           <span class="lbl">Structural sharing</span>
-          <code>draftWithChapters(refs)</code> returns a shallow clone where
-          <em>only</em> the named chapters (and their parent books) get fresh
-          object identities; everything else aliases the live state. That
-          preserves <code>React.memo</code> stability <em>and</em> is the exact
-          boundary the lost-update validator checks (object identity, not text).
-          <span class="mono">src/app/state/WorkingFilesStore.ts</span>
+          The Copy-on-Write primitive is the <em>recording draft</em>
+          (<code>recordingDraft.ts</code>): a mutator checks out a chapter/book
+          only when it actually writes (<code>chapterForWrite</code>), and the
+          checkout <em>is</em> the affected-set measurement. Only checked-out
+          chapters (and their parent books) get fresh object identities;
+          everything else aliases live state — preserving
+          <code>React.memo</code> stability <em>and</em> giving the lost-update
+          validator its exact boundary (object identity, not text).
+          <span class="mono">src/app/state/recordingDraft.ts</span>
         </div>
 
         <!-- ============ 6 STORES ============ -->
@@ -1273,8 +1278,10 @@
               <tr>
                 <td class="mono">WorkingFilesStore</td>
                 <td>
-                  The live <code>ScriptureBookState[]</code> — the canonical
-                  truth
+                  The live <code>ScriptureBookState[]</code> — canonical truth,
+                  each chapter a flat <code>Token[]</code>
+                  (<code>currentTokens</code>/<code>sourceTokens</code>); Lexical
+                  shape is derived on read
                 </td>
                 <td>
                   Editor bridge, the seam, incoming sync, loaders
@@ -1304,7 +1311,10 @@
                   content analysis (namespaced slices; sous slice carries a vref
                   segment-map sidecar)
                 </td>
-                <td>lint &amp; sous pipelines</td>
+                <td>
+                  the mirror result router (lint &amp; sous run off-main) +
+                  the kernel's initial-findings seed at load
+                </td>
                 <td>Findings overlay + panel, the decoration path</td>
               </tr>
               <tr>
@@ -1374,8 +1384,9 @@
                   scope, so they re-lint too)
                 </td>
                 <td>
-                  Re-lint touched books → <code>findingsStore</code> (onion
-                  slice)
+                  Send <code>analyzeLint</code> to the mirror (lint runs
+                  off-main); results land in <code>findingsStore</code> (onion
+                  slice) via the result router
                 </td>
                 <td>
                   folded scope (accumulate in a <code>Ref</code>,
@@ -1388,15 +1399,19 @@
                   Content commits by <code>sousScopeFor</code> (book grain)
                 </td>
                 <td>
-                  Content analysis (scripture-sous-chef) →
-                  <code>findingsStore</code> sous slice + segment-map sidecar
+                  Send <code>analyzeSous</code> to the mirror (content analysis
+                  runs off-main); results land in <code>findingsStore</code>
+                  sous slice + segment-map sidecar via the result router
                 </td>
-                <td>folded scope + <code>debounce 200ms</code></td>
+                <td>folded scope + <code>debounce 100ms</code></td>
               </tr>
               <tr>
                 <td class="mono">dirtyBufferPipeline</td>
                 <td>Content commits (excludes load / selectionOnly)</td>
-                <td>Write/clear per-book USFM crash backup</td>
+                <td>
+                  Send <code>writeBackup</code>/<code>clearBackup</code> to the
+                  mirror (it serializes + writes the crash backup off-main)
+                </td>
                 <td>
                   <code>groupByKey</code> per book · debounce 500ms · staleness
                   ceiling 10s · retry w/ backoff
@@ -1471,6 +1486,22 @@
           <code>Fiber</code> (<code>Effect.runFork</code> on mount,
           <code>Fiber.interrupt</code> on cleanup), <code>Schedule</code> (retry
           backoff), <code>Duration</code> (debounce windows).
+        </div>
+        <div class="callout tip animate">
+          <span class="lbl">Off-main mirror</span>
+          The lint, sous, and dirty-buffer pipelines no longer run their engines
+          inline — they send commands to a <strong>workspace mirror</strong>, a
+          passive per-chapter token replica that lives off the main thread (a web
+          worker on web; a Rust-managed resident <code>State</code> over IPC on
+          desktop). The main thread tokenizes a changed chapter once per commit
+          and pushes a token delta; the mirror runs wasm lint/sous or serializes
+          a crash backup against its resident tokens; results route back via
+          <code>mirrorResultRouter</code>. A single-slot
+          <code>workspaceKernel</code> registry builds + seeds the mirror at load
+          and awaits an initial project-wide lint + sous so first paint shows
+          findings. Messages are generation-stamped, so the unordered desktop
+          transport stays correct. Full contract:
+          <span class="mono">product-docs/specs/workspace-mirror.md</span>.
         </div>
 
         <!-- ============ 8 EDITOR ============ -->
@@ -1962,9 +1993,12 @@
           <div class="ve-card animate">
             <h3>Fine — recovered conflicts</h3>
             <p>
-              The <code>dirtyBufferPipeline</code> continuously writes per-book
-              USFM backups while dirty. At reopen the recovery loader classifies
-              each backup: baseline matches disk → safe auto-restore; baseline
+              The <code>dirtyBufferPipeline</code> paces per-book backup
+              commands while dirty; the mirror serializes + writes them off-main
+              (web persists in-worker via OPFS, desktop's backup worker ships
+              the bytes back to main for the FS write). At reopen the recovery
+              loader classifies each backup: baseline matches disk → safe
+              auto-restore; baseline
               moved → a <em>recovered conflict</em> tracked in
               <code>RecoveredConflictTracker</code>, which forces saves through
               review and blocks incoming sync until resolved.
@@ -2201,12 +2235,16 @@
         </p>
         <div class="grid g2">
           <div class="ve-card animate">
-            <h3>runTransaction</h3>
+            <h3>capture / record</h3>
             <p>
-              Active actions wrap their seam commit in
-              <code>history.runTransaction({ label, candidates, run })</code>;
-              the captured before/after lets undo restore the exact pre-action
-              workspace state.
+              Active actions bracket their commit with
+              <code>history.captureHistory()</code> before and
+              <code>history.recordHistory(token, { label, affected })</code>
+              after. Capture retains the pre-commit files array (valid
+              pre-images — the store never mutates a chapter in place); record
+              diffs only the chapters the commit <em>measured</em> as
+              <code>affected</code> against those pre-images and pushes one
+              entry. No candidate set is declared up front.
             </p>
           </div>
           <div class="ve-card animate">

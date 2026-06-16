@@ -361,7 +361,7 @@ fn map_lint_code(code: &str) -> Option<onion::LintCode> {
 pub fn map_lint_options(options: Option<LintOptionsDto>) -> onion::LintOptions {
     // The editor doesn't thread chapter-grain scope; lint the whole book to
     // preserve today's behavior, matching WebUsfmOnionService's WHOLE_BOOK_SCOPE.
-    // TODO(lint-scope): thread chapter-grain scope (deferred; see agent-tmp/ideas).
+    // TODO(lint-scope): thread chapter-grain scope (book-granular today).
     let Some(options) = options else {
         return onion::LintOptions::scoped(onion::LintScope::Book);
     };

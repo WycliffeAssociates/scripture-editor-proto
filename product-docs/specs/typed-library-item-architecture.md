@@ -254,14 +254,14 @@ Core contracts:
 - `src/core/library/LibraryItem.ts` — `LibraryItem`, `LibraryItemType`, `LibraryItemCapabilities`
 - `src/core/loading/IItemLoader.ts` — loader interface
 - `src/core/loading/ItemLoader.ts` — orchestrator
-- `src/core/domain/project/baseResourceLoading.ts` — `resourceKindToLibraryItemType()`, capability helpers
-- `src/core/persistence/ImportService.ts` — import result type
-- `src/core/persistence/ProjectIndex.ts` — index row shape
-- `src/app/services/LibraryService.ts` — Dexie-first service
-
-Legacy (to be migrated):
-
-- `src/core/persistence/BaseResource.ts` — historical
-- `src/core/persistence/LoadedBaseResource.ts` — transitional waypoint
+- `src/core/library/ImportService.ts` — import result type
+- `src/core/library/ProjectIndex.ts` — index row shape
+- `src/app/library/LibraryService.ts` — Dexie-first service
 - `src/core/domain/project/ResourceContainerProjectLoader.ts` — format-specific parsing
 - `src/core/domain/project/ScriptureBurritoProjectLoader.ts` — format-specific parsing
+
+Removed (migration complete):
+
+- `src/core/domain/project/baseResourceLoading.ts` — absorbed into loader stack
+- `src/core/persistence/BaseResource.ts` — historical, deleted
+- `src/core/persistence/LoadedBaseResource.ts` — transitional waypoint, deleted

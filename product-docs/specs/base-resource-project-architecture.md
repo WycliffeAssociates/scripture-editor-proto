@@ -137,9 +137,4 @@ Practical rule:
 
 ## Code Pointers
 
-Current core types live in:
-
-- `src/core/persistence/BaseResource.ts`
-- `src/core/persistence/BaseResourceCapabilities.ts`
-
-These files define the target seam that the rest of the app should adapt to.
+These files were removed as part of the migration to the `LibraryItem` typed union model. The superseding ADR (`typed-library-item-architecture.md`) has current code pointers.

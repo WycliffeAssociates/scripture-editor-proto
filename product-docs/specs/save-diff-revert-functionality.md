@@ -138,11 +138,10 @@ Accept My Work on Save`) while the tracker holds entries; the modal's
 - **Captured-content rebase per chapter.** The pipeline freezes
   `{ tokens }` per chapter at the save snapshot (the same synchronous instant
   the payload is built) and, after successful per-book persistence,
-  `rebaseChapterToCapturedSave` advances `sourceTokens` and reconstructs
-  `loadedLexicalState` from the _captured_ tokens — not live `currentTokens`,
-  so a keystroke mid-save stays dirty rather than being silently swallowed.
-  This is what makes the per-chapter `dirty` flag honest under concurrent
-  mutation during a save, and what lets the
+  `rebaseChapterToCapturedSave` advances `sourceTokens` to the captured tokens
+  and re-derives `dirty` — so a keystroke mid-save stays dirty rather than
+  being silently swallowed. This is what makes the per-chapter `dirty` flag
+  honest under concurrent mutation during a save, and what lets the
   `recoveredConflictTrackerSubscriber` clear tracker entries by observing the
   chapter clean.
 
@@ -179,6 +178,12 @@ fresh snapshot from the editor each time. The relevant paths:
   via `draftWithChapters`, rebases each to its captured-save tokens (which
   flips `dirty` to `false`), and bulk-commits. Books that failed to persist
   keep their dirty state.
+- **Per-diff-block revert goes through the validated async seam.**
+  `revertDiff` awaits the onion service to compute the reverted tokens, so it
+  rides `withWorkingFilesDraft` (`workingFileCommand.ts`): the draft is
+  checked out before the await, the mutation runs inside `mutate`, and
+  `commitIfNotStale` aborts on a stale chapter or a closed gate rather than
+  clobbering a concurrent commit.
 - **External-compare apply goes through the validated incoming boundary.**
   A hunk apply (`applyIncomingHunkToCurrent`) has to await a token compute, so
   it commits through `applyIncomingToStore` / `runIncomingMutation`
@@ -187,13 +192,26 @@ fresh snapshot from the editor each time. The relevant paths:
   closed gate, then overlay only the affected chapters onto the latest read.
   The synchronous full-chapter / all-chapter applies build a
   `draftWithChapters` and bulk-commit in one stack frame with a gate recheck
-  at the commit boundary. Both (compute on scratch / draft → validate →
-  commit) replace the old "mutate-in-place, then call rebuild" approach.
-- **Revert all** uses the same pattern with the original loaded source.
+  at the commit boundary.
+- **Revert all** and **revert chapter** use `withWorkingFilesDraftSync` —
+  the synchronous sibling in `workingFileCommand.ts` — since no await
+  intervenes between reading `sourceTokens` and writing `currentTokens`.
+
+## Print changes (WIP)
+
+A `PrintChangesButton` lives in the diff modal toolbar (`DiffViewerToolbar.tsx`).
+It calls `buildPrintChanges` (wired through `useExternalCompare`) which delegates
+to `buildPrintChangeSet` (`src/app/domain/project/print/buildPrintChangeSet.ts`)
+and `renderPrintDocument.ts`. The feature diffs a saved checkpoint against the
+current working state and renders a printable HTML document scoped by book/chapter
+and granularity. As of this writing it is merged but marked WIP and has not been
+formally reviewed.
 
 ## Key modules (for agents)
 
 - `src/app/domain/project/savePipeline.ts` (`runSavePipeline`, `SaveResult`)
+- `src/app/domain/project/workingFileCommand.ts` (`withWorkingFilesDraft`,
+  `withWorkingFilesDraftSync`, `commitIfNotStale`)
 - `src/app/ui/hooks/useSave.tsx`
 - `src/app/ui/hooks/save/useSaveAndRevert.ts`
 - `src/app/ui/hooks/save/useExternalCompare.ts`
@@ -210,6 +228,9 @@ fresh snapshot from the editor each time. The relevant paths:
 - `src/core/domain/usfm/sidBlockDiff.ts`
 - `src/core/domain/usfm/sidBlockRevert.ts`
 - `src/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts`
+- `src/app/domain/project/print/buildPrintChangeSet.ts`,
+  `renderPrintDocument.ts` (WIP print-changes feature)
+- `src/app/ui/components/blocks/DiffModal/PrintChangesButton.tsx`
 
 ## Validation references
 

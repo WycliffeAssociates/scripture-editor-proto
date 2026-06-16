@@ -118,7 +118,8 @@ const draft = workingFilesStore.draftWithChapters([
 // same object reference as the store's current state.
 // Mutate the copies in place:
 const gen1 = findChapterInDraft(draft, "GEN", 1)!;
-gen1.lexicalState = newSerializedState;
+gen1.currentTokens = newTokens;
+gen1.dirty = !tokenSourcesEqual(newTokens, gen1.sourceTokens);
 // Then commit synchronously, in the same stack frame:
 workingFilesStore.commit(
   { kind: "bulk", files: draft },
@@ -181,18 +182,20 @@ other chapter stays the same reference.
 
 ### The four `WorkingFilesPatch` shapes
 
-| `patch.kind`    | Mutation                             | Tokens recomputed?      |
-| --------------- | ------------------------------------ | ----------------------- |
-| `chapter`       | Replace one chapter's `lexicalState` | Yes (`lexicalToTokens`) |
-| `metadata`      | Flip one chapter's `dirty` flag      | No                      |
-| `bulk`          | Replace the entire `files` array     | No (caller's job)       |
-| `selectionOnly` | No mutation; pure signal             | No                      |
+| `patch.kind`    | Mutation                                                      | Tokens recomputed?      |
+| --------------- | ------------------------------------------------------------- | ----------------------- |
+| `chapter`       | Bridge sends shaped `lexicalState`; store flattens to tokens  | Yes (`lexicalToTokens`) |
+| `metadata`      | Flip one chapter's `dirty` flag                               | No                      |
+| `bulk`          | Replace the entire `files` array                              | No (caller's job)       |
+| `selectionOnly` | No mutation; pure signal                                      | No                      |
 
 `bulk` is the workhorse for programmatic flows: callers build a draft with
-the chapters they touched, populate `currentTokens` themselves if relevant,
-and commit. `chapter` is the bridge's path for editor-driven edits — the
-store rebuilds `currentTokens` and re-derives `dirty` by comparing source
-strings.
+the chapters they touched, populate `currentTokens` themselves, and commit.
+`chapter` is the bridge's path for editor-driven edits — the shaped
+`lexicalState` travels on the wire, but `applyPatch` immediately flattens it
+to `currentTokens` via `lexicalToTokens` and re-derives `dirty`. Nothing
+stored in `ScriptureChapterState` is shaped; the Lexical display tree is
+derived on read by `deriveChapterLexical`.
 
 ### `selectionOnly` and `kind: "metadataOnly"`
 
@@ -230,10 +233,12 @@ filters in `src/app/state/commitFilters.ts`:
 - `metadataOnly` — dirty-flag flips and selection-only commits.
 
 `dirtyTextContent: false` is a cheap fast-path: subscribers that care only
-about text changes filter on it before they ever look at the patch. Mode
-switching, for instance, commits `bulk` patches with `dirtyTextContent: false`
-because it reshapes the Lexical tree without changing tokens — lint and save
-status correctly skip them.
+about text changes filter on it before they ever look at the patch. A save
+clean-mark, for instance, commits `metadata` patches with
+`dirtyTextContent: false` so lint and save status correctly skip them. Mode
+switching does not commit to the store at all — tokens are mode-independent,
+so switching merely flips the setting and lets `syncEditorToVisibleChapter`
+re-derive the visible chapter's shape on read.
 
 `generation` is monotonic, store-assigned, and currently used for ordering /
 dedupe / dev-mode assertions. It's the right hook for any future
@@ -309,36 +314,36 @@ pass, the pass restores its taken scope before yielding, so the next
 trigger covers `old ∪ new` — no book touched during a burst is silently
 dropped.
 
-- One lint IPC call per pass: the folded scope supplies the book list;
-  `relintBookFiles` batches all books in one round-trip. (Linter structure
-  checks span chapters within a book, so chapter granularity isn't useful here.)
-- Each book's result commits into `FindingsStore`'s `"onion"` slice via
-  `commitBookFindings`. A clean book commits `{}` (no merge, clean slate).
-- `Effect.catch` swallows lint errors to a `console.error` — a hung
-  remote linter must not take the pipeline fiber down.
+- One command per pass: the folded scope drains as one `analyzeLint` command
+  sent to `MirrorFeed` carrying the book set and the current store generation.
+  The mirror reads its resident token replica for those books, runs lint, and
+  returns per-book results. The result router (`makeMirrorResultRouter`)
+  normalizes and commits each book's results into `FindingsStore`'s `"onion"`
+  slice via `commitBookFindings`. A clean book commits `{}` (no merge, clean
+  slate). (Linter structure checks span chapters within a book, so chapter
+  granularity isn't useful here.)
+- The pipeline itself is fire-and-forget at the send site; the mirror result
+  fan-out handles the commit, so no `Effect.catch` is needed at the pipeline
+  level — mirror errors land at the result router.
 
 ### `makeSousPipeline`
 
 ```
 changes ─► sousScopeFor ─► fold into Ref<FoldedBookScope>
-        ─► debounce(200ms) ─► switchMap(drain Ref → sousPass)
+        ─► debounce(100ms) ─► switchMap(drain Ref → sousPass)
 ```
 
 A parallel subscriber to the same `WorkingFilesStore.changes` stream as
-`makeLintPipeline` — not a tee off lint IPC. Uses the same
-`makeFoldedScopePipeline` substrate with a calmer 200 ms debounce, so
-sous traffic doesn't compound lint's 100 ms cadence.
+`makeLintPipeline` — not a tee off lint. Uses the same
+`makeFoldedScopePipeline` substrate with a 100 ms debounce on its own
+clock, so sous traffic doesn't compound lint's cadence.
 
-Each pass iterates the folded book set, calls `ISousService.analyze(tokens)`
-once per book, and commits the result into `FindingsStore`'s `"sous-chef"`
-slice via `commitSousBookFindings`. The sous commit carries both the finding
-list and the vref segment sidecar in one atomic call — findings and the
-projection they resolve against are never observed out of step.
-
-`ISousService.analyze` accepts a flat token array and hides the vref build:
-`TauriSousService` hands the tokens to the `sous_analyze` Rust command;
-`WebSousService` runs `onion.vrefIndexTokens` in-process then calls the wasm
-`ssc.analyze_vref`. Both return `SousAnalyzeResult: { segments, findings }`.
+Each pass drains the folded scope as one `analyzeSous` command sent to
+`MirrorFeed`. The mirror assembles each book's token replica, runs the vref
+build and sous analysis mirror-side, and returns per-book results. The result
+router commits findings plus the vref segment map into `FindingsStore`'s
+`"sous-chef"` slice in one atomic call — findings and the projection they
+resolve against are never observed out of step.
 
 ### `makeEditorSyncPipeline`
 
@@ -428,7 +433,7 @@ documented inline), and exposes `subscribe` + `getSnapshot` for
 
 | Store                      | Writers                                                                                                                               | Readers                                                                                                 |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `FindingsStore`            | `makeLintPipeline` (`"onion"` slice), `makeSousPipeline` (`"sous-chef"` slice), route loader (initial lint seed)                      | `useFindings`, `FindingsOverlayPlugin`, `FindingsPopover`                                               |
+| `FindingsStore`            | `makeLintPipeline` (`"onion"` slice), `makeSousPipeline` (`"sous-chef"` slice), workspace kernel (`initialFindings` seed before first paint) | `useFindings`, `FindingsOverlayPlugin`, `FindingsPopover`                                               |
 | `SaveStatusStore`          | `makeSaveStatusPipeline`, save command                                                                                                | `useSave`, toolbar                                                                                      |
 | `LayoutTickStore`          | `makeOverlayTickPipeline`, workspace resize/scroll listeners                                                                          | `FindingsOverlayPlugin`, `HighlightSink`                                                                |
 | `SearchHighlightStore`     | Search hooks (execution / navigation / replace)                                                                                       | `HighlightSink` (paints in `useLayoutEffect`)                                                           |
@@ -494,8 +499,11 @@ File: `src/app/ui/contexts/WorkspaceContext.tsx`
   `layoutTickStore`, `searchHighlightStore`, `workspaceModalStore`) are
   constructed once via `useStableInstance` in the provider. They live for
   the lifetime of the workspace, not per-render. `FindingsStore` is seeded
-  from the route loader's initial lint pass in the same `useStableInstance`
-  callback so the store is never transiently empty on first render.
+  synchronously from the kernel's awaited initial findings before first paint
+  so the store is never transiently empty on first render.
+- The workspace kernel (`WorkspaceKernelHandle`) is claimed on mount and
+  released on unmount. It owns the `MirrorFeed`, the seeded mirror worker(s),
+  and the awaited initial findings that seed `FindingsStore`.
 - `mainEditorDeferred` is created with `Effect.runSync(Deferred.make())` and
   resolved by `WorkingFilesBridgePlugin` on editor mount. Pipelines and
   effects that need the editor `yield* Deferred.await(mainEditorDeferred)`.
@@ -504,9 +512,11 @@ File: `src/app/ui/contexts/WorkspaceContext.tsx`
   unmount or deps change. Getter callbacks (`getAppSettings`,
   `getVisibleBookCode`) are kept in sync via refs so forked fibers always see
   current values.
-- `sousService` is obtained from `useRouter().options.context` alongside
-  `usfmOnionService`. It is injected into `makeSousPipeline` and has no
-  React hooks — it is a plain async service object.
+- The analysis pipelines (lint, sous, dev re-lex alarm, structure
+  maintenance) are gated by `analysisDisabledInMode(editorMode)` — when plain
+  mode is active these fibers fork as `Effect.void` so no analysis runs.
+  The infra pipelines (save-status, overlay-tick, dirty-buffer, editor-sync)
+  run in every mode regardless.
 - `editorSyncPipeline` wires the programmatic-commit→editor sync chokepoint
   that previously lived as an imperative call in each action hook. The
   pipeline observes `programmaticFix`/`import` commits and calls
@@ -565,12 +575,12 @@ File: `src/app/ui/contexts/WorkspaceContext.tsx`
   `structureMaintenancePipeline.ts`, `overlayTickPipeline.ts`,
   `searchRerunPipeline.ts` — pipelines. `foldedScopePipeline.ts` is the shared
   debounce-and-accumulate substrate for lint and sous.
-- `src/core/domain/sous/ISousService.ts`, `sousTypes.ts` — sous service
-  contract and `SousAnalyzeResult` shape.
-- `src/tauri/domain/sous/TauriSousService.ts`,
-  `src/web/domain/sous/WebSousService.ts` — platform implementations.
+- `src/core/domain/sous/sousTypes.ts` — `SousAnalyzeResult`, `SousFinding`.
 - `src/core/domain/usfm/vrefTypes.ts` — `Utf16Span`, `Segment`,
   `SegmentsBySid` — the vref projection substrate.
+- `src/app/domain/mirror/MirrorFeed.ts` — the command bus lint/sous pipelines
+  write to; the result router (`makeMirrorResultRouter`) commits responses back
+  into the findings store.
 - `src/app/domain/editor/plugins/WorkingFilesBridgePlugin.tsx` — editor →
   store bridge.
 - `src/app/domain/editor/plugins/HighlightSink.tsx` — search highlight paint.

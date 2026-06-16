@@ -24,9 +24,10 @@
 ## Typical user flow
 
 1. Trigger format at desired scope.
-2. App converts current serialized editor content to a flat token stream envelope.
+2. App reads each chapter's `currentTokens` from the store.
 3. Core format transforms run on tokens.
-4. Tokens are converted back to the current editor root shape.
+4. The transformed tokens are written back as `currentTokens`; the editor
+   re-derives its display shape on the next read.
 5. Changed chapters are marked dirty and included in `Review & Save`.
 
 ## How edits flow through the store
@@ -38,10 +39,10 @@ Format scopes (chapter / book / project) all go through the validated
 1. The scope resolves which chapter refs to draft.
 2. The seam drafts them via `draftWithChapters` (shallow-copy only those
    chapters; everything else aliases the store) into a scratch.
-3. `mutate` runs on the scratch: for each touched chapter, convert serialized
-   state → flat tokens, run the format transforms, convert back → serialized
-   state, recompute `currentTokens` and `dirty`; it returns the chapters it
-   `affected`.
+3. `mutate` runs on the scratch: for each touched chapter, run the format
+   transforms on the chapter's `currentTokens`, write the result back to
+   `currentTokens`, recompute `dirty`; it returns the chapters it `affected`.
+   The store holds only tokens; the editor re-derives its display shape on read.
 4. The seam re-reads latest, validates the affected chapters weren't replaced,
    re-checks the interaction gate, then commits — overlaying the affected
    chapters onto latest (`chapters` scope) or the scratch wholesale

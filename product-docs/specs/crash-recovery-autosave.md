@@ -23,8 +23,8 @@ Word-style UX: silent during the session, banners only at reopen.
 - **Recovery for the dominant cases:** app crash, browser tab close, OS
   reboot, power loss — anything that loses unflushed work between two
   explicit saves.
-- **Loss budget:** ≤2 seconds of un-flushed keystrokes after typing pauses;
-  ≤30 seconds during sustained typing, per book.
+- **Loss budget:** ≤500 ms of un-flushed keystrokes after typing pauses;
+  ≤10 seconds during sustained typing, per book.
 - **No mid-session UI surface.** No "saving…" indicators for the safety
   net itself; banners exist only at reopen.
 - **Per-chapter forced-review scope.** Forced review fires only for the
@@ -231,24 +231,36 @@ cloud-sync architecture; this is the recovery-relevant invariant.)
 
 ```
 WorkingFilesStore.changes
-  → filter (drop `load`, drop `selectionOnly`; see commitFilters)
-  → flatMap per-book events (project-scope fans out to every book)
+  → filter (isDirtyBufferRelevant; drops selectionOnly + analysis-only commits)
+  → flatMap per-book events (project-scope fans out to every book in snapshot)
   → Stream.groupByKey(bookCode)
   → per-substream:
-      Stream.debounce(idleMs)             // default 2000 ms
-      merged with pending-work ceiling     // default 30000 ms
-  → on emit: Effect.suspend(reconcile)
-      wrapped in Effect.retry(exponential 2s × 2)
-        - each retry re-reads latest state from the store
-        - any dirty chapter → md5 → build wrapper → atomicWriteText
-        - all clean → DirtyBufferStore.clear (returns boolean; logs on real removal)
-  → console.error on retry exhaustion, substream dormant
+      debounce(idleMs)                    // default 500 ms
+      merged with max-staleness ceiling   // default 10 000 ms
+  → on emit: feed.sendCommand({ kind: "writeBackup", bookCode, appVersion,
+                                 generation })
 ```
 
-Each book has its own clock. Sustained typing flushes at the ceiling; a
-pause flushes at the idle debounce. Transient FS hiccups recover within
-the retry budget (~6 s). Retry exhaustion logs but does not crash the
-fiber — the next commit on that book starts a fresh debounce window.
+The pipeline sends commands; the mirror does all token reads, dirty/clean
+decisions, serialization, and writes. Main never serializes USFM or touches
+the filesystem here.
+
+**Web:** the workspace-mirror worker persists the backup directly to OPFS
+and returns a `backupResult` (no envelope). When a book goes clean, the
+worker clears the OPFS file itself and returns `{ cleared: true }` with
+`clearOnMain` unset — main does nothing.
+
+**Desktop:** the backup worker is engine-less (no wasm). It serializes the
+envelope in JS and ships the finished `envelopeJson` bytes back in a
+`backupResult`; the `mirrorResultRouter` writes them through
+`DirtyBufferStore.put` (one dumb FS write via the Tauri seam). When a book
+goes clean, the worker returns `{ cleared: true, clearOnMain: true }`; the
+router calls `DirtyBufferStore.clear` on main (a worker can't `invoke`).
+
+Each book has its own clock. Sustained typing flushes at the 10 s ceiling;
+a typing pause flushes at the 500 ms idle debounce. The `writeBackup`
+command is idempotent — the mirror re-reads its own latest resident state on
+every command — so duplicate triggers from the two timers are harmless.
 
 ## The recovered-conflict tracker subscriber
 
@@ -315,7 +327,7 @@ outside the app may not have updated the manifest.
 
 | Scenario                                                 | Guarantee                                                                           |
 | -------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Sustained typing in a book                               | ≤2 s on pause; ≤30 s during continuous typing, per book.                            |
+| Sustained typing in a book                               | ≤500 ms on pause; ≤10 s during continuous typing, per book.                         |
 | Hard crash / OS kill / power loss                        | Last completed durable write per book.                                              |
 | Browser tab close (`beforeunload`)                       | Existing unsaved-changes prompt.                                                    |
 | Tauri app close                                          | Same.                                                                               |

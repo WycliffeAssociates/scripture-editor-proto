@@ -143,14 +143,14 @@
 
 - `src/core/persistence/GitProvider.ts`
 - `src/core/persistence/gitVersionUtils.ts`
-- `src/app/domain/git/gitConstants.ts`
-- `src/app/domain/git/ensureProjectGitReady.ts`
+- `src/core/persistence/gitConstants.ts`
+- `src/core/persistence/ensureProjectGitReady.ts`
 - `src/app/domain/project/savePipeline.ts` (checkpoint phase)
 - `src/web/adapters/git/WebGitProvider.ts`
 - `src/tauri/adapters/git/TauriGitProvider.ts`
 - `src/tauri/rust/src/git.rs`
 - `src/app/ui/hooks/useSave.tsx`
-- `src/app/ui/components/blocks/Toolbar.tsx`
+- `src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx`
 - `src/app/ui/components/blocks/DiffModal/DiffModal.tsx`
 - `src/app/domain/project/compare/types.ts`
 
@@ -159,4 +159,4 @@
 - `tests/unit/gitVersionUtils.test.ts`
 - `tests/unit/ensureProjectGitReady.test.ts`
 - `tests/unit/versionNavigationService.test.ts`
-- `tests/unit/webGitWriteThroughRegression.test.ts`
+- `tests/unit/webGitProvider.test.ts`

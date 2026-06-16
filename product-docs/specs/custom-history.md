@@ -56,7 +56,7 @@ HistoryManager.undo() / redo()
 applyEntry(action, direction, …)
   ├── workingFilesStore.draftWithChapters([…every chapter the entry touches…])
   ├── for each touched chapter:
-  │       canonicalSnapshotToChapterState(snapshot, currentMode)
+  │       chapter.currentTokens = canonicalSnapshotToTokens(targetSnapshot)
   │       markChapterDirty                                      // re-derives dirty flag
   ├── workingFilesStore.commit({ kind: "bulk", files: draft },
   │                            { kind: "undo" | "redo",
@@ -136,8 +136,9 @@ Undo/redo commits carry `kind: "undo"` or `kind: "redo"` in their
 
 ## Performance notes
 
-- Replay cost is dominated by `canonicalSnapshotToChapterState`
-  (re-parsing the snapshot into Lexical state). The bulk-commit itself
+- Replay cost is dominated by `canonicalSnapshotToTokens` (converting each
+  touched chapter's snapshot back to its token stream) plus the visible
+  chapter's read-time shape derivation in `setEditorContent`. The bulk-commit itself
   is O(touched chapters), and React rerender is O(touched chapters)
   because untouched chapter references are preserved.
 - Dev-only perf tracing (gated by `import.meta.env.DEV`) logs the

@@ -258,8 +258,9 @@ as thin wrappers. The shape mirrors `prettify(scope)` in
 `usePrettifyOperations`: `scope` resolves which chapters get drafted and which
 the reference is taken from up front, then a single apply loop runs through the
 `withWorkingFilesDraft` seam (draft scratch → compute the matched tokens →
-validate → commit), with the `history.runTransaction` wrapper and per-action
-report at the call site.
+validate → commit), with `history.captureHistory()` before the mutation and
+`history.recordHistory(token, { label, affected })` after commit at the call
+site.
 
 Per chapter, the apply work:
 
