@@ -22,7 +22,6 @@ import {
   fetchConsolidatedRepos,
   getZipUrl,
 } from "@/core/domain/project/import/LanguageApiImporter.ts";
-import type { ImportProgressUpdate } from "@/core/library/ImportService.ts";
 import type { ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
 
 /**
@@ -188,26 +187,20 @@ export function CreateProject() {
   };
 
   /**
-   * Drive one import action through the modal's progress phase. Success/error
-   * transitions are the caller's job (they know the right copy + actions). The
-   * progress callback is intentionally a no-op — the modal shows a plain spinner.
+   * Open the modal's importing phase, then run one import action. Success/error
+   * transitions are the caller's job (they know the right copy + actions). No
+   * progress is streamed — the modal shows a plain spinner.
    */
-  const runImportWithProgress = async <T,>(
-    run: (args: {
-      onProgress: (update: ImportProgressUpdate) => void;
-    }) => Promise<T>,
-  ): Promise<T> => {
+  const runImport = async <T,>(run: () => Promise<T>): Promise<T> => {
     setModalState({ phase: "importing" });
-    return await run({ onProgress: () => {} });
+    return await run();
   };
 
   const onDownload = async (url: string) => {
     try {
       setIsImporting(true);
-      const importedProject = await runImportWithProgress(({ onProgress }) =>
-        importController.download(url, {
-          onProgress,
-        }),
+      const importedProject = await runImport(() =>
+        importController.download(url),
       );
       showImportSuccess({
         importedProject: importedProject.project,
@@ -238,9 +231,7 @@ export function CreateProject() {
   ) => {
     try {
       setIsImporting(true);
-      const imported = await runImportWithProgress(({ onProgress }) =>
-        importController.download(url, { onProgress }),
-      );
+      const imported = await runImport(() => importController.download(url));
       setModalState({
         phase: "done",
         tone: "success",
@@ -260,10 +251,8 @@ export function CreateProject() {
   ) => {
     try {
       setIsImporting(true);
-      const importedProject = await runImportWithProgress(({ onProgress }) =>
-        importController.importDirectorySelection(event, {
-          onProgress,
-        }),
+      const importedProject = await runImport(() =>
+        importController.importDirectorySelection(event),
       );
       showImportSuccess({
         importedProject: importedProject?.project,
@@ -286,10 +275,8 @@ export function CreateProject() {
   const onOpenFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
       setIsImporting(true);
-      const importedProject = await runImportWithProgress(({ onProgress }) =>
-        importController.importZipSelection(event, {
-          onProgress,
-        }),
+      const importedProject = await runImport(() =>
+        importController.importZipSelection(event),
       );
       showImportSuccess({
         importedProject: importedProject?.project,
@@ -317,11 +304,8 @@ export function CreateProject() {
             title: t`Select folder`,
           });
           if (!selectedPath) return;
-          const importedProject = await runImportWithProgress(
-            ({ onProgress }) =>
-              importController.importNativeDirectoryPath(selectedPath, {
-                onProgress,
-              }),
+          const importedProject = await runImport(() =>
+            importController.importNativeDirectoryPath(selectedPath),
           );
           showImportSuccess({
             importedProject: importedProject.project,
@@ -350,11 +334,8 @@ export function CreateProject() {
             title: t`Select ZIP file`,
           });
           if (!selectedPath) return;
-          const importedProject = await runImportWithProgress(
-            ({ onProgress }) =>
-              importController.importNativeZipPath(selectedPath, {
-                onProgress,
-              }),
+          const importedProject = await runImport(() =>
+            importController.importNativeZipPath(selectedPath),
           );
           showImportSuccess({
             importedProject: importedProject.project,

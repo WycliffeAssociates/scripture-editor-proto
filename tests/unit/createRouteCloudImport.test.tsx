@@ -182,7 +182,7 @@ describe("CreateProject source import", () => {
 
     expect(importRemoteZip).toHaveBeenCalledWith(
       { type: "fromGitRepo", url: ZIP_URL },
-      expect.objectContaining({ onProgress: expect.any(Function) }),
+      expect.anything(),
     );
     expect(invalidate).toHaveBeenCalled();
     // Success surfaces in the import modal (portaled to the document body), not

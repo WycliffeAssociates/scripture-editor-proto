@@ -1,6 +1,6 @@
 // src/app/ui/styles/modules/Projectview.css.ts
 
-import { style } from "@vanilla-extract/css";
+import { globalStyle, style } from "@vanilla-extract/css";
 
 import { mediaQuery } from "@/app/ui/styles/breakpoints.ts";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
@@ -322,6 +322,26 @@ export const desktopContentGridDocked = style({
       transition: "max-width 220ms ease",
     },
   },
+});
+
+// Docked beside find, the editor should read as the trailing half of a single
+// flex row — not a card floating on the canvas. Fill the slot with the editor
+// surface and draw one seam between the find controls and the editor.
+globalStyle(`${desktopContentGridDocked} ${editorWrapperDesktop}`, {
+  backgroundColor: vars.color.surfacePrimary,
+  borderInlineStart: `1px solid ${vars.color.surfaceBorder}`,
+});
+
+// Drop the floating-card chrome so the white surface runs edge-to-edge. The
+// search-open top padding (which clears the full-overlay find pane) isn't
+// needed here — find sits beside, not over, the editor.
+globalStyle(`${desktopContentGridDocked} [data-form-pane="source"]`, {
+  maxWidth: "none",
+  marginInline: 0,
+  border: "none",
+  borderRadius: 0,
+  boxShadow: "none",
+  paddingTop: vars.spacing.sm,
 });
 
 export const editorMainSmall = style({

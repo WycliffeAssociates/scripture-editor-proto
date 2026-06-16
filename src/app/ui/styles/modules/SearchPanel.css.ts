@@ -203,7 +203,8 @@ export const searchPanelClose = style({
 export const searchControls = style({
   display: "flex",
   flexDirection: "column",
-  gap: vars.spacing.md,
+  // Keep the three rows (input · options · reference) as one tight cluster.
+  gap: vars.spacing.sm,
 });
 
 export const searchInputRow = style({
