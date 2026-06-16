@@ -71,6 +71,36 @@ test.describe("Project Creation Workflows", () => {
   test("directory import and language importer interactions", async ({
     page,
   }) => {
+    // The importer discovers projects from the live consolidated-repos API.
+    // Stub it so the search is deterministic (and doesn't depend on the
+    // network / the catalog actually containing Spanish entries today).
+    await page.route(/consolidated-repos/, (route) =>
+      route.fulfill({
+        json: {
+          vw_consolidated_repos: [
+            {
+              language_ietf: "es-419",
+              language_name: "español",
+              language_english_name: "Spanish",
+              repo_url: "https://content.example/es_glt",
+              repo_name: "es_glt",
+              username: "wa",
+              title: "Spanish GLT",
+            },
+            {
+              language_ietf: "es",
+              language_name: "español",
+              language_english_name: "Spanish",
+              repo_url: "https://content.example/es_gst",
+              repo_name: "es_gst",
+              username: "wa",
+              title: "Spanish GST",
+            },
+          ],
+        },
+      }),
+    );
+
     await gotoCreate(page);
     await importDirectoryProject(page, MOCK_DIRS.llxReg);
     await gotoHomeAndExpectProjectCount(page, 1);
@@ -80,11 +110,13 @@ test.describe("Project Creation Workflows", () => {
     const input = importer.locator('input[type="text"]');
 
     await input.fill("spanish");
-    const firstDataRow = importer.locator("tbody tr").first();
-    await expect(firstDataRow).toBeVisible({ timeout: 15_000 });
-    await firstDataRow.click();
-
-    await expect(firstDataRow.getByRole("button")).toBeEnabled();
+    // Results render as virtualized `div` rows (not a table); each row carries
+    // a download button. Its presence + enabled state is the actionable signal.
+    const downloadButton = importer
+      .getByTestId(TESTING_IDS.language.importerDownload)
+      .first();
+    await expect(downloadButton).toBeVisible({ timeout: 15_000 });
+    await expect(downloadButton).toBeEnabled();
 
     const clearButton = page.getByTestId(TESTING_IDS.language.importerClear);
     await expect(clearButton).toBeVisible();

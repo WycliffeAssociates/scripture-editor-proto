@@ -22,6 +22,18 @@ function collectFixpointViolations(page: Page): string[] {
   return violations;
 }
 
+// Automation presses the next key before the browser has dispatched the
+// `selectionchange` that programmatic range changes rely on — Lexical observes
+// its model selection from that event, so a key fired too soon acts on the
+// stale (click) caret. Every caret helper below sets the DOM range, dispatches
+// `selectionchange` synchronously so Lexical reads the new range immediately,
+// then waits this beat for its update cycle to settle before the test edits.
+const SELECTION_SYNC_MS = 200;
+
+async function syncCaret(page: Page) {
+  await page.waitForTimeout(SELECTION_SYNC_MS);
+}
+
 async function caretIntoVerseNumber(page: Page, verseText: string) {
   // Place the caret inside the verse-number node via the DOM (clicking a
   // superscript chip is flaky at e2e scale; the model selection is what
@@ -37,7 +49,9 @@ async function caretIntoVerseNumber(page: Page, verseText: string) {
     const selection = window.getSelection();
     selection?.removeAllRanges();
     selection?.addRange(range);
+    document.dispatchEvent(new Event("selectionchange"));
   }, verseText);
+  await syncCaret(page);
 }
 
 async function caretAfterFirstVerseProse(page: Page) {
@@ -57,7 +71,9 @@ async function caretAfterFirstVerseProse(page: Page) {
     const selection = window.getSelection();
     selection?.removeAllRanges();
     selection?.addRange(range);
+    document.dispatchEvent(new Event("selectionchange"));
   });
+  await syncCaret(page);
 }
 
 async function caretAtVerseProseStart(page: Page, verseText: string) {
@@ -79,7 +95,9 @@ async function caretAtVerseProseStart(page: Page, verseText: string) {
     const selection = window.getSelection();
     selection?.removeAllRanges();
     selection?.addRange(range);
+    document.dispatchEvent(new Event("selectionchange"));
   }, verseText);
+  await syncCaret(page);
 }
 
 test.describe("Numbered marker nodes", () => {
@@ -285,7 +303,10 @@ test.describe("Numbered marker nodes", () => {
     const before = await verseLocator.count();
 
     await caretAfterFirstVerseProse(editorPage);
-    await editorPage.getByRole("button", { name: "Verse" }).click();
+    // Marker inserts live in the toolbar overflow ("More actions") kebab: open
+    // it, then pick the "Verse" item (a menuitem, not a top-level button).
+    await editorPage.getByRole("button", { name: "More actions" }).click();
+    await editorPage.getByRole("menuitem", { name: "Verse" }).click();
 
     // A new structured verse node appears.
     await expect(verseLocator).toHaveCount(before + 1);

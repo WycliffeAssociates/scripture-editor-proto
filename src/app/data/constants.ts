@@ -40,6 +40,7 @@ export const TESTING_IDS = {
   referenceProjectClear: "reference-project-clear",
   referenceProjectItem: "reference-project-item",
   refEditorContainer: "ref-editor-container",
+  refNotesContainer: "ref-notes-container",
   referencePicker: "reference-picker",
   searchInput: "search-input",
   searchRunButton: "search-run-button",

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import * as styles from "@/app/ui/components/blocks/ReferencePanel/referencePanel.css.ts";
 import { joinClassNames } from "@/app/ui/components/primitives/classNames.ts";
 import { CloudStatusButton } from "@/app/ui/components/primitives/CloudStatusButton/CloudStatusButton.tsx";
@@ -180,6 +181,7 @@ export function ReferencePanel() {
           ref={triggerRef}
           className={styles.trigger}
           aria-label={t`Choose a reference text`}
+          data-testid={TESTING_IDS.referenceProjectTrigger}
         >
           <span className={styles.triggerLabel}>
             <Globe size={14} aria-hidden="true" />
@@ -199,6 +201,7 @@ export function ReferencePanel() {
           >
             <BasePopover.Popup
               className={styles.popup}
+              data-testid={TESTING_IDS.referenceProjectDropdown}
               style={
                 triggerDimensions.width
                   ? { width: triggerDimensions.width }
@@ -284,6 +287,7 @@ function DeviceSection(props: {
                   key={resource.projectPath}
                   className={joinClassNames(styles.row, styles.rowIndent)}
                   onClick={() => props.onSelect(resource.projectPath)}
+                  data-testid={TESTING_IDS.referenceProjectItem}
                 >
                   <span className={styles.rowIndicator}>
                     {isActive ? <Check size={14} /> : null}

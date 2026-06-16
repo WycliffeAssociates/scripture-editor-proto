@@ -9,6 +9,10 @@ import {
   openSearchPanel,
 } from "../helpers/e2e/editor.ts";
 import { expect, test } from "../helpers/e2e/fixtures.ts";
+import {
+  openReferenceProjectPicker,
+  selectReferenceProject,
+} from "../helpers/e2e/reference.ts";
 
 async function selectWordInEditor(page: Page) {
   await page.evaluate(() => {
@@ -52,42 +56,6 @@ async function waitForContextMenuSelectionHighlightCleared(page: Page) {
     const highlight = CSS.highlights.get("context-menu-selection");
     return !highlight || highlight.size === 0;
   });
-}
-
-async function ensureReferencePaneOpen(page: Page) {
-  const closeButton = page.getByRole("button", {
-    name: "Hide reference panel",
-  });
-  if (await closeButton.isVisible().catch(() => false)) return;
-  await page.getByRole("button", { name: "Open reference panel" }).click();
-}
-
-async function openReferenceProjectPicker(page: Page) {
-  // The reference resource picker only renders inside the reference pane;
-  // open the pane before reaching for the combobox. The Base UI Combobox.Trigger
-  // exposes role="combobox" (not "button") on its trigger element.
-  await ensureReferencePaneOpen(page);
-  await page
-    .getByRole("combobox", { name: "Select reference resource" })
-    .click();
-  const dropdown = page.getByRole("listbox");
-  await dropdown.waitFor({ state: "visible" });
-  return dropdown;
-}
-
-async function selectReferenceProject(page: Page) {
-  const dropdown = await openReferenceProjectPicker(page);
-  const items = dropdown.getByRole("option");
-  const count = await items.count();
-
-  for (let index = 0; index < count; index += 1) {
-    const item = items.nth(index);
-    if (await item.isDisabled()) continue;
-    await item.click();
-    return;
-  }
-
-  throw new Error("No selectable reference resource was available");
 }
 
 test.describe("Editor llx-reg", () => {
@@ -241,9 +209,9 @@ test.describe("Reference Project Selection", () => {
     editorWithTwoProjects: page,
   }) => {
     // With two projects imported, the reference resource picker should
-    // list at least both projects as selectable resources.
+    // list at least both projects as selectable on-device resources.
     const dropdown = await openReferenceProjectPicker(page);
-    const items = dropdown.getByRole("option");
+    const items = dropdown.getByTestId(TESTING_IDS.referenceProjectItem);
     expect(await items.count()).toBeGreaterThanOrEqual(2);
   });
   test("selecting reference project shows read-only content in reference editor", async ({

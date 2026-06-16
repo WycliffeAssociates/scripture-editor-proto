@@ -66,6 +66,7 @@ function TranslationNotesReferencePane() {
       <div
         className={shellStyles.referenceEditorOuter}
         data-js={DATA_JS.referenceEditorScrollContainer}
+        data-testid={TESTING_IDS.refNotesContainer}
       >
         {translationNotesQuery.isLoading ? (
           <ReferenceLoadingState

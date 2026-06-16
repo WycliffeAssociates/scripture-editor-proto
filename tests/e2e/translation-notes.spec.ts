@@ -6,6 +6,7 @@ import {
   importDirectoryProject,
   MOCK_DIRS,
 } from "../helpers/e2e/project-import.ts";
+import { selectReferenceProject } from "../helpers/e2e/reference.ts";
 
 test.describe("Translation Notes import verification", () => {
   test("web import surfaces progress and the packed TN resource is usable in the reference panel", async ({
@@ -26,42 +27,17 @@ test.describe("Translation Notes import verification", () => {
       page.getByTestId(TESTING_IDS.mainEditorContainer),
     ).toBeVisible();
 
-    // Open the reference pane and pick the TN resource via the combobox.
-    const referenceToggle = page.getByRole("button", {
-      name: "Open reference panel",
-    });
-    if (await referenceToggle.isVisible().catch(() => false)) {
-      await referenceToggle.click();
-    }
-    await page
-      .getByRole("combobox", { name: "Select reference resource" })
-      .click();
-    // Pick any non-default reference option — the imported TN resource is
-    // surfaced under whatever displayName the metadata provides (it is no
-    // longer guaranteed to contain the literal "Translation Notes" text).
-    const options = page.getByRole("option");
-    await options.first().waitFor({ state: "visible" });
-    const optionCount = await options.count();
-    let selected = false;
-    for (let i = 0; i < optionCount; i += 1) {
-      const opt = options.nth(i);
-      const text = (await opt.textContent()) ?? "";
-      if (!/^\s*(None|Select)/i.test(text.trim())) {
-        await opt.click();
-        selected = true;
-        break;
-      }
-    }
-    if (!selected && optionCount > 0) {
-      await options.first().click();
-    }
+    // Open the reference pane and pick the imported TN resource. It is
+    // surfaced as an on-device resource under whatever displayName the
+    // metadata provides (no longer guaranteed to contain "Translation Notes").
+    await selectReferenceProject(page);
 
-    // The reference editor renders content. Previously this asserted on
-    // specific TN strings after navigating to LUK 22 via a picker search
-    // input that no longer exists; the user-visible contract is that the
-    // TN resource is available and renders into the reference column.
-    await expect(page.getByTestId(TESTING_IDS.refEditorContainer)).toBeAttached(
-      { timeout: 30_000 },
-    );
+    // The user-visible contract is that the TN resource is available and
+    // renders into the reference column. A translationNotes resource mounts
+    // the dedicated notes pane (not the scripture ref editor), so assert that
+    // pane attaches.
+    await expect(page.getByTestId(TESTING_IDS.refNotesContainer)).toBeAttached({
+      timeout: 30_000,
+    });
   });
 });
