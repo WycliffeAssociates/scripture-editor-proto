@@ -190,6 +190,8 @@ export function useProjectSearch({
     replaceCurrentMatch: replace.replaceCurrentMatch,
     replaceSearchResult: replace.replaceSearchResult,
     replaceMatch: replace.replaceMatch,
+    stepActiveMatch: navigation.stepActiveMatch,
+    activeMatchOccurrence: navigation.activeMatchOccurrence,
     rerunForCurrentChapter: execution.rerunForCurrentChapter,
     currentMatches: navigation.currentMatches,
     currentMatchIndex: navigation.currentMatchIndex,

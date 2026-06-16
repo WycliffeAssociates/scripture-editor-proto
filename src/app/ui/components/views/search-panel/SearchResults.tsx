@@ -124,8 +124,14 @@ export function SearchResults() {
   const isGroupedMode = groupedItems.length > 0;
 
   const handleReplace = useCallback(
-    async (target: SearchResult, replacement: string) => {
-      await search.replaceSearchResult(target, replacement);
+    async (target: SearchResult, replacement: string, isActive: boolean) => {
+      // The active row may have cycled to a later occurrence — replace exactly
+      // that one. Other rows replace their (first) match by picking it first.
+      if (isActive) {
+        await search.replaceCurrentMatch(replacement);
+      } else {
+        await search.replaceSearchResult(target, replacement);
+      }
     },
     [search],
   );
@@ -221,6 +227,12 @@ export function SearchResults() {
               })}
               sourceProjectName={sourceProjectName}
               currentProjectName={currentProjectName}
+              occurrence={
+                resolveIsActive(search.pickedResult, result, groupedItem)
+                  ? search.activeMatchOccurrence
+                  : null
+              }
+              onStep={search.stepActiveMatch}
               onPick={(pick) => {
                 search.pickSearchResult(pick);
                 search.setIsSearchPaneOpen(false);
@@ -273,8 +285,14 @@ function SearchResultRow(props: {
   localizedBookName: string;
   sourceProjectName: string;
   currentProjectName: string;
+  occurrence: { count: number; position: number } | null;
+  onStep: (direction: "next" | "prev") => void;
   onPick: (pick: SearchResult) => void;
-  onReplace: (target: SearchResult, replacement: string) => Promise<void>;
+  onReplace: (
+    target: SearchResult,
+    replacement: string,
+    isActive: boolean,
+  ) => Promise<void>;
 }) {
   const { groupedItem, result } = props;
   return (
@@ -299,8 +317,14 @@ function SearchResultRow(props: {
         targetResult={groupedItem?.targetResult}
         canReplace={props.canReplace}
         defaultReplaceTerm={props.defaultReplaceTerm}
+        occurrence={props.occurrence}
+        onStep={props.onStep}
         onReplace={(replacement) =>
-          props.onReplace(groupedItem?.targetResult ?? result, replacement)
+          props.onReplace(
+            groupedItem?.targetResult ?? result,
+            replacement,
+            props.isActive,
+          )
         }
       />
     </div>

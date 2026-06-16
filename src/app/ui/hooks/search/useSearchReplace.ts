@@ -191,92 +191,98 @@ export function useSearchReplace({
     ],
   );
 
-  const replaceCurrentMatch = useCallback(async () => {
-    if (searchReference) return;
-    if (currentMatches.length === 0 || !pickedResult || !replaceTerm) return;
-    if (pickedResult.source === "reference") return;
-    const editor = editorRef.current;
-    if (!editor) return;
+  const replaceCurrentMatch = useCallback(
+    async (replacementOverride?: string) => {
+      if (searchReference) return;
+      // Per-result rows pass their own input; the standalone control falls back
+      // to the shared replace term.
+      const replacement = (replacementOverride ?? replaceTerm).trim();
+      if (currentMatches.length === 0 || !pickedResult || !replacement) return;
+      if (pickedResult.source === "reference") return;
+      const editor = editorRef.current;
+      if (!editor) return;
 
-    const currentMatch = currentMatches[currentMatchIndex];
-    if (!currentMatch) return;
+      const currentMatch = currentMatches[currentMatchIndex];
+      if (!currentMatch) return;
 
-    history.setNextTypingLabel("Replace (Current Match)");
-    editor.update(
-      () => {
-        const node = currentMatch.node;
-        if (!$isUSFMTextNode(node)) return;
+      history.setNextTypingLabel("Replace (Current Match)");
+      editor.update(
+        () => {
+          const node = currentMatch.node;
+          if (!$isUSFMTextNode(node)) return;
 
-        const text = node.getTextContent();
-        const newText = replaceInNodeText({
-          text,
-          start: currentMatch.start,
-          end: currentMatch.end,
-          replacement: replaceTerm,
-        });
+          const text = node.getTextContent();
+          const newText = replaceInNodeText({
+            text,
+            start: currentMatch.start,
+            end: currentMatch.end,
+            replacement,
+          });
 
-        node.setTextContent(newText);
-      },
-      { discrete: true },
-    );
-
-    if (!searchTerm.trim()) return;
-
-    const previousIndex = currentMatchIndex;
-    const rerunResult = await runSearchLogic(searchTerm, {
-      autoPick: false,
-      scope: "currentChapter",
-    });
-    if (!rerunResult) return;
-
-    const { searchMatches, sortedResults } = rerunResult;
-    if (searchMatches.length === 0) {
-      setPickedResult(null);
-      return;
-    }
-
-    const nextIndex = Math.min(previousIndex, searchMatches.length - 1);
-    const nextActiveMatch = searchMatches[nextIndex];
-    if (!nextActiveMatch) return;
-
-    setCurrentMatchIndex(nextIndex);
-
-    if (editorRef.current) {
-      searchHighlightStore.set([
-        {
-          editor: editorRef.current,
-          matches: searchMatches,
-          activeMatch: nextActiveMatch,
+          node.setTextContent(newText);
         },
-      ]);
-      scrollToActiveMatchInEditor(editorRef.current, nextActiveMatch);
-    }
+        { discrete: true },
+      );
 
-    const nextResult = sortedResults.find(
-      (r) =>
-        r.source === "target" &&
-        r.sid === nextActiveMatch.sid &&
-        r.sidOccurrenceIndex === nextActiveMatch.sidOccurrenceIndex &&
-        r.bibleIdentifier === pickedFile.bookCode &&
-        r.chapNum === pickedChapter?.chapterNumber,
-    );
-    setPickedResult(nextResult ?? null);
-  }, [
-    currentMatchIndex,
-    currentMatches,
-    editorRef,
-    history,
-    pickedChapter?.chapterNumber,
-    pickedFile.bookCode,
-    pickedResult,
-    replaceTerm,
-    runSearchLogic,
-    searchHighlightStore,
-    searchReference,
-    searchTerm,
-    setCurrentMatchIndex,
-    setPickedResult,
-  ]);
+      if (!searchTerm.trim()) return;
+
+      const previousIndex = currentMatchIndex;
+      const rerunResult = await runSearchLogic(searchTerm, {
+        autoPick: false,
+        scope: "currentChapter",
+      });
+      if (!rerunResult) return;
+
+      const { searchMatches, sortedResults } = rerunResult;
+      if (searchMatches.length === 0) {
+        setPickedResult(null);
+        return;
+      }
+
+      const nextIndex = Math.min(previousIndex, searchMatches.length - 1);
+      const nextActiveMatch = searchMatches[nextIndex];
+      if (!nextActiveMatch) return;
+
+      setCurrentMatchIndex(nextIndex);
+
+      if (editorRef.current) {
+        searchHighlightStore.set([
+          {
+            editor: editorRef.current,
+            matches: searchMatches,
+            activeMatch: nextActiveMatch,
+          },
+        ]);
+        scrollToActiveMatchInEditor(editorRef.current, nextActiveMatch);
+      }
+
+      const nextResult = sortedResults.find(
+        (r) =>
+          r.source === "target" &&
+          r.sid === nextActiveMatch.sid &&
+          r.sidOccurrenceIndex === nextActiveMatch.sidOccurrenceIndex &&
+          r.bibleIdentifier === pickedFile.bookCode &&
+          r.chapNum === pickedChapter?.chapterNumber,
+      );
+      setPickedResult(nextResult ?? null);
+    },
+    [
+      currentMatchIndex,
+      currentMatches,
+      editorRef,
+      history,
+      pickedChapter?.chapterNumber,
+      pickedFile.bookCode,
+      pickedResult,
+      replaceTerm,
+      runSearchLogic,
+      searchHighlightStore,
+      searchReference,
+      searchTerm,
+      setCurrentMatchIndex,
+      setPickedResult,
+    ],
+  );
 
   const replaceSearchResult = useCallback(
     async (result: SearchResult, replacement: string) => {

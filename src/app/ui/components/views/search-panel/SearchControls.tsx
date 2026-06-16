@@ -16,7 +16,6 @@ import {
   type SelectItem,
   SelectPrimitive,
 } from "@/app/ui/components/primitives/Select/Select.tsx";
-import { Switch } from "@/app/ui/components/primitives/Switch/Switch.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/SearchPanel.css.ts";
 import type { ResourceLibraryItem } from "@/core/library/ProjectIndex.ts";
@@ -31,7 +30,6 @@ interface SearchControlsProps {
 
 export function SearchControls({ portalContainer }: SearchControlsProps = {}) {
   const { search, referenceResource, loadedProject } = useWorkspaceContext();
-  const { t } = useLingui();
   const [
     isSwitchingReferenceSearchSource,
     setIsSwitchingReferenceSearchSource,
@@ -63,10 +61,6 @@ export function SearchControls({ portalContainer }: SearchControlsProps = {}) {
 
   const hasDisplayReference =
     selectedReferenceDisplaySource !== NO_REFERENCE_VALUE;
-  const selectedReferenceLabel =
-    searchableReferenceResources.find(
-      (resource) => resource.projectPath === selectedReferenceDisplaySource,
-    )?.displayName || t`Selected reference`;
 
   const handleSelectReferenceSource = async (value: string | null) => {
     if (!value || value === NO_REFERENCE_VALUE) {
@@ -137,8 +131,6 @@ export function SearchControls({ portalContainer }: SearchControlsProps = {}) {
           {hasDisplayReference ? (
             <SearchScopeToggle
               checked={search.searchReference}
-              referenceLabel={selectedReferenceLabel}
-              currentLabel={t`Current`}
               onChange={handleToggleSearchScope}
             />
           ) : null}
@@ -298,26 +290,24 @@ function ReferenceSourceSelector(props: {
 
 function SearchScopeToggle(props: {
   checked: boolean;
-  referenceLabel: string;
-  currentLabel: string;
   onChange: (checked: boolean) => Promise<void>;
 }) {
   const { t } = useLingui();
+  // Checked = searching the reference/source text; unchecked = your own project.
+  // The label stays deliberately simple ("source text") even though the reference
+  // pane can hold other material — the PO chose plainness over precision here.
+  const label = props.checked ? t`Search source text` : t`Search your project`;
   return (
-    <div className={styles.searchModeField}>
-      <span className={styles.searchModeFieldLabel}>
-        <Trans>Search in</Trans>
-      </span>
-      <Switch
-        className={styles.searchScopeSwitch}
-        checked={props.checked}
-        onCheckedChange={(checked) => {
-          void props.onChange(Boolean(checked));
-        }}
-        label={props.checked ? props.referenceLabel : props.currentLabel}
-        aria-label={t`Search in`}
-      />
-    </div>
+    <ToggleButton
+      active={props.checked}
+      onClick={() => {
+        void props.onChange(!props.checked);
+      }}
+      icon={<Search size={12} />}
+      label={label}
+      visualLabel={label}
+      testId={TESTING_IDS.searchScopeToggle}
+    />
   );
 }
 

@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 
 import { TESTING_IDS } from "@/app/data/constants.ts";
@@ -22,6 +22,12 @@ interface SearchResultItemProps {
   canReplace?: boolean;
   defaultReplaceTerm?: string;
   onReplace?: (replacement: string) => Promise<void> | void;
+  /**
+   * Occurrence cursor for this verse, present only on the active row when the
+   * verse holds more than one match. Drives the header stepper.
+   */
+  occurrence?: { count: number; position: number } | null;
+  onStep?: (direction: "next" | "prev") => void;
 }
 
 export function SearchResultItem(props: SearchResultItemProps) {
@@ -39,6 +45,8 @@ export function SearchResultItem(props: SearchResultItemProps) {
     canReplace = false,
     defaultReplaceTerm = "",
     onReplace,
+    occurrence,
+    onStep,
   } = props;
   const { t } = useLingui();
   const [replacement, setReplacement] = useState(defaultReplaceTerm);
@@ -93,6 +101,10 @@ export function SearchResultItem(props: SearchResultItemProps) {
         locationLabel={locationLabel}
         onPick={onPick}
         navigateLabel={t`Navigate to ${locationLabel}`}
+        occurrence={occurrence}
+        onStep={onStep}
+        prevLabel={t`Previous match in this verse`}
+        nextLabel={t`Next match in this verse`}
       />
       <PreviewSurface onPick={onPick}>
         {isGrouped ? (
@@ -127,10 +139,25 @@ function ResultHeader(props: {
   locationLabel: string;
   navigateLabel: string;
   onPick: () => void;
+  occurrence?: { count: number; position: number } | null;
+  onStep?: (direction: "next" | "prev") => void;
+  prevLabel: string;
+  nextLabel: string;
 }) {
+  const showStepper = Boolean(
+    props.occurrence && props.occurrence.count > 1 && props.onStep,
+  );
   return (
     <div className={styles.searchResultHeader}>
       <span className={styles.searchResultLocation}>{props.locationLabel}</span>
+      {showStepper && props.occurrence ? (
+        <OccurrenceStepper
+          occurrence={props.occurrence}
+          onStep={props.onStep}
+          prevLabel={props.prevLabel}
+          nextLabel={props.nextLabel}
+        />
+      ) : null}
       <button
         type="button"
         className={styles.searchResultNavigate}
@@ -139,6 +166,44 @@ function ResultHeader(props: {
         title={props.navigateLabel}
       >
         <ArrowRight size={14} />
+      </button>
+    </div>
+  );
+}
+
+function OccurrenceStepper(props: {
+  occurrence: { count: number; position: number };
+  onStep?: (direction: "next" | "prev") => void;
+  prevLabel: string;
+  nextLabel: string;
+}) {
+  const { count, position } = props.occurrence;
+  return (
+    <div className={styles.occurrenceStepper}>
+      <button
+        type="button"
+        className={styles.occurrenceStepButton}
+        data-testid={TESTING_IDS.searchPrevButton}
+        onClick={() => props.onStep?.("prev")}
+        disabled={position <= 0}
+        aria-label={props.prevLabel}
+        title={props.prevLabel}
+      >
+        <ChevronLeft size={12} />
+      </button>
+      <span className={styles.occurrenceCount}>
+        {position + 1}/{count}
+      </span>
+      <button
+        type="button"
+        className={styles.occurrenceStepButton}
+        data-testid={TESTING_IDS.searchNextButton}
+        onClick={() => props.onStep?.("next")}
+        disabled={position >= count - 1}
+        aria-label={props.nextLabel}
+        title={props.nextLabel}
+      >
+        <ChevronRight size={12} />
       </button>
     </div>
   );
@@ -301,10 +366,10 @@ function ReplaceControls(props: {
           type="submit"
           className={styles.searchResultReplaceButton}
           disabled={props.isReplacing || !props.replacement.trim()}
-          aria-label={t`Replace next match`}
-          title={t`Replace next match`}
+          aria-label={t`Replace this match`}
+          title={t`Replace this match`}
         >
-          <Trans>Replace next</Trans>
+          <Trans>Replace</Trans>
         </button>
       </div>
     </form>

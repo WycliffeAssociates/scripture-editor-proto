@@ -400,11 +400,6 @@ export const searchModeFieldLabel = style({
   pointerEvents: "none",
 });
 
-export const searchScopeSwitch = style({
-  minHeight: controlRibbonHeight,
-  alignItems: "center",
-});
-
 export const searchModeLabel = style({
   fontSize: vars.typography.bodySmallest.fontSize,
   fontWeight: 600,
@@ -617,6 +612,47 @@ export const searchResultNavigate = style({
       color: vars.color.brandBase,
     },
   },
+});
+
+// Per-verse occurrence cursor on the active row: ‹ 2/3 ›. Clusters with the
+// navigate button on the trailing edge.
+export const occurrenceStepper = style({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.125rem",
+  marginInlineStart: "auto",
+  marginInlineEnd: vars.spacing.xs,
+});
+
+export const occurrenceStepButton = style({
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "1.25rem",
+  height: "1.25rem",
+  border: "none",
+  borderRadius: vars.border.radius.sm,
+  backgroundColor: "transparent",
+  color: vars.color.onSurfaceSecondary,
+  cursor: "pointer",
+  selectors: {
+    "&:hover:not(:disabled)": {
+      backgroundColor: vars.color.surfaceSecondary,
+      color: vars.color.brandBase,
+    },
+    "&:disabled": {
+      opacity: 0.35,
+      cursor: "default",
+    },
+  },
+});
+
+export const occurrenceCount = style({
+  fontSize: vars.typography.bodySmallest.fontSize,
+  fontVariantNumeric: "tabular-nums",
+  color: vars.color.onSurfaceSecondary,
+  minWidth: "2.25rem",
+  textAlign: "center",
 });
 
 export const searchResultPreview = style({

@@ -60,6 +60,7 @@ export const TESTING_IDS = {
   searchInlineReplaceTrigger: "search-inline-replace-trigger",
   searchInlineReplaceButton: "search-inline-replace-button",
   searchReferenceToggle: "search-reference-toggle",
+  searchScopeToggle: "search-scope-toggle",
   searchResetPositionButton: "search-reset-position-button",
   searchPopoverHeader: "search-popover-header",
   searchResizeHandle: "search-resize-handle",
