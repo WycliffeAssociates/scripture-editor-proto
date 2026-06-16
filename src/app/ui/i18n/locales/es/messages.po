@@ -307,7 +307,7 @@ msgstr "Agregar línea abajo"
 msgid "Add required space after {marker}"
 msgstr "Agregar espacio obligatorio después de {marker}"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:295
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:298
 msgid "Added"
 msgstr ""
 
@@ -416,7 +416,7 @@ msgstr "Aceptar automáticamente mi trabajo al guardar"
 msgid "Autofix applied for {localizedFixLabel}"
 msgstr "Corrección automática aplicada para {localizedFixLabel}"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:287
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:290
 msgid "Available to add"
 msgstr ""
 
@@ -514,7 +514,7 @@ msgstr ""
 msgid "Cancel"
 msgstr "Cancelar"
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:199
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:127
 msgid "Case"
 msgstr "Mayúsculas/Minúsculas"
 
@@ -631,7 +631,7 @@ msgstr "Comprobando…"
 msgid "Choose a chapter"
 msgstr "Elegir un capítulo"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:228
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:230
 msgid "Choose a reference text"
 msgstr ""
 
@@ -928,7 +928,7 @@ msgstr ""
 msgid "Couldn't find a public repository at this link."
 msgstr ""
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:297
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:300
 msgid "Couldn't load the catalog."
 msgstr ""
 
@@ -1028,7 +1028,7 @@ msgstr "Cortar"
 msgid "Dark"
 msgstr "Oscuro"
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:246
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:174
 msgid "Default replace term"
 msgstr "Término de reemplazo predeterminado"
 
@@ -1080,15 +1080,15 @@ msgstr "Resumen de diferencias"
 msgid "Directory imported successfully!"
 msgstr "¡Directorio importado con éxito!"
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:207
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:135
 msgid "Disable match case"
 msgstr "Desactivar coincidencia de mayúsculas"
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:224
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:152
 msgid "Disable USFM markers"
 msgstr "Desactivar marcadores USFM"
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:215
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:143
 msgid "Disable whole word"
 msgstr "Desactivar palabra completa"
 
@@ -1338,7 +1338,7 @@ msgstr "Se encontró \\* sin ningún hito abierto que cerrar."
 msgid "From my cloud projects"
 msgstr "De mis proyectos de nube"
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:197
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:125
 msgid "Group case mismatches"
 msgstr "Agrupar desajustes de mayúsculas"
 
@@ -1405,7 +1405,7 @@ msgid "In {0} {1}"
 msgstr "En {0} {1}"
 
 #: src/app/ui/components/blocks/DiffModal/PrintChangesButton.tsx:267
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:224
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:152
 msgid "Include USFM markers"
 msgstr "Incluir marcadores USFM"
 
@@ -1472,7 +1472,7 @@ msgid "Intro"
 msgstr "Introducción"
 
 #: src/app/ui/components/blocks/DiffModal/chapterOptions.ts:59
-#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:57
+#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:59
 #: src/app/ui/hooks/useNavigation.tsx:115
 #: src/app/ui/hooks/useNavigation.tsx:150
 msgid "Introduction"
@@ -1542,15 +1542,15 @@ msgid "Load more"
 msgstr "Cargar más"
 
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:319
-msgid "Loading"
-msgstr "Cargando"
+#~ msgid "Loading"
+#~ msgstr "Cargando"
 
 #. placeholder {0}: activeReferenceResource.displayName
 #: src/app/ui/components/blocks/ReferenceEditor.tsx:244
 msgid "Loading {0}…"
 msgstr ""
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:296
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:299
 msgid "Loading catalog…"
 msgstr ""
 
@@ -1591,7 +1591,7 @@ msgid "Loading..."
 msgstr "Cargando..."
 
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:204
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:219
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:221
 msgid "Loading…"
 msgstr "Cargando…"
 
@@ -1652,11 +1652,11 @@ msgstr ""
 msgid "Marker"
 msgstr "Marcador"
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:207
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:135
 msgid "Match case"
 msgstr "Coincidir mayúsculas"
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:208
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:136
 msgid "Match Case"
 msgstr "Coincidir mayúsculas/minúsculas"
 
@@ -1687,7 +1687,7 @@ msgstr "Igualar formato puede reemplazar los marcadores de párrafo y poesía en
 msgid "Match formatting to source"
 msgstr "Igualar formato al origen"
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:216
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:144
 msgid "Match Word"
 msgstr "Palabra completa"
 
@@ -1719,7 +1719,7 @@ msgstr "La mayoría de los proyectos deben seguir en UTF-8. Cambia esto solo "
 msgid "Multiple spaces or a stray tab here — collapse to a single space."
 msgstr "Varios espacios o una tabulación aquí: contraer a un solo espacio."
 
-#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:103
+#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:108
 msgid "Navigate to {locationLabel}"
 msgstr "Navegar a {locationLabel}"
 
@@ -1748,11 +1748,11 @@ msgstr "Nuevo proyecto"
 msgid "Next chapter"
 msgstr "Capítulo siguiente"
 
-#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:107
+#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:112
 msgid "Next match in this verse"
 msgstr ""
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:298
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:301
 msgid "No catalog matches."
 msgstr ""
 
@@ -1794,7 +1794,7 @@ msgstr "Ningún problema coincide con este filtro"
 msgid "No linked cloud projects matched this search."
 msgstr "Ningún proyecto en la nube vinculado coincidió con esta búsqueda."
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:281
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:283
 msgid "No matches on this device."
 msgstr ""
 
@@ -1814,7 +1814,7 @@ msgstr ""
 msgid "No projects yet"
 msgstr "No hay proyectos aún"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:282
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:284
 msgid "No reference texts yet."
 msgstr ""
 
@@ -1862,7 +1862,6 @@ msgid "No version selected"
 msgstr "No se seleccionó versión"
 
 #: src/app/ui/components/blocks/FindingsPopover.tsx:71
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:272
 msgid "None"
 msgstr "Ninguno"
 
@@ -1878,7 +1877,7 @@ msgstr "No conectado"
 msgid "Note"
 msgstr "Nota"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:277
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:279
 msgid "Notes"
 msgstr ""
 
@@ -1902,7 +1901,7 @@ msgstr ""
 msgid "Offline"
 msgstr "Sin conexión"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:278
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:280
 msgid "On this device"
 msgstr ""
 
@@ -2053,7 +2052,7 @@ msgstr ""
 msgid "Previous chapter"
 msgstr "Capítulo anterior"
 
-#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:106
+#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:111
 msgid "Previous match in this verse"
 msgstr ""
 
@@ -2189,6 +2188,10 @@ msgstr "Rehacer"
 msgid "Redo — {redoLabel}"
 msgstr "Rehacer — {redoLabel}"
 
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:58
+msgid "Reference"
+msgstr ""
+
 #: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:178
 msgid "Reference is loading"
 msgstr "Cargando referencia"
@@ -2244,11 +2247,11 @@ msgstr ""
 msgid "Remove paragraph"
 msgstr "Eliminar párrafo"
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:196
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:124
 msgid "Remove sort"
 msgstr "Quitar orden"
 
-#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:372
+#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:392
 msgid "Replace"
 msgstr ""
 
@@ -2261,12 +2264,12 @@ msgstr ""
 #~ msgid "Replace next match"
 #~ msgstr "Reemplazar siguiente coincidencia"
 
-#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:369
-#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:370
+#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:389
+#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:390
 msgid "Replace this match"
 msgstr ""
 
-#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:362
+#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:382
 msgid "Replace with..."
 msgstr "Reemplazar con..."
 
@@ -2321,8 +2324,8 @@ msgstr "Revisar metadatos"
 msgid "Revision mode"
 msgstr ""
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:171
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:172
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:99
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:100
 msgid "Run search"
 msgstr "Ejecutar búsqueda"
 
@@ -2385,7 +2388,7 @@ msgstr ""
 msgid "Scope"
 msgstr "Ámbito"
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:164
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:92
 #: src/app/ui/components/views/search-panel/SearchPanel.tsx:46
 msgid "Search"
 msgstr "Buscar"
@@ -2447,21 +2450,25 @@ msgstr ""
 #~ msgid "Search reference resources"
 #~ msgstr "Buscar recursos de referencia"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:268
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:270
 msgid "Search references"
 msgstr "Buscar referencias"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:267
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:269
 msgid "Search references…"
 msgstr ""
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:299
-msgid "Search source text"
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:202
+msgid "Search scope"
 msgstr ""
 
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:299
-msgid "Search your project"
-msgstr ""
+#~ msgid "Search source text"
+#~ msgstr ""
+
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:299
+#~ msgid "Search your project"
+#~ msgstr ""
 
 #. placeholder {0}: search.searchTerm
 #: src/app/ui/components/views/search-panel/SearchResults.tsx:162
@@ -2472,6 +2479,14 @@ msgstr "Buscando <0>{0}</0>..."
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:714
 msgid "Searching linked cloud projects..."
 msgstr "Buscando proyectos en la nube vinculados..."
+
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:189
+msgid "Searching source"
+msgstr ""
+
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:189
+msgid "Searching your project"
+msgstr ""
 
 #: src/app/ui/components/blocks/FormBlockCard.tsx:280
 msgid "Section heading"
@@ -2497,7 +2512,7 @@ msgstr "Título de sección 4"
 msgid "Select a checkpoint"
 msgstr ""
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:220
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:222
 msgid "Select a reference"
 msgstr ""
 
@@ -2657,8 +2672,8 @@ msgstr ""
 
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:266
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:276
-msgid "Show reference"
-msgstr "Mostrar referencia"
+#~ msgid "Show reference"
+#~ msgstr "Mostrar referencia"
 
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:223
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:228
@@ -3113,16 +3128,20 @@ msgstr ""
 #~ "nube."
 
 #: src/app/ui/components/blocks/FindingsPopover.tsx:207
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:226
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:154
 msgid "USFM"
 msgstr "USFM"
 
 #: src/app/ui/components/blocks/ReferenceEditor.tsx:196
-msgid "USFM Editor"
-msgstr "Editor USFM"
+#~ msgid "USFM Editor"
+#~ msgstr "Editor USFM"
 
 #: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:38
 msgid "USFM mode"
+msgstr ""
+
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:196
+msgid "USFM Reference Editor"
 msgstr ""
 
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:296
@@ -3159,7 +3178,7 @@ msgstr "El versículo {verse} aparece más de una vez en el capítulo {chapter}.
 msgid "Verse marker \\v appears before the first \\c."
 msgstr "El marcador de versículo \\v aparece antes del primer \\c."
 
-#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:60
+#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:62
 msgid "Verse not available in this text"
 msgstr "Verso no disponible en este texto"
 
@@ -3198,7 +3217,7 @@ msgstr "Solo espacios en blanco"
 msgid "Whole project"
 msgstr "Proyecto completo"
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:215
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:143
 msgid "Whole word"
 msgstr "Palabra completa"
 

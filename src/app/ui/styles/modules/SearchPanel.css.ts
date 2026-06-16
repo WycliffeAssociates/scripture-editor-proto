@@ -1,4 +1,4 @@
-import { globalStyle, keyframes, style } from "@vanilla-extract/css";
+import { style } from "@vanilla-extract/css";
 
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
 
@@ -320,14 +320,32 @@ export const searchToggles = style({
   minWidth: 0,
 });
 
-export const searchInlineControls = style({
-  display: "inline-flex",
-  alignItems: "flex-end",
-  gap: vars.spacing.xs,
-  flexWrap: "nowrap",
+// Row 3: the reference picker + scope switch on their own line so the toggle
+// row above isn't crammed.
+export const searchReferenceRow = style({
+  display: "flex",
+  alignItems: "center",
+  gap: vars.spacing.sm,
+  flexWrap: "wrap",
   minWidth: 0,
-  marginLeft: "auto",
-  flexShrink: 0,
+});
+
+export const searchReferenceLabel = style({
+  fontSize: vars.typography.bodySmallest.fontSize,
+  fontWeight: 600,
+  color: vars.color.onSurfaceSecondary,
+  whiteSpace: "nowrap",
+});
+
+export const searchScopeField = style({
+  display: "inline-flex",
+  alignItems: "center",
+  minWidth: 0,
+});
+
+export const searchScopeSwitch = style({
+  minHeight: controlRibbonHeight,
+  alignItems: "center",
 });
 
 export const toggleButton = style({
@@ -400,111 +418,6 @@ export const searchReplaceRow = style({
   flexWrap: "nowrap",
   minWidth: 0,
   flexShrink: 0,
-});
-
-export const searchModeRow = style({
-  display: "flex",
-  alignItems: "flex-end",
-  gap: vars.spacing.xs,
-  flexWrap: "nowrap",
-  minWidth: 0,
-});
-
-export const searchModeField = style({
-  position: "relative",
-  display: "inline-flex",
-  alignItems: "flex-end",
-  minWidth: 0,
-});
-
-export const searchModeFieldLabel = style({
-  fontSize: "0.65rem",
-  lineHeight: 1,
-  fontWeight: 600,
-  color: vars.color.onSurfaceTertiary,
-  textTransform: "uppercase",
-  letterSpacing: "0.02em",
-  position: "absolute",
-  left: "0.4rem",
-  top: "-0.55rem",
-  backgroundColor: vars.color.surfacePrimary,
-  padding: "0 0.15rem",
-  pointerEvents: "none",
-});
-
-export const searchModeLabel = style({
-  fontSize: vars.typography.bodySmallest.fontSize,
-  fontWeight: 600,
-  color: vars.color.onSurfaceSecondary,
-  whiteSpace: "nowrap",
-});
-
-export const searchModeSelect = style({
-  width: "10rem",
-  minWidth: "10rem",
-  height: controlRibbonHeight,
-  minHeight: controlRibbonHeight,
-  padding: `0 ${vars.spacing.xs}`,
-  borderRadius: vars.border.radius.sm,
-  gap: "0.2rem",
-  boxSizing: "border-box",
-});
-
-export const searchModeSelectList = style({
-  maxHeight: "20rem",
-  overflowY: "auto",
-});
-
-export const searchModeLoading = style({
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "0.25rem",
-  fontSize: vars.typography.bodySmallest.fontSize,
-  color: vars.color.onSurfaceSecondary,
-});
-
-const searchModeSpin = keyframes({
-  from: { transform: "rotate(0deg)" },
-  to: { transform: "rotate(360deg)" },
-});
-
-export const searchModeLoadingIcon = style({
-  animation: `${searchModeSpin} 0.9s linear infinite`,
-});
-
-globalStyle(`${searchModeSelect}[data-scope="select"][data-part="trigger"]`, {
-  height: controlRibbonHeight,
-  minHeight: controlRibbonHeight,
-  boxSizing: "border-box",
-  borderRadius: vars.border.radius.md,
-  border: `1px solid ${vars.color.surfaceBorder}`,
-  backgroundColor: vars.color.surfacePrimary,
-  padding: `0 ${vars.spacing.sm}`,
-});
-
-globalStyle(
-  `${searchModeSelect}[data-scope="select"][data-part="trigger"] [data-scope="select"][data-part="value"]`,
-  {
-    fontSize: vars.typography.bodySmallest.fontSize,
-    fontWeight: 500,
-  },
-);
-
-globalStyle(
-  `${searchModeSelect}[data-scope="select"][data-part="trigger"] [data-scope="select"][data-part="icon"]`,
-  {
-    width: ".875rem",
-    height: ".875rem",
-  },
-);
-
-globalStyle(`${searchModeSelect} [data-scope="select"][data-part="value"]`, {
-  fontSize: vars.typography.bodySmallest.fontSize,
-});
-
-globalStyle(`${searchModeSelect} [data-scope="select"][data-part="icon"]`, {
-  width: "1rem",
-  height: "1rem",
 });
 
 export const replaceInputWrapper = style({

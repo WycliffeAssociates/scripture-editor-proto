@@ -68,7 +68,9 @@ function catalogLabelOf(repo: ConsolidatedRepo): string {
  * Picking an on-device text switches the reference; picking a catalog text
  * quietly downloads it and refreshes the on-device list.
  */
-export function ReferencePanel() {
+export function ReferencePanel({
+  deviceOnly = false,
+}: { deviceOnly?: boolean } = {}) {
   const { t } = useLingui();
   const { referenceResource, loadedProject } = useWorkspaceContext();
   const { settingsManager } = useRouter().options.context;
@@ -282,21 +284,23 @@ export function ReferencePanel() {
                       : t`No reference texts yet.`
                   }
                 />
-                <CatalogSection
-                  groups={catalogGroups}
-                  sectionLabel={t`Available to add`}
-                  isLoading={catalog.isLoading}
-                  isError={catalog.isError}
-                  isExpanded={isLanguageExpanded}
-                  onToggleLanguage={toggleLanguage}
-                  isAlreadyImported={catalog.isAlreadyImported}
-                  isDownloading={catalog.isDownloading}
-                  onDownload={catalog.downloadReferenceText}
-                  addedLabel={t`Added`}
-                  loadingLabel={t`Loading catalog…`}
-                  errorLabel={t`Couldn't load the catalog.`}
-                  emptyLabel={t`No catalog matches.`}
-                />
+                {deviceOnly ? null : (
+                  <CatalogSection
+                    groups={catalogGroups}
+                    sectionLabel={t`Available to add`}
+                    isLoading={catalog.isLoading}
+                    isError={catalog.isError}
+                    isExpanded={isLanguageExpanded}
+                    onToggleLanguage={toggleLanguage}
+                    isAlreadyImported={catalog.isAlreadyImported}
+                    isDownloading={catalog.isDownloading}
+                    onDownload={catalog.downloadReferenceText}
+                    addedLabel={t`Added`}
+                    loadingLabel={t`Loading catalog…`}
+                    errorLabel={t`Couldn't load the catalog.`}
+                    emptyLabel={t`No catalog matches.`}
+                  />
+                )}
               </div>
             </BasePopover.Popup>
           </BasePopover.Positioner>

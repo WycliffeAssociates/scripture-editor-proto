@@ -73,7 +73,7 @@ export function SearchPanel({ onClose }: SearchPanelProps = {}) {
           </div>
         </div>
 
-        <SearchControls portalContainer={overlayPortalRef} />
+        <SearchControls />
       </div>
 
       <SearchResults />

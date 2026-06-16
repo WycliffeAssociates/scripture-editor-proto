@@ -290,6 +290,8 @@ test.describe("Search Functionality", () => {
       "Reference-search behavior is currently only stable in desktop Chromium.",
     );
 
+    // Activate a scripture reference via the editor's reference picker (search
+    // reuses it). That makes the scope switch appear in the search controls.
     await selectReferenceProject(page);
 
     await openSearchPanel(page);
@@ -297,33 +299,10 @@ test.describe("Search Functionality", () => {
     await ensureSearchOptionsExpanded(page);
     await page.getByTestId(TESTING_IDS.replaceInput).fill("foo");
 
-    // Pick a reference source. With one available the "Show reference"
-    // select default already points at the imported reference project,
-    // which makes the "Search in" scope toggle appear. Flipping that
-    // toggle is what actually enters reference-search mode.
-    const referenceSelect = page
-      .getByTestId(TESTING_IDS.searchReferenceToggle)
-      .getByRole("combobox");
-    await expect(referenceSelect).toBeVisible({ timeout: 20_000 });
-    const initialSourceText = (await referenceSelect.textContent()) ?? "None";
-    if (/^\s*None\s*$/.test(initialSourceText)) {
-      await referenceSelect.click();
-      const options = page.getByRole("option");
-      const optionCount = await options.count();
-      for (let i = 0; i < optionCount; i += 1) {
-        const opt = options.nth(i);
-        const text = (await opt.textContent()) ?? "";
-        if (!/^\s*None\s*$/i.test(text)) {
-          await opt.click();
-          break;
-        }
-      }
-    }
-
-    // Flip the search-scope toggle → reference scope. It's now a checkbox-style
-    // ToggleButton (magnifying glass + "Search your project / source text"),
-    // targeted by its stable testid.
-    await page.getByTestId(TESTING_IDS.searchScopeToggle).click();
+    // Flip the scope switch → reference scope (search the source text).
+    const scopeSwitch = page.getByRole("switch", { name: "Search scope" });
+    await expect(scopeSwitch).toBeVisible({ timeout: 20_000 });
+    await scopeSwitch.click();
 
     // Now replace targets read-only source: replace input is disabled.
     await expect(page.getByTestId(TESTING_IDS.replaceInput)).toBeDisabled();

@@ -193,7 +193,7 @@ function ScriptureReferencePane() {
                       ? shellStyles.contentEditableReferenceSearchOpen
                       : ""
                   }`}
-                  aria-label={t`USFM Editor`}
+                  aria-label={t`USFM Reference Editor`}
                   data-mode={domPresentationMode(editorMode)}
                   data-form-pane="reference"
                 />

@@ -52,7 +52,7 @@ export const contentEditable = style({
   outline: "none",
   width: "100%",
   minHeight: "100%",
-  padding: `${vars.spacing.sm} ${vars.spacing.sm} 20rem`,
+  padding: `${vars.spacing.sm} ${vars.spacing.md} 20rem`,
   zIndex: zLayer.editorContent,
   fontFamily: vars.typography.fontFamilySerif,
   maxWidth: "75ch",

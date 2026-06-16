@@ -5,96 +5,28 @@ import {
   CaseSensitive,
   Check,
   CornerRightDown,
-  LoaderCircle,
   Search,
   WholeWord,
 } from "lucide-react";
-import { type KeyboardEvent, type RefObject, useEffect, useState } from "react";
+import type { KeyboardEvent } from "react";
 
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
-import {
-  type SelectItem,
-  SelectPrimitive,
-} from "@/app/ui/components/primitives/Select/Select.tsx";
+import { ReferencePanel } from "@/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx";
+import { Switch } from "@/app/ui/components/primitives/Switch/Switch.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/SearchPanel.css.ts";
-import type { ResourceLibraryItem } from "@/core/library/ProjectIndex.ts";
 
 type SearchHook = ReturnType<typeof useWorkspaceContext>["search"];
 
-const NO_REFERENCE_VALUE = "none";
+export function SearchControls() {
+  const { search, referenceResource } = useWorkspaceContext();
 
-interface SearchControlsProps {
-  portalContainer?: RefObject<HTMLElement | null>;
-}
-
-export function SearchControls({ portalContainer }: SearchControlsProps = {}) {
-  const { search, referenceResource, loadedProject } = useWorkspaceContext();
-  const [
-    isSwitchingReferenceSearchSource,
-    setIsSwitchingReferenceSearchSource,
-  ] = useState(false);
-  const [selectedReferenceDisplaySource, setSelectedReferenceDisplaySource] =
-    useState<string>(
-      referenceResource.activeReferenceResourcePath ?? NO_REFERENCE_VALUE,
-    );
-  const isReferenceSearchLoading =
-    isSwitchingReferenceSearchSource ||
-    (search.searchReference &&
-      (referenceResource.activeReferenceResourceQuery.isLoading ||
-        referenceResource.referenceScriptureQuery.isLoading));
-
-  useEffect(() => {
-    if (isSwitchingReferenceSearchSource) return;
-    setSelectedReferenceDisplaySource(
-      referenceResource.activeReferenceResourcePath ?? NO_REFERENCE_VALUE,
-    );
-  }, [
-    isSwitchingReferenceSearchSource,
-    referenceResource.activeReferenceResourcePath,
-  ]);
-
-  const searchableReferenceResources = filterSearchableReferenceResources(
-    referenceResource.referenceResourcesQuery.data ?? [],
-    loadedProject.projectPath,
-  );
-
-  const hasDisplayReference =
-    selectedReferenceDisplaySource !== NO_REFERENCE_VALUE;
-
-  const handleSelectReferenceSource = async (value: string | null) => {
-    if (!value || value === NO_REFERENCE_VALUE) {
-      setSelectedReferenceDisplaySource(NO_REFERENCE_VALUE);
-      search.setSearchReferenceImmediate(false);
-      referenceResource.setActiveReferenceResourcePath(undefined);
-      await search.runSearchLogic(search.searchTerm, {
-        autoPick: false,
-        scope: "project",
-        overrides: { searchReference: false },
-      });
-      return;
-    }
-
-    setSelectedReferenceDisplaySource(value);
-    setIsSwitchingReferenceSearchSource(true);
-    try {
-      const loadedReference =
-        await referenceResource.selectActiveReferenceResourcePath(value);
-      // Default search scope stays "project" even when a reference is
-      // shown side-by-side. The user toggles into reference scope below.
-      search.setSearchReferenceImmediate(false);
-      await search.runSearchLogic(search.searchTerm, {
-        autoPick: false,
-        scope: "project",
-        overrides: {
-          searchReference: false,
-          referenceFiles: loadedReference?.parsedFiles ?? [],
-        },
-      });
-    } finally {
-      setIsSwitchingReferenceSearchSource(false);
-    }
-  };
+  // The reference picker (reused from the editor) sets the active reference; a
+  // scripture one is what reference-scope search can run against, so the scope
+  // toggle only appears once a scripture reference is loaded.
+  const hasScriptureReference =
+    Boolean(referenceResource.activeReferenceResourcePath) &&
+    referenceResource.supportsScriptureNavigation;
 
   const handleToggleSearchScope = async (checked: boolean) => {
     search.setSearchReferenceImmediate(checked);
@@ -120,22 +52,18 @@ export function SearchControls({ portalContainer }: SearchControlsProps = {}) {
           {`${search.results.length} results`}
         </div>
         <SearchToggles search={search} />
-        <div className={styles.searchInlineControls}>
-          <ReferenceSourceSelector
-            portalContainer={portalContainer}
-            availableResources={searchableReferenceResources}
-            selectedSource={selectedReferenceDisplaySource}
-            isSwitching={isSwitchingReferenceSearchSource}
-            onSelect={handleSelectReferenceSource}
+      </div>
+      <div className={styles.searchReferenceRow}>
+        <span className={styles.searchReferenceLabel}>
+          <Trans>Reference</Trans>
+        </span>
+        <ReferencePanel deviceOnly />
+        {hasScriptureReference ? (
+          <SearchScopeToggle
+            checked={search.searchReference}
+            onChange={handleToggleSearchScope}
           />
-          {hasDisplayReference ? (
-            <SearchScopeToggle
-              checked={search.searchReference}
-              onChange={handleToggleSearchScope}
-            />
-          ) : null}
-          {isReferenceSearchLoading ? <ReferenceLoadingIndicator /> : null}
-        </div>
+        ) : null}
       </div>
     </div>
   );
@@ -251,107 +179,30 @@ function ReplaceTermInput(props: { search: SearchHook }) {
   );
 }
 
-function ReferenceSourceSelector(props: {
-  portalContainer?: RefObject<HTMLElement | null>;
-  availableResources: Array<{ projectPath: string; displayName: string }>;
-  selectedSource: string;
-  isSwitching: boolean;
-  onSelect: (value: string | null) => Promise<void>;
-}) {
-  const { t } = useLingui();
-  return (
-    <div className={styles.searchModeRow}>
-      <div className={styles.searchModeField}>
-        <span className={styles.searchModeFieldLabel}>
-          <Trans>Show reference</Trans>
-        </span>
-        <div data-testid={TESTING_IDS.searchReferenceToggle}>
-          <SelectPrimitive
-            items={showReferenceItems({
-              availableResources: props.availableResources,
-              noneLabel: t`None`,
-            })}
-            value={props.selectedSource || NO_REFERENCE_VALUE}
-            defaultValue={NO_REFERENCE_VALUE}
-            placeholder={t`Show reference`}
-            disabled={props.isSwitching}
-            onValueChange={(value) => {
-              void props.onSelect(value);
-            }}
-            className={styles.searchModeSelect}
-            listClassName={styles.searchModeSelectList}
-            portalContainer={props.portalContainer}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function SearchScopeToggle(props: {
   checked: boolean;
   onChange: (checked: boolean) => Promise<void>;
 }) {
   const { t } = useLingui();
-  // Checked = searching the reference/source text; unchecked = your own project.
-  // The label stays deliberately simple ("source text") even though the reference
-  // pane can hold other material — the PO chose plainness over precision here.
-  const label = props.checked ? t`Search source text` : t`Search your project`;
+  // On = searching the reference/source text; off = your own project. The label
+  // reflects the current state rather than the action.
+  const label = props.checked ? t`Searching source` : t`Searching your project`;
   return (
-    <ToggleButton
-      active={props.checked}
-      onClick={() => {
-        void props.onChange(!props.checked);
-      }}
-      icon={<Search size={12} />}
-      label={label}
-      visualLabel={label}
-      testId={TESTING_IDS.searchScopeToggle}
-    />
+    <div
+      className={styles.searchScopeField}
+      data-testid={TESTING_IDS.searchScopeToggle}
+    >
+      <Switch
+        className={styles.searchScopeSwitch}
+        checked={props.checked}
+        onCheckedChange={(checked) => {
+          void props.onChange(Boolean(checked));
+        }}
+        label={label}
+        aria-label={t`Search scope`}
+      />
+    </div>
   );
-}
-
-function ReferenceLoadingIndicator() {
-  return (
-    <span className={styles.searchModeLoading}>
-      <LoaderCircle size={12} className={styles.searchModeLoadingIcon} />
-      <span>
-        <Trans>Loading</Trans>
-      </span>
-    </span>
-  );
-}
-
-function showReferenceItems(args: {
-  availableResources: Array<{ projectPath: string; displayName: string }>;
-  noneLabel: string;
-}): SelectItem[] {
-  return [
-    { value: NO_REFERENCE_VALUE, label: args.noneLabel },
-    ...args.availableResources.map((resource) => ({
-      value: resource.projectPath,
-      label: resource.displayName || resource.projectPath,
-    })),
-  ];
-}
-
-function filterSearchableReferenceResources(
-  resources: ResourceLibraryItem[],
-  currentProjectPath: string,
-) {
-  const out: { projectPath: string; displayName: string }[] = [];
-  for (const resource of resources) {
-    if (
-      resource.type === "usfmScripture" &&
-      resource.projectPath !== currentProjectPath
-    ) {
-      out.push({
-        projectPath: resource.projectPath,
-        displayName: resource.displayName,
-      });
-    }
-  }
-  return out;
 }
 
 function ToggleButton(props: {
