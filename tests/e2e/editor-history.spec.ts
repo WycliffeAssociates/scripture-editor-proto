@@ -107,7 +107,12 @@ test.describe("Editor History", () => {
       .getByRole("button", { name: "Replace this match" })
       .first()
       .click();
-    await expect(resultItems).toHaveCount(startingCount - 1);
+    // The replace landed when the token appears in the editor. (Result rows are
+    // virtualized — a multi-thousand-hit term renders a fixed window, so the
+    // visible row count doesn't track a single replacement.)
+    await expect(
+      editorPage.getByRole("textbox", { name: "USFM Editor" }),
+    ).toContainText("HistorySearchRefreshToken", { timeout: 10_000 });
 
     // Close panel (its overlay sits over the toolbar Undo button),
     // click undo. End-behavior: the editor content drops the
@@ -161,7 +166,12 @@ test.describe("Editor History", () => {
       .getByRole("button", { name: "Replace this match" })
       .first()
       .click();
-    await expect(resultItems).toHaveCount(startingCount - 1);
+    // The replace landed when the token appears in the editor. (Result rows are
+    // virtualized — a multi-thousand-hit term renders a fixed window, so the
+    // visible row count doesn't track a single replacement.)
+    await expect(
+      editorPage.getByRole("textbox", { name: "USFM Editor" }),
+    ).toContainText("HistorySearchRefreshToken", { timeout: 10_000 });
 
     // Close panel (editor needs focus for keyboard Ctrl+Z), press
     // Ctrl+Z. Lexical's `UNDO_COMMAND` is intercepted by
