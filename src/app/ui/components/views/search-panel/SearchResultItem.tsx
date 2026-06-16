@@ -60,6 +60,9 @@ export function SearchResultItem(props: SearchResultItemProps) {
       : formatResultLocationLabel(result, localizedBookName);
   const isGrouped = Boolean(sourceProjectName && currentProjectName);
   const missingVerseFallback = t`Verse not available in this text`;
+  // Preview the replacement on the occurrence Replace will actually hit: the
+  // active (cycled-to) one on the active row, the first occurrence otherwise.
+  const previewOccurrenceIndex = occurrence?.position ?? 0;
 
   useEffect(() => {
     if (hasCustomReplacement) return;
@@ -121,6 +124,7 @@ export function SearchResultItem(props: SearchResultItemProps) {
             matchWholeWord={matchWholeWord}
             missingVerseFallback={missingVerseFallback}
             replaceControls={replaceControls}
+            previewOccurrenceIndex={previewOccurrenceIndex}
           />
         ) : (
           <SinglePreview
@@ -129,6 +133,7 @@ export function SearchResultItem(props: SearchResultItemProps) {
             replacement={replacement}
             matchCase={matchCase}
             matchWholeWord={matchWholeWord}
+            previewOccurrenceIndex={previewOccurrenceIndex}
           />
         )}
       </PreviewSurface>
@@ -233,6 +238,7 @@ function GroupedPreview(props: {
   matchWholeWord: boolean;
   missingVerseFallback: string;
   replaceControls: React.ReactNode;
+  previewOccurrenceIndex: number;
 }) {
   return (
     <div className={styles.searchResultPair} data-search-row-type="grouped">
@@ -245,6 +251,7 @@ function GroupedPreview(props: {
         matchCase={props.matchCase}
         matchWholeWord={props.matchWholeWord}
         missingVerseFallback={props.missingVerseFallback}
+        previewOccurrenceIndex={0}
       />
       <PreviewBlock
         projectName={props.currentProjectName}
@@ -256,6 +263,7 @@ function GroupedPreview(props: {
         matchWholeWord={props.matchWholeWord}
         missingVerseFallback={props.missingVerseFallback}
         trailing={props.replaceControls}
+        previewOccurrenceIndex={props.previewOccurrenceIndex}
       />
     </div>
   );
@@ -271,6 +279,7 @@ function PreviewBlock(props: {
   matchWholeWord: boolean;
   missingVerseFallback: string;
   trailing?: React.ReactNode;
+  previewOccurrenceIndex: number;
 }) {
   return (
     <div className={styles.searchResultPairBlock}>
@@ -288,6 +297,7 @@ function PreviewBlock(props: {
           matchCase={props.matchCase}
           matchWholeWord={props.matchWholeWord}
           missingVerseFallback={props.missingVerseFallback}
+          previewOccurrenceIndex={props.previewOccurrenceIndex}
         />
       </div>
       {props.trailing}
@@ -301,6 +311,7 @@ function SinglePreview(props: {
   replacement: string;
   matchCase: boolean;
   matchWholeWord: boolean;
+  previewOccurrenceIndex: number;
 }) {
   return (
     <span data-search-row-type="single">
@@ -310,6 +321,7 @@ function SinglePreview(props: {
         props.replacement,
         props.matchCase,
         props.matchWholeWord,
+        props.previewOccurrenceIndex,
       )}
     </span>
   );
@@ -322,6 +334,7 @@ function VersePreviewText(props: {
   matchCase: boolean;
   matchWholeWord: boolean;
   missingVerseFallback: string;
+  previewOccurrenceIndex: number;
 }) {
   if (!props.text.trim()) {
     return (
@@ -338,6 +351,7 @@ function VersePreviewText(props: {
         props.replacement,
         props.matchCase,
         props.matchWholeWord,
+        props.previewOccurrenceIndex,
       )}
     </>
   );
@@ -409,6 +423,7 @@ function renderSearchPreview(
   replacement: string,
   matchCase: boolean,
   matchWholeWord: boolean,
+  previewOccurrenceIndex = 0,
 ): React.ReactNode {
   if (!searchTerm) return text;
 
@@ -419,7 +434,9 @@ function renderSearchPreview(
     : `(${escapedTerm})`;
   const searchTermRegex = new RegExp(pattern, flags);
   const parts = text.split(searchTermRegex);
-  let hasRenderedReplacementPreview = false;
+  // Preview the replacement on the occurrence Replace will hit, not always the
+  // first — keeps the strikethrough in sync with the row's stepper.
+  let matchOrdinal = -1;
 
   return parts.map((part, index) => {
     const isMatch = matchCase
@@ -427,8 +444,8 @@ function renderSearchPreview(
       : part.toLowerCase() === searchTerm.toLowerCase();
 
     if (isMatch) {
-      if (replacement.trim() && !hasRenderedReplacementPreview) {
-        hasRenderedReplacementPreview = true;
+      matchOrdinal += 1;
+      if (replacement.trim() && matchOrdinal === previewOccurrenceIndex) {
         return (
           <span
             key={`${index}-${part}`}
