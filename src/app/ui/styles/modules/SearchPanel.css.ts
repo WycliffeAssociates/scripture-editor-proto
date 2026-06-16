@@ -8,8 +8,12 @@ const controlRibbonHeight = "2.25rem";
 export const searchPanel = style({
   display: "grid",
   gridTemplateRows: "auto 1fr",
+  // Constrain the single column to the panel width so wide controls/results
+  // can't push it past the docked overlay onto the editor.
+  gridTemplateColumns: "minmax(0, 1fr)",
   width: "100%",
   height: "100%",
+  minWidth: 0,
   minHeight: 0,
   backgroundColor: vars.color.surfacePrimary,
   paddingTop: vars.spacing.md,
@@ -542,6 +546,26 @@ export const searchResultsContainer = style({
   overflowX: "hidden",
   paddingInline: vars.spacing.lg,
   paddingBlockEnd: "5rem",
+  // Thin, themed, non-overlay scrollbar so it doesn't draw over the result rows
+  // (matches the editor's). Firefox uses scrollbar-width/-color; WebKit/Chromium
+  // (incl. the Tauri webview) uses the ::-webkit-scrollbar pseudo-elements.
+  scrollbarWidth: "thin",
+  scrollbarColor: `${vars.color.brandDark} transparent`,
+  selectors: {
+    "&::-webkit-scrollbar": {
+      width: "0.375rem",
+    },
+    "&::-webkit-scrollbar-track": {
+      backgroundColor: "transparent",
+    },
+    "&::-webkit-scrollbar-thumb": {
+      backgroundColor: vars.color.brandDark,
+      borderRadius: vars.border.radius.lg,
+    },
+    "&::-webkit-scrollbar-thumb:hover": {
+      backgroundColor: vars.color.brandBase,
+    },
+  },
 });
 
 export const searchResultsInner = style({

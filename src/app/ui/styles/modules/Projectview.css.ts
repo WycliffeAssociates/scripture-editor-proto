@@ -234,10 +234,17 @@ export const workspaceEditorPane = style({
 
 export const workspaceOverlayPane = style({
   position: "absolute",
-  inset: 0,
+  // Logical longhands (not the `inset` shorthand) so the docked variant's
+  // `insetInlineEnd` actually overrides it — a physical `inset:0` would win the
+  // cascade and the overlay would never retreat off the editor.
+  insetBlock: 0,
+  insetInline: 0,
   minWidth: 0,
   minHeight: 0,
   height: "100%",
+  // Clip contents to the pane so a docked panel's results/scrollbar can never
+  // bleed past the seam onto the editor.
+  overflow: "hidden",
   zIndex: zLayer.editorOverlayPane,
 });
 
