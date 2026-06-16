@@ -544,7 +544,12 @@ export const searchResultsContainer = style({
   height: "100%",
   overflowY: "auto",
   overflowX: "hidden",
-  paddingInline: vars.spacing.lg,
+  // Content keeps its inline breathing room; the trailing margin pulls the
+  // scrollbar in off the panel edge so it reads against the result list rather
+  // than hugging the editor seam.
+  paddingInlineStart: vars.spacing.lg,
+  paddingInlineEnd: vars.spacing.xs,
+  marginInlineEnd: vars.spacing.sm,
   paddingBlockEnd: "5rem",
   // Thin, themed, non-overlay scrollbar so it doesn't draw over the result rows
   // (matches the editor's). Firefox uses scrollbar-width/-color; WebKit/Chromium
