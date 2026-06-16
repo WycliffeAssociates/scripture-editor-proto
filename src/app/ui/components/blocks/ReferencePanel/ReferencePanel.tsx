@@ -1,5 +1,6 @@
 import { Popover as BasePopover } from "@base-ui/react/popover";
 import { useLingui } from "@lingui/react/macro";
+import { useRouter } from "@tanstack/react-router";
 import {
   Check,
   ChevronDown,
@@ -69,7 +70,8 @@ function catalogLabelOf(repo: ConsolidatedRepo): string {
  */
 export function ReferencePanel() {
   const { t } = useLingui();
-  const { referenceResource } = useWorkspaceContext();
+  const { referenceResource, loadedProject } = useWorkspaceContext();
+  const { settingsManager } = useRouter().options.context;
   const {
     referenceResourcesQuery,
     activeReferenceResourcePath,
@@ -81,6 +83,48 @@ export function ReferencePanel() {
     () => referenceResourcesQuery.data ?? [],
     [referenceResourcesQuery.data],
   );
+
+  // Remember the user's reference choice per target project (a UI preference,
+  // keyed by project path) so opening the pane again reopens it.
+  const projectKey = loadedProject.projectPath;
+  const rememberReference = (resourcePath: string) => {
+    const map = settingsManager.get("referenceByProject");
+    settingsManager.update({
+      referenceByProject: { ...map, [projectKey]: resourcePath },
+    });
+  };
+
+  // Sane default when the pane opens with nothing active: reopen the remembered
+  // reference if it's still on device; else auto-load the sole reference; else
+  // (0 → friendly empty state in ReferenceEditor, 2+ → let the user pick here).
+  // Runs once per open — this component mounts with the pane.
+  const didAutoPick = useRef(false);
+  useEffect(() => {
+    if (didAutoPick.current) return;
+    if (activeReferenceResourcePath) {
+      didAutoPick.current = true;
+      return;
+    }
+    if (referenceResourcesQuery.isLoading) return;
+    didAutoPick.current = true;
+    const remembered = settingsManager.get("referenceByProject")[projectKey];
+    const onDevice =
+      !!remembered && deviceResources.some((r) => r.projectPath === remembered);
+    if (onDevice) {
+      setActiveReferenceResourcePath(remembered);
+      return;
+    }
+    if (deviceResources.length === 1) {
+      setActiveReferenceResourcePath(deviceResources[0].projectPath);
+    }
+  }, [
+    activeReferenceResourcePath,
+    deviceResources,
+    projectKey,
+    referenceResourcesQuery.isLoading,
+    setActiveReferenceResourcePath,
+    settingsManager,
+  ]);
   const deviceResourcePaths = useMemo(
     () => deviceResources.map((resource) => resource.projectPath),
     [deviceResources],
@@ -146,6 +190,7 @@ export function ReferencePanel() {
 
   function handleSelectDeviceResource(projectPath: string) {
     setActiveReferenceResourcePath(projectPath);
+    rememberReference(projectPath);
     setOpen(false);
   }
 

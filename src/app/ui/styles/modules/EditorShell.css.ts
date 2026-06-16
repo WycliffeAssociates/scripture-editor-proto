@@ -162,6 +162,32 @@ export const loadingReference = style({
   padding: vars.spacing.md,
 });
 
+// Friendly empty state for the reference column when nothing is selected —
+// replaces a bare blank pane.
+export const referenceEmptyState = style({
+  height: "100%",
+  minHeight: 0,
+  padding: vars.spacing.xl,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: vars.spacing.sm,
+  textAlign: "center",
+  color: vars.color.onSurfaceSecondary,
+});
+
+export const referenceEmptyIcon = style({
+  opacity: 0.6,
+});
+
+export const referenceEmptyText = style({
+  margin: 0,
+  fontSize: vars.typography.bodySmall.fontSize,
+  maxWidth: "26ch",
+  lineHeight: 1.5,
+});
+
 export const translationNotesContainer = style({
   padding: vars.spacing.md,
   display: "grid",
