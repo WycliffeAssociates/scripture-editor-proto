@@ -3,7 +3,6 @@ import {
   ArrowUpDown,
   Braces,
   CaseSensitive,
-  Check,
   CornerRightDown,
   Search,
   WholeWord,
@@ -57,7 +56,9 @@ export function SearchControls() {
         <span className={styles.searchReferenceLabel}>
           <Trans>Reference</Trans>
         </span>
-        <ReferencePanel deviceOnly />
+        <div className={styles.searchReferencePicker}>
+          <ReferencePanel deviceOnly />
+        </div>
         {hasScriptureReference ? (
           <SearchScopeToggle
             checked={search.searchReference}
@@ -124,7 +125,6 @@ function SearchToggles(props: { search: SearchHook }) {
             ? t`Remove sort`
             : t`Group case mismatches`
         }
-        visualLabel={t`Case`}
         testId={TESTING_IDS.sortToggleButton}
         disabled={!search.results.length}
       />
@@ -133,7 +133,6 @@ function SearchToggles(props: { search: SearchHook }) {
         onClick={() => search.setMatchCase(!search.matchCase)}
         icon={<CaseSensitive size={12} />}
         label={search.matchCase ? t`Disable match case` : t`Match case`}
-        visualLabel={t`Match Case`}
         testId={TESTING_IDS.matchCaseCheckbox}
       />
       <ToggleButton
@@ -141,7 +140,6 @@ function SearchToggles(props: { search: SearchHook }) {
         onClick={() => search.setMatchWholeWord(!search.matchWholeWord)}
         icon={<WholeWord size={12} />}
         label={search.matchWholeWord ? t`Disable whole word` : t`Whole word`}
-        visualLabel={t`Match Word`}
         testId={TESTING_IDS.matchWholeWordCheckbox}
       />
       <ToggleButton
@@ -151,7 +149,6 @@ function SearchToggles(props: { search: SearchHook }) {
         label={
           search.searchUSFM ? t`Disable USFM markers` : t`Include USFM markers`
         }
-        visualLabel={t`USFM`}
         testId={TESTING_IDS.includeUSFMMarkersCheckbox}
       />
       <ReplaceTermInput search={search} />
@@ -193,6 +190,7 @@ function SearchScopeToggle(props: {
       data-testid={TESTING_IDS.searchScopeToggle}
     >
       <Switch
+        compact
         className={styles.searchScopeSwitch}
         checked={props.checked}
         onCheckedChange={(checked) => {
@@ -205,12 +203,13 @@ function SearchScopeToggle(props: {
   );
 }
 
+// Compact, icon-only find toggle (à la the save/review ribbon). The active
+// state reads as a tinted segment; the label lives in the tooltip/aria.
 function ToggleButton(props: {
   active: boolean;
   onClick: () => void;
   icon: React.ReactNode;
   label: string;
-  visualLabel: string;
   testId?: string;
   disabled?: boolean;
 }) {
@@ -222,16 +221,10 @@ function ToggleButton(props: {
       onClick={props.onClick}
       disabled={props.disabled}
       aria-label={props.label}
+      aria-pressed={props.active}
       title={props.label}
     >
       {props.icon}
-      <span>{props.visualLabel}</span>
-      <span
-        className={`${styles.toggleCheckbox} ${props.active ? styles.toggleCheckboxChecked : ""}`}
-        aria-hidden="true"
-      >
-        {props.active ? <Check size={10} strokeWidth={3} /> : null}
-      </span>
     </button>
   );
 }

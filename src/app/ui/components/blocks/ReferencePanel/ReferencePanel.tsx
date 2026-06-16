@@ -81,10 +81,14 @@ export function ReferencePanel({
     activeReferenceResourceDisplayName,
   } = referenceResource;
 
-  const deviceResources = useMemo<ResourceLibraryItem[]>(
-    () => referenceResourcesQuery.data ?? [],
-    [referenceResourcesQuery.data],
-  );
+  const deviceResources = useMemo<ResourceLibraryItem[]>(() => {
+    const all = referenceResourcesQuery.data ?? [];
+    // deviceOnly (the search picker) lists only Bible scripture — you can't
+    // compare/replace against translation notes or other resource types.
+    return deviceOnly
+      ? all.filter((resource) => resource.type === "usfmScripture")
+      : all;
+  }, [referenceResourcesQuery.data, deviceOnly]);
 
   // Remember the user's reference choice per target project (a UI preference,
   // keyed by project path) so opening the pane again reopens it.

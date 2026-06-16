@@ -252,7 +252,7 @@ export const workspaceOverlayPane = style({
 // (constrained to the trailing ~30% by `desktopContentGridDocked`). Logical
 // inset keeps the editor on the inline-end edge in both LTR and RTL.
 export const workspaceOverlayPaneDocked = style({
-  insetInlineEnd: "30%",
+  insetInlineEnd: "35%",
   "@media": {
     "screen and (prefers-reduced-motion: no-preference)": {
       transition: "inset-inline-end 220ms ease",
@@ -310,13 +310,12 @@ export const desktopContentGridWithReference = style([
   },
 ]);
 
-// When search is docked, the editor flow is held to the trailing 30% — tiling
-// exactly with the docked overlay's 30% inline-end inset (no overlap, no gap).
-// The 30% split is a first cut; tune in review.
+// When search is docked, the editor flow is held to the trailing 35% — tiling
+// exactly with the docked overlay's 35% inline-end inset (no overlap, no gap).
 export const desktopContentGridDocked = style({
   "@media": {
     [mediaQuery.up("lg")]: {
-      maxWidth: "30%",
+      maxWidth: "35%",
       justifySelf: "end",
     },
     "screen and (prefers-reduced-motion: no-preference)": {

@@ -337,6 +337,13 @@ export const searchReferenceLabel = style({
   whiteSpace: "nowrap",
 });
 
+// Cap the reused reference picker so it doesn't sprawl the full panel width.
+export const searchReferencePicker = style({
+  minWidth: 0,
+  maxWidth: "18rem",
+  flex: "0 1 18rem",
+});
+
 export const searchScopeField = style({
   display: "inline-flex",
   alignItems: "center",
@@ -348,24 +355,22 @@ export const searchScopeSwitch = style({
   alignItems: "center",
 });
 
+// Compact square icon toggle. Active = tinted brand segment (no checkbox glyph).
 export const toggleButton = style({
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  minHeight: controlRibbonHeight,
-  height: controlRibbonHeight,
-  padding: `0 ${vars.spacing.xs}`,
-  gap: "0.2rem",
+  width: "1.875rem",
+  height: "1.875rem",
+  flexShrink: 0,
+  padding: 0,
   border: `1px solid ${vars.color.surfaceBorder}`,
   borderRadius: vars.border.radius.md,
   backgroundColor: vars.color.surfacePrimary,
   color: vars.color.onSurfaceSecondary,
   cursor: "pointer",
   transition: "all 0.15s ease",
-  fontSize: vars.typography.bodySmallest.fontSize,
-  fontWeight: 500,
   lineHeight: 1,
-  whiteSpace: "nowrap",
   boxSizing: "border-box",
   selectors: {
     "&:hover:not(:disabled)": {
@@ -379,8 +384,7 @@ export const toggleButton = style({
 });
 
 export const toggleButtonActive = style({
-  // Checked reads as a tinted segment with brand text, not a solid blue fill —
-  // the filled checkbox carries the "on" signal.
+  // On reads as a tinted segment with brand text/icon, not a solid blue fill.
   backgroundColor: vars.color.brandLight,
   borderColor: vars.color.brandBase,
   color: vars.color.brandBase,
@@ -389,26 +393,6 @@ export const toggleButtonActive = style({
       backgroundColor: vars.color.brandLight,
     },
   },
-});
-
-/** Trailing checkbox glyph — an outlined square that fills brand when checked. */
-export const toggleCheckbox = style({
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  flexShrink: 0,
-  width: "0.875rem",
-  height: "0.875rem",
-  borderRadius: "0.1875rem",
-  border: `1px solid ${vars.color.surfaceBorder}`,
-  backgroundColor: vars.color.surfacePrimary,
-  color: "transparent",
-});
-
-export const toggleCheckboxChecked = style({
-  borderColor: vars.color.brandBase,
-  backgroundColor: vars.color.brandBase,
-  color: vars.button.primary.onSurface,
 });
 
 export const searchReplaceRow = style({
