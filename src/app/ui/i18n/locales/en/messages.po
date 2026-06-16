@@ -306,7 +306,7 @@ msgstr "Add line below"
 msgid "Add required space after {marker}"
 msgstr "Add required space after {marker}"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:302
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:306
 msgid "Added"
 msgstr "Added"
 
@@ -415,7 +415,7 @@ msgstr "Auto Accept My Work on Save"
 msgid "Autofix applied for {localizedFixLabel}"
 msgstr "Autofix applied for {localizedFixLabel}"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:294
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:298
 msgid "Available to add"
 msgstr "Available to add"
 
@@ -423,7 +423,7 @@ msgstr "Available to add"
 msgid "Back to books"
 msgstr "Back to books"
 
-#: src/app/ui/components/views/CreateProject.tsx:391
+#: src/app/ui/components/views/CreateProject.tsx:386
 msgid "Back to projects"
 msgstr "Back to projects"
 
@@ -479,8 +479,8 @@ msgid "Branch"
 msgstr "Branch"
 
 #: src/app/ui/components/blocks/ImportProgressModal.tsx:74
-msgid "Bringing it in"
-msgstr "Bringing it in"
+#~ msgid "Bringing it in"
+#~ msgstr "Bringing it in"
 
 #. placeholder {0}: props.sharedAuthor
 #: src/app/ui/components/blocks/CloudSyncPanels.tsx:122
@@ -629,7 +629,7 @@ msgstr "Checking…"
 msgid "Choose a chapter"
 msgstr "Choose a chapter"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:234
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:238
 msgid "Choose a reference text"
 msgstr "Choose a reference text"
 
@@ -684,7 +684,7 @@ msgstr "Click Sync now to save your changes to the shared project."
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:238
 #: src/app/ui/components/blocks/FindingsPopover.tsx:177
-#: src/app/ui/components/blocks/ImportProgressModal.tsx:105
+#: src/app/ui/components/blocks/ImportProgressModal.tsx:101
 #: src/app/ui/components/blocks/ProjectSwitcher/ProjectBrowserPane.tsx:44
 #: src/app/ui/components/views/search-panel/SearchPanel.tsx:71
 msgid "Close"
@@ -901,7 +901,7 @@ msgstr "Copying uploaded folder into app storage (0/{0})..."
 msgid "Could not install v{selectedVersion}."
 msgstr "Could not install v{selectedVersion}."
 
-#: src/app/ui/components/blocks/ImportProgressModal.tsx:96
+#: src/app/ui/components/blocks/ImportProgressModal.tsx:92
 msgid "Couldn't bring it in"
 msgstr "Couldn't bring it in"
 
@@ -925,7 +925,7 @@ msgstr "Couldn't create the shared project"
 msgid "Couldn't find a public repository at this link."
 msgstr "Couldn't find a public repository at this link."
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:304
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:308
 msgid "Couldn't load the catalog."
 msgstr "Couldn't load the catalog."
 
@@ -1071,8 +1071,8 @@ msgstr "Did you know?"
 msgid "Diff summary"
 msgstr "Diff summary"
 
-#: src/app/ui/components/views/CreateProject.tsx:275
-#: src/app/ui/components/views/CreateProject.tsx:336
+#: src/app/ui/components/views/CreateProject.tsx:274
+#: src/app/ui/components/views/CreateProject.tsx:332
 msgid "Directory imported successfully!"
 msgstr "Directory imported successfully!"
 
@@ -1137,7 +1137,7 @@ msgstr "Download {0}"
 msgid "Download a reference text to read it alongside your project."
 msgstr "Download a reference text to read it alongside your project."
 
-#: src/app/ui/components/views/CreateProject.tsx:174
+#: src/app/ui/components/views/CreateProject.tsx:177
 msgid "Download English ULB"
 msgstr "Download English ULB"
 
@@ -1154,13 +1154,17 @@ msgstr "Download local copy"
 msgid "Download only"
 msgstr "Download only"
 
+#: src/app/ui/components/blocks/ImportProgressModal.tsx:77
+msgid "Downloading project"
+msgstr "Downloading project"
+
 #: src/app/ui/components/views/CreateProject.tsx:208
-msgid "Downloading repository..."
-msgstr "Downloading repository..."
+#~ msgid "Downloading repository..."
+#~ msgstr "Downloading repository..."
 
 #: src/app/ui/components/views/CreateProject.tsx:241
-msgid "Downloading source text..."
-msgstr "Downloading source text..."
+#~ msgid "Downloading source text..."
+#~ msgstr "Downloading source text..."
 
 #: src/app/ui/hooks/useCustomHistory.ts:618
 msgid "Edit"
@@ -1215,11 +1219,11 @@ msgstr "Expected \\{expected}* here, but found \\{marker}*."
 #~ msgid "Failed to create remote project"
 #~ msgstr "Failed to create remote project"
 
-#: src/app/ui/components/views/CreateProject.tsx:226
+#: src/app/ui/components/views/CreateProject.tsx:224
 msgid "Failed to download project"
 msgstr "Failed to download project"
 
-#: src/app/ui/components/views/CreateProject.tsx:251
+#: src/app/ui/components/views/CreateProject.tsx:252
 msgid "Failed to download source text"
 msgstr "Failed to download source text"
 
@@ -1232,13 +1236,13 @@ msgstr "Failed to fetch projects"
 #~ msgid "Failed to import cloud project"
 #~ msgstr "Failed to import cloud project"
 
-#: src/app/ui/components/views/CreateProject.tsx:281
-#: src/app/ui/components/views/CreateProject.tsx:342
+#: src/app/ui/components/views/CreateProject.tsx:280
+#: src/app/ui/components/views/CreateProject.tsx:338
 msgid "Failed to import directory"
 msgstr "Failed to import directory"
 
-#: src/app/ui/components/views/CreateProject.tsx:309
-#: src/app/ui/components/views/CreateProject.tsx:376
+#: src/app/ui/components/views/CreateProject.tsx:306
+#: src/app/ui/components/views/CreateProject.tsx:371
 msgid "Failed to import file"
 msgstr "Failed to import file"
 
@@ -1257,8 +1261,8 @@ msgstr "Failed to load translation notes for {referenceBookCode} "
 msgid "Failed to prepare download"
 msgstr "Failed to prepare download"
 
-#: src/app/ui/components/views/CreateProject.tsx:303
-#: src/app/ui/components/views/CreateProject.tsx:370
+#: src/app/ui/components/views/CreateProject.tsx:300
+#: src/app/ui/components/views/CreateProject.tsx:365
 msgid "File imported successfully!"
 msgstr "File imported successfully!"
 
@@ -1388,13 +1392,13 @@ msgstr "Import linked copy"
 
 #: src/app/ui/components/views/CreateProject.tsx:263
 #: src/app/ui/components/views/CreateProject.tsx:324
-msgid "Importing directory..."
-msgstr "Importing directory..."
+#~ msgid "Importing directory..."
+#~ msgstr "Importing directory..."
 
 #: src/app/ui/components/views/CreateProject.tsx:291
 #: src/app/ui/components/views/CreateProject.tsx:358
-msgid "Importing file..."
-msgstr "Importing file..."
+#~ msgid "Importing file..."
+#~ msgstr "Importing file..."
 
 #. placeholder {0}: props.currentBookName
 #. placeholder {1}: props.currentChapter
@@ -1546,7 +1550,7 @@ msgstr "Load more"
 msgid "Loading {0}…"
 msgstr "Loading {0}…"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:303
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:307
 msgid "Loading catalog…"
 msgstr "Loading catalog…"
 
@@ -1587,7 +1591,7 @@ msgid "Loading..."
 msgstr "Loading..."
 
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:204
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:225
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:229
 msgid "Loading…"
 msgstr "Loading…"
 
@@ -1747,7 +1751,7 @@ msgstr "Next chapter"
 msgid "Next match in this verse"
 msgstr "Next match in this verse"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:305
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:309
 msgid "No catalog matches."
 msgstr "No catalog matches."
 
@@ -1789,7 +1793,7 @@ msgstr "No issues match this filter"
 msgid "No linked cloud projects matched this search."
 msgstr "No linked cloud projects matched this search."
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:287
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:291
 msgid "No matches on this device."
 msgstr "No matches on this device."
 
@@ -1809,7 +1813,7 @@ msgstr "No projects are available right now."
 msgid "No projects yet"
 msgstr "No projects yet"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:288
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:292
 msgid "No reference texts yet."
 msgstr "No reference texts yet."
 
@@ -1871,7 +1875,7 @@ msgstr "Not connected"
 msgid "Note"
 msgstr "Note"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:283
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:287
 msgid "Notes"
 msgstr "Notes"
 
@@ -1895,7 +1899,7 @@ msgstr "Now · {nowLabel}"
 msgid "Offline"
 msgstr "Offline"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:284
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:288
 msgid "On this device"
 msgstr "On this device"
 
@@ -1923,7 +1927,7 @@ msgstr "Only repos I own"
 msgid "Open an existing project, or create a new one."
 msgstr "Open an existing project, or create a new one."
 
-#: src/app/ui/components/views/CreateProject.tsx:101
+#: src/app/ui/components/views/CreateProject.tsx:102
 msgid "Open project"
 msgstr "Open project"
 
@@ -2090,11 +2094,11 @@ msgstr "Project details"
 msgid "Project display name"
 msgstr "Project display name"
 
-#: src/app/ui/components/views/CreateProject.tsx:219
+#: src/app/ui/components/views/CreateProject.tsx:217
 msgid "Project downloaded successfully!"
 msgstr "Project downloaded successfully!"
 
-#: src/app/ui/components/views/CreateProject.tsx:218
+#: src/app/ui/components/views/CreateProject.tsx:216
 msgid "Project downloaded successfully. Metadata needs review before opening "
 "it."
 msgstr "Project downloaded successfully. Metadata needs review before opening "
@@ -2104,10 +2108,10 @@ msgstr "Project downloaded successfully. Metadata needs review before opening "
 msgid "Project Formatted"
 msgstr "Project Formatted"
 
-#: src/app/ui/components/views/CreateProject.tsx:272
-#: src/app/ui/components/views/CreateProject.tsx:300
-#: src/app/ui/components/views/CreateProject.tsx:333
-#: src/app/ui/components/views/CreateProject.tsx:367
+#: src/app/ui/components/views/CreateProject.tsx:271
+#: src/app/ui/components/views/CreateProject.tsx:297
+#: src/app/ui/components/views/CreateProject.tsx:329
+#: src/app/ui/components/views/CreateProject.tsx:362
 msgid "Project imported successfully. Metadata needs review before opening it."
 msgstr "Project imported successfully. Metadata needs review before opening it."
 
@@ -2120,7 +2124,7 @@ msgid "Project Sync"
 msgstr "Project Sync"
 
 #: src/app/ui/components/blocks/ProjectSwitcher/ProjectBrowserPane.tsx:24
-#: src/app/ui/components/views/CreateProject.tsx:394
+#: src/app/ui/components/views/CreateProject.tsx:389
 msgid "Projects"
 msgstr "Projects"
 
@@ -2133,7 +2137,7 @@ msgstr "Projects"
 msgid "Read your text without making changes."
 msgstr "Read your text without making changes."
 
-#: src/app/ui/components/blocks/ImportProgressModal.tsx:98
+#: src/app/ui/components/blocks/ImportProgressModal.tsx:94
 msgid "Ready"
 msgstr "Ready"
 
@@ -2273,16 +2277,16 @@ msgstr "Repository"
 msgid "Repository not found"
 msgstr "Repository not found"
 
-#: src/app/ui/components/views/CreateProject.tsx:220
+#: src/app/ui/components/views/CreateProject.tsx:218
 msgid "Resource downloaded successfully! It is available in the reference "
 "picker."
 msgstr "Resource downloaded successfully! It is available in the reference "
 "picker."
 
-#: src/app/ui/components/views/CreateProject.tsx:274
-#: src/app/ui/components/views/CreateProject.tsx:302
-#: src/app/ui/components/views/CreateProject.tsx:335
-#: src/app/ui/components/views/CreateProject.tsx:369
+#: src/app/ui/components/views/CreateProject.tsx:273
+#: src/app/ui/components/views/CreateProject.tsx:299
+#: src/app/ui/components/views/CreateProject.tsx:331
+#: src/app/ui/components/views/CreateProject.tsx:364
 msgid "Resource imported successfully! It is available in the reference picker."
 msgstr "Resource imported successfully! It is available in the reference "
 "picker."
@@ -2307,7 +2311,7 @@ msgstr "Review changes"
 msgid "Review changes before sending your work."
 msgstr "Review changes before sending your work."
 
-#: src/app/ui/components/views/CreateProject.tsx:99
+#: src/app/ui/components/views/CreateProject.tsx:100
 msgid "Review metadata"
 msgstr "Review metadata"
 
@@ -2440,11 +2444,11 @@ msgstr "Search projects or paste a project link"
 #~ msgid "Search reference resources"
 #~ msgstr "Search reference resources"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:274
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:278
 msgid "Search references"
 msgstr "Search references"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:273
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:277
 msgid "Search references…"
 msgstr "Search references…"
 
@@ -2502,7 +2506,7 @@ msgstr "Section title 4"
 msgid "Select a checkpoint"
 msgstr "Select a checkpoint"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:226
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:230
 msgid "Select a reference"
 msgstr "Select a reference"
 
@@ -2537,7 +2541,7 @@ msgstr "Select editor mode"
 msgid "Select encoding"
 msgstr "Select encoding"
 
-#: src/app/ui/components/views/CreateProject.tsx:320
+#: src/app/ui/components/views/CreateProject.tsx:317
 msgid "Select folder"
 msgstr "Select folder"
 
@@ -2566,7 +2570,7 @@ msgstr "Select version"
 msgid "Select which editing mode you want to use."
 msgstr "Select which editing mode you want to use."
 
-#: src/app/ui/components/views/CreateProject.tsx:354
+#: src/app/ui/components/views/CreateProject.tsx:350
 msgid "Select ZIP file"
 msgstr "Select ZIP file"
 
@@ -2876,8 +2880,12 @@ msgid "That checkpoint is no longer available."
 msgstr "That checkpoint is no longer available."
 
 #: src/app/ui/components/views/CreateProject.tsx:247
-msgid "The English ULB is available as a reference text."
-msgstr "The English ULB is available as a reference text."
+#~ msgid "The English ULB is available as a reference text."
+#~ msgstr "The English ULB is available as a reference text."
+
+#: src/app/ui/components/views/CreateProject.tsx:247
+msgid "The English ULB is ready as a reference text."
+msgstr "The English ULB is ready as a reference text."
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:163
 msgid "The latest version saved online by you or your team."
@@ -2962,7 +2970,7 @@ msgstr "This project is already formatted"
 #~ msgstr "This project isn't set up to be shared, so you can't connect to it. Ask "
 #~ "its owner to share it, or save your work as a new shared project."
 
-#: src/app/ui/components/views/CreateProject.tsx:161
+#: src/app/ui/components/views/CreateProject.tsx:162
 msgid "This project lists the English ULB as its source."
 msgstr "This project lists the English ULB as its source."
 
@@ -3318,8 +3326,8 @@ msgid "Your project is already being saved on this device."
 msgstr "Your project is already being saved on this device."
 
 #: src/app/ui/components/blocks/ImportProgressModal.tsx:81
-msgid "Your project is being downloaded and will open soon."
-msgstr "Your project is being downloaded and will open soon."
+#~ msgid "Your project is being downloaded and will open soon."
+#~ msgstr "Your project is being downloaded and will open soon."
 
 #: src/app/domain/project/cloudProjectActions.ts:14
 msgid "Your project is now connected to the shared project you chose."

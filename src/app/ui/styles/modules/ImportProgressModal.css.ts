@@ -45,12 +45,6 @@ export const message = style({
   margin: 0,
 });
 
-export const reassurance = style({
-  fontSize: vars.typography.bodySmall.fontSize,
-  color: vars.color.onSurfaceSecondary,
-  margin: 0,
-});
-
 export const warning = style({
   fontSize: vars.typography.bodySmallest.fontSize,
   color: vars.color.onSurfaceSecondary,

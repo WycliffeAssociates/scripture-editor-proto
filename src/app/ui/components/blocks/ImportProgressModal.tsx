@@ -26,7 +26,7 @@ export type ImportModalAction = {
  */
 export type ImportModalState =
   | { phase: "closed" }
-  | { phase: "importing"; message: string }
+  | { phase: "importing" }
   | {
       phase: "done";
       tone: "success" | "error";
@@ -57,7 +57,7 @@ export function ImportProgressModal(props: {
         <Dialog.Backdrop className={styles.backdrop} />
         <Dialog.Popup className={styles.popup}>
           {state.phase === "importing" ? (
-            <ImportingBody message={state.message} />
+            <ImportingBody />
           ) : state.phase === "done" ? (
             <DoneBody state={state} onClose={props.onClose} />
           ) : null}
@@ -67,20 +67,16 @@ export function ImportProgressModal(props: {
   );
 }
 
-function ImportingBody({ message }: { message: string }) {
+function ImportingBody() {
+  // Just a spinner + one plain line — the streamed step copy ("creating version
+  // history", etc.) is noise to the user.
   return (
-    <>
+    <div className={styles.progressRow}>
+      <LoaderCircle size={18} className={styles.spinner} aria-hidden="true" />
       <Dialog.Title className={styles.title}>
-        <Trans>Bringing it in</Trans>
+        <Trans>Downloading project</Trans>
       </Dialog.Title>
-      <div className={styles.progressRow}>
-        <LoaderCircle size={18} className={styles.spinner} aria-hidden="true" />
-        <span className={styles.message}>{message}</span>
-      </div>
-      <p className={styles.reassurance}>
-        <Trans>Your project is being downloaded and will open soon.</Trans>
-      </p>
-    </>
+    </div>
   );
 }
 

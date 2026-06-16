@@ -5,6 +5,7 @@ import { useMemo, useRef, useState } from "react";
 
 import { createProjectImportFacade } from "@/app/domain/api/import.ts";
 import {
+  type ImportModalAction,
   type ImportModalState,
   ImportProgressModal,
 } from "@/app/ui/components/blocks/ImportProgressModal.tsx";
@@ -160,7 +161,9 @@ export function CreateProject() {
       const zipUrl = await getZipUrl(englishUlb);
       const offerNote = t`This project lists the English ULB as its source.`;
       // Graft the offer onto the still-open success modal; bail if the user
-      // already closed it or moved on.
+      // already closed it or moved on. Carry the project's open action through
+      // the source-text download so the modal can still offer "open your
+      // project" afterward.
       setModalState((prev) =>
         prev.phase === "done" && prev.tone === "success"
           ? {
@@ -173,7 +176,7 @@ export function CreateProject() {
               offerAction: {
                 label: <Trans>Download English ULB</Trans>,
                 onClick: () => {
-                  void downloadSourceText(zipUrl);
+                  void downloadSourceText(zipUrl, prev.openAction);
                 },
               },
             }
@@ -186,30 +189,25 @@ export function CreateProject() {
 
   /**
    * Drive one import action through the modal's progress phase. Success/error
-   * transitions are the caller's job (they know the right copy + actions).
+   * transitions are the caller's job (they know the right copy + actions). The
+   * progress callback is intentionally a no-op — the modal shows a plain spinner.
    */
   const runImportWithProgress = async <T,>(
-    initialMessage: string,
     run: (args: {
       onProgress: (update: ImportProgressUpdate) => void;
     }) => Promise<T>,
   ): Promise<T> => {
-    setModalState({ phase: "importing", message: initialMessage });
-    return await run({
-      onProgress: ({ message }) =>
-        setModalState({ phase: "importing", message }),
-    });
+    setModalState({ phase: "importing" });
+    return await run({ onProgress: () => {} });
   };
 
   const onDownload = async (url: string) => {
     try {
       setIsImporting(true);
-      const importedProject = await runImportWithProgress(
-        t`Downloading repository...`,
-        ({ onProgress }) =>
-          importController.download(url, {
-            onProgress,
-          }),
+      const importedProject = await runImportWithProgress(({ onProgress }) =>
+        importController.download(url, {
+          onProgress,
+        }),
       );
       showImportSuccess({
         importedProject: importedProject.project,
@@ -230,22 +228,25 @@ export function CreateProject() {
   };
 
   /**
-   * Download a declared source text. Unlike a project import, this is reference
-   * material for the project just brought in — so it confirms quietly with no
-   * open-project action.
+   * Download a declared source text — reference material for the project just
+   * brought in. Keeps the project's open action so the user can still jump to
+   * the project they originally imported once the source text lands.
    */
-  const downloadSourceText = async (url: string) => {
+  const downloadSourceText = async (
+    url: string,
+    openAction?: ImportModalAction,
+  ) => {
     try {
       setIsImporting(true);
-      const imported = await runImportWithProgress(
-        t`Downloading source text...`,
-        ({ onProgress }) => importController.download(url, { onProgress }),
+      const imported = await runImportWithProgress(({ onProgress }) =>
+        importController.download(url, { onProgress }),
       );
       setModalState({
         phase: "done",
         tone: "success",
-        message: t`The English ULB is available as a reference text.`,
+        message: t`The English ULB is ready as a reference text.`,
         warning: imported.warning,
+        openAction,
       });
     } catch (error) {
       showImportError(error, t`Failed to download source text`);
@@ -259,12 +260,10 @@ export function CreateProject() {
   ) => {
     try {
       setIsImporting(true);
-      const importedProject = await runImportWithProgress(
-        t`Importing directory...`,
-        ({ onProgress }) =>
-          importController.importDirectorySelection(event, {
-            onProgress,
-          }),
+      const importedProject = await runImportWithProgress(({ onProgress }) =>
+        importController.importDirectorySelection(event, {
+          onProgress,
+        }),
       );
       showImportSuccess({
         importedProject: importedProject?.project,
@@ -287,12 +286,10 @@ export function CreateProject() {
   const onOpenFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
       setIsImporting(true);
-      const importedProject = await runImportWithProgress(
-        t`Importing file...`,
-        ({ onProgress }) =>
-          importController.importZipSelection(event, {
-            onProgress,
-          }),
+      const importedProject = await runImportWithProgress(({ onProgress }) =>
+        importController.importZipSelection(event, {
+          onProgress,
+        }),
       );
       showImportSuccess({
         importedProject: importedProject?.project,
@@ -321,7 +318,6 @@ export function CreateProject() {
           });
           if (!selectedPath) return;
           const importedProject = await runImportWithProgress(
-            t`Importing directory...`,
             ({ onProgress }) =>
               importController.importNativeDirectoryPath(selectedPath, {
                 onProgress,
@@ -355,7 +351,6 @@ export function CreateProject() {
           });
           if (!selectedPath) return;
           const importedProject = await runImportWithProgress(
-            t`Importing file...`,
             ({ onProgress }) =>
               importController.importNativeZipPath(selectedPath, {
                 onProgress,

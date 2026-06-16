@@ -101,8 +101,9 @@ export function ReferencePanel({
   };
 
   // Sane default when the pane opens with nothing active: reopen the remembered
-  // reference if it's still on device; else auto-load the sole reference; else
-  // (0 → friendly empty state in ReferenceEditor, 2+ → let the user pick here).
+  // reference if it's still on device; else, ignoring the project we're editing,
+  // auto-load the sole *other* reference (the onboarding case is one alternative
+  // text alongside your own). 0 → friendly empty state; 2+ → let the user pick.
   // Runs once per open — this component mounts with the pane.
   const didAutoPick = useRef(false);
   useEffect(() => {
@@ -120,8 +121,11 @@ export function ReferencePanel({
       setActiveReferenceResourcePath(remembered);
       return;
     }
-    if (deviceResources.length === 1) {
-      setActiveReferenceResourcePath(deviceResources[0].projectPath);
+    const alternatives = deviceResources.filter(
+      (r) => r.projectPath !== projectKey,
+    );
+    if (alternatives.length === 1) {
+      setActiveReferenceResourcePath(alternatives[0].projectPath);
     }
   }, [
     activeReferenceResourcePath,

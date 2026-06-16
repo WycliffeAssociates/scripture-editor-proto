@@ -307,7 +307,7 @@ msgstr "Agregar línea abajo"
 msgid "Add required space after {marker}"
 msgstr "Agregar espacio obligatorio después de {marker}"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:302
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:306
 msgid "Added"
 msgstr ""
 
@@ -416,7 +416,7 @@ msgstr "Aceptar automáticamente mi trabajo al guardar"
 msgid "Autofix applied for {localizedFixLabel}"
 msgstr "Corrección automática aplicada para {localizedFixLabel}"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:294
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:298
 msgid "Available to add"
 msgstr ""
 
@@ -424,7 +424,7 @@ msgstr ""
 msgid "Back to books"
 msgstr "Volver a libros"
 
-#: src/app/ui/components/views/CreateProject.tsx:391
+#: src/app/ui/components/views/CreateProject.tsx:386
 msgid "Back to projects"
 msgstr "Regresar a proyectos"
 
@@ -480,8 +480,8 @@ msgid "Branch"
 msgstr "Rama"
 
 #: src/app/ui/components/blocks/ImportProgressModal.tsx:74
-msgid "Bringing it in"
-msgstr ""
+#~ msgid "Bringing it in"
+#~ msgstr ""
 
 #. placeholder {0}: props.sharedAuthor
 #: src/app/ui/components/blocks/CloudSyncPanels.tsx:122
@@ -631,7 +631,7 @@ msgstr "Comprobando…"
 msgid "Choose a chapter"
 msgstr "Elegir un capítulo"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:234
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:238
 msgid "Choose a reference text"
 msgstr ""
 
@@ -685,7 +685,7 @@ msgstr ""
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:238
 #: src/app/ui/components/blocks/FindingsPopover.tsx:177
-#: src/app/ui/components/blocks/ImportProgressModal.tsx:105
+#: src/app/ui/components/blocks/ImportProgressModal.tsx:101
 #: src/app/ui/components/blocks/ProjectSwitcher/ProjectBrowserPane.tsx:44
 #: src/app/ui/components/views/search-panel/SearchPanel.tsx:71
 msgid "Close"
@@ -904,7 +904,7 @@ msgstr "Copiando carpeta subida al almacenamiento de la aplicación (0/{0})..."
 msgid "Could not install v{selectedVersion}."
 msgstr "No se pudo instalar v{selectedVersion}."
 
-#: src/app/ui/components/blocks/ImportProgressModal.tsx:96
+#: src/app/ui/components/blocks/ImportProgressModal.tsx:92
 msgid "Couldn't bring it in"
 msgstr ""
 
@@ -928,7 +928,7 @@ msgstr ""
 msgid "Couldn't find a public repository at this link."
 msgstr ""
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:304
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:308
 msgid "Couldn't load the catalog."
 msgstr ""
 
@@ -1075,8 +1075,8 @@ msgstr ""
 msgid "Diff summary"
 msgstr "Resumen de diferencias"
 
-#: src/app/ui/components/views/CreateProject.tsx:275
-#: src/app/ui/components/views/CreateProject.tsx:336
+#: src/app/ui/components/views/CreateProject.tsx:274
+#: src/app/ui/components/views/CreateProject.tsx:332
 msgid "Directory imported successfully!"
 msgstr "¡Directorio importado con éxito!"
 
@@ -1139,7 +1139,7 @@ msgstr ""
 msgid "Download a reference text to read it alongside your project."
 msgstr ""
 
-#: src/app/ui/components/views/CreateProject.tsx:174
+#: src/app/ui/components/views/CreateProject.tsx:177
 msgid "Download English ULB"
 msgstr ""
 
@@ -1156,13 +1156,17 @@ msgstr "Descargar copia local"
 msgid "Download only"
 msgstr "Solo descargar"
 
+#: src/app/ui/components/blocks/ImportProgressModal.tsx:77
+msgid "Downloading project"
+msgstr ""
+
 #: src/app/ui/components/views/CreateProject.tsx:208
-msgid "Downloading repository..."
-msgstr "Descargando repositorio..."
+#~ msgid "Downloading repository..."
+#~ msgstr "Descargando repositorio..."
 
 #: src/app/ui/components/views/CreateProject.tsx:241
-msgid "Downloading source text..."
-msgstr ""
+#~ msgid "Downloading source text..."
+#~ msgstr ""
 
 #: src/app/ui/hooks/useCustomHistory.ts:618
 msgid "Edit"
@@ -1217,11 +1221,11 @@ msgstr "Se esperaba \\{expected}* aquí, pero se encontró \\{marker}*."
 #~ msgid "Failed to create remote project"
 #~ msgstr "No se pudo crear el proyecto remoto"
 
-#: src/app/ui/components/views/CreateProject.tsx:226
+#: src/app/ui/components/views/CreateProject.tsx:224
 msgid "Failed to download project"
 msgstr "No se pudo descargar el proyecto"
 
-#: src/app/ui/components/views/CreateProject.tsx:251
+#: src/app/ui/components/views/CreateProject.tsx:252
 msgid "Failed to download source text"
 msgstr ""
 
@@ -1234,13 +1238,13 @@ msgstr "No se pudieron obtener los proyectos"
 #~ msgid "Failed to import cloud project"
 #~ msgstr "Error al importar proyecto de nube"
 
-#: src/app/ui/components/views/CreateProject.tsx:281
-#: src/app/ui/components/views/CreateProject.tsx:342
+#: src/app/ui/components/views/CreateProject.tsx:280
+#: src/app/ui/components/views/CreateProject.tsx:338
 msgid "Failed to import directory"
 msgstr "No se pudo importar el directorio"
 
-#: src/app/ui/components/views/CreateProject.tsx:309
-#: src/app/ui/components/views/CreateProject.tsx:376
+#: src/app/ui/components/views/CreateProject.tsx:306
+#: src/app/ui/components/views/CreateProject.tsx:371
 msgid "Failed to import file"
 msgstr "No se pudo importar el archivo"
 
@@ -1259,8 +1263,8 @@ msgstr "Error al cargar notas de traducción para {referenceBookCode} "
 msgid "Failed to prepare download"
 msgstr "No se pudo preparar la descarga"
 
-#: src/app/ui/components/views/CreateProject.tsx:303
-#: src/app/ui/components/views/CreateProject.tsx:370
+#: src/app/ui/components/views/CreateProject.tsx:300
+#: src/app/ui/components/views/CreateProject.tsx:365
 msgid "File imported successfully!"
 msgstr "¡Archivo importado con éxito!"
 
@@ -1390,13 +1394,13 @@ msgstr "Importar copia vinculada"
 
 #: src/app/ui/components/views/CreateProject.tsx:263
 #: src/app/ui/components/views/CreateProject.tsx:324
-msgid "Importing directory..."
-msgstr "Importando directorio..."
+#~ msgid "Importing directory..."
+#~ msgstr "Importando directorio..."
 
 #: src/app/ui/components/views/CreateProject.tsx:291
 #: src/app/ui/components/views/CreateProject.tsx:358
-msgid "Importing file..."
-msgstr "Importando archivo..."
+#~ msgid "Importing file..."
+#~ msgstr "Importando archivo..."
 
 #. placeholder {0}: props.currentBookName
 #. placeholder {1}: props.currentChapter
@@ -1550,7 +1554,7 @@ msgstr "Cargar más"
 msgid "Loading {0}…"
 msgstr ""
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:303
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:307
 msgid "Loading catalog…"
 msgstr ""
 
@@ -1591,7 +1595,7 @@ msgid "Loading..."
 msgstr "Cargando..."
 
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:204
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:225
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:229
 msgid "Loading…"
 msgstr "Cargando…"
 
@@ -1752,7 +1756,7 @@ msgstr "Capítulo siguiente"
 msgid "Next match in this verse"
 msgstr ""
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:305
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:309
 msgid "No catalog matches."
 msgstr ""
 
@@ -1794,7 +1798,7 @@ msgstr "Ningún problema coincide con este filtro"
 msgid "No linked cloud projects matched this search."
 msgstr "Ningún proyecto en la nube vinculado coincidió con esta búsqueda."
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:287
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:291
 msgid "No matches on this device."
 msgstr ""
 
@@ -1814,7 +1818,7 @@ msgstr ""
 msgid "No projects yet"
 msgstr "No hay proyectos aún"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:288
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:292
 msgid "No reference texts yet."
 msgstr ""
 
@@ -1877,7 +1881,7 @@ msgstr "No conectado"
 msgid "Note"
 msgstr "Nota"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:283
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:287
 msgid "Notes"
 msgstr ""
 
@@ -1901,7 +1905,7 @@ msgstr ""
 msgid "Offline"
 msgstr "Sin conexión"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:284
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:288
 msgid "On this device"
 msgstr ""
 
@@ -1929,7 +1933,7 @@ msgstr "Solo repositorios que poseo"
 msgid "Open an existing project, or create a new one."
 msgstr "Abre un proyecto existente o crea uno nuevo."
 
-#: src/app/ui/components/views/CreateProject.tsx:101
+#: src/app/ui/components/views/CreateProject.tsx:102
 msgid "Open project"
 msgstr "Abrir proyecto"
 
@@ -2096,11 +2100,11 @@ msgstr ""
 msgid "Project display name"
 msgstr "Nombre visible del proyecto"
 
-#: src/app/ui/components/views/CreateProject.tsx:219
+#: src/app/ui/components/views/CreateProject.tsx:217
 msgid "Project downloaded successfully!"
 msgstr "¡Proyecto descargado con éxito!"
 
-#: src/app/ui/components/views/CreateProject.tsx:218
+#: src/app/ui/components/views/CreateProject.tsx:216
 msgid "Project downloaded successfully. Metadata needs review before opening "
 "it."
 msgstr "Proyecto descargado con éxito. Los metadatos necesitan revisión antes "
@@ -2110,10 +2114,10 @@ msgstr "Proyecto descargado con éxito. Los metadatos necesitan revisión antes 
 msgid "Project Formatted"
 msgstr "Proyecto formateado"
 
-#: src/app/ui/components/views/CreateProject.tsx:272
-#: src/app/ui/components/views/CreateProject.tsx:300
-#: src/app/ui/components/views/CreateProject.tsx:333
-#: src/app/ui/components/views/CreateProject.tsx:367
+#: src/app/ui/components/views/CreateProject.tsx:271
+#: src/app/ui/components/views/CreateProject.tsx:297
+#: src/app/ui/components/views/CreateProject.tsx:329
+#: src/app/ui/components/views/CreateProject.tsx:362
 msgid "Project imported successfully. Metadata needs review before opening it."
 msgstr "Proyecto importado con éxito. Los metadatos necesitan revisión antes de "
 "abrirlo."
@@ -2127,7 +2131,7 @@ msgid "Project Sync"
 msgstr ""
 
 #: src/app/ui/components/blocks/ProjectSwitcher/ProjectBrowserPane.tsx:24
-#: src/app/ui/components/views/CreateProject.tsx:394
+#: src/app/ui/components/views/CreateProject.tsx:389
 msgid "Projects"
 msgstr "Proyectos"
 
@@ -2141,7 +2145,7 @@ msgstr "Proyectos"
 msgid "Read your text without making changes."
 msgstr ""
 
-#: src/app/ui/components/blocks/ImportProgressModal.tsx:98
+#: src/app/ui/components/blocks/ImportProgressModal.tsx:94
 msgid "Ready"
 msgstr ""
 
@@ -2282,16 +2286,16 @@ msgstr ""
 msgid "Repository not found"
 msgstr ""
 
-#: src/app/ui/components/views/CreateProject.tsx:220
+#: src/app/ui/components/views/CreateProject.tsx:218
 msgid "Resource downloaded successfully! It is available in the reference "
 "picker."
 msgstr "¡Recurso descargado con éxito! Está disponible en el selector de "
 "referencia."
 
-#: src/app/ui/components/views/CreateProject.tsx:274
-#: src/app/ui/components/views/CreateProject.tsx:302
-#: src/app/ui/components/views/CreateProject.tsx:335
-#: src/app/ui/components/views/CreateProject.tsx:369
+#: src/app/ui/components/views/CreateProject.tsx:273
+#: src/app/ui/components/views/CreateProject.tsx:299
+#: src/app/ui/components/views/CreateProject.tsx:331
+#: src/app/ui/components/views/CreateProject.tsx:364
 msgid "Resource imported successfully! It is available in the reference picker."
 msgstr "¡Recurso importado con éxito! Está disponible en el selector de "
 "referencia."
@@ -2316,7 +2320,7 @@ msgstr "Revisar cambios"
 msgid "Review changes before sending your work."
 msgstr ""
 
-#: src/app/ui/components/views/CreateProject.tsx:99
+#: src/app/ui/components/views/CreateProject.tsx:100
 msgid "Review metadata"
 msgstr "Revisar metadatos"
 
@@ -2450,11 +2454,11 @@ msgstr ""
 #~ msgid "Search reference resources"
 #~ msgstr "Buscar recursos de referencia"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:274
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:278
 msgid "Search references"
 msgstr "Buscar referencias"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:273
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:277
 msgid "Search references…"
 msgstr ""
 
@@ -2512,7 +2516,7 @@ msgstr "Título de sección 4"
 msgid "Select a checkpoint"
 msgstr ""
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:226
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:230
 msgid "Select a reference"
 msgstr ""
 
@@ -2547,7 +2551,7 @@ msgstr ""
 msgid "Select encoding"
 msgstr "Seleccionar codificación"
 
-#: src/app/ui/components/views/CreateProject.tsx:320
+#: src/app/ui/components/views/CreateProject.tsx:317
 msgid "Select folder"
 msgstr "Seleccionar carpeta"
 
@@ -2576,7 +2580,7 @@ msgstr "Seleccionar versión"
 msgid "Select which editing mode you want to use."
 msgstr "Selecciona qué modo de edición quieres usar."
 
-#: src/app/ui/components/views/CreateProject.tsx:354
+#: src/app/ui/components/views/CreateProject.tsx:350
 msgid "Select ZIP file"
 msgstr "Seleccionar archivo ZIP"
 
@@ -2890,7 +2894,11 @@ msgid "That checkpoint is no longer available."
 msgstr ""
 
 #: src/app/ui/components/views/CreateProject.tsx:247
-msgid "The English ULB is available as a reference text."
+#~ msgid "The English ULB is available as a reference text."
+#~ msgstr ""
+
+#: src/app/ui/components/views/CreateProject.tsx:247
+msgid "The English ULB is ready as a reference text."
 msgstr ""
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:163
@@ -2975,7 +2983,7 @@ msgstr "Este proyecto ya está formateado"
 #~ "its owner to share it, or save your work as a new shared project."
 #~ msgstr ""
 
-#: src/app/ui/components/views/CreateProject.tsx:161
+#: src/app/ui/components/views/CreateProject.tsx:162
 msgid "This project lists the English ULB as its source."
 msgstr ""
 
@@ -3335,8 +3343,8 @@ msgid "Your project is already being saved on this device."
 msgstr ""
 
 #: src/app/ui/components/blocks/ImportProgressModal.tsx:81
-msgid "Your project is being downloaded and will open soon."
-msgstr ""
+#~ msgid "Your project is being downloaded and will open soon."
+#~ msgstr ""
 
 #: src/app/domain/project/cloudProjectActions.ts:14
 msgid "Your project is now connected to the shared project you chose."
