@@ -119,6 +119,9 @@ export function useSearchExecution({
   const [referenceResults, setReferenceResults] = useState<SearchResult[]>([]);
   const [currentSort, setCurrentSort] = useState<SortOption>("canonical");
   const [isSearchPaneOpen, setIsSearchPaneOpen] = useState(false);
+  // Layout state for the desktop dock: false = full-width takeover (just opened),
+  // true = narrow side column beside a revealed editor (after "go to SID").
+  const [isSearchDocked, setIsSearchDocked] = useState(false);
   const [matchWholeWord, setMatchWholeWordState] = useState(false);
   const [matchCase, setMatchCaseState] = useState(false);
   const [searchUSFM, setSearchUSFMState] = useState(false);
@@ -552,9 +555,16 @@ export function useSearchExecution({
         }
         return resolved;
       });
+      // Opening starts full; closing clears the dock. "Go to SID" re-docks
+      // afterward via dockSearchPane.
+      setIsSearchDocked(false);
     },
     [runSearchLogic, searchTerm],
   );
+
+  // Reveal the editor beside the find panel (desktop). Called by "go to SID"
+  // instead of closing the pane.
+  const dockSearchPane = useCallback(() => setIsSearchDocked(true), []);
 
   return {
     searchTerm,
@@ -563,6 +573,8 @@ export function useSearchExecution({
     referenceResults,
     currentSort,
     isSearchPaneOpen,
+    isSearchDocked,
+    dockSearchPane,
     matchWholeWord,
     matchCase,
     searchUSFM,

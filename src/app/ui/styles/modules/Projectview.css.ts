@@ -241,6 +241,18 @@ export const workspaceOverlayPane = style({
   zIndex: zLayer.editorOverlayPane,
 });
 
+// Docked search: the overlay retreats to the trailing ~70%, revealing the
+// editor (constrained to the leading ~30% by `desktopContentGridDocked`).
+// Logical inset keeps the editor on the leading edge in both LTR and RTL.
+export const workspaceOverlayPaneDocked = style({
+  insetInlineStart: "30%",
+  "@media": {
+    "screen and (prefers-reduced-motion: no-preference)": {
+      transition: "inset-inline-start 220ms ease",
+    },
+  },
+});
+
 export const referenceToggleButton = style({
   border: `1px solid ${vars.color.surfaceBorder}`,
   backgroundColor: vars.color.surfacePrimary,
@@ -290,6 +302,21 @@ export const desktopContentGridWithReference = style([
     },
   },
 ]);
+
+// When search is docked, the editor flow is held to the leading 30% — tiling
+// exactly with the docked overlay's 30% inset (no overlap, no gap). The 30%
+// split is a first cut; tune in review.
+export const desktopContentGridDocked = style({
+  "@media": {
+    [mediaQuery.up("lg")]: {
+      maxWidth: "30%",
+      justifySelf: "start",
+    },
+    "screen and (prefers-reduced-motion: no-preference)": {
+      transition: "max-width 220ms ease",
+    },
+  },
+});
 
 export const editorMainSmall = style({
   minHeight: 0,

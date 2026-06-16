@@ -7,6 +7,7 @@ import {
   buildTargetSidTextLookup,
   type SearchResult,
 } from "@/app/domain/search/SearchService.ts";
+import { useWorkspaceMediaQuery } from "@/app/ui/contexts/useWorkspaceMediaQuery.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/SearchPanel.css.ts";
 
@@ -20,6 +21,7 @@ type GroupedItem = {
 
 export function SearchResults() {
   const { t } = useLingui();
+  const { isSm } = useWorkspaceMediaQuery();
   const {
     search,
     allProjects,
@@ -235,7 +237,14 @@ export function SearchResults() {
               onStep={search.stepActiveMatch}
               onPick={(pick) => {
                 search.pickSearchResult(pick);
-                search.setIsSearchPaneOpen(false);
+                // Desktop: keep find open and dock it beside the now-visible
+                // editor. Small screens can't fit side-by-side, so fall back to
+                // the old navigate-and-close.
+                if (isSm) {
+                  search.setIsSearchPaneOpen(false);
+                } else {
+                  search.dockSearchPane();
+                }
               }}
               onReplace={handleReplace}
             />

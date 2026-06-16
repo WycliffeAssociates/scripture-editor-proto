@@ -147,6 +147,9 @@ export function useProjectSearch({
             autoPick: false,
           });
         },
+        // While the find panel is open, the docked editor lets edits happen
+        // beside live results — keep them fresh by also rerunning on userEdit.
+        isSearchActive: () => executionRef.current.isSearchPaneOpen,
       }),
     );
     return () => {
@@ -201,6 +204,8 @@ export function useProjectSearch({
     hasPrev: execution.results.length > 0,
     isSearchPaneOpen: execution.isSearchPaneOpen,
     setIsSearchPaneOpen: execution.setSearchPaneOpen,
+    isSearchDocked: execution.isSearchDocked,
+    dockSearchPane: execution.dockSearchPane,
     matchWholeWord: execution.matchWholeWord,
     setMatchWholeWord: execution.setMatchWholeWord,
     matchCase: execution.matchCase,
