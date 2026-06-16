@@ -97,9 +97,11 @@ export class WorkspaceMirror {
   applyPatch(patch: MirrorPatch): void {
     switch (patch.kind) {
       case "fullSync":
-        return this.applyFullSync(patch);
+        this.applyFullSync(patch);
+        return;
       case "syncMeta":
-        return this.applySyncMeta(patch);
+        this.applySyncMeta(patch);
+        return;
       case "pushChapter": {
         const book = this.ensureBook(patch.ref.bookCode);
         const existing = book.chapters.get(patch.ref.chapterNum);
@@ -373,7 +375,7 @@ export class WorkspaceMirror {
     };
   }
 
-  /** Resident chapters in disk order (chapter number ascending — invariant I1). */
+  /** Resident chapters in chapter-number-ascending order (invariant I1). */
   private chaptersInOrder(
     book: ResidentBook,
   ): Array<[number, ResidentChapter]> {

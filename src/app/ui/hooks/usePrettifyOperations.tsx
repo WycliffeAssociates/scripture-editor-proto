@@ -55,9 +55,6 @@ export function useFormatOperations({
 
   const workingShape = () => shapeForSurface("workingRebuild", editorMode);
 
-  const chapterTokensForFormatting = (chapter: ScriptureChapterState) =>
-    chapter.currentTokens;
-
   // Write the formatted result onto a checked-out chapter (per-chapter scope).
   // Only the canonical tokens are stored; the editor re-derives shape on read.
   const writeFormattedChapter = (
@@ -130,7 +127,7 @@ export function useFormatOperations({
             );
             if (!chapter) return;
             const [result] = await usfmOnionService.formatScope([
-              { tokens: chapterTokensForFormatting(chapter) },
+              { tokens: chapter.currentTokens },
             ]);
             if (!result.appliedChanges.length) return;
             const writable = draft.chapterForWrite({
@@ -190,8 +187,8 @@ export function useFormatOperations({
             if (!draftFile) return;
             const [result] = await usfmOnionService.formatScope([
               {
-                tokens: draftFile.chapters.flatMap((chapter) =>
-                  chapterTokensForFormatting(chapter),
+                tokens: draftFile.chapters.flatMap(
+                  (chapter) => chapter.currentTokens,
                 ),
               },
             ]);
@@ -259,9 +256,7 @@ export function useFormatOperations({
           const books = draft.read();
           const batchResults = await usfmOnionService.formatScope(
             books.map((file) => ({
-              tokens: file.chapters.flatMap((chapter) =>
-                chapterTokensForFormatting(chapter),
-              ),
+              tokens: file.chapters.flatMap((chapter) => chapter.currentTokens),
             })),
           );
 

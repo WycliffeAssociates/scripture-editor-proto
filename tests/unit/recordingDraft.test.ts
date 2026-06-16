@@ -67,14 +67,6 @@ describe("makeRecordingDraft", () => {
     ]);
   });
 
-  it("captures originals (pre-images) for each checked-out chapter", () => {
-    const initial = snapshot();
-    const originalGen1 = initial[0].chapters[0];
-    const draft = makeRecordingDraft(initial);
-    draft.chapterForWrite({ bookCode: "GEN", chapterNum: 1 });
-    expect(draft.result().originals.get("GEN:1")).toBe(originalGen1);
-  });
-
   it("shallow COW: copies array → book → chapter once, aliases the rest", () => {
     const initial = snapshot();
     const draft = makeRecordingDraft(initial);

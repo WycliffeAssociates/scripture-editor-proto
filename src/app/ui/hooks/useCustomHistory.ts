@@ -247,6 +247,14 @@ export function useCustomHistory({
   // resort is the nearest surviving neighbor in document order — ordered
   // by `leavingSnapshot`, the entry snapshot of the tree being replaced,
   // which still contains the dead id.
+  //
+  // Why this lives here and not in `editorSyncPipeline`: that pipeline only
+  // renders committed content for the visible chapter and deliberately EXCLUDES
+  // `undo`/`redo` (see `editorSyncScopeFor`). Replay isn't just a content swap —
+  // it must restore the HISTORICAL cursor + scroll + focus, coordinated with the
+  // content push and timed after Lexical reconciles. The pipeline has no cursor
+  // concept; splitting content (pipeline) from cursor (here) would race reconcile.
+  // So undo/redo self-services the visible chapter as one atomic replay.
   const refreshVisibleEditorIfTouched = useCallback(
     (
       touched: Set<string>,
@@ -369,6 +377,9 @@ export function useCustomHistory({
         ),
       );
     },
+    // biome-ignore lint/correctness/useExhaustiveDependencies: getEditorShape is
+    // a live getter reading appSettingsRef.current; its per-render arrow identity
+    // is irrelevant (never stale) and listing it would only churn this memo.
     [
       currentFileBibleIdentifier,
       currentChapter,

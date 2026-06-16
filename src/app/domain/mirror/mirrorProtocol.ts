@@ -3,8 +3,9 @@
 // Transport-agnostic message vocabulary for a workspace mirror session.
 //
 // A mirror is a passive replica of the editor's per-chapter token state that
-// lives wherever the analysis engines live (today: one web worker; later: a
-// Rust managed state). The main thread is the SOLE writer: it tokenizes the
+// lives wherever the analysis engines live — a web worker on web, a
+// Rust-managed resident `State` (reached over IPC) on desktop. The main thread
+// is the SOLE writer: it tokenizes the
 // chapters a commit changed exactly once and PUSHES the delta; the mirror
 // applies it and, on command, reads its OWN resident state to run an engine or
 // serialize a crash-recovery backup. The mirror never walks Lexical state and
@@ -118,7 +119,9 @@ export type MirrorPatch =
  * the main-thread `commitFilters` policies emit. `"all"` means every book the
  * mirror currently holds (the `project: true` fold). Chapter→book widening for
  * lint/sous happens HERE, mirror-side, by reading resident tokens — the patch
- * only ever carried the changed chapter.
+ * only ever carried the changed chapter. (Analyze runs at book grain even though
+ * edits arrive per-chapter; whether that's still required is a per-chapter-lint
+ * optimization question — see `agent-tmp/ideas/chapter-grain-lint.md`.)
  */
 export type AnalyzeScope = { books: ReadonlyArray<string> } | "all";
 

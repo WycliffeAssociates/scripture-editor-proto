@@ -21,7 +21,9 @@ vi.mock("@/core/persistence/ensureProjectGitReady.ts", () => ({
   ensureProjectGitReady: vi.fn(async () => {}),
 }));
 
-// @ai -> I also hate how extesnive our mocking it, but that's what we have right now, so it's fine. i'm not a testing expert, but I know we don't have the deps in this thing super clean in terms of non mockable, and I think that's likely simpler for backend code anway, so we live with it, BUT we it not be cleaner to put the mocks primarily with their Type in a file, deafult to a vi.fn() or whatever and then you can override if not mocking a fn returned by a factory? ie. getMockFileSys(overide) getTokens(overides) or whatever?
+// TODO(test-mocks): these per-file service mocks are hand-rolled; centralize as
+// per-interface factories (vi.fn() defaults + overrides) — and consider moving
+// the test boundary below the hooks. See agent-tmp/ideas/test-mock-centralization.md.
 const mockFileSystem: FileSystem = {
   readText: vi.fn(),
   readBytes: vi.fn(),

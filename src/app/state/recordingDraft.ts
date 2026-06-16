@@ -16,9 +16,12 @@
 // same copy, so multi-pass mutators just work.
 //
 // Read enforcement is the type system: `read()` returns readonly state, so the
-// only mutable door is checkout. There is no `Object.freeze` wall — structural
-// sharing means the snapshot's objects ARE the store's live objects, so
-// freezing them would freeze store state globally.
+// only mutable door is checkout. The draft adds no `Object.freeze` wall of its
+// own — its snapshot objects ARE the store's live objects, and checkout hands
+// back a fresh copy to mutate. (The store separately freezes committed chapter
+// objects in dev as a runtime backstop for the identity contract; that is
+// compatible here — checkout copies before writing, so a frozen committed
+// object is only ever read through this draft, never mutated.)
 
 import type {
   ReadonlyScriptureBookState,
@@ -40,11 +43,6 @@ export type RecordingDraftResult = {
    */
   affected: CommitChapterRef[];
   /**
-   * Pre-images of every checked-out chapter, keyed `bookCode:chapterNum`.
-   * The staleness baseline (and history before-snapshots) read from here.
-   */
-  originals: Map<string, ScriptureChapterState>;
-  /**
    * Book codes checked out wholesale via `bookForWrite` (chapters array
    * replaced). Any present ⇒ the commit is a validated bulk, not a per-chapter
    * overlay. Empty ⇒ a pure chapter overlay.
@@ -61,7 +59,13 @@ export type RecordingDraftResult = {
 export type RecordingDraft = {
   /** Coherent merged view: writable copies where checked out, snapshot elsewhere. */
   read(): ReadonlyArray<ReadonlyBookState>;
-  /** Check out a writable chapter copy (null if the chapter doesn't exist). */
+  /**
+   * Check out a writable chapter copy. Null only when no chapter matches `ref`
+   * in the current state — i.e. a ref sourced from OUTSIDE this draft (a
+   * discovery flow, a stale/derived ref, an incoming apply naming a chapter
+   * that doesn't exist yet). A ref you just obtained from `read()` is never
+   * null; the nullable return guards the cases where the ref came from elsewhere.
+   */
   chapterForWrite(ref: CommitChapterRef): ScriptureChapterState | null;
   /**
    * Check out a whole book for wholesale rebuild (replacing its `chapters`
@@ -78,7 +82,6 @@ export function makeRecordingDraft(
   snapshot: ScriptureBookState[],
 ): RecordingDraft {
   const touched = new Map<string, CommitChapterRef>();
-  const originals = new Map<string, ScriptureChapterState>();
   const bookCopies = new Map<string, ScriptureBookState>();
   const wholesaleBooks = new Set<string>();
   let files = snapshot; // becomes a copy on first write
@@ -113,7 +116,6 @@ export function makeRecordingDraft(
     bookCopy.chapters[bookCopy.chapters.indexOf(chapter)] = chapterCopy;
 
     touched.set(k, ref);
-    originals.set(k, chapter);
     return chapterCopy;
   }
 
@@ -148,7 +150,6 @@ export function makeRecordingDraft(
           })),
         ),
       ],
-      originals,
       wholesaleBooks,
       wholesaleOriginalChapterNums,
     }),

@@ -40,13 +40,8 @@ export const triggerButtonActive = style({
 });
 
 export const countPill = style({
-  // Notification badge: pulled out of flow and anchored to the button's
-  // block-start/inline-end corner so the trigger stays a fixed 2rem square in
-  // every state — neither the pill's presence nor its digit count can reflow
-  // neighbouring toolbar items as the chapter changes. Anchored at inline-end,
-  // its inline-start edge is pinned to the icon's block-start/inline-end
-  // corner and it grows only toward the inline-end, so longer counts never
-  // creep back over the centre of the glyph.
+  // Absolutely anchored to the trigger's top-end corner so a longer digit
+  // count never reflows neighbouring toolbar items (trigger stays a fixed square).
   position: "absolute",
   insetBlockStart: "-0.25rem",
   insetInlineStart: "1.125rem",

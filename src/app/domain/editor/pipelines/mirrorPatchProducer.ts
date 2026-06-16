@@ -149,6 +149,9 @@ export function seedMirror(args: {
   feed: MirrorFeed;
   generation: Generation;
 }): void {
+  // Per-book disk baseline (md5 of the on-disk bytes, or "absent") — rides the
+  // seed so the mirror can later tell "disk moved under this backup" from
+  // "backup still matches disk" when it writes a crash-recovery envelope.
   const baselineFor = (bookCode: string): DiskBaseline =>
     args.workspaceBaselineStore.getBaseline(bookCode);
   args.feed.pushPatch({
@@ -220,6 +223,8 @@ export async function awaitInitialFindings(args: {
     // generation) into a single re-seed, exactly as the router does.
     let resyncHighWater = -1;
     let giveUpTimer: ReturnType<typeof setTimeout> | null = null;
+    // The `onResult` unsubscribe handle: assigned when we subscribe below and
+    // invoked by `finish()` so the awaiter stops listening once it resolves.
     let off = (): void => {};
 
     const finish = (): void => {

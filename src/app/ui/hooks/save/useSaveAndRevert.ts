@@ -139,7 +139,9 @@ export function useSaveAndRevert(args: {
     return result;
   }
 
-  async function discardAllChanges() {
+  // Sync: the whole revert runs through the sync recording-draft door
+  // (`withWorkingFilesDraftSync`) in one stack frame — nothing here awaits.
+  function discardAllChanges() {
     if (!requireGateOpen(args.interactionGate.get())) return;
     // Discovery pass: only dirty chapters need reverting.
     const dirtyRefs: ChapterRef[] = [];

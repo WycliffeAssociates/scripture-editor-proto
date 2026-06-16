@@ -83,7 +83,6 @@ const importService = new TauriImportService(
 initializeUsfmMarkerCatalog(await usfmOnionService.getMarkerCatalog());
 const updaterService = new TauriUpdaterService();
 await updaterService.initialize();
-
 // Desktop mirror: two sinks on the multicast feed. The Rust resident-state
 // mirror owns lint/sous (tokens born in Rust at parse, edits flow as
 // `mirror_push_patch`; analyze reads resident State); a wasm-free backup worker

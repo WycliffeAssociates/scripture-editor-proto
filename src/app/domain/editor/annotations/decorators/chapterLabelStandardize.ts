@@ -119,6 +119,9 @@ export async function standardizeChapterLabels(
       action: "chapterLabelStandardize",
       dirtyTextContent: true,
     },
+    // Async (not the sync door): rebuilding a book from rewritten USFM re-parses
+    // through the onion service, which is async (wasm-backed) even though it's
+    // our own subsystem — see the `await rebuildParsedFileFromUsfm` below.
     mutate: async (draft) => {
       const changedBookCodes: string[] = [];
       for (const file of draft.read()) {

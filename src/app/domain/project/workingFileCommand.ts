@@ -40,10 +40,7 @@ import {
   type ChapterRef,
   overlayAffectedChapters,
 } from "@/app/domain/project/workingFileMutations.ts";
-import type {
-  ScriptureBookState,
-  ScriptureChapterState,
-} from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import {
   makeRecordingDraft,
   type RecordingDraft,
@@ -157,7 +154,6 @@ export type SyncDraftResult<T> =
       kind: "committed";
       value: T;
       committedChapters: ChapterRef[];
-      originals: Map<string, ScriptureChapterState>;
     }
   | { kind: "unchanged"; value: T };
 
@@ -167,7 +163,7 @@ export type SyncDraftResult<T> =
  * rebase). With no `await` between branching and committing, no concurrent
  * commit can land in between, so there is nothing to validate and no gate to
  * recheck — the recording draft's measured `files` IS the next state. The
- * measured `affected` / `originals` are returned for the caller's history
+ * measured `affected` chapters are returned for the caller's history
  * follow-through.
  *
  * `mutate` reads the draft and checks out a chapter (`chapterForWrite`) or book
@@ -180,13 +176,8 @@ export function withWorkingFilesDraftSync<T>(args: {
 }): SyncDraftResult<T> {
   const draft = makeRecordingDraft(args.workingFilesStore.read());
   const value = args.mutate(draft);
-  const {
-    files,
-    affected,
-    originals,
-    wholesaleBooks,
-    wholesaleOriginalChapterNums,
-  } = draft.result();
+  const { files, affected, wholesaleBooks, wholesaleOriginalChapterNums } =
+    draft.result();
 
   if (affected.length === 0) {
     return { kind: "unchanged", value };
@@ -204,7 +195,7 @@ export function withWorkingFilesDraftSync<T>(args: {
     },
   });
 
-  return { kind: "committed", value, committedChapters: affected, originals };
+  return { kind: "committed", value, committedChapters: affected };
 }
 
 /**
