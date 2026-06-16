@@ -687,11 +687,11 @@ msgstr ""
 #: src/app/ui/components/blocks/FindingsPopover.tsx:177
 #: src/app/ui/components/blocks/ImportProgressModal.tsx:105
 #: src/app/ui/components/blocks/ProjectSwitcher/ProjectBrowserPane.tsx:44
-#: src/app/ui/components/views/search-panel/SearchPanel.tsx:44
+#: src/app/ui/components/views/search-panel/SearchPanel.tsx:71
 msgid "Close"
 msgstr "Cerrar"
 
-#: src/app/ui/components/views/search-panel/SearchPanel.tsx:42
+#: src/app/ui/components/views/search-panel/SearchPanel.tsx:69
 msgid "Close search"
 msgstr "Cerrar búsqueda"
 
@@ -1349,6 +1349,10 @@ msgstr ""
 #: src/app/ui/i18n/sousLocalization.ts:17
 msgid "Hidden control character(s) in this text."
 msgstr "Caracteres de control ocultos en este texto."
+
+#: src/app/ui/components/views/search-panel/SearchPanel.tsx:34
+msgid "Hide editor"
+msgstr ""
 
 #: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:341
 msgid "Hide reference panel"
@@ -2382,7 +2386,7 @@ msgid "Scope"
 msgstr "Ámbito"
 
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:164
-#: src/app/ui/components/views/search-panel/SearchPanel.tsx:36
+#: src/app/ui/components/views/search-panel/SearchPanel.tsx:46
 msgid "Search"
 msgstr "Buscar"
 
@@ -2646,6 +2650,10 @@ msgstr "Nombre corto del libro que se muestra en los encabezados corrientes."
 #: src/app/ui/i18n/usfmMarkerLocalization.ts:19
 msgid "Short table of contents title"
 msgstr "Título corto de la tabla de contenido"
+
+#: src/app/ui/components/views/search-panel/SearchPanel.tsx:35
+msgid "Show editor beside find"
+msgstr ""
 
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:266
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:276

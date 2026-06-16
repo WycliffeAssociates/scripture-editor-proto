@@ -206,6 +206,7 @@ export function useProjectSearch({
     setIsSearchPaneOpen: execution.setSearchPaneOpen,
     isSearchDocked: execution.isSearchDocked,
     dockSearchPane: execution.dockSearchPane,
+    toggleSearchDock: execution.toggleSearchDock,
     matchWholeWord: execution.matchWholeWord,
     setMatchWholeWord: execution.setMatchWholeWord,
     matchCase: execution.matchCase,

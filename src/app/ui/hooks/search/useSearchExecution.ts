@@ -566,6 +566,12 @@ export function useSearchExecution({
   // instead of closing the pane.
   const dockSearchPane = useCallback(() => setIsSearchDocked(true), []);
 
+  // Manual collapse/expand of the docked editor from the find header.
+  const toggleSearchDock = useCallback(
+    () => setIsSearchDocked((prev) => !prev),
+    [],
+  );
+
   return {
     searchTerm,
     isSearching,
@@ -575,6 +581,7 @@ export function useSearchExecution({
     isSearchPaneOpen,
     isSearchDocked,
     dockSearchPane,
+    toggleSearchDock,
     matchWholeWord,
     matchCase,
     searchUSFM,

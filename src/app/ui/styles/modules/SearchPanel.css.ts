@@ -138,6 +138,34 @@ export const searchPanelHeaderTop = style({
   marginBottom: vars.spacing.md,
 });
 
+// Trailing cluster: dock toggle + close button.
+export const searchPanelHeaderActions = style({
+  display: "flex",
+  alignItems: "center",
+  gap: vars.spacing.sm,
+});
+
+export const searchPanelDockToggle = style({
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "2.25rem",
+  height: "2.25rem",
+  border: `1px solid ${vars.color.surfaceBorder}`,
+  borderRadius: vars.border.radius.sm,
+  backgroundColor: vars.color.surfacePrimary,
+  color: vars.color.onSurfaceSecondary,
+  cursor: "pointer",
+  transition: "background-color 0.15s ease, border-color 0.15s ease",
+  selectors: {
+    "&:hover": {
+      backgroundColor: vars.color.surfaceSecondary,
+      borderColor: vars.color.brandBase,
+      color: vars.color.brandBase,
+    },
+  },
+});
+
 export const searchPanelTitle = style({
   fontSize: vars.typography.h5.fontSize,
   fontWeight: 600,
