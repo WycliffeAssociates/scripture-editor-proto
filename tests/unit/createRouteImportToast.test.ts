@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  buildPersistentImportSuccessNotification,
   getProjectParamFromImportedPath,
   resolveImportErrorMessage,
 } from "@/app/utils/createRouteHelpers.ts";
 
-describe("create route import toast helpers", () => {
+describe("create route import helpers", () => {
   it("extracts project param from imported path", () => {
     expect(
       getProjectParamFromImportedPath("/userData/projects/en_ulb (1)"),
@@ -23,18 +22,6 @@ describe("create route import toast helpers", () => {
     expect(getProjectParamFromImportedPath("")).toBeNull();
     expect(getProjectParamFromImportedPath(null)).toBeNull();
     expect(getProjectParamFromImportedPath(undefined)).toBeNull();
-  });
-
-  it("builds persistent notification options", () => {
-    const notification = buildPersistentImportSuccessNotification(
-      "Success",
-      "File imported successfully!",
-    );
-
-    expect(notification.title).toBe("Success");
-    expect(notification.message).toBe("File imported successfully!");
-    expect(notification.autoClose).toBe(false);
-    expect(notification.withCloseButton).toBe(true);
   });
 
   it("keeps specific import error messages", () => {

@@ -4,20 +4,15 @@ import { ArrowLeft } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
 import { createProjectImportFacade } from "@/app/domain/api/import.ts";
+import {
+  type ImportModalState,
+  ImportProgressModal,
+} from "@/app/ui/components/blocks/ImportProgressModal.tsx";
 import { LanguageSelector } from "@/app/ui/components/blocks/ProjectSettings/Settings.tsx";
 import { SourcePicker } from "@/app/ui/components/blocks/SourcePicker/SourcePicker.tsx";
-import {
-  hideNotification,
-  showErrorNotification,
-  showNotificationInfo,
-  showNotificationSuccess,
-  showProgressNotification,
-  updateProgressNotification,
-} from "@/app/ui/components/primitives/notifications.ts";
 import { loadLocale } from "@/app/ui/i18n/loadLocale.tsx";
 import * as styles from "@/app/ui/styles/modules/createRoute.css.ts";
 import {
-  buildPersistentImportSuccessNotification,
   getProjectParamFromImportedPath,
   resolveImportErrorMessage,
 } from "@/app/utils/createRouteHelpers.ts";
@@ -33,9 +28,10 @@ import type { ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
  * Create/import view.
  *
  * This view stays at the app-shell level: it gathers user intent, forwards it to
- * the import facade, and reflects progress/result notifications. Import branching
- * and managed-disk shaping live below this UI layer. Browsing and downloading an
- * existing project is delegated to the embeddable `SourcePicker`.
+ * the import facade, and reflects progress/result through a single modal (no
+ * toasts on this route — the modal is the one un-ignorable surface). Import
+ * branching and managed-disk shaping live below this UI layer. Browsing and
+ * downloading an existing project is delegated to the embeddable `SourcePicker`.
  */
 export function CreateProject() {
   const { t } = useLingui();
@@ -58,79 +54,64 @@ export function CreateProject() {
     settingsManager.get("appLanguage"),
   );
   const [isImporting, setIsImporting] = useState(false);
+  const [modalState, setModalState] = useState<ImportModalState>({
+    phase: "closed",
+  });
 
-  const showImportGitWarningToast = (warning: string | undefined) => {
-    if (!warning) return;
-    showNotificationInfo({
-      notification: {
-        title: t`Version history unavailable`,
-        message: warning,
-        autoClose: false,
-        withCloseButton: true,
-      },
+  const showImportError = (error: unknown, fallback: string) => {
+    setModalState({
+      phase: "done",
+      tone: "error",
+      message: resolveImportErrorMessage({ error, fallback }),
     });
   };
-  const showImportSuccessToast = ({
+
+  const showImportSuccess = ({
     importedProject,
     message,
     isEditableProject,
     requiresMetadataReview = false,
+    warning,
   }: {
     importedProject: ProjectListItem | null | undefined;
     message: string;
     isEditableProject: boolean;
     requiresMetadataReview?: boolean;
+    warning?: string;
   }) => {
-    if (!isEditableProject) {
-      showNotificationSuccess({
-        notification: buildPersistentImportSuccessNotification(
-          t`Success`,
-          message,
-        ),
-      });
+    const importedPath = importedProject?.projectPath;
+    const projectParam = getProjectParamFromImportedPath(importedPath);
+
+    // Resources (non-editable) and projects we can't resolve a route for get a
+    // bare confirmation; editable projects get the open/review action.
+    if (!isEditableProject || !projectParam) {
+      setModalState({ phase: "done", tone: "success", message, warning });
       return;
     }
 
-    const importedPath = importedProject?.projectPath;
-    const projectParam = getProjectParamFromImportedPath(importedPath);
-    if (!projectParam) return;
-
-    showNotificationSuccess({
-      notification: {
-        ...buildPersistentImportSuccessNotification(t`Success`, message),
-        message: (
-          <>
-            {message}{" "}
-            <button
-              type="button"
-              className={styles.notificationLink}
-              onClick={() => {
-                settingsManager?.update?.({
-                  lastProjectPath: importedPath ?? "",
-                });
-                router.navigate({
-                  to: requiresMetadataReview
-                    ? "/$project/metadata"
-                    : "/$project",
-                  params: { project: projectParam },
-                  ...(requiresMetadataReview
-                    ? {
-                        search: {
-                          issues: "open" as const,
-                        },
-                      }
-                    : {}),
-                });
-              }}
-            >
-              {requiresMetadataReview ? (
-                <Trans>Review metadata</Trans>
-              ) : (
-                <Trans>Open project</Trans>
-              )}
-            </button>
-          </>
+    setModalState({
+      phase: "done",
+      tone: "success",
+      message,
+      warning,
+      openAction: {
+        label: requiresMetadataReview ? (
+          <Trans>Review metadata</Trans>
+        ) : (
+          <Trans>Open project</Trans>
         ),
+        onClick: () => {
+          settingsManager?.update?.({
+            lastProjectPath: importedPath ?? "",
+          });
+          router.navigate({
+            to: requiresMetadataReview ? "/$project/metadata" : "/$project",
+            params: { project: projectParam },
+            ...(requiresMetadataReview
+              ? { search: { issues: "open" as const } }
+              : {}),
+          });
+        },
       },
     });
 
@@ -142,8 +123,8 @@ export function CreateProject() {
   /**
    * When a freshly imported project declares the English ULB as its source and
    * we don't already have it, offer to download the curated copy from the
-   * catalog. The catalog lookup doubles as the availability check — everything
-   * in WA-Catalog is in the public data API.
+   * catalog — merged into the open success modal as a second action rather than
+   * a separate prompt. The catalog lookup doubles as the availability check.
    */
   const maybeOfferEnglishUlbSource = async (project: ProjectListItem) => {
     try {
@@ -177,35 +158,35 @@ export function CreateProject() {
       if (alreadyHave) return;
 
       const zipUrl = await getZipUrl(englishUlb);
-      showNotificationInfo({
-        notification: {
-          title: t`Source text available`,
-          autoClose: false,
-          withCloseButton: true,
-          message: (
-            <>
-              {t`This project lists the English ULB as its source.`}{" "}
-              <button
-                type="button"
-                className={styles.notificationLink}
-                onClick={() => {
+      const offerNote = t`This project lists the English ULB as its source.`;
+      // Graft the offer onto the still-open success modal; bail if the user
+      // already closed it or moved on.
+      setModalState((prev) =>
+        prev.phase === "done" && prev.tone === "success"
+          ? {
+              ...prev,
+              message: (
+                <>
+                  {prev.message} {offerNote}
+                </>
+              ),
+              offerAction: {
+                label: <Trans>Download English ULB</Trans>,
+                onClick: () => {
                   void downloadSourceText(zipUrl);
-                }}
-              >
-                <Trans>Download English ULB</Trans>
-              </button>
-            </>
-          ),
-        },
-      });
+                },
+              },
+            }
+          : prev,
+      );
     } catch (error) {
       console.error("Failed to offer source text", error);
     }
   };
 
   /**
-   * Wrap one import action with the shared progress-notification lifecycle used by
-   * every create/import entrypoint on this route.
+   * Drive one import action through the modal's progress phase. Success/error
+   * transitions are the caller's job (they know the right copy + actions).
    */
   const runImportWithProgress = async <T,>(
     initialMessage: string,
@@ -213,23 +194,11 @@ export function CreateProject() {
       onProgress: (update: ImportProgressUpdate) => void;
     }) => Promise<T>,
   ): Promise<T> => {
-    const notificationId = showProgressNotification({
-      title: t`Import Started`,
-      message: initialMessage,
+    setModalState({ phase: "importing", message: initialMessage });
+    return await run({
+      onProgress: ({ message }) =>
+        setModalState({ phase: "importing", message }),
     });
-
-    try {
-      return await run({
-        onProgress: ({ message }) => {
-          updateProgressNotification(notificationId, {
-            title: t`Import Started`,
-            message,
-          });
-        },
-      });
-    } finally {
-      hideNotification(notificationId);
-    }
   };
 
   const onDownload = async (url: string) => {
@@ -242,7 +211,7 @@ export function CreateProject() {
             onProgress,
           }),
       );
-      showImportSuccessToast({
+      showImportSuccess({
         importedProject: importedProject.project,
         message: importedProject.isEditableProject
           ? importedProject.requiresMetadataReview
@@ -251,18 +220,10 @@ export function CreateProject() {
           : t`Resource downloaded successfully! It is available in the reference picker.`,
         isEditableProject: importedProject.isEditableProject,
         requiresMetadataReview: importedProject.requiresMetadataReview,
+        warning: importedProject.warning,
       });
-      showImportGitWarningToast(importedProject.warning);
     } catch (error) {
-      showErrorNotification({
-        notification: {
-          message: resolveImportErrorMessage({
-            error,
-            fallback: t`Failed to download project`,
-          }),
-          title: t`Download Error`,
-        },
-      });
+      showImportError(error, t`Failed to download project`);
     } finally {
       setIsImporting(false);
     }
@@ -271,7 +232,7 @@ export function CreateProject() {
   /**
    * Download a declared source text. Unlike a project import, this is reference
    * material for the project just brought in — so it confirms quietly with no
-   * "open project" prompt, even though the ULB itself is editable scripture.
+   * open-project action.
    */
   const downloadSourceText = async (url: string) => {
     try {
@@ -280,23 +241,14 @@ export function CreateProject() {
         t`Downloading source text...`,
         ({ onProgress }) => importController.download(url, { onProgress }),
       );
-      showNotificationSuccess({
-        notification: buildPersistentImportSuccessNotification(
-          t`Source text downloaded`,
-          t`The English ULB is available as a reference text.`,
-        ),
+      setModalState({
+        phase: "done",
+        tone: "success",
+        message: t`The English ULB is available as a reference text.`,
+        warning: imported.warning,
       });
-      showImportGitWarningToast(imported.warning);
     } catch (error) {
-      showErrorNotification({
-        notification: {
-          message: resolveImportErrorMessage({
-            error,
-            fallback: t`Failed to download source text`,
-          }),
-          title: t`Download Error`,
-        },
-      });
+      showImportError(error, t`Failed to download source text`);
     } finally {
       setIsImporting(false);
     }
@@ -314,7 +266,7 @@ export function CreateProject() {
             onProgress,
           }),
       );
-      showImportSuccessToast({
+      showImportSuccess({
         importedProject: importedProject?.project,
         message: importedProject?.requiresMetadataReview
           ? t`Project imported successfully. Metadata needs review before opening it.`
@@ -323,18 +275,10 @@ export function CreateProject() {
             : t`Directory imported successfully!`,
         isEditableProject: importedProject?.isEditableProject ?? false,
         requiresMetadataReview: importedProject?.requiresMetadataReview,
+        warning: importedProject?.warning,
       });
-      showImportGitWarningToast(importedProject?.warning);
     } catch (error) {
-      showErrorNotification({
-        notification: {
-          message: resolveImportErrorMessage({
-            error,
-            fallback: t`Failed to import directory`,
-          }),
-          title: t`Import Error`,
-        },
-      });
+      showImportError(error, t`Failed to import directory`);
     } finally {
       setIsImporting(false);
     }
@@ -350,7 +294,7 @@ export function CreateProject() {
             onProgress,
           }),
       );
-      showImportSuccessToast({
+      showImportSuccess({
         importedProject: importedProject?.project,
         message: importedProject?.requiresMetadataReview
           ? t`Project imported successfully. Metadata needs review before opening it.`
@@ -359,18 +303,10 @@ export function CreateProject() {
             : t`File imported successfully!`,
         isEditableProject: importedProject?.isEditableProject ?? false,
         requiresMetadataReview: importedProject?.requiresMetadataReview,
+        warning: importedProject?.warning,
       });
-      showImportGitWarningToast(importedProject?.warning);
     } catch (error) {
-      showErrorNotification({
-        notification: {
-          message: resolveImportErrorMessage({
-            error,
-            fallback: t`Failed to import file`,
-          }),
-          title: t`Import Error`,
-        },
-      });
+      showImportError(error, t`Failed to import file`);
     } finally {
       setIsImporting(false);
     }
@@ -391,7 +327,7 @@ export function CreateProject() {
                 onProgress,
               }),
           );
-          showImportSuccessToast({
+          showImportSuccess({
             importedProject: importedProject.project,
             message: importedProject.requiresMetadataReview
               ? t`Project imported successfully. Metadata needs review before opening it.`
@@ -400,18 +336,10 @@ export function CreateProject() {
                 : t`Directory imported successfully!`,
             isEditableProject: importedProject.isEditableProject,
             requiresMetadataReview: importedProject.requiresMetadataReview,
+            warning: importedProject.warning,
           });
-          showImportGitWarningToast(importedProject.warning);
         } catch (error) {
-          showErrorNotification({
-            notification: {
-              message: resolveImportErrorMessage({
-                error,
-                fallback: t`Failed to import directory`,
-              }),
-              title: t`Import Error`,
-            },
-          });
+          showImportError(error, t`Failed to import directory`);
         } finally {
           setIsImporting(false);
         }
@@ -433,7 +361,7 @@ export function CreateProject() {
                 onProgress,
               }),
           );
-          showImportSuccessToast({
+          showImportSuccess({
             importedProject: importedProject.project,
             message: importedProject.requiresMetadataReview
               ? t`Project imported successfully. Metadata needs review before opening it.`
@@ -442,18 +370,10 @@ export function CreateProject() {
                 : t`File imported successfully!`,
             isEditableProject: importedProject.isEditableProject,
             requiresMetadataReview: importedProject.requiresMetadataReview,
+            warning: importedProject.warning,
           });
-          showImportGitWarningToast(importedProject.warning);
         } catch (error) {
-          showErrorNotification({
-            notification: {
-              message: resolveImportErrorMessage({
-                error,
-                fallback: t`Failed to import file`,
-              }),
-              title: t`Import Error`,
-            },
-          });
+          showImportError(error, t`Failed to import file`);
         } finally {
           setIsImporting(false);
         }
@@ -506,6 +426,11 @@ export function CreateProject() {
           giteaHostBaseUrl={giteaHostBaseUrl}
         />
       </section>
+
+      <ImportProgressModal
+        state={modalState}
+        onClose={() => setModalState({ phase: "closed" })}
+      />
     </main>
   );
 }
