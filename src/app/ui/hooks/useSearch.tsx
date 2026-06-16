@@ -176,6 +176,19 @@ export function useProjectSearch({
         matchCase: execution.matchCase,
         matchWholeWord: execution.matchWholeWord,
       }),
+    // Make a specific occurrence within a verse the active match — used by a
+    // result row's stepper to enter (or move within) that verse without leaving
+    // the list. Picking the occurrence variant lands the active highlight on it.
+    goToResultOccurrence: (r: SearchResult, occurrenceIndex: number) =>
+      navigation.pick(
+        { ...r, sidOccurrenceIndex: occurrenceIndex },
+        {
+          activeSearchTerm: execution.searchTerm,
+          searchReference: execution.searchReference,
+          matchCase: execution.matchCase,
+          matchWholeWord: execution.matchWholeWord,
+        },
+      ),
     nextMatch: () =>
       navigation.nextMatch(execution.results, {
         activeSearchTerm: execution.searchTerm,

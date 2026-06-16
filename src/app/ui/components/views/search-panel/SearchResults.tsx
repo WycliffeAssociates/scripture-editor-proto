@@ -199,6 +199,24 @@ export function SearchResults() {
             ? groupedItem.sourceResult
             : search.results[virtualRow.index];
           if (!result) return null;
+          const isActiveRow = resolveIsActive(
+            search.pickedResult,
+            result,
+            groupedItem,
+          );
+          // Every verse with more than one match gets a stepper — not just the
+          // active row. Non-active rows show "1/N"; stepping enters that verse
+          // (occurrence 0 on prev, 1 on next) and makes it active.
+          const occurrence =
+            result.occurrenceCount > 1
+              ? {
+                  count: result.occurrenceCount,
+                  position: isActiveRow
+                    ? (search.activeMatchOccurrence?.position ?? 0)
+                    : 0,
+                  entered: isActiveRow,
+                }
+              : null;
           return (
             <SearchResultRow
               key={
@@ -209,11 +227,7 @@ export function SearchResults() {
               measureRef={virtualizer.measureElement}
               result={result}
               groupedItem={groupedItem}
-              isActive={resolveIsActive(
-                search.pickedResult,
-                result,
-                groupedItem,
-              )}
+              isActive={isActiveRow}
               pickResult={resolvePickResult(
                 result,
                 groupedItem,
@@ -229,12 +243,17 @@ export function SearchResults() {
               })}
               sourceProjectName={sourceProjectName}
               currentProjectName={currentProjectName}
-              occurrence={
-                resolveIsActive(search.pickedResult, result, groupedItem)
-                  ? search.activeMatchOccurrence
-                  : null
-              }
-              onStep={search.stepActiveMatch}
+              occurrence={occurrence}
+              onStep={(direction) => {
+                if (isActiveRow) {
+                  search.stepActiveMatch(direction);
+                } else {
+                  search.goToResultOccurrence(
+                    result,
+                    direction === "next" ? 1 : 0,
+                  );
+                }
+              }}
               onPick={(pick) => {
                 search.pickSearchResult(pick);
                 // Desktop: keep find open and dock it beside the now-visible
@@ -255,6 +274,23 @@ export function SearchResults() {
   );
 }
 
+// Compare by verse identity, not object reference: the stepper picks an
+// occurrence *variant* (`{ ...result, sidOccurrenceIndex }`), so a reference
+// check would lose the active row the moment you cycle within a verse.
+function isSameVerse(
+  a: SearchResult | null | undefined,
+  b: SearchResult | null | undefined,
+): boolean {
+  return (
+    !!a &&
+    !!b &&
+    a.source === b.source &&
+    a.sid === b.sid &&
+    a.bibleIdentifier === b.bibleIdentifier &&
+    a.chapNum === b.chapNum
+  );
+}
+
 function resolveIsActive(
   pickedResult: SearchResult | null | undefined,
   result: SearchResult,
@@ -262,11 +298,11 @@ function resolveIsActive(
 ): boolean {
   if (groupedItem) {
     return (
-      pickedResult === groupedItem.sourceResult ||
-      pickedResult === groupedItem.targetResult
+      isSameVerse(pickedResult, groupedItem.sourceResult) ||
+      isSameVerse(pickedResult, groupedItem.targetResult)
     );
   }
-  return pickedResult === result;
+  return isSameVerse(pickedResult, result);
 }
 
 function resolvePickResult(
@@ -294,7 +330,7 @@ function SearchResultRow(props: {
   localizedBookName: string;
   sourceProjectName: string;
   currentProjectName: string;
-  occurrence: { count: number; position: number } | null;
+  occurrence: { count: number; position: number; entered: boolean } | null;
   onStep: (direction: "next" | "prev") => void;
   onPick: (pick: SearchResult) => void;
   onReplace: (

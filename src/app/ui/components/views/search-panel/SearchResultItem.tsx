@@ -23,10 +23,12 @@ interface SearchResultItemProps {
   defaultReplaceTerm?: string;
   onReplace?: (replacement: string) => Promise<void> | void;
   /**
-   * Occurrence cursor for this verse, present only on the active row when the
-   * verse holds more than one match. Drives the header stepper.
+   * Occurrence cursor for this verse, present when the verse holds more than one
+   * match. `entered` is true only for the active row (real position + clamped
+   * arrows); non-active rows show "1/N" with both arrows live (they enter the
+   * verse). Drives the header stepper.
    */
-  occurrence?: { count: number; position: number } | null;
+  occurrence?: { count: number; position: number; entered: boolean } | null;
   onStep?: (direction: "next" | "prev") => void;
 }
 
@@ -139,7 +141,7 @@ function ResultHeader(props: {
   locationLabel: string;
   navigateLabel: string;
   onPick: () => void;
-  occurrence?: { count: number; position: number } | null;
+  occurrence?: { count: number; position: number; entered: boolean } | null;
   onStep?: (direction: "next" | "prev") => void;
   prevLabel: string;
   nextLabel: string;
@@ -172,12 +174,16 @@ function ResultHeader(props: {
 }
 
 function OccurrenceStepper(props: {
-  occurrence: { count: number; position: number };
+  occurrence: { count: number; position: number; entered: boolean };
   onStep?: (direction: "next" | "prev") => void;
   prevLabel: string;
   nextLabel: string;
 }) {
-  const { count, position } = props.occurrence;
+  const { count, position, entered } = props.occurrence;
+  // The active row clamps at the verse ends; a non-active row keeps both arrows
+  // live so either one enters the verse.
+  const prevDisabled = entered && position <= 0;
+  const nextDisabled = entered && position >= count - 1;
   return (
     <div className={styles.occurrenceStepper}>
       <button
@@ -185,7 +191,7 @@ function OccurrenceStepper(props: {
         className={styles.occurrenceStepButton}
         data-testid={TESTING_IDS.searchPrevButton}
         onClick={() => props.onStep?.("prev")}
-        disabled={position <= 0}
+        disabled={prevDisabled}
         aria-label={props.prevLabel}
         title={props.prevLabel}
       >
@@ -199,7 +205,7 @@ function OccurrenceStepper(props: {
         className={styles.occurrenceStepButton}
         data-testid={TESTING_IDS.searchNextButton}
         onClick={() => props.onStep?.("next")}
-        disabled={position >= count - 1}
+        disabled={nextDisabled}
         aria-label={props.nextLabel}
         title={props.nextLabel}
       >
