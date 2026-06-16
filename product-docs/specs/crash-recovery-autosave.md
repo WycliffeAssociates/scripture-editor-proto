@@ -23,8 +23,8 @@ Word-style UX: silent during the session, banners only at reopen.
 - **Recovery for the dominant cases:** app crash, browser tab close, OS
   reboot, power loss — anything that loses unflushed work between two
   explicit saves.
-- **Loss budget:** ≤2 seconds of un-flushed keystrokes after typing pauses;
-  ≤30 seconds during sustained typing, per book.
+- **Loss budget:** ≤500 ms of un-flushed keystrokes after typing pauses;
+  ≤10 seconds during sustained typing, per book.
 - **No mid-session UI surface.** No "saving…" indicators for the safety
   net itself; banners exist only at reopen.
 - **Per-chapter forced-review scope.** Forced review fires only for the
@@ -86,12 +86,12 @@ implementation amendments past the original matrix:
 
 ```ts
 type DirtyBufferFile = {
-    schemaVersion: 1;
-    diskBaseline: DiskBaseline;   // { kind: "absent" } | { kind: "present"; md5 }
-    bodyMd5: string;              // detects torn writes at read time
-    writtenAt: number;
-    appVersion: string;
-    content: string;              // full USFM book source
+  schemaVersion: 1;
+  diskBaseline: DiskBaseline; // { kind: "absent" } | { kind: "present"; md5 }
+  bodyMd5: string; // detects torn writes at read time
+  writtenAt: number;
+  appVersion: string;
+  content: string; // full USFM book source
 };
 ```
 
@@ -105,10 +105,10 @@ restore.
 The feature has two distinct mechanisms with non-overlapping scopes; keeping
 them straight is load-bearing.
 
-| Mechanism                       | Scope                                                                                            | What it blocks                                                                                              |
-| ------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| **`WorkspaceInteractionGate`**  | `open` \| `saving` \| `recovery-decision-pending`                                                | All programmatic working-state mutation, the editor's editable state, every mutation hook.                  |
-| **`RecoveredConflictTracker`**  | Set of `${bookCode}:${chapterNum}` whose disk baseline moved underneath the backup.              | Specifically the incoming-source flows (remote `syncNow`'s incoming branch, external-compare mode entry).   |
+| Mechanism                      | Scope                                                                               | What it blocks                                                                                            |
+| ------------------------------ | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| **`WorkspaceInteractionGate`** | `open` \| `saving` \| `recovery-decision-pending`                                   | All programmatic working-state mutation, the editor's editable state, every mutation hook.                |
+| **`RecoveredConflictTracker`** | Set of `${bookCode}:${chapterNum}` whose disk baseline moved underneath the backup. | Specifically the incoming-source flows (remote `syncNow`'s incoming branch, external-compare mode entry). |
 
 The gate is coarse — it stops everything while a Keep/Discard decision is
 pending or a save is in flight. The tracker is fine-grained — even after
@@ -131,16 +131,21 @@ User-visible behavior:
 
 The forced-review floor lives in `runSavePipeline`'s precondition phase. When
 the tracker is non-empty and the save wasn't attested, the command refuses
-*before any disk I/O* and returns a `blocked` result naming the reason:
+_before any disk I/O_ and returns a `blocked` result naming the reason:
 
 ```ts
-function checkSavePreconditions(args, options): WorkspaceCommandBlockReason | null {
-    if (!requireGateOpen(args.interactionGate.get())) return "gate-closed";
-    if (!args.recoveredConflictTracker.isEmpty() &&
-        options?.reviewedRecoveredWork !== true) {
-        return "recovered-review-required";
-    }
-    return null;
+function checkSavePreconditions(
+  args,
+  options,
+): WorkspaceCommandBlockReason | null {
+  if (!requireGateOpen(args.interactionGate.get())) return "gate-closed";
+  if (
+    !args.recoveredConflictTracker.isEmpty() &&
+    options?.reviewedRecoveredWork !== true
+  ) {
+    return "recovered-review-required";
+  }
+  return null;
 }
 // → runSavePipeline returns { kind: "blocked", reason } and never touches disk.
 ```
@@ -150,13 +155,13 @@ Callers:
 - **`useSave.saveReview.open`** — local-unsaved-review path. If the tracker
   is non-empty it forces the modal (bypasses `Auto Accept My Work on Save`).
   The modal's local-review Save action calls `saveProjectToDisk({
-  reviewedRecoveredWork: true })` (the thin `useSaveAndRevert` wrapper over
+reviewedRecoveredWork: true })` (the thin `useSaveAndRevert` wrapper over
   `runSavePipeline`). **The attestation is issued only from this
   local-unsaved-review modal path**, never from external-compare-review
   — the diff modal is shared, so blocking external-compare entry (below)
   is what keeps the attestation issuable from the right source.
 - **Auto-accept without recovery pending** — passes `reviewedRecoveredWork:
-  true` because there's nothing to gate.
+true` because there's nothing to gate.
 - **`syncNow`'s incoming branch** — deferred while the gate is non-open OR
   the tracker is non-empty, so it never reaches the save command through
   the incoming-reconciliation path.
@@ -214,8 +219,8 @@ This replaced a series of ad-hoc per-commit guards. The rule is now: every
 **Never accept the remote while review diffs remain.** Reconciliation is bound
 to the same forced-review discipline as the save command. When a behind-only
 pull splits into safe-and-blocked diffs, `runIncomingReconciliation`'s pure
-`finalizeOutcome` *drops* the fast-forward acceptance whenever any review diff
-is still pending — it keeps `remoteSync` attached so the *next* save adopts
+`finalizeOutcome` _drops_ the fast-forward acceptance whenever any review diff
+is still pending — it keeps `remoteSync` attached so the _next_ save adopts
 remote latest as its base, rather than marking the remote accepted while the
 user still has diffs to resolve. So a recovered-conflict chapter (or any
 unreviewed incoming hunk) can never silently advance the remote pointer; the
@@ -226,24 +231,36 @@ cloud-sync architecture; this is the recovery-relevant invariant.)
 
 ```
 WorkingFilesStore.changes
-  → filter (drop `load`, drop `selectionOnly`; see commitFilters)
-  → flatMap per-book events (project-scope fans out to every book)
+  → filter (isDirtyBufferRelevant; drops selectionOnly + analysis-only commits)
+  → flatMap per-book events (project-scope fans out to every book in snapshot)
   → Stream.groupByKey(bookCode)
   → per-substream:
-      Stream.debounce(idleMs)             // default 2000 ms
-      merged with pending-work ceiling     // default 30000 ms
-  → on emit: Effect.suspend(reconcile)
-      wrapped in Effect.retry(exponential 2s × 2)
-        - each retry re-reads latest state from the store
-        - any dirty chapter → md5 → build wrapper → atomicWriteText
-        - all clean → DirtyBufferStore.clear (returns boolean; logs on real removal)
-  → console.error on retry exhaustion, substream dormant
+      debounce(idleMs)                    // default 500 ms
+      merged with max-staleness ceiling   // default 10 000 ms
+  → on emit: feed.sendCommand({ kind: "writeBackup", bookCode, appVersion,
+                                 generation })
 ```
 
-Each book has its own clock. Sustained typing flushes at the ceiling; a
-pause flushes at the idle debounce. Transient FS hiccups recover within
-the retry budget (~6 s). Retry exhaustion logs but does not crash the
-fiber — the next commit on that book starts a fresh debounce window.
+The pipeline sends commands; the mirror does all token reads, dirty/clean
+decisions, serialization, and writes. Main never serializes USFM or touches
+the filesystem here.
+
+**Web:** the workspace-mirror worker persists the backup directly to OPFS
+and returns a `backupResult` (no envelope). When a book goes clean, the
+worker clears the OPFS file itself and returns `{ cleared: true }` with
+`clearOnMain` unset — main does nothing.
+
+**Desktop:** the backup worker is engine-less (no wasm). It serializes the
+envelope in JS and ships the finished `envelopeJson` bytes back in a
+`backupResult`; the `mirrorResultRouter` writes them through
+`DirtyBufferStore.put` (one dumb FS write via the Tauri seam). When a book
+goes clean, the worker returns `{ cleared: true, clearOnMain: true }`; the
+router calls `DirtyBufferStore.clear` on main (a worker can't `invoke`).
+
+Each book has its own clock. Sustained typing flushes at the 10 s ceiling;
+a typing pause flushes at the 500 ms idle debounce. The `writeBackup`
+command is idempotent — the mirror re-reads its own latest resident state on
+every command — so duplicate triggers from the two timers are harmless.
 
 ## The recovered-conflict tracker subscriber
 
@@ -260,13 +277,13 @@ clear the entry, while reverts that bring the chapter content-equal to
 
 ## Lifecycle summary
 
-| Event                                                                                | Tracker outcome                                            |
-| ------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| Successful save of a tracked chapter (the captured-content rebase flips it to `dirty: false`) | Subscriber clears it.                             |
-| Full-chapter revert (`DiffViewerModal`'s "Revert chapter")                           | Chapter dirty=false → cleared.                             |
-| All diff-blocks reverted such that the chapter equals `sourceTokens`                 | Chapter dirty=false → cleared.                             |
-| Partial diff-block revert that leaves the chapter still dirty                        | Subscriber does NOT fire — entry stays.                    |
-| Discard banner                                                                       | `tracker.clearAll()` explicitly + recovered chapters reverted; subscriber would observe them clean anyway. |
+| Event                                                                                         | Tracker outcome                                                                                            |
+| --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Successful save of a tracked chapter (the captured-content rebase flips it to `dirty: false`) | Subscriber clears it.                                                                                      |
+| Full-chapter revert (`DiffViewerModal`'s "Revert chapter")                                    | Chapter dirty=false → cleared.                                                                             |
+| All diff-blocks reverted such that the chapter equals `sourceTokens`                          | Chapter dirty=false → cleared.                                                                             |
+| Partial diff-block revert that leaves the chapter still dirty                                 | Subscriber does NOT fire — entry stays.                                                                    |
+| Discard banner                                                                                | `tracker.clearAll()` explicitly + recovered chapters reverted; subscriber would observe them clean anyway. |
 
 ## Banners
 
@@ -308,18 +325,18 @@ outside the app may not have updated the manifest.
 
 ## Close-time guarantees
 
-| Scenario                              | Guarantee                                                                                  |
-| ------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Sustained typing in a book            | ≤2 s on pause; ≤30 s during continuous typing, per book.                                   |
-| Hard crash / OS kill / power loss     | Last completed durable write per book.                                                     |
-| Browser tab close (`beforeunload`)    | Existing unsaved-changes prompt.                                                           |
-| Tauri app close                       | Same.                                                                                      |
-| In-app project close / navigate       | Pipeline fiber interrupted; current pending window lost.                                   |
-| Explicit save success                 | Backup reconciled to clear via the same pipeline.                                          |
-| Transient FS hiccup mid-flush         | Up to ~6 s of retry; the latest state at retry time is what gets written.                  |
-| Remote sync while incoming blocked    | Incoming reconciliation deferred; `PENDING_PUBLISH` + status refresh proceed.              |
-| External compare while incoming blocked | Mode-entry control disabled; all six public source-loading actions refuse at entry.        |
-| Save invoked without attestation while tracker non-empty | `{ kind: "blocked", reason: "recovered-review-required" }`. No disk I/O attempted.         |
+| Scenario                                                 | Guarantee                                                                           |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Sustained typing in a book                               | ≤500 ms on pause; ≤10 s during continuous typing, per book.                         |
+| Hard crash / OS kill / power loss                        | Last completed durable write per book.                                              |
+| Browser tab close (`beforeunload`)                       | Existing unsaved-changes prompt.                                                    |
+| Tauri app close                                          | Same.                                                                               |
+| In-app project close / navigate                          | Pipeline fiber interrupted; current pending window lost.                            |
+| Explicit save success                                    | Backup reconciled to clear via the same pipeline.                                   |
+| Transient FS hiccup mid-flush                            | Up to ~6 s of retry; the latest state at retry time is what gets written.           |
+| Remote sync while incoming blocked                       | Incoming reconciliation deferred; `PENDING_PUBLISH` + status refresh proceed.       |
+| External compare while incoming blocked                  | Mode-entry control disabled; all six public source-loading actions refuse at entry. |
+| Save invoked without attestation while tracker non-empty | `{ kind: "blocked", reason: "recovered-review-required" }`. No disk I/O attempted.  |
 
 ## Out of scope (v2 candidates)
 

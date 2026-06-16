@@ -7,15 +7,15 @@ import type { GitProvider } from "@/core/persistence/GitProvider.ts";
  * replay path without preserving any additional local-only commits.
  */
 export async function adoptRemoteLatestAsLocalBase(args: {
-    projectPath: string;
-    trackedBranch: string;
-    remoteHead: string;
-    gitProvider: GitProvider;
+  projectPath: string;
+  trackedBranch: string;
+  remoteHead: string;
+  gitProvider: GitProvider;
 }) {
-    return args.gitProvider.applyReplayPlanOntoRemote({
-        projectPath: args.projectPath,
-        branch: args.trackedBranch,
-        remoteHead: args.remoteHead,
-        commitHashes: [],
-    });
+  return args.gitProvider.applyReplayPlanOntoRemote({
+    projectPath: args.projectPath,
+    branch: args.trackedBranch,
+    remoteHead: args.remoteHead,
+    commitHashes: [],
+  });
 }

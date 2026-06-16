@@ -10,13 +10,13 @@ const LocalizedTextSchema = v.record(v.string(), v.string());
 
 /** Schema for the checksum payload nested inside Burrito ingredients. */
 const ChecksumSchema = v.object({
-    md5: v.string(),
+  md5: v.string(),
 });
 
 const SourceSchema = v.object({
-    identifier: v.string(),
-    language: v.optional(v.string()),
-    version: v.optional(v.string()),
+  identifier: v.string(),
+  language: v.optional(v.string()),
+  version: v.optional(v.string()),
 });
 
 /**
@@ -26,27 +26,27 @@ const SourceSchema = v.object({
  * properties loaders and save flows actually consult.
  */
 const IngredientSchema = v.object({
-    checksum: ChecksumSchema,
-    size: v.number(),
-    mimeType: v.string(),
-    scope: v.optional(v.record(v.string(), v.unknown())),
+  checksum: ChecksumSchema,
+  size: v.number(),
+  mimeType: v.string(),
+  scope: v.optional(v.record(v.string(), v.unknown())),
 });
 
 export type Ingredient = v.InferOutput<typeof IngredientSchema>;
 
 /** Schema for the language entries the loaders inspect for name and direction. */
 const LanguageSchema = v.object({
-    tag: v.string(),
-    name: v.record(v.string(), v.string()),
-    scriptDirection: v.optional(v.picklist(["ltr", "rtl"])),
+  tag: v.string(),
+  name: v.record(v.string(), v.string()),
+  scriptDirection: v.optional(v.picklist(["ltr", "rtl"])),
 });
 export type BurritoLanguage = v.InferOutput<typeof LanguageSchema>;
 
 /** Schema for localized book-name metadata used for display labels. */
 const LocalizedNameSchema = v.object({
-    short: LocalizedTextSchema,
-    long: v.optional(LocalizedTextSchema),
-    abbr: v.optional(LocalizedTextSchema),
+  short: LocalizedTextSchema,
+  long: v.optional(LocalizedTextSchema),
+  abbr: v.optional(LocalizedTextSchema),
 });
 
 /**
@@ -57,53 +57,53 @@ const LocalizedNameSchema = v.object({
  * we rely on for classification and persistence.
  */
 const ScriptureBurritoMetadataSchema = v.object({
-    meta: v.object({
-        version: v.string(),
-        defaultLocale: v.optional(v.string()),
-        dateCreated: v.optional(v.string()),
+  meta: v.object({
+    version: v.string(),
+    defaultLocale: v.optional(v.string()),
+    dateCreated: v.optional(v.string()),
+  }),
+
+  identification: v.optional(
+    v.object({
+      name: LocalizedTextSchema,
+      description: v.optional(LocalizedTextSchema),
+      abbreviation: v.optional(LocalizedTextSchema),
     }),
+  ),
+  languages: v.optional(v.array(LanguageSchema)),
 
-    identification: v.optional(
+  ingredients: v.record(v.string(), IngredientSchema),
+
+  source: v.optional(v.array(SourceSchema)),
+
+  subject: v.optional(v.record(v.string(), v.string())),
+
+  type: v.optional(
+    v.object({
+      flavorType: v.optional(
         v.object({
-            name: LocalizedTextSchema,
-            description: v.optional(LocalizedTextSchema),
-            abbreviation: v.optional(LocalizedTextSchema),
+          name: v.optional(v.string()),
+          flavor: v.optional(
+            v.object({
+              name: v.optional(v.string()),
+              projectType: v.optional(v.string()),
+            }),
+          ),
         }),
-    ),
-    languages: v.optional(v.array(LanguageSchema)),
+      ),
+    }),
+  ),
 
-    ingredients: v.record(v.string(), IngredientSchema),
-
-    source: v.optional(v.array(SourceSchema)),
-
-    subject: v.optional(v.record(v.string(), v.string())),
-
-    type: v.optional(
-        v.object({
-            flavorType: v.optional(
-                v.object({
-                    name: v.optional(v.string()),
-                    flavor: v.optional(
-                        v.object({
-                            name: v.optional(v.string()),
-                            projectType: v.optional(v.string()),
-                        }),
-                    ),
-                }),
-            ),
-        }),
-    ),
-
-    localizedNames: v.optional(v.record(v.string(), LocalizedNameSchema)),
+  localizedNames: v.optional(v.record(v.string(), LocalizedNameSchema)),
 });
 
 export type ScriptureBurritoMetadata = v.InferOutput<
-    typeof ScriptureBurritoMetadataSchema
+  typeof ScriptureBurritoMetadataSchema
 >;
 
 /** Parse unknown JSON into validated Burrito metadata or throw. */
 export function parseScriptureBurritoMetadata(raw: unknown) {
-    return v.parse(ScriptureBurritoMetadataSchema, raw);
+  return v.parse(ScriptureBurritoMetadataSchema, raw);
 }
 
 /**
@@ -111,15 +111,15 @@ export function parseScriptureBurritoMetadata(raw: unknown) {
  * or skip invalid metadata without throwing through the whole open pipeline.
  */
 export function tryParseScriptureBurritoMetadata(
-    raw: unknown,
+  raw: unknown,
 ): [
-    ReturnType<typeof parseScriptureBurritoMetadata> | undefined,
-    Error | undefined,
+  ReturnType<typeof parseScriptureBurritoMetadata> | undefined,
+  Error | undefined,
 ] {
-    try {
-        const parsed = parseScriptureBurritoMetadata(raw);
-        return [parsed, undefined];
-    } catch (err) {
-        return [undefined, err instanceof Error ? err : new Error(String(err))];
-    }
+  try {
+    const parsed = parseScriptureBurritoMetadata(raw);
+    return [parsed, undefined];
+  } catch (err) {
+    return [undefined, err instanceof Error ? err : new Error(String(err))];
+  }
 }

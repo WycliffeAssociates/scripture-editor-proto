@@ -7,7 +7,7 @@ The **match-formatting** engine
 hook (`src/app/ui/hooks/useFormatMatching.tsx`) align a target text to a
 reference text using verse anchors, place paragraph/poetry markers cleanly at
 verse boundaries, and return `SkippedMarkerSuggestion[]` for any markers that
-cannot be placed because their position falls *inside* a verse (e.g., a `\q2`
+cannot be placed because their position falls _inside_ a verse (e.g., a `\q2`
 mid-verse). Two needs followed from that:
 
 1. A UI entry point for invoking match-formatting.
@@ -16,7 +16,7 @@ mid-verse). Two needs followed from that:
    put it inside this verse."
 
 The answer is a **structured form-style editor mode** ("form mode"). It is
-*discourse-first* rather than verse-first: a verse-first model (each `\v` hunk
+_discourse-first_ rather than verse-first: a verse-first model (each `\v` hunk
 as a card, paragraph/poetry markers within it as rows) breaks on real USFM
 because paragraph and verse axes are orthogonal:
 
@@ -24,7 +24,7 @@ because paragraph and verse axes are orthogonal:
   spans `\p`, `\q`, `\q2`, `\b`, `\p`, `\b`, `\q`, `\q2`).
 - A single paragraph can contain multiple verses (Mt 4:5–6: one `\p` holds
   both `\v 5` and `\v 6`).
-- A `\p` typically prefixes the *next* verse's content, so a verse-first
+- A `\p` typically prefixes the _next_ verse's content, so a verse-first
   hunker leaves it stranded at the tail of the previous verse — the source
   of the "is this `\p` a seam or content?" ambiguity that haunted the v1
   prototype.
@@ -185,7 +185,7 @@ opens a marker menu:
 The menu palette is intentionally constrained:
 
 ```ts
-INSERT_MARKERS = ["v", "p", "q1", "q2"]
+INSERT_MARKERS = ["v", "p", "q1", "q2"];
 ```
 
 Drop `\m`, `\q3`+, `\b`, `\pb` from user-pickable choices. `\m` is
@@ -230,7 +230,7 @@ sequences parallel for any verse, so equivalent ordinals on both panes
 identify equivalent positions.
 
 The `FormFocusProvider` effect imperatively manages a `data-aligned`
-attribute on the *single* opposite-pane fragment matching the focused
+attribute on the _single_ opposite-pane fragment matching the focused
 ordinal:
 
 1. Clear all `[data-aligned="true"]`.
@@ -238,7 +238,7 @@ ordinal:
    `[data-form-pane]` + `[data-form-row-sid]` selectors and the
    parsed ordinal.
 3. Set `data-aligned="true"` on the match and `scrollIntoView({ block:
-   "nearest", behavior: "smooth" })`.
+"nearest", behavior: "smooth" })`.
 
 Source-of-focus side is identified by the textarea's nearest
 `[data-form-pane]` ancestor (`source` or `reference`). Highlighting is
@@ -258,8 +258,9 @@ as thin wrappers. The shape mirrors `prettify(scope)` in
 `usePrettifyOperations`: `scope` resolves which chapters get drafted and which
 the reference is taken from up front, then a single apply loop runs through the
 `withWorkingFilesDraft` seam (draft scratch → compute the matched tokens →
-validate → commit), with the `history.runTransaction` wrapper and per-action
-report at the call site.
+validate → commit), with `history.captureHistory()` before the mutation and
+`history.recordHistory(token, { label, affected })` after commit at the call
+site.
 
 Per chapter, the apply work:
 
@@ -284,8 +285,8 @@ empty `\fr` rows across form-mode cards. The two opener-sets are
 top-level config in `skeletonInjection.ts`:
 
 ```ts
-const DEPRECATED_MARKERS  = new Set(["s5"]);
-const NOTE_SPAN_OPENERS   = new Set(["f", "fe", "x", "ef", "ex"]);
+const DEPRECATED_MARKERS = new Set(["s5"]);
+const NOTE_SPAN_OPENERS = new Set(["f", "fe", "x", "ef", "ex"]);
 ```
 
 ### Match-formatting indicators (per-verse missing markers)
@@ -298,7 +299,7 @@ card or by adding a marker via the in-card `+` slot; recomputing on
 edit is cheap because per-verse marker projection is bounded.
 
 There is no separate "skipped suggestions" panel.
-`SkippedMarkerSuggestion[]` is consumed only as a *signal* that there
+`SkippedMarkerSuggestion[]` is consumed only as a _signal_ that there
 is work to do (auto-switch to form mode); the visible state comes
 from the per-verse diff.
 

@@ -1,8 +1,9 @@
 import { useLayoutEffect, useSyncExternalStore } from "react";
+
 import { useLayoutTick } from "@/app/ui/hooks/useLayoutTick.ts";
 import {
-    clearHighlights,
-    highlightMatchesAcrossEditors,
+  clearHighlights,
+  highlightMatchesAcrossEditors,
 } from "@/app/ui/hooks/useSearchHighlighter.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
@@ -18,19 +19,19 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
  * trigger scroll explicitly via `scrollToActiveMatchInEditor`.
  */
 export function HighlightSink() {
-    const { searchHighlightStore, layoutTickStore } = useWorkspaceContext();
-    const state = useSyncExternalStore(
-        searchHighlightStore.subscribe,
-        searchHighlightStore.getSnapshot,
-    );
-    const tick = useLayoutTick(layoutTickStore);
-    // biome-ignore lint/correctness/useExhaustiveDependencies: tick is the intentional trigger.
-    useLayoutEffect(() => {
-        if (!state || state.length === 0) {
-            clearHighlights();
-            return;
-        }
-        highlightMatchesAcrossEditors(state);
-    }, [state, tick]);
-    return null;
+  const { searchHighlightStore, layoutTickStore } = useWorkspaceContext();
+  const state = useSyncExternalStore(
+    searchHighlightStore.subscribe,
+    searchHighlightStore.getSnapshot,
+  );
+  const tick = useLayoutTick(layoutTickStore);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: tick is the intentional trigger.
+  useLayoutEffect(() => {
+    if (!state || state.length === 0) {
+      clearHighlights();
+      return;
+    }
+    highlightMatchesAcrossEditors(state);
+  }, [state, tick]);
+  return null;
 }

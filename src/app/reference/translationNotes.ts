@@ -1,6 +1,6 @@
 import type {
-    PackedTranslationNotesBook,
-    TranslationNotesItem,
+  PackedTranslationNotesBook,
+  TranslationNotesItem,
 } from "@/core/library/LibraryItem.ts";
 
 /**
@@ -8,16 +8,16 @@ import type {
  * Translation Notes.
  */
 export type TranslationNoteEntry = {
-    documentId: string;
-    bookCode: string;
-    chapterNumber: number;
-    verseNumber: number;
-    rawMarkdown: string;
+  documentId: string;
+  bookCode: string;
+  chapterNumber: number;
+  verseNumber: number;
+  rawMarkdown: string;
 };
 
 type TranslationNoteAnchor = {
-    bookCode: string;
-    chapterNumber: number;
+  bookCode: string;
+  chapterNumber: number;
 };
 
 /**
@@ -25,37 +25,37 @@ type TranslationNoteAnchor = {
  * anchor. This is an app-facing adapter over the loaded TN noun/runtime seam.
  */
 export async function loadTranslationNotesForAnchor(args: {
-    resource: TranslationNotesItem;
-    anchor: TranslationNoteAnchor;
+  resource: TranslationNotesItem;
+  anchor: TranslationNoteAnchor;
 }): Promise<TranslationNoteEntry[]> {
-    const packedBook = await args.resource.readBook(
-        args.anchor.bookCode.toUpperCase(),
-    );
-    if (!packedBook) {
-        return [];
-    }
+  const packedBook = await args.resource.readBook(
+    args.anchor.bookCode.toUpperCase(),
+  );
+  if (!packedBook) {
+    return [];
+  }
 
-    return loadPackedTranslationNotesForAnchor(packedBook, args.anchor);
+  return loadPackedTranslationNotesForAnchor(packedBook, args.anchor);
 }
 
 async function loadPackedTranslationNotesForAnchor(
-    packedBook: PackedTranslationNotesBook,
-    anchor: TranslationNoteAnchor,
+  packedBook: PackedTranslationNotesBook,
+  anchor: TranslationNoteAnchor,
 ): Promise<TranslationNoteEntry[]> {
-    const chapter = packedBook.chapters.find(
-        (candidate) => candidate.chapterNumber === anchor.chapterNumber,
-    );
-    if (!chapter) {
-        return [];
-    }
+  const chapter = packedBook.chapters.find(
+    (candidate) => candidate.chapterNumber === anchor.chapterNumber,
+  );
+  if (!chapter) {
+    return [];
+  }
 
-    return [...chapter.verses]
-        .map((verse) => ({
-            documentId: `${packedBook.bookCode}:${anchor.chapterNumber}:${verse.verseNumber}`,
-            bookCode: packedBook.bookCode,
-            chapterNumber: anchor.chapterNumber,
-            verseNumber: verse.verseNumber,
-            rawMarkdown: verse.rawMarkdown,
-        }))
-        .sort((left, right) => left.verseNumber - right.verseNumber);
+  return [...chapter.verses]
+    .map((verse) => ({
+      documentId: `${packedBook.bookCode}:${anchor.chapterNumber}:${verse.verseNumber}`,
+      bookCode: packedBook.bookCode,
+      chapterNumber: anchor.chapterNumber,
+      verseNumber: verse.verseNumber,
+      rawMarkdown: verse.rawMarkdown,
+    }))
+    .sort((left, right) => left.verseNumber - right.verseNumber);
 }

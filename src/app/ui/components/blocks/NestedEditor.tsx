@@ -5,59 +5,60 @@ import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import {
-    $getRoot,
-    type LexicalEditor,
-    LineBreakNode,
-    ParagraphNode,
-    type SerializedEditorState,
-    type SerializedLexicalNode,
-    TextNode,
+  $getRoot,
+  type LexicalEditor,
+  LineBreakNode,
+  ParagraphNode,
+  type SerializedEditorState,
+  type SerializedLexicalNode,
+  TextNode,
 } from "lexical";
 import { Plus } from "lucide-react";
 import {
-    useCallback,
-    useEffect,
-    useRef,
-    useState,
-    useSyncExternalStore,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
 } from "react";
+
 import { DATA_JS } from "@/app/data/constants.ts";
 import {
-    domPresentationMode,
-    EDITOR_MODES,
-    isEditableEditorMode,
+  domPresentationMode,
+  EDITOR_MODES,
+  isEditableEditorMode,
 } from "@/app/data/editor.ts";
 import {
-    inverseTextNodeTransform,
-    textNodeTransform,
+  inverseTextNodeTransform,
+  textNodeTransform,
 } from "@/app/domain/editor/listeners/manageUsfmMarkers.ts";
 import { USFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
-    $createUSFMTextNode,
-    USFMTextNode,
+  $createUSFMTextNode,
+  USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { requireGateOpen } from "@/app/state/WorkspaceInteractionGate.ts";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import {
-    Popover,
-    PopoverDropdown,
-    PopoverTarget,
+  Popover,
+  PopoverDropdown,
+  PopoverTarget,
 } from "@/app/ui/components/primitives/Popover/Popover.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as nestedStyles from "@/app/ui/styles/modules/NestedEditor.css.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 type Props = {
-    outerMarker: string;
-    mainEditor: LexicalEditor;
-    initialEditorState: SerializedEditorState<SerializedLexicalNode>;
-    onChange: (
-        newState: SerializedEditorState<SerializedLexicalNode>,
-        mainEditor: LexicalEditor,
-    ) => void;
-    id: string;
-    isOpen: boolean;
-    setIsOpen: (mainEditor: LexicalEditor, isOpen: boolean) => void;
+  outerMarker: string;
+  mainEditor: LexicalEditor;
+  initialEditorState: SerializedEditorState<SerializedLexicalNode>;
+  onChange: (
+    newState: SerializedEditorState<SerializedLexicalNode>,
+    mainEditor: LexicalEditor,
+  ) => void;
+  id: string;
+  isOpen: boolean;
+  setIsOpen: (mainEditor: LexicalEditor, isOpen: boolean) => void;
 };
 
 /**
@@ -69,223 +70,216 @@ type Props = {
  * the main editor when the popover closes.
  */
 export function NestedEditor({
-    outerMarker,
-    mainEditor,
-    initialEditorState,
-    onChange,
-    id,
-    isOpen,
-    setIsOpen,
+  outerMarker,
+  mainEditor,
+  initialEditorState,
+  onChange,
+  id,
+  isOpen,
+  setIsOpen,
 }: Props) {
-    return (
-        <Popover
-            defaultOpened={isOpen}
-            onChange={(c) => {
-                setIsOpen(mainEditor, c);
-            }}
-            position="bottom"
-            offset={8}
-        >
-            <PopoverTarget
-                asChild
-                className={nestedStyles.nestedEditorButton}
-                data-opened={isOpen}
-                data-id={id}
-                data-is-nested-editor-button="true"
-            >
-                <Plus size={14} />
-            </PopoverTarget>
+  return (
+    <Popover
+      defaultOpened={isOpen}
+      onChange={(c) => {
+        setIsOpen(mainEditor, c);
+      }}
+      position="bottom"
+      offset={8}
+    >
+      <PopoverTarget
+        asChild
+        className={nestedStyles.nestedEditorButton}
+        data-opened={isOpen}
+        data-id={id}
+        data-is-nested-editor-button="true"
+      >
+        <Plus size={14} />
+      </PopoverTarget>
 
-            <PopoverDropdown>
-                <NestedEditorContent
-                    outerMarker={outerMarker}
-                    mainEditor={mainEditor}
-                    initialEditorState={initialEditorState}
-                    onChange={onChange}
-                    id={id}
-                    isOpen={isOpen}
-                    setIsOpen={setIsOpen}
-                />
-            </PopoverDropdown>
-        </Popover>
-    );
+      <PopoverDropdown>
+        <NestedEditorContent
+          outerMarker={outerMarker}
+          mainEditor={mainEditor}
+          initialEditorState={initialEditorState}
+          onChange={onChange}
+          id={id}
+          isOpen={isOpen}
+          setIsOpen={setIsOpen}
+        />
+      </PopoverDropdown>
+    </Popover>
+  );
 }
 
 function NestedEditorContent({
-    outerMarker,
-    mainEditor,
-    initialEditorState,
-    onChange,
-    id,
-    isOpen,
-    setIsOpen,
+  outerMarker,
+  mainEditor,
+  initialEditorState,
+  onChange,
+  id,
+  isOpen,
+  setIsOpen,
 }: Props) {
-    const nestedEditorRef = useRef<LexicalEditor>(null);
-    const editorWrapperDomElRef = useRef<HTMLDivElement>(null);
-    const { project, projectLanguageDirection, interactionGate } =
-        useWorkspaceContext();
-    const { appSettings } = project;
-    const editorModeSetting = appSettings.editorMode ?? EDITOR_MODES.regular;
-    // Form-mode field editors must respect the same interaction gate as the
-    // main editor — no typing while a save is in flight or a recovery decision
-    // is pending.
-    const gate = useSyncExternalStore(
-        interactionGate.subscribe.bind(interactionGate),
-        interactionGate.getSnapshot.bind(interactionGate),
-    );
-    const isEditableMode =
-        isEditableEditorMode(editorModeSetting) && requireGateOpen(gate);
-    const resolvedDataMode = domPresentationMode(editorModeSetting);
-    const [hasOpened, setHasOpened] = useState(false);
+  const nestedEditorRef = useRef<LexicalEditor>(null);
+  const editorWrapperDomElRef = useRef<HTMLDivElement>(null);
+  const { project, projectLanguageDirection, interactionGate } =
+    useWorkspaceContext();
+  const { appSettings } = project;
+  const editorModeSetting = appSettings.editorMode ?? EDITOR_MODES.regular;
+  // Form-mode field editors must respect the same interaction gate as the
+  // main editor — no typing while a save is in flight or a recovery decision
+  // is pending.
+  const gate = useSyncExternalStore(
+    interactionGate.subscribe.bind(interactionGate),
+    interactionGate.getSnapshot.bind(interactionGate),
+  );
+  const isEditableMode =
+    isEditableEditorMode(editorModeSetting) && requireGateOpen(gate);
+  const resolvedDataMode = domPresentationMode(editorModeSetting);
+  const [hasOpened, setHasOpened] = useState(false);
 
-    const nestedConfig = {
-        namespace: `nested-${outerMarker}-${id}`,
-        editable: isEditableMode,
-        nodes: [
-            USFMParagraphNode,
-            USFMTextNode,
-            {
-                replace: TextNode,
-                with: (node: TextNode) => {
-                    return $createUSFMTextNode(node.getTextContent(), {
-                        id: guidGenerator(),
-                        sid: "",
-                        inPara: "",
-                    });
-                },
-                withKlass: USFMTextNode,
-            },
-            ParagraphNode,
-            LineBreakNode,
-        ],
-        onError(error: Error) {
-            console.error("Nested editor error:", error);
+  const nestedConfig = {
+    namespace: `nested-${outerMarker}-${id}`,
+    editable: isEditableMode,
+    nodes: [
+      USFMParagraphNode,
+      USFMTextNode,
+      {
+        replace: TextNode,
+        with: (node: TextNode) => {
+          return $createUSFMTextNode(node.getTextContent(), {
+            id: guidGenerator(),
+            sid: "",
+            inPara: "",
+          });
         },
+        withKlass: USFMTextNode,
+      },
+      ParagraphNode,
+      LineBreakNode,
+    ],
+    onError(error: Error) {
+      console.error("Nested editor error:", error);
+    },
+  };
+
+  useEffect(() => {
+    const editor = nestedEditorRef.current;
+    if (!editor) return;
+    editor.setEditable(isEditableMode);
+  }, [isEditableMode]);
+
+  const handleSave = useCallback(() => {
+    const editor = nestedEditorRef.current;
+    if (!editor) return;
+    onChange(editor.getEditorState().toJSON(), mainEditor);
+  }, [mainEditor, onChange]);
+
+  const handleClose = useCallback(() => {
+    handleSave();
+    setIsOpen(mainEditor, false);
+  }, [handleSave, mainEditor, setIsOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+
+    const tryInit = () => {
+      const root = document.getElementById("root") as HTMLDivElement | null;
+      const editorWrapper = editorWrapperDomElRef.current;
+      if (editorWrapper && root) {
+        Object.entries(root.dataset).forEach(([key, value]) => {
+          editorWrapper.dataset[key] = value;
+        });
+      }
+
+      const editor = nestedEditorRef.current;
+      const domEl = document.querySelector(`[data-id="${id}"]`);
+      if (editor && domEl) {
+        editor.setEditorState(editor.parseEditorState(initialEditorState), {
+          tag: "history-merge",
+        });
+        setHasOpened(true);
+        editor.update(() => {
+          const rootNode = $getRoot();
+          const firstChild = rootNode.getAllTextNodes()[0];
+          firstChild?.selectEnd();
+        });
+        return;
+      }
+
+      if (!cancelled) {
+        requestAnimationFrame(tryInit);
+      }
     };
 
-    useEffect(() => {
-        const editor = nestedEditorRef.current;
-        if (!editor) return;
-        editor.setEditable(isEditableMode);
-    }, [isEditableMode]);
+    tryInit();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, initialEditorState, isOpen]);
 
-    const handleSave = useCallback(() => {
-        const editor = nestedEditorRef.current;
-        if (!editor) return;
-        onChange(editor.getEditorState().toJSON(), mainEditor);
-    }, [mainEditor, onChange]);
+  useEffect(() => {
+    if (!hasOpened) return;
+    const editor = nestedEditorRef.current;
+    if (!editor) return;
 
-    const handleClose = useCallback(() => {
-        handleSave();
-        setIsOpen(mainEditor, false);
-    }, [handleSave, mainEditor, setIsOpen]);
-
-    useEffect(() => {
-        if (!isOpen) return;
-        let cancelled = false;
-
-        const tryInit = () => {
-            const root = document.getElementById(
-                "root",
-            ) as HTMLDivElement | null;
-            const editorWrapper = editorWrapperDomElRef.current;
-            if (editorWrapper && root) {
-                Object.entries(root.dataset).forEach(([key, value]) => {
-                    editorWrapper.dataset[key] = value;
-                });
-            }
-
-            const editor = nestedEditorRef.current;
-            const domEl = document.querySelector(`[data-id="${id}"]`);
-            if (editor && domEl) {
-                editor.setEditorState(
-                    editor.parseEditorState(initialEditorState),
-                    {
-                        tag: "history-merge",
-                    },
-                );
-                setHasOpened(true);
-                editor.update(() => {
-                    const rootNode = $getRoot();
-                    const firstChild = rootNode.getAllTextNodes()[0];
-                    firstChild?.selectEnd();
-                });
-                return;
-            }
-
-            if (!cancelled) {
-                requestAnimationFrame(tryInit);
-            }
+    const unregisterTransformWhileTyping = editor.registerNodeTransform(
+      USFMTextNode,
+      (node) => {
+        const arg = {
+          node,
+          editor,
+          editorMode: editorModeSetting,
+          languageDirection: projectLanguageDirection,
         };
-
-        tryInit();
-        return () => {
-            cancelled = true;
-        };
-    }, [id, initialEditorState, isOpen]);
-
-    useEffect(() => {
-        if (!hasOpened) return;
-        const editor = nestedEditorRef.current;
-        if (!editor) return;
-
-        const unregisterTransformWhileTyping = editor.registerNodeTransform(
-            USFMTextNode,
-            (node) => {
-                const arg = {
-                    node,
-                    editor,
-                    editorMode: editorModeSetting,
-                    languageDirection: projectLanguageDirection,
-                };
-                textNodeTransform(arg);
-                inverseTextNodeTransform(arg);
-            },
-        );
-
-        return unregisterTransformWhileTyping;
-    }, [editorModeSetting, hasOpened, projectLanguageDirection]);
-
-    return (
-        <div className={nestedStyles.editorWrapper} ref={editorWrapperDomElRef}>
-            <LexicalComposer initialConfig={nestedConfig}>
-                <RichTextPlugin
-                    ErrorBoundary={LexicalErrorBoundary}
-                    contentEditable={
-                        <ContentEditable
-                            data-id={id}
-                            data-js={DATA_JS.editorContainer}
-                            data-mode={resolvedDataMode}
-                            className={nestedStyles.contentEditable}
-                        />
-                    }
-                    placeholder={
-                        <span className={nestedStyles.placeholder}>
-                            Enter note…
-                        </span>
-                    }
-                />
-                <HistoryPlugin />
-                <EditorRefPlugin editorRef={nestedEditorRef} />
-            </LexicalComposer>
-
-            <div
-                style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    gap: "0.5rem",
-                    marginTop: "0.5rem",
-                }}
-            >
-                <Button size="xs" variant="tertiary" onClick={handleClose}>
-                    {/* TODO: LOCALIZE */}
-                    Close
-                </Button>
-                <Button size="xs" variant="primary" onClick={handleSave}>
-                    {/* TODO: LOCALIZE */}
-                    Save
-                </Button>
-            </div>
-        </div>
+        textNodeTransform(arg);
+        inverseTextNodeTransform(arg);
+      },
     );
+
+    return unregisterTransformWhileTyping;
+  }, [editorModeSetting, hasOpened, projectLanguageDirection]);
+
+  return (
+    <div className={nestedStyles.editorWrapper} ref={editorWrapperDomElRef}>
+      <LexicalComposer initialConfig={nestedConfig}>
+        <RichTextPlugin
+          ErrorBoundary={LexicalErrorBoundary}
+          contentEditable={
+            <ContentEditable
+              data-id={id}
+              data-js={DATA_JS.editorContainer}
+              data-mode={resolvedDataMode}
+              className={nestedStyles.contentEditable}
+            />
+          }
+          placeholder={
+            <span className={nestedStyles.placeholder}>Enter note…</span>
+          }
+        />
+        <HistoryPlugin />
+        <EditorRefPlugin editorRef={nestedEditorRef} />
+      </LexicalComposer>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: "0.5rem",
+          marginTop: "0.5rem",
+        }}
+      >
+        <Button size="xs" variant="tertiary" onClick={handleClose}>
+          {/* TODO: LOCALIZE */}
+          Close
+        </Button>
+        <Button size="xs" variant="primary" onClick={handleSave}>
+          {/* TODO: LOCALIZE */}
+          Save
+        </Button>
+      </div>
+    </div>
+  );
 }

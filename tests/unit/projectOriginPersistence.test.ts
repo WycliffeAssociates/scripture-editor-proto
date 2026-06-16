@@ -1,4 +1,7 @@
+import { InMemoryFileSystem } from "@tests/helpers/InMemoryFileSystem.ts";
 import { describe, expect, it } from "vitest";
+
+import { toProjectStorageKey } from "@/core/persistence/gitRemotePaths.ts";
 import {
   deriveOriginFromImportSource,
   normalizeOriginUrl,
@@ -14,9 +17,7 @@ import {
   readProjectOrigin,
   writeProjectOrigin,
 } from "@/core/persistence/projectOriginStore.ts";
-import { toProjectStorageKey } from "@/core/persistence/gitRemotePaths.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
-import { InMemoryFileSystem } from "@tests/helpers/InMemoryFileSystem.ts";
 
 const storageRoots: StorageRoots = {
   appDataRoot: "/appData",
@@ -32,9 +33,7 @@ describe("project origin path helpers", () => {
     expect(getProjectOriginStateRoot(storageRoots)).toBe(
       "/appData/project-origin",
     );
-    expect(
-      getProjectOriginPath(storageRoots, "/userData/projects/foo"),
-    ).toBe(
+    expect(getProjectOriginPath(storageRoots, "/userData/projects/foo")).toBe(
       `/appData/project-origin/${toProjectStorageKey("/userData/projects/foo")}.json`,
     );
   });
@@ -92,9 +91,9 @@ describe("normalizeOriginUrl", () => {
         "https://example.org/WA-Catalog/en_ulb/archive/main.zip",
       ),
     ).toBe(base);
-    expect(normalizeOriginUrl("https://example.org/WA-Catalog/en_ulb.git")).toBe(
-      base,
-    );
+    expect(
+      normalizeOriginUrl("https://example.org/WA-Catalog/en_ulb.git"),
+    ).toBe(base);
     expect(normalizeOriginUrl("https://example.org/WA-Catalog/en_ulb/")).toBe(
       base,
     );

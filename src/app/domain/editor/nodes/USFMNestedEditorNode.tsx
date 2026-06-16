@@ -1,14 +1,15 @@
 import type {
-    EditorConfig,
-    LexicalEditor,
-    LexicalNode,
-    NodeKey,
-    SerializedEditorState,
-    SerializedElementNode,
-    SerializedLexicalNode,
-    Spread,
+  EditorConfig,
+  LexicalEditor,
+  LexicalNode,
+  NodeKey,
+  SerializedEditorState,
+  SerializedElementNode,
+  SerializedLexicalNode,
+  Spread,
 } from "lexical";
 import { DecoratorNode } from "lexical";
+
 import { type USFMNodeJSON, UsfmTokenTypes } from "@/app/data/editor.ts";
 import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import type { LexicalHydrationToken } from "@/app/domain/editor/utils/lexicalHydrationToken.ts";
@@ -21,24 +22,24 @@ export const USFM_NESTED_DECORATOR_TYPE = "usfm-nested-editor";
 export const nestedEditorMarkers = new Set(["f", "x"]); // expandable later
 
 export type USFMNestedEditorNodeJSON = Spread<
-    {
-        type: typeof USFM_NESTED_DECORATOR_TYPE;
-        tokenType: string;
-        id: string;
-        version: 1;
-        text: string;
-        marker: string;
-        editorState: SerializedEditorState;
-        lexicalKey?: string;
-        sid?: string;
-        level?: string;
-        inPara?: string;
-        inChars?: string[];
-        attributes?: Record<string, string>;
-        randomRenderKey?: string;
-        isOpen?: boolean;
-    },
-    SerializedLexicalNode
+  {
+    type: typeof USFM_NESTED_DECORATOR_TYPE;
+    tokenType: string;
+    id: string;
+    version: 1;
+    text: string;
+    marker: string;
+    editorState: SerializedEditorState;
+    lexicalKey?: string;
+    sid?: string;
+    level?: string;
+    inPara?: string;
+    inChars?: string[];
+    attributes?: Record<string, string>;
+    randomRenderKey?: string;
+    isOpen?: boolean;
+  },
+  SerializedLexicalNode
 >;
 
 /**
@@ -50,314 +51,314 @@ export type USFMNestedEditorNodeJSON = Spread<
  * node is the serialization seam between those two editors.
  */
 export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
-    __text: string; //the marker text that caused this to be created
-    __marker: string;
-    __id: string;
-    __sid?: string;
-    __tokenType: string;
-    __level?: string;
-    __inPara?: string;
-    __attributes: Record<string, string>;
-    __editorState: SerializedEditorState;
-    __randomRenderKey: string;
-    __isOpen: boolean;
+  __text: string; //the marker text that caused this to be created
+  __marker: string;
+  __id: string;
+  __sid?: string;
+  __tokenType: string;
+  __level?: string;
+  __inPara?: string;
+  __attributes: Record<string, string>;
+  __editorState: SerializedEditorState;
+  __randomRenderKey: string;
+  __isOpen: boolean;
 
-    constructor(
-        text: string,
-        marker: string,
-        id: string,
-        tokenType: string,
-        editorState: SerializedEditorState,
-        sid?: string,
-        level?: string,
-        inPara?: string,
-        attributes: Record<string, string> = {},
-        randomRenderKey?: string,
-        isOpen?: boolean,
-        key?: NodeKey,
-    ) {
-        super(key);
-        this.__text = text;
-        this.__marker = marker;
-        this.__id = id;
-        this.__sid = sid;
-        this.__tokenType = tokenType;
-        this.__level = level;
-        this.__inPara = inPara;
-        this.__attributes = attributes;
-        this.__editorState = editorState;
-        this.__randomRenderKey = randomRenderKey || guidGenerator();
-        this.__isOpen = isOpen || false;
-    }
+  constructor(
+    text: string,
+    marker: string,
+    id: string,
+    tokenType: string,
+    editorState: SerializedEditorState,
+    sid?: string,
+    level?: string,
+    inPara?: string,
+    attributes: Record<string, string> = {},
+    randomRenderKey?: string,
+    isOpen?: boolean,
+    key?: NodeKey,
+  ) {
+    super(key);
+    this.__text = text;
+    this.__marker = marker;
+    this.__id = id;
+    this.__sid = sid;
+    this.__tokenType = tokenType;
+    this.__level = level;
+    this.__inPara = inPara;
+    this.__attributes = attributes;
+    this.__editorState = editorState;
+    this.__randomRenderKey = randomRenderKey || guidGenerator();
+    this.__isOpen = isOpen || false;
+  }
 
-    static getType(): string {
-        return USFM_NESTED_DECORATOR_TYPE;
-    }
+  static getType(): string {
+    return USFM_NESTED_DECORATOR_TYPE;
+  }
 
-    getMarker(): string {
-        return this.__marker;
-    }
-    getSid(): string | undefined {
-        return this.__sid;
-    }
-    getId(): string {
-        return this.__id;
-    }
-    getTokenType(): string {
-        return this.__tokenType;
-    }
-    getTextContentSize(): number {
-        return this.__text.length;
-    }
-    getLatestEditorState(): SerializedEditorState<SerializedLexicalNode> {
-        return this.getLatest().__editorState;
-    }
-    setSid(sid: string) {
-        this.getWritable().__sid = sid;
-    }
-    setRandomRenderKey() {
-        this.getWritable().__randomRenderKey = guidGenerator();
-    }
-    setIsOpen(mainEditor: LexicalEditor, isOpen: boolean) {
-        mainEditor.update(() => {
-            this.getWritable().__isOpen = isOpen;
-        });
-    }
+  getMarker(): string {
+    return this.__marker;
+  }
+  getSid(): string | undefined {
+    return this.__sid;
+  }
+  getId(): string {
+    return this.__id;
+  }
+  getTokenType(): string {
+    return this.__tokenType;
+  }
+  getTextContentSize(): number {
+    return this.__text.length;
+  }
+  getLatestEditorState(): SerializedEditorState<SerializedLexicalNode> {
+    return this.getLatest().__editorState;
+  }
+  setSid(sid: string) {
+    this.getWritable().__sid = sid;
+  }
+  setRandomRenderKey() {
+    this.getWritable().__randomRenderKey = guidGenerator();
+  }
+  setIsOpen(mainEditor: LexicalEditor, isOpen: boolean) {
+    mainEditor.update(() => {
+      this.getWritable().__isOpen = isOpen;
+    });
+  }
 
-    static clone(node: USFMNestedEditorNode): USFMNestedEditorNode {
-        return new USFMNestedEditorNode(
-            node.__text,
-            node.__marker,
-            node.__id,
-            node.__tokenType,
-            node.__editorState,
-            node.__sid,
-            node.__level,
-            node.__inPara,
-            node.__attributes,
-            node.__randomRenderKey,
-            node.__isOpen,
-            node.__key,
-        );
+  static clone(node: USFMNestedEditorNode): USFMNestedEditorNode {
+    return new USFMNestedEditorNode(
+      node.__text,
+      node.__marker,
+      node.__id,
+      node.__tokenType,
+      node.__editorState,
+      node.__sid,
+      node.__level,
+      node.__inPara,
+      node.__attributes,
+      node.__randomRenderKey,
+      node.__isOpen,
+      node.__key,
+    );
+  }
+  createDOM(): HTMLElement {
+    const el = document.createElement("div");
+    el.classList.add("nested-editor");
+    return el;
+  }
+  updateDOM(
+    prevNode: USFMNestedEditorNode,
+    _dom: HTMLElement,
+    _config: EditorConfig,
+  ): boolean {
+    if (prevNode.__randomRenderKey !== this.__randomRenderKey) {
+      return true;
     }
-    createDOM(): HTMLElement {
-        const el = document.createElement("div");
-        el.classList.add("nested-editor");
-        return el;
+    if (prevNode.__isOpen !== this.__isOpen) {
+      return true;
     }
-    updateDOM(
-        prevNode: USFMNestedEditorNode,
-        _dom: HTMLElement,
-        _config: EditorConfig,
-    ): boolean {
-        if (prevNode.__randomRenderKey !== this.__randomRenderKey) {
-            return true;
-        }
-        if (prevNode.__isOpen !== this.__isOpen) {
-            return true;
-        }
-        return false;
-    }
-    isInline(): boolean {
-        return true;
-    }
+    return false;
+  }
+  isInline(): boolean {
+    return true;
+  }
 
-    // JSON serialization
-    exportJSON(): USFMNestedEditorNodeJSON {
-        return {
-            ...super.exportJSON(),
-            type: USFM_NESTED_DECORATOR_TYPE,
-            text: this.__text,
-            id: this.__id,
-            version: 1,
-            marker: this.__marker,
-            sid: this.__sid,
-            tokenType: this.__tokenType,
-            level: this.__level,
-            inPara: this.__inPara,
-            attributes: this.__attributes,
-            editorState: this.__editorState,
-            randomRenderKey: this.__randomRenderKey,
-            isOpen: this.__isOpen,
-        };
-    }
+  // JSON serialization
+  exportJSON(): USFMNestedEditorNodeJSON {
+    return {
+      ...super.exportJSON(),
+      type: USFM_NESTED_DECORATOR_TYPE,
+      text: this.__text,
+      id: this.__id,
+      version: 1,
+      marker: this.__marker,
+      sid: this.__sid,
+      tokenType: this.__tokenType,
+      level: this.__level,
+      inPara: this.__inPara,
+      attributes: this.__attributes,
+      editorState: this.__editorState,
+      randomRenderKey: this.__randomRenderKey,
+      isOpen: this.__isOpen,
+    };
+  }
 
-    static importJSON(json: USFMNestedEditorNodeJSON): USFMNestedEditorNode {
-        return new USFMNestedEditorNode(
-            json.text,
-            json.marker,
-            json.id,
-            json.tokenType,
-            json.editorState,
-            json.sid,
-            json.level,
-            json.inPara,
-            json.attributes ?? {},
-            json.randomRenderKey,
-            json.isOpen,
-        );
-    }
+  static importJSON(json: USFMNestedEditorNodeJSON): USFMNestedEditorNode {
+    return new USFMNestedEditorNode(
+      json.text,
+      json.marker,
+      json.id,
+      json.tokenType,
+      json.editorState,
+      json.sid,
+      json.level,
+      json.inPara,
+      json.attributes ?? {},
+      json.randomRenderKey,
+      json.isOpen,
+    );
+  }
 
-    // How it renders in the outer editor
-    decorate(_editor: LexicalEditor, _configg: EditorConfig): React.ReactNode {
-        return (
-            <NestedEditor
-                key={this.__key}
-                outerMarker={this.__marker}
-                mainEditor={_editor}
-                id={this.__id}
-                // lexicalKey={this.__key}
-                initialEditorState={this.__editorState}
-                onChange={(
-                    newState: SerializedEditorState<SerializedLexicalNode>,
-                    mainEditor: LexicalEditor,
-                ) => {
-                    mainEditor.update(() => {
-                        this.getWritable().__editorState = newState;
-                    });
-                }}
-                setIsOpen={(mainEditor: LexicalEditor, isOpen: boolean) => {
-                    this.setIsOpen(mainEditor, isOpen);
-                }}
-                isOpen={this.__isOpen}
-            />
-        );
-    }
+  // How it renders in the outer editor
+  decorate(_editor: LexicalEditor, _configg: EditorConfig): React.ReactNode {
+    return (
+      <NestedEditor
+        key={this.__key}
+        outerMarker={this.__marker}
+        mainEditor={_editor}
+        id={this.__id}
+        // lexicalKey={this.__key}
+        initialEditorState={this.__editorState}
+        onChange={(
+          newState: SerializedEditorState<SerializedLexicalNode>,
+          mainEditor: LexicalEditor,
+        ) => {
+          mainEditor.update(() => {
+            this.getWritable().__editorState = newState;
+          });
+        }}
+        setIsOpen={(mainEditor: LexicalEditor, isOpen: boolean) => {
+          this.setIsOpen(mainEditor, isOpen);
+        }}
+        isOpen={this.__isOpen}
+      />
+    );
+  }
 }
 export type USFMNestedEditorNodeMetadata = {
-    text: string;
-    marker: string;
-    id: string;
-    usfmType: string;
-    languageDirection: LanguageDirection;
-    sid: string;
-    isOpen?: boolean;
-    level?: string;
-    inPara?: string;
-    attributes?: Record<string, string>;
+  text: string;
+  marker: string;
+  id: string;
+  usfmType: string;
+  languageDirection: LanguageDirection;
+  sid: string;
+  isOpen?: boolean;
+  level?: string;
+  inPara?: string;
+  attributes?: Record<string, string>;
 };
 export function $createUSFMNestedEditorNode(
-    metadata: USFMNestedEditorNodeMetadata,
+  metadata: USFMNestedEditorNodeMetadata,
 ): USFMNestedEditorNode {
-    return new USFMNestedEditorNode(
-        metadata.text,
-        metadata.marker,
-        metadata.id,
-        metadata.usfmType,
-        getMinimalEditorState(metadata.languageDirection, {
-            sid: metadata.sid,
-            marker: metadata.marker,
-            inPara: metadata.inPara,
-        }),
-        metadata.sid,
-        metadata.level,
-        metadata.inPara,
-        metadata.attributes,
-        undefined,
-        metadata.isOpen,
-    );
+  return new USFMNestedEditorNode(
+    metadata.text,
+    metadata.marker,
+    metadata.id,
+    metadata.usfmType,
+    getMinimalEditorState(metadata.languageDirection, {
+      sid: metadata.sid,
+      marker: metadata.marker,
+      inPara: metadata.inPara,
+    }),
+    metadata.sid,
+    metadata.level,
+    metadata.inPara,
+    metadata.attributes,
+    undefined,
+    metadata.isOpen,
+  );
 }
 function getMinimalEditorState(
-    languageDirection: "ltr" | "rtl",
-    opts: {
-        sid: string;
-        marker: string;
-        inPara?: string;
-    },
+  languageDirection: "ltr" | "rtl",
+  opts: {
+    sid: string;
+    marker: string;
+    inPara?: string;
+  },
 ): SerializedEditorState {
-    const serializedPara: SerializedElementNode = {
-        children: [
-            // Initialize note payload as: "+ \f*"
-            createSerializedUSFMTextNode({
-                text: "+ ",
-                id: guidGenerator(),
-                sid: opts.sid,
-                tokenType: UsfmTokenTypes.text,
-                inPara: opts.inPara,
-                show: true,
-                isMutable: true,
-            }),
-            createSerializedUSFMTextNode({
-                text: `\\${opts.marker}*`,
-                id: guidGenerator(),
-                sid: opts.sid,
-                tokenType: UsfmTokenTypes.endMarker,
-                marker: opts.marker,
-                inPara: opts.inPara,
-                show: true,
-                isMutable: true,
-            }),
-        ],
-        type: "paragraph",
-        version: 1,
-        direction: languageDirection,
-        format: "",
-        indent: 0,
-    };
+  const serializedPara: SerializedElementNode = {
+    children: [
+      // Initialize note payload as: "+ \f*"
+      createSerializedUSFMTextNode({
+        text: "+ ",
+        id: guidGenerator(),
+        sid: opts.sid,
+        tokenType: UsfmTokenTypes.text,
+        inPara: opts.inPara,
+        show: true,
+        isMutable: true,
+      }),
+      createSerializedUSFMTextNode({
+        text: `\\${opts.marker}*`,
+        id: guidGenerator(),
+        sid: opts.sid,
+        tokenType: UsfmTokenTypes.endMarker,
+        marker: opts.marker,
+        inPara: opts.inPara,
+        show: true,
+        isMutable: true,
+      }),
+    ],
+    type: "paragraph",
+    version: 1,
+    direction: languageDirection,
+    format: "",
+    indent: 0,
+  };
 
-    return {
-        root: {
-            children: [serializedPara],
-            direction: languageDirection,
-            format: "",
-            indent: 0,
-            type: "root",
-            version: 1,
-        },
-    };
+  return {
+    root: {
+      children: [serializedPara],
+      direction: languageDirection,
+      format: "",
+      indent: 0,
+      type: "root",
+      version: 1,
+    },
+  };
 }
 
 export function getSerializedNestedEditorNode({
-    token,
-    childrenCb,
-    languageDirection,
+  token,
+  childrenCb,
+  languageDirection,
 }: {
-    token: LexicalHydrationToken;
-    childrenCb: () => USFMNodeJSON[];
-    languageDirection: LanguageDirection;
+  token: LexicalHydrationToken;
+  childrenCb: () => USFMNodeJSON[];
+  languageDirection: LanguageDirection;
 }): USFMNestedEditorNodeJSON {
-    // needed to wrap nested flat text nodes
-    const serializedPara: SerializedElementNode = {
-        children: childrenCb(),
-        type: "paragraph",
-        version: 1,
+  // needed to wrap nested flat text nodes
+  const serializedPara: SerializedElementNode = {
+    children: childrenCb(),
+    type: "paragraph",
+    version: 1,
+    direction: languageDirection,
+    format: "",
+    indent: 0,
+  };
+
+  return {
+    type: USFM_NESTED_DECORATOR_TYPE,
+    id: token.id,
+    version: 1,
+    text: token.text,
+    marker: token.marker ?? "",
+    sid: token.sid ?? undefined,
+    tokenType: token.tokenType,
+    inPara: token.inPara ?? undefined,
+    inChars: token.inChars ?? undefined,
+    attributes: token.attributes ?? {},
+    // Serialize children of this token into a nested editor state
+    editorState: {
+      root: {
+        children: [serializedPara],
         direction: languageDirection,
         format: "",
         indent: 0,
-    };
-
-    return {
-        type: USFM_NESTED_DECORATOR_TYPE,
-        id: token.id,
+        type: "root",
         version: 1,
-        text: token.text,
-        marker: token.marker ?? "",
-        sid: token.sid ?? undefined,
-        tokenType: token.tokenType,
-        inPara: token.inPara ?? undefined,
-        inChars: token.inChars ?? undefined,
-        attributes: token.attributes ?? {},
-        // Serialize children of this token into a nested editor state
-        editorState: {
-            root: {
-                children: [serializedPara],
-                direction: languageDirection,
-                format: "",
-                indent: 0,
-                type: "root",
-                version: 1,
-            },
-        },
-    };
+      },
+    },
+  };
 }
 
 export function $isUSFMNestedEditorNode(
-    node: LexicalNode,
+  node: LexicalNode,
 ): node is USFMNestedEditorNode {
-    return node instanceof USFMNestedEditorNode;
+  return node instanceof USFMNestedEditorNode;
 }
 export function isSerializedUSFMNestedEditorNode(
-    node: SerializedLexicalNode,
+  node: SerializedLexicalNode,
 ): node is USFMNestedEditorNodeJSON {
-    return node.type === USFM_NESTED_DECORATOR_TYPE;
+  return node.type === USFM_NESTED_DECORATOR_TYPE;
 }

@@ -1,30 +1,31 @@
 import { createHeadlessEditor } from "@lexical/headless";
 import {
-    $getRoot,
-    $getSelection,
-    $isRangeSelection,
-    $isTextNode,
-    type LexicalEditor,
-    LineBreakNode,
-    ParagraphNode,
-    TextNode,
+  $getRoot,
+  $getSelection,
+  $isRangeSelection,
+  $isTextNode,
+  type LexicalEditor,
+  LineBreakNode,
+  ParagraphNode,
+  TextNode,
 } from "lexical";
 import { beforeAll, describe, expect, it } from "vitest";
+
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
-    $isUSFMNumberedMarkerNode,
-    USFMNumberedMarkerNode,
+  $isUSFMNumberedMarkerNode,
+  USFMNumberedMarkerNode,
 } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import { USFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
-    $createUSFMTextNode,
-    USFMTextNode,
+  $createUSFMTextNode,
+  USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import {
-    isUsfmLikePaste,
-    parseClipboardUsfmToTokens,
-    parsedUsfmTokensToInsertableNodes,
+  isUsfmLikePaste,
+  parseClipboardUsfmToTokens,
+  parsedUsfmTokensToInsertableNodes,
 } from "@/app/domain/editor/utils/usfmPaste.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
@@ -32,165 +33,159 @@ import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts"
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 
 function createMockUsfmOnionService(): IUsfmOnionService {
-    return {
-        getMarkerCatalog: () => webUsfmOnionService.getMarkerCatalog(),
-        parseUsfm: (
-            source: string,
-            options?: Parameters<IUsfmOnionService["parseUsfm"]>[1],
-        ) => webUsfmOnionService.parseUsfm(source, options),
-    } as unknown as IUsfmOnionService;
+  return {
+    getMarkerCatalog: () => webUsfmOnionService.getMarkerCatalog(),
+    parseUsfm: (
+      source: string,
+      options?: Parameters<IUsfmOnionService["parseUsfm"]>[1],
+    ) => webUsfmOnionService.parseUsfm(source, options),
+  } as unknown as IUsfmOnionService;
 }
 
 function createEditor(): LexicalEditor {
-    return createHeadlessEditor({
-        nodes: [
-            USFMParagraphNode,
-            USFMTextNode,
-            USFMNumberedMarkerNode,
-            {
-                replace: TextNode,
-                with: (node: TextNode) =>
-                    $createUSFMTextNode(node.getTextContent(), {
-                        id: guidGenerator(),
-                        sid: "",
-                        inPara: "",
-                    }),
-                withKlass: USFMTextNode,
-            },
-            ParagraphNode,
-            LineBreakNode,
-            USFMNestedEditorNode,
-        ],
-    });
+  return createHeadlessEditor({
+    nodes: [
+      USFMParagraphNode,
+      USFMTextNode,
+      USFMNumberedMarkerNode,
+      {
+        replace: TextNode,
+        with: (node: TextNode) =>
+          $createUSFMTextNode(node.getTextContent(), {
+            id: guidGenerator(),
+            sid: "",
+            inPara: "",
+          }),
+        withKlass: USFMTextNode,
+      },
+      ParagraphNode,
+      LineBreakNode,
+      USFMNestedEditorNode,
+    ],
+  });
 }
 
 // Detection (ALL_USFM_MARKERS membership) and regular-shape pairing both
 // answer from the catalog registry.
 beforeAll(async () => {
-    initializeUsfmMarkerCatalog(await webUsfmOnionService.getMarkerCatalog());
+  initializeUsfmMarkerCatalog(await webUsfmOnionService.getMarkerCatalog());
 });
 
 describe("usfmPaste", () => {
-    it("detects USFM-like marker blocks and ignores plain prose", () => {
-        const usfmBlock = `\\s5
+  it("detects USFM-like marker blocks and ignores plain prose", () => {
+    const usfmBlock = `\\s5
 \\v 4 He has become just as superior to the angels.
 \\q "You are my Son,"
 \\q2 today I have become your Father"`;
 
-        expect(isUsfmLikePaste(usfmBlock)).toBe(true);
-        expect(
-            isUsfmLikePaste("This is plain text with no scripture markers."),
-        ).toBe(false);
+    expect(isUsfmLikePaste(usfmBlock)).toBe(true);
+    expect(
+      isUsfmLikePaste("This is plain text with no scripture markers."),
+    ).toBe(false);
+  });
+
+  it("parses clipboard USFM with current-book fallback and returns insertable nodes", async () => {
+    const editor = createEditor();
+    const usfmOnionService = createMockUsfmOnionService();
+    const result = await parseClipboardUsfmToTokens({
+      text: "\\v 1 In the beginning God created the heavens and the earth.",
+      bookCode: "GEN",
+      direction: "ltr",
+      usfmOnionService,
     });
+    let hasVerseMarker = false;
 
-    it("parses clipboard USFM with current-book fallback and returns insertable nodes", async () => {
-        const editor = createEditor();
-        const usfmOnionService = createMockUsfmOnionService();
-        const result = await parseClipboardUsfmToTokens({
-            text: "\\v 1 In the beginning God created the heavens and the earth.",
-            bookCode: "GEN",
-            direction: "ltr",
-            usfmOnionService,
-        });
-        let hasVerseMarker = false;
-
-        editor.update(() => {
-            if (result.ok) {
-                const nodes = parsedUsfmTokensToInsertableNodes(result.tokens);
-                // Regular shape (the default): the verse arrives as ONE
-                // numbered-marker node carrying the marker bytes + number.
-                hasVerseMarker = nodes.some(
-                    (node) =>
-                        $isUSFMNumberedMarkerNode(node) &&
-                        node.getMarker() === "v",
-                );
-            }
-        });
-
-        expect(result.ok).toBe(true);
-        if (!result.ok) return;
-        expect(
-            result.tokens.some(
-                (token) => token.kind === "marker" && token.marker === "id",
-            ),
-        ).toBe(false);
-        expect(hasVerseMarker).toBe(true);
-    });
-
-    it("accepts a malformed verse number as bytes — lint owns flagging it", async () => {
-        // Policy: bad states are surfaced, never rejected (plan §3/§12.2).
-        // The paste arrives, the missing/invalid number is a lint finding.
-        const result = await parseClipboardUsfmToTokens({
-            text: "\\v xyz Not a valid verse marker range",
-            bookCode: "GEN",
-            direction: "ltr",
-            usfmOnionService: createMockUsfmOnionService(),
-        });
-
-        expect(result.ok).toBe(true);
-        if (!result.ok) return;
-        expect(
-            result.tokens.some(
-                (token) => token.kind === "marker" && token.marker === "v",
-            ),
-        ).toBe(true);
-    });
-
-    it("supports insertion into current selection (including chapter markers)", async () => {
-        const editor = createEditor();
-        const parsed = await parseClipboardUsfmToTokens({
-            text: "\\c 2\n\\v 1 Inserted text",
-            bookCode: "GEN",
-            direction: "ltr",
-            usfmOnionService: createMockUsfmOnionService(),
-        });
-        expect(parsed.ok).toBe(true);
-        if (!parsed.ok) return;
-
-        editor.update(
-            () => {
-                const root = $getRoot();
-                const para = new ParagraphNode();
-                para.append(
-                    $createUSFMTextNode("Hello ", {
-                        id: "seed-1",
-                        sid: "GEN 1:1",
-                        inPara: "p",
-                        tokenType: UsfmTokenTypes.text,
-                    }),
-                );
-                root.append(para);
-                para.selectEnd();
-
-                const selection = $getSelection();
-                if (!$isRangeSelection(selection)) {
-                    throw new Error("Expected range selection");
-                }
-                selection.insertNodes(
-                    parsedUsfmTokensToInsertableNodes(parsed.tokens),
-                );
-            },
-            { discrete: true },
+    editor.update(() => {
+      if (result.ok) {
+        const nodes = parsedUsfmTokensToInsertableNodes(result.tokens);
+        // Regular shape (the default): the verse arrives as ONE
+        // numbered-marker node carrying the marker bytes + number.
+        hasVerseMarker = nodes.some(
+          (node) => $isUSFMNumberedMarkerNode(node) && node.getMarker() === "v",
         );
-
-        editor.getEditorState().read(() => {
-            const allText = $getRoot().getAllTextNodes();
-            const hasChapterMarker = allText.some(
-                (node) =>
-                    $isUSFMNumberedMarkerNode(node) &&
-                    node.getMarker() === "c",
-            );
-            expect(hasChapterMarker).toBe(true);
-
-            const joined = allText
-                .map((n) => ($isTextNode(n) ? n.getTextContent() : ""))
-                .join("");
-            expect(joined).toContain("Inserted text");
-        });
+      }
     });
 
-    it("accepts the multiline scripture marker block from real paste usage", async () => {
-        const block = `\\s5
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(
+      result.tokens.some(
+        (token) => token.kind === "marker" && token.marker === "id",
+      ),
+    ).toBe(false);
+    expect(hasVerseMarker).toBe(true);
+  });
+
+  it("accepts a malformed verse number as bytes — lint owns flagging it", async () => {
+    // Policy: bad states are surfaced, never rejected (plan §3/§12.2).
+    // The paste arrives, the missing/invalid number is a lint finding.
+    const result = await parseClipboardUsfmToTokens({
+      text: "\\v xyz Not a valid verse marker range",
+      bookCode: "GEN",
+      direction: "ltr",
+      usfmOnionService: createMockUsfmOnionService(),
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(
+      result.tokens.some(
+        (token) => token.kind === "marker" && token.marker === "v",
+      ),
+    ).toBe(true);
+  });
+
+  it("supports insertion into current selection (including chapter markers)", async () => {
+    const editor = createEditor();
+    const parsed = await parseClipboardUsfmToTokens({
+      text: "\\c 2\n\\v 1 Inserted text",
+      bookCode: "GEN",
+      direction: "ltr",
+      usfmOnionService: createMockUsfmOnionService(),
+    });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+
+    editor.update(
+      () => {
+        const root = $getRoot();
+        const para = new ParagraphNode();
+        para.append(
+          $createUSFMTextNode("Hello ", {
+            id: "seed-1",
+            sid: "GEN 1:1",
+            inPara: "p",
+            tokenType: UsfmTokenTypes.text,
+          }),
+        );
+        root.append(para);
+        para.selectEnd();
+
+        const selection = $getSelection();
+        if (!$isRangeSelection(selection)) {
+          throw new Error("Expected range selection");
+        }
+        selection.insertNodes(parsedUsfmTokensToInsertableNodes(parsed.tokens));
+      },
+      { discrete: true },
+    );
+
+    editor.getEditorState().read(() => {
+      const allText = $getRoot().getAllTextNodes();
+      const hasChapterMarker = allText.some(
+        (node) => $isUSFMNumberedMarkerNode(node) && node.getMarker() === "c",
+      );
+      expect(hasChapterMarker).toBe(true);
+
+      const joined = allText
+        .map((n) => ($isTextNode(n) ? n.getTextContent() : ""))
+        .join("");
+      expect(joined).toContain("Inserted text");
+    });
+  });
+
+  it("accepts the multiline scripture marker block from real paste usage", async () => {
+    const block = `\\s5
 \\v 4 He has become just as superior to the angels as the name he has inherited is more excellent than their name.
 \\v 5 For to which of the angels did God ever say,
 \\q "You are my Son,
@@ -201,12 +196,12 @@ describe("usfmPaste", () => {
 \\q "I will be a Father to him,
 \\q2 and he will be a Son to me"?`;
 
-        const parsed = await parseClipboardUsfmToTokens({
-            text: block,
-            bookCode: "HEB",
-            direction: "ltr",
-            usfmOnionService: createMockUsfmOnionService(),
-        });
-        expect(parsed.ok).toBe(true);
+    const parsed = await parseClipboardUsfmToTokens({
+      text: block,
+      bookCode: "HEB",
+      direction: "ltr",
+      usfmOnionService: createMockUsfmOnionService(),
     });
+    expect(parsed.ok).toBe(true);
+  });
 });

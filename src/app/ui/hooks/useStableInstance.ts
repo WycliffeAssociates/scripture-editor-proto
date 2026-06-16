@@ -13,7 +13,7 @@ import { useRef } from "react";
  * a discarded instance will appear to happen twice.
  */
 export function useStableInstance<T>(factory: () => T): T {
-    const ref = useRef<T | null>(null);
-    if (ref.current === null) ref.current = factory();
-    return ref.current;
+  const ref = useRef<T | null>(null);
+  if (ref.current === null) ref.current = factory();
+  return ref.current;
 }

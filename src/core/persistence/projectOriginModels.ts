@@ -1,4 +1,5 @@
 import * as v from "valibot";
+
 import type { ImportSource } from "@/core/domain/project/import/ProjectImporter.ts";
 import { normalizeStoragePath } from "@/core/persistence/pathUtils.ts";
 
@@ -21,30 +22,30 @@ export const PROJECT_ORIGIN_SCHEMA_VERSION = 1;
 const NonEmptyStringSchema = v.pipe(v.string(), v.nonEmpty());
 
 const ProjectOriginSchema = v.variant("kind", [
-    v.object({
-        schemaVersion: v.literal(PROJECT_ORIGIN_SCHEMA_VERSION),
-        projectPath: NonEmptyStringSchema,
-        kind: v.literal("remote"),
-        url: NonEmptyStringSchema,
-        owner: v.nullable(v.string()),
-        name: v.nullable(v.string()),
-    }),
-    v.object({
-        schemaVersion: v.literal(PROJECT_ORIGIN_SCHEMA_VERSION),
-        projectPath: NonEmptyStringSchema,
-        kind: v.literal("local"),
-        source: v.picklist(["folder", "zip"]),
-    }),
+  v.object({
+    schemaVersion: v.literal(PROJECT_ORIGIN_SCHEMA_VERSION),
+    projectPath: NonEmptyStringSchema,
+    kind: v.literal("remote"),
+    url: NonEmptyStringSchema,
+    owner: v.nullable(v.string()),
+    name: v.nullable(v.string()),
+  }),
+  v.object({
+    schemaVersion: v.literal(PROJECT_ORIGIN_SCHEMA_VERSION),
+    projectPath: NonEmptyStringSchema,
+    kind: v.literal("local"),
+    source: v.picklist(["folder", "zip"]),
+  }),
 ]);
 
 export type ProjectOrigin = v.InferOutput<typeof ProjectOriginSchema>;
 
 export function normalizeProjectOriginPath(projectPath: string): string {
-    return normalizeStoragePath(projectPath);
+  return normalizeStoragePath(projectPath);
 }
 
 export function parseProjectOrigin(value: unknown): ProjectOrigin {
-    return v.parse(ProjectOriginSchema, value);
+  return v.parse(ProjectOriginSchema, value);
 }
 
 /**
@@ -56,11 +57,11 @@ export function parseProjectOrigin(value: unknown): ProjectOrigin {
  * suffix was used at import time.
  */
 export function normalizeOriginUrl(url: string): string {
-    let next = url.trim().toLowerCase();
-    next = next.replace(/\/archive\/[^/]+\.zip$/, "");
-    next = next.replace(/\.git$/, "");
-    next = next.replace(/\/+$/, "");
-    return next;
+  let next = url.trim().toLowerCase();
+  next = next.replace(/\/archive\/[^/]+\.zip$/, "");
+  next = next.replace(/\.git$/, "");
+  next = next.replace(/\/+$/, "");
+  return next;
 }
 
 /**
@@ -75,58 +76,58 @@ export function normalizeOriginUrl(url: string): string {
  * new origin.
  */
 export function deriveOriginFromImportSource(
-    source: ImportSource,
-    projectPath: string,
+  source: ImportSource,
+  projectPath: string,
 ): ProjectOrigin | null {
-    const normalizedPath = normalizeProjectOriginPath(projectPath);
-    switch (source.type) {
-        case "fromGitRepo": {
-            const baseUrl = normalizeOriginUrl(source.url);
-            const { owner, name } = parseOwnerAndName(baseUrl);
-            return {
-                schemaVersion: PROJECT_ORIGIN_SCHEMA_VERSION,
-                projectPath: normalizedPath,
-                kind: "remote",
-                url: baseUrl,
-                owner,
-                name,
-            };
-        }
-        case "fromZipFile":
-            return {
-                schemaVersion: PROJECT_ORIGIN_SCHEMA_VERSION,
-                projectPath: normalizedPath,
-                kind: "local",
-                source: "zip",
-            };
-        case "fromDir":
-            return {
-                schemaVersion: PROJECT_ORIGIN_SCHEMA_VERSION,
-                projectPath: normalizedPath,
-                kind: "local",
-                source: "folder",
-            };
-        case "fromPreparedDir":
-            return null;
+  const normalizedPath = normalizeProjectOriginPath(projectPath);
+  switch (source.type) {
+    case "fromGitRepo": {
+      const baseUrl = normalizeOriginUrl(source.url);
+      const { owner, name } = parseOwnerAndName(baseUrl);
+      return {
+        schemaVersion: PROJECT_ORIGIN_SCHEMA_VERSION,
+        projectPath: normalizedPath,
+        kind: "remote",
+        url: baseUrl,
+        owner,
+        name,
+      };
     }
+    case "fromZipFile":
+      return {
+        schemaVersion: PROJECT_ORIGIN_SCHEMA_VERSION,
+        projectPath: normalizedPath,
+        kind: "local",
+        source: "zip",
+      };
+    case "fromDir":
+      return {
+        schemaVersion: PROJECT_ORIGIN_SCHEMA_VERSION,
+        projectPath: normalizedPath,
+        kind: "local",
+        source: "folder",
+      };
+    case "fromPreparedDir":
+      return null;
+  }
 }
 
 function parseOwnerAndName(baseUrl: string): {
-    owner: string | null;
-    name: string | null;
+  owner: string | null;
+  name: string | null;
 } {
-    try {
-        const segments = new URL(baseUrl).pathname
-            .split("/")
-            .filter((segment) => segment.length > 0);
-        if (segments.length < 2) {
-            return { owner: null, name: null };
-        }
-        return {
-            owner: segments[segments.length - 2],
-            name: segments[segments.length - 1],
-        };
-    } catch {
-        return { owner: null, name: null };
+  try {
+    const segments = new URL(baseUrl).pathname
+      .split("/")
+      .filter((segment) => segment.length > 0);
+    if (segments.length < 2) {
+      return { owner: null, name: null };
     }
+    return {
+      owner: segments[segments.length - 2],
+      name: segments[segments.length - 1],
+    };
+  } catch {
+    return { owner: null, name: null };
+  }
 }

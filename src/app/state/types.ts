@@ -1,8 +1,9 @@
 import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
+
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 
 export type SerializedLexicalChapterState =
-    SerializedEditorState<SerializedLexicalNode>;
+  SerializedEditorState<SerializedLexicalNode>;
 
 /**
  * Why a commit happened. Subscribers filter on this to decide whether to react.
@@ -17,14 +18,14 @@ export type SerializedLexicalChapterState =
  * `metadataOnly`     — dirty flag flipped or selection-only commit. No text changed.
  */
 export type CommitKind =
-    | "userEdit"
-    | "programmaticFix"
-    | "import"
-    | "undo"
-    | "redo"
-    | "load"
-    | "structuralFixup"
-    | "metadataOnly";
+  | "userEdit"
+  | "programmaticFix"
+  | "import"
+  | "undo"
+  | "redo"
+  | "load"
+  | "structuralFixup"
+  | "metadataOnly";
 
 /**
  * Structurally identical to `ChapterRef` (domain/project) — duplicated here so
@@ -61,36 +62,36 @@ export type CommitScope = { chapters: CommitChapterRef[] } | { project: true };
  * encode the same fact twice and drift.
  */
 export type CommitAction =
-    | "chapterLabelStandardize"
-    | "lintFix"
-    | "prettify"
-    | "formatMatch"
-    | "modeSwitch"
-    | "versionRevert"
-    | "revertHunk"
-    | "revertChapter"
-    | "revertAll"
-    | "applyIncoming"
-    | "incomingReconciliation"
-    | "discardRecoveredWork"
-    | "saveCleanMark";
+  | "chapterLabelStandardize"
+  | "lintFix"
+  | "prettify"
+  | "formatMatch"
+  | "modeSwitch"
+  | "versionRevert"
+  | "revertHunk"
+  | "revertChapter"
+  | "revertAll"
+  | "applyIncoming"
+  | "incomingReconciliation"
+  | "discardRecoveredWork"
+  | "saveCleanMark";
 
 export type CommitMeta = {
-    kind: CommitKind;
-    scope: CommitScope;
-    /** Granular verb identity; present on programmatic mutations. */
-    action?: CommitAction;
-    /**
-     * True iff this commit changed visible text content. Selection-only commits
-     * and dirty-flag flips set this to false so e.g. lint can filter them out
-     * cheaply without paying the cost of materializing the patch.
-     */
-    dirtyTextContent: boolean;
-    /**
-     * Monotonic, strictly increasing per-store. Useful for ordering, deduping,
-     * and dev-mode assertions.
-     */
-    generation: number;
+  kind: CommitKind;
+  scope: CommitScope;
+  /** Granular verb identity; present on programmatic mutations. */
+  action?: CommitAction;
+  /**
+   * True iff this commit changed visible text content. Selection-only commits
+   * and dirty-flag flips set this to false so e.g. lint can filter them out
+   * cheaply without paying the cost of materializing the patch.
+   */
+  dirtyTextContent: boolean;
+  /**
+   * Monotonic, strictly increasing per-store. Useful for ordering, deduping,
+   * and dev-mode assertions.
+   */
+  generation: number;
 };
 
 /**
@@ -107,66 +108,66 @@ export type CommitMeta = {
  * scrolling.
  */
 export type CapturedSelection = {
-    anchorId: string;
-    anchorOffset: number;
-    focusId: string;
-    focusOffset: number;
+  anchorId: string;
+  anchorOffset: number;
+  focusId: string;
+  focusOffset: number;
 };
 
 export type WorkingFilesPatch =
-    | {
-          kind: "chapter";
-          bookCode: string;
-          chapter: number;
-          lexicalState: SerializedLexicalChapterState;
-          /**
-           * Selection riding the content commit (= selectionAfter for this
-           * generation). Optional: programmatic writers (revert, fix-its)
-           * that don't know the cursor omit it and leave the fact unchanged.
-           */
-          selection?: CapturedSelection | null;
-      }
-    | {
-          kind: "metadata";
-          bookCode: string;
-          chapter: number;
-          dirty: boolean;
-      }
-    | {
-          kind: "bulk";
-          files: ScriptureBookState[];
-          /**
-           * Per-chapter selection facts riding a bulk commit — undo/redo
-           * replay restores chapter content and the selection that goes with
-           * it in one atomic commit.
-           */
-          selections?: Array<{
-              bookCode: string;
-              chapter: number;
-              selection: CapturedSelection | null;
-          }>;
-      }
-    /**
-     * Pure event signal — selection or other no-content-change update. State
-     * is unchanged; `applyPatch` returns the same array. Consumers reading
-     * `event.meta.kind === "metadataOnly"` can react to selection movement
-     * (e.g. synced scrolling) without paying any commit-side cost.
-     */
-    | {
-          kind: "selectionOnly";
-          bookCode: string;
-          chapter: number;
-          selection: CapturedSelection | null;
-      };
+  | {
+      kind: "chapter";
+      bookCode: string;
+      chapter: number;
+      lexicalState: SerializedLexicalChapterState;
+      /**
+       * Selection riding the content commit (= selectionAfter for this
+       * generation). Optional: programmatic writers (revert, fix-its)
+       * that don't know the cursor omit it and leave the fact unchanged.
+       */
+      selection?: CapturedSelection | null;
+    }
+  | {
+      kind: "metadata";
+      bookCode: string;
+      chapter: number;
+      dirty: boolean;
+    }
+  | {
+      kind: "bulk";
+      files: ScriptureBookState[];
+      /**
+       * Per-chapter selection facts riding a bulk commit — undo/redo
+       * replay restores chapter content and the selection that goes with
+       * it in one atomic commit.
+       */
+      selections?: Array<{
+        bookCode: string;
+        chapter: number;
+        selection: CapturedSelection | null;
+      }>;
+    }
+  /**
+   * Pure event signal — selection or other no-content-change update. State
+   * is unchanged; `applyPatch` returns the same array. Consumers reading
+   * `event.meta.kind === "metadataOnly"` can react to selection movement
+   * (e.g. synced scrolling) without paying any commit-side cost.
+   */
+  | {
+      kind: "selectionOnly";
+      bookCode: string;
+      chapter: number;
+      selection: CapturedSelection | null;
+    };
 
 export type CommitEvent = {
-    meta: CommitMeta;
-    patch: WorkingFilesPatch;
-    /**
-     * Post-commit snapshot of the entire working-files state. Subscribers that
-     * need a coherent read can use this; subscribers that only care about the
-     * patch can ignore it. Reference identity is shared across subscribers in
-     * the same tick.
-     */
-    snapshot: ScriptureBookState[];
+  meta: CommitMeta;
+  patch: WorkingFilesPatch;
+  /**
+   * Post-commit snapshot of the entire working-files state. Subscribers that
+   * need a coherent read can use this; subscribers that only care about the
+   * patch can ignore it. Reference identity is shared across subscribers in
+   * the same tick.
+   */
+  snapshot: ScriptureBookState[];
 };

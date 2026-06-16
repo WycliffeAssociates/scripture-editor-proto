@@ -6,16 +6,16 @@
  * string handling.
  */
 export function normalizeGiteaHostBaseUrl(
-    value: string | null | undefined,
+  value: string | null | undefined,
 ): string | null {
-    const trimmed = value?.trim();
-    if (!trimmed) return null;
-    return trimmed.replace(/\/+$/u, "");
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  return trimmed.replace(/\/+$/u, "");
 }
 
 export function normalizeOptionalHeaderValue(
-    value: string | null | undefined,
+  value: string | null | undefined,
 ): string | null {
-    const trimmed = value?.trim();
-    return trimmed ? trimmed : null;
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
 }

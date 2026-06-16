@@ -27,11 +27,12 @@
 import { parseSid } from "@/core/data/bible/bible.ts";
 import type { SousFinding } from "@/core/domain/sous/sousTypes.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
+
 import type { Finding, FindingsByChapter } from "./finding.ts";
 
 type ProtoFinding = {
-    baseKey: string;
-    build: (id: string) => Finding;
+  baseKey: string;
+  build: (id: string) => Finding;
 };
 
 /**
@@ -40,22 +41,21 @@ type ProtoFinding = {
  * preserves today).
  */
 function finalizeFindings(protos: ProtoFinding[]): Finding[] {
-    const sortedIndices = protos
-        .map((_, i) => i)
-        .sort(
-            (a, b) =>
-                protos[a].baseKey.localeCompare(protos[b].baseKey) || a - b,
-        );
-    const counts = new Map<string, number>();
-    // sortedIndices is a permutation of every index, so each slot is filled.
-    const out: Finding[] = [];
-    for (const i of sortedIndices) {
-        const { baseKey, build } = protos[i];
-        const occurrence = counts.get(baseKey) ?? 0;
-        counts.set(baseKey, occurrence + 1);
-        out[i] = build(`${baseKey}#${occurrence}`);
-    }
-    return out;
+  const sortedIndices = protos
+    .map((_, i) => i)
+    .sort(
+      (a, b) => protos[a].baseKey.localeCompare(protos[b].baseKey) || a - b,
+    );
+  const counts = new Map<string, number>();
+  // sortedIndices is a permutation of every index, so each slot is filled.
+  const out: Finding[] = [];
+  for (const i of sortedIndices) {
+    const { baseKey, build } = protos[i];
+    const occurrence = counts.get(baseKey) ?? 0;
+    counts.set(baseKey, occurrence + 1);
+    out[i] = build(`${baseKey}#${occurrence}`);
+  }
+  return out;
 }
 
 /**
@@ -64,30 +64,29 @@ function finalizeFindings(protos: ProtoFinding[]): Finding[] {
  * formatter reads `messageParams`/`message`.
  */
 export function lintIssuesToFindings(issues: LintIssue[]): Finding[] {
-    return finalizeFindings(
-        issues.map((issue) => ({
-            baseKey: `onion:${issue.code}:${issue.tokenId ?? ""}:${issue.relatedTokenId ?? ""}`,
-            build: (id): Finding => ({
-                id,
-                source: "onion",
-                code: issue.code,
-                severity: issue.severity,
-                category:
-                    issue.issueType === "content" ? "content" : "structure",
-                anchor: {
-                    kind: "token",
-                    tokenId: issue.tokenId ?? issue.relatedTokenId ?? "?",
-                    sid: issue.sid,
-                },
-                // onion issues hover-match on either their token or related
-                // token (the old hover behavior).
-                touchedTokenIds: [issue.tokenId, issue.relatedTokenId].filter(
-                    (tokenId): tokenId is string => typeof tokenId === "string",
-                ),
-                issue,
-            }),
-        })),
-    );
+  return finalizeFindings(
+    issues.map((issue) => ({
+      baseKey: `onion:${issue.code}:${issue.tokenId ?? ""}:${issue.relatedTokenId ?? ""}`,
+      build: (id): Finding => ({
+        id,
+        source: "onion",
+        code: issue.code,
+        severity: issue.severity,
+        category: issue.issueType === "content" ? "content" : "structure",
+        anchor: {
+          kind: "token",
+          tokenId: issue.tokenId ?? issue.relatedTokenId ?? "?",
+          sid: issue.sid,
+        },
+        // onion issues hover-match on either their token or related
+        // token (the old hover behavior).
+        touchedTokenIds: [issue.tokenId, issue.relatedTokenId].filter(
+          (tokenId): tokenId is string => typeof tokenId === "string",
+        ),
+        issue,
+      }),
+    })),
+  );
 }
 
 /**
@@ -99,39 +98,39 @@ export function lintIssuesToFindings(issues: LintIssue[]): Finding[] {
  * must survive (the old LintStore grouping dropped it via a falsy check).
  */
 export function groupFindingsByChapter(findings: Finding[]): FindingsByChapter {
-    const grouped: FindingsByChapter = {};
-    for (const finding of findings) {
-        const sid = finding.anchor.sid;
-        const chapter = (sid != null ? parseSid(sid)?.chapter : null) ?? 0;
-        grouped[chapter] ??= [];
-        grouped[chapter].push(finding);
-    }
-    return grouped;
+  const grouped: FindingsByChapter = {};
+  for (const finding of findings) {
+    const sid = finding.anchor.sid;
+    const chapter = (sid != null ? parseSid(sid)?.chapter : null) ?? 0;
+    grouped[chapter] ??= [];
+    grouped[chapter].push(finding);
+  }
+  return grouped;
 }
 
 /** The onion commit payload in one step: normalize, then chapter-bucket. */
 export function onionFindingsByChapter(issues: LintIssue[]): FindingsByChapter {
-    return groupFindingsByChapter(lintIssuesToFindings(issues));
+  return groupFindingsByChapter(lintIssuesToFindings(issues));
 }
 
 /** sous `SousFinding` → content-anchored `Finding`. All sous rules are content. */
 export function sousFindingsToFindings(findings: SousFinding[]): Finding[] {
-    return finalizeFindings(
-        findings.map((finding) => ({
-            baseKey: `sous-chef:${finding.code}:${finding.sid}:${finding.start}:${finding.end}`,
-            build: (id): Finding => ({
-                id,
-                source: "sous-chef",
-                code: finding.code,
-                severity: finding.severity,
-                category: "content",
-                anchor: {
-                    kind: "content",
-                    sid: finding.sid,
-                    range: { start: finding.start, end: finding.end },
-                },
-                score: finding.score,
-            }),
-        })),
-    );
+  return finalizeFindings(
+    findings.map((finding) => ({
+      baseKey: `sous-chef:${finding.code}:${finding.sid}:${finding.start}:${finding.end}`,
+      build: (id): Finding => ({
+        id,
+        source: "sous-chef",
+        code: finding.code,
+        severity: finding.severity,
+        category: "content",
+        anchor: {
+          kind: "content",
+          sid: finding.sid,
+          range: { start: finding.start, end: finding.end },
+        },
+        score: finding.score,
+      }),
+    })),
+  );
 }

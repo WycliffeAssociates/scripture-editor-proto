@@ -19,8 +19,8 @@ export type Utf16Span = { start: number; end: number };
  * mode skips markers "for free" when resolving a range.
  */
 export type Segment = {
-    tokenId: string;
-    textSpan: Utf16Span;
+  tokenId: string;
+  textSpan: Utf16Span;
 };
 
 /** Ordered segments per sid (verse), the per-sid projection onion emits. */

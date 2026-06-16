@@ -39,7 +39,7 @@ const DEPRECATED_MARKERS = new Set(["s5"]);
 const NOTE_SPAN_OPENERS = new Set(["f", "fe", "x", "ef", "ex"]);
 
 function isNoteOpenerMarker(marker: string | undefined): boolean {
-    return !!marker && NOTE_SPAN_OPENERS.has(marker);
+  return !!marker && NOTE_SPAN_OPENERS.has(marker);
 }
 
 /**
@@ -50,44 +50,38 @@ function isNoteOpenerMarker(marker: string | undefined): boolean {
  * fail closed rather than open).
  */
 function dropNoteSpans(tokens: readonly TokenEnvelope[]): TokenEnvelope[] {
-    const out: TokenEnvelope[] = [];
-    let inNote = false;
-    for (const token of tokens) {
-        if (!inNote) {
-            if (
-                token.tokenType === "marker" &&
-                isNoteOpenerMarker(token.marker)
-            ) {
-                inNote = true;
-                continue;
-            }
-            out.push(token);
-            continue;
-        }
-        if (
-            token.tokenType === "endMarker" &&
-            isNoteOpenerMarker(token.marker)
-        ) {
-            inNote = false;
-        }
+  const out: TokenEnvelope[] = [];
+  let inNote = false;
+  for (const token of tokens) {
+    if (!inNote) {
+      if (token.tokenType === "marker" && isNoteOpenerMarker(token.marker)) {
+        inNote = true;
+        continue;
+      }
+      out.push(token);
+      continue;
     }
-    return out;
+    if (token.tokenType === "endMarker" && isNoteOpenerMarker(token.marker)) {
+      inNote = false;
+    }
+  }
+  return out;
 }
 
 export function stripDeprecatedMarkers(
-    tokens: readonly TokenEnvelope[],
+  tokens: readonly TokenEnvelope[],
 ): TokenEnvelope[] {
-    return tokens.filter((token) => {
-        if (token.tokenType !== "marker" && token.tokenType !== "endMarker") {
-            return true;
-        }
-        return !token.marker || !DEPRECATED_MARKERS.has(token.marker);
-    });
+  return tokens.filter((token) => {
+    if (token.tokenType !== "marker" && token.tokenType !== "endMarker") {
+      return true;
+    }
+    return !token.marker || !DEPRECATED_MARKERS.has(token.marker);
+  });
 }
 
 type VerseGrouping = {
-    prelude: TokenEnvelope[];
-    verses: TokenEnvelope[][];
+  prelude: TokenEnvelope[];
+  verses: TokenEnvelope[][];
 };
 
 /**
@@ -95,42 +89,42 @@ type VerseGrouping = {
  * prelude (anything before the first `\v`). Splits at every verse marker.
  */
 function groupEnvelopesByVerse(
-    tokens: readonly TokenEnvelope[],
+  tokens: readonly TokenEnvelope[],
 ): VerseGrouping {
-    const verseStarts = collectVerseStartIndices(tokens);
-    if (verseStarts.length === 0) {
-        return { prelude: [...tokens], verses: [] };
-    }
-    const firstStart = verseStarts[0] as number;
-    const prelude = firstStart > 0 ? tokens.slice(0, firstStart) : [];
-    return {
-        prelude: [...prelude],
-        verses: sliceVerses(tokens, verseStarts),
-    };
+  const verseStarts = collectVerseStartIndices(tokens);
+  if (verseStarts.length === 0) {
+    return { prelude: [...tokens], verses: [] };
+  }
+  const firstStart = verseStarts[0] as number;
+  const prelude = firstStart > 0 ? tokens.slice(0, firstStart) : [];
+  return {
+    prelude: [...prelude],
+    verses: sliceVerses(tokens, verseStarts),
+  };
 }
 
 function collectVerseStartIndices(tokens: readonly TokenEnvelope[]): number[] {
-    const indices: number[] = [];
-    tokens.forEach((token, i) => {
-        if (token.tokenType === "marker" && token.marker === "v") {
-            indices.push(i);
-        }
-    });
-    return indices;
+  const indices: number[] = [];
+  tokens.forEach((token, i) => {
+    if (token.tokenType === "marker" && token.marker === "v") {
+      indices.push(i);
+    }
+  });
+  return indices;
 }
 
 function sliceVerses(
-    tokens: readonly TokenEnvelope[],
-    starts: readonly number[],
+  tokens: readonly TokenEnvelope[],
+  starts: readonly number[],
 ): TokenEnvelope[][] {
-    const out: TokenEnvelope[][] = [];
-    for (let i = 0; i < starts.length; i++) {
-        const start = starts[i] as number;
-        const end =
-            i + 1 < starts.length ? (starts[i + 1] as number) : tokens.length;
-        out.push(tokens.slice(start, end));
-    }
-    return out;
+  const out: TokenEnvelope[][] = [];
+  for (let i = 0; i < starts.length; i++) {
+    const start = starts[i] as number;
+    const end =
+      i + 1 < starts.length ? (starts[i + 1] as number) : tokens.length;
+    out.push(tokens.slice(start, end));
+  }
+  return out;
 }
 
 /**
@@ -139,13 +133,13 @@ function sliceVerses(
  * yield three `\q2`s on the target).
  */
 function listVerseMarkers(slice: readonly TokenEnvelope[]): string[] {
-    const markers: string[] = [];
-    for (const token of slice) {
-        if (token.tokenType !== "marker") continue;
-        if (!token.marker || token.marker === "v") continue;
-        markers.push(token.marker);
-    }
-    return markers;
+  const markers: string[] = [];
+  for (const token of slice) {
+    if (token.tokenType !== "marker") continue;
+    if (!token.marker || token.marker === "v") continue;
+    markers.push(token.marker);
+  }
+  return markers;
 }
 
 /**
@@ -153,14 +147,14 @@ function listVerseMarkers(slice: readonly TokenEnvelope[]): string[] {
  * counting multiplicity. Order follows `a`.
  */
 function multisetDiff(a: readonly string[], b: readonly string[]): string[] {
-    const remaining = [...b];
-    const result: string[] = [];
-    for (const item of a) {
-        const idx = remaining.indexOf(item);
-        if (idx === -1) result.push(item);
-        else remaining.splice(idx, 1);
-    }
-    return result;
+  const remaining = [...b];
+  const result: string[] = [];
+  for (const item of a) {
+    const idx = remaining.indexOf(item);
+    if (idx === -1) result.push(item);
+    else remaining.splice(idx, 1);
+  }
+  return result;
 }
 
 /**
@@ -174,72 +168,72 @@ function multisetDiff(a: readonly string[], b: readonly string[]): string[] {
  * are never silently lost.
  */
 export function injectSkeletonVersesFromSource(
-    targetTokens: readonly TokenEnvelope[],
-    sourceTokens: readonly TokenEnvelope[],
+  targetTokens: readonly TokenEnvelope[],
+  sourceTokens: readonly TokenEnvelope[],
 ): TokenEnvelope[] {
-    const sourceGroups = groupEnvelopesByVerse(sourceTokens);
-    const targetGroups = groupEnvelopesByVerse(targetTokens);
-    const targetBySid = mapVerseSlicesBySid(targetGroups.verses);
+  const sourceGroups = groupEnvelopesByVerse(sourceTokens);
+  const targetGroups = groupEnvelopesByVerse(targetTokens);
+  const targetBySid = mapVerseSlicesBySid(targetGroups.verses);
 
-    const out: TokenEnvelope[] = [...targetGroups.prelude];
-    const consumedSids = new Set<string>();
+  const out: TokenEnvelope[] = [...targetGroups.prelude];
+  const consumedSids = new Set<string>();
 
-    for (const sourceSlice of sourceGroups.verses) {
-        const sid = sourceSlice[0]?.sid;
-        if (!sid) continue;
-        const existing = targetBySid.get(sid);
-        if (existing) {
-            out.push(...existing);
-            consumedSids.add(sid);
-            continue;
-        }
-        out.push(...synthesizeEmptyVerse(sourceSlice));
+  for (const sourceSlice of sourceGroups.verses) {
+    const sid = sourceSlice[0]?.sid;
+    if (!sid) continue;
+    const existing = targetBySid.get(sid);
+    if (existing) {
+      out.push(...existing);
+      consumedSids.add(sid);
+      continue;
     }
+    out.push(...synthesizeEmptyVerse(sourceSlice));
+  }
 
-    for (const slice of targetGroups.verses) {
-        const sid = slice[0]?.sid;
-        if (sid && !consumedSids.has(sid)) {
-            out.push(...slice);
-        }
+  for (const slice of targetGroups.verses) {
+    const sid = slice[0]?.sid;
+    if (sid && !consumedSids.has(sid)) {
+      out.push(...slice);
     }
-    return out;
+  }
+  return out;
 }
 
 function mapVerseSlicesBySid(
-    verses: readonly TokenEnvelope[][],
+  verses: readonly TokenEnvelope[][],
 ): Map<string, TokenEnvelope[]> {
-    const out = new Map<string, TokenEnvelope[]>();
-    for (const slice of verses) {
-        const sid = slice[0]?.sid;
-        if (sid) out.set(sid, slice);
-    }
-    return out;
+  const out = new Map<string, TokenEnvelope[]>();
+  for (const slice of verses) {
+    const sid = slice[0]?.sid;
+    if (sid) out.set(sid, slice);
+  }
+  return out;
 }
 
 function synthesizeEmptyVerse(
-    sourceSlice: readonly TokenEnvelope[],
+  sourceSlice: readonly TokenEnvelope[],
 ): TokenEnvelope[] {
-    const out: TokenEnvelope[] = [];
-    const verseMarker = sourceSlice[0];
-    const numberRange = sourceSlice[1];
-    const sid = verseMarker?.sid;
-    if (verseMarker?.tokenType === "marker") {
-        out.push({
-            tokenType: "marker",
-            text: verseMarker.text,
-            marker: verseMarker.marker,
-            sid,
-        } as TokenEnvelope);
-    }
-    if (numberRange?.tokenType === "numberRange") {
-        out.push({
-            tokenType: "numberRange",
-            text: numberRange.text,
-            sid,
-        } as TokenEnvelope);
-    }
-    out.push({ tokenType: "nl", text: "\n" } as TokenEnvelope);
-    return out;
+  const out: TokenEnvelope[] = [];
+  const verseMarker = sourceSlice[0];
+  const numberRange = sourceSlice[1];
+  const sid = verseMarker?.sid;
+  if (verseMarker?.tokenType === "marker") {
+    out.push({
+      tokenType: "marker",
+      text: verseMarker.text,
+      marker: verseMarker.marker,
+      sid,
+    } as TokenEnvelope);
+  }
+  if (numberRange?.tokenType === "numberRange") {
+    out.push({
+      tokenType: "numberRange",
+      text: numberRange.text,
+      sid,
+    } as TokenEnvelope);
+  }
+  out.push({ tokenType: "nl", text: "\n" } as TokenEnvelope);
+  return out;
 }
 
 /**
@@ -251,55 +245,55 @@ function synthesizeEmptyVerse(
  * target `\q2`s). Existing target markers are never removed.
  */
 export function injectSkeletonMarkersFromSource(
-    targetTokens: readonly TokenEnvelope[],
-    sourceTokens: readonly TokenEnvelope[],
+  targetTokens: readonly TokenEnvelope[],
+  sourceTokens: readonly TokenEnvelope[],
 ): TokenEnvelope[] {
-    // Notes (`\f...\f*`, `\x...\x*`) and their inline char markers
-    // are content, not skeleton. Strip them from BOTH sides before
-    // diffing so we don't synthesize empty `\fr` rows on the target.
-    const sourceVerses = groupEnvelopesByVerse(dropNoteSpans(sourceTokens));
-    const targetVerses = groupEnvelopesByVerse(targetTokens);
-    const sourceMarkersBySid = mapMarkersBySid(sourceVerses.verses);
+  // Notes (`\f...\f*`, `\x...\x*`) and their inline char markers
+  // are content, not skeleton. Strip them from BOTH sides before
+  // diffing so we don't synthesize empty `\fr` rows on the target.
+  const sourceVerses = groupEnvelopesByVerse(dropNoteSpans(sourceTokens));
+  const targetVerses = groupEnvelopesByVerse(targetTokens);
+  const sourceMarkersBySid = mapMarkersBySid(sourceVerses.verses);
 
-    const out: TokenEnvelope[] = [...targetVerses.prelude];
-    for (const slice of targetVerses.verses) {
-        out.push(...slice);
-        const sid = slice[0]?.sid;
-        if (!sid) continue;
-        const sourceMarkers = sourceMarkersBySid.get(sid);
-        if (!sourceMarkers || sourceMarkers.length === 0) continue;
-        const missing = multisetDiff(
-            sourceMarkers,
-            listVerseMarkers(dropNoteSpans(slice)),
-        );
-        for (const marker of missing) {
-            out.push(...synthesizeMissingMarker(marker, sid));
-        }
+  const out: TokenEnvelope[] = [...targetVerses.prelude];
+  for (const slice of targetVerses.verses) {
+    out.push(...slice);
+    const sid = slice[0]?.sid;
+    if (!sid) continue;
+    const sourceMarkers = sourceMarkersBySid.get(sid);
+    if (!sourceMarkers || sourceMarkers.length === 0) continue;
+    const missing = multisetDiff(
+      sourceMarkers,
+      listVerseMarkers(dropNoteSpans(slice)),
+    );
+    for (const marker of missing) {
+      out.push(...synthesizeMissingMarker(marker, sid));
     }
-    return out;
+  }
+  return out;
 }
 
 function mapMarkersBySid(
-    verses: readonly TokenEnvelope[][],
+  verses: readonly TokenEnvelope[][],
 ): Map<string, string[]> {
-    const out = new Map<string, string[]>();
-    for (const slice of verses) {
-        const sid = slice[0]?.sid;
-        if (sid) out.set(sid, listVerseMarkers(slice));
-    }
-    return out;
+  const out = new Map<string, string[]>();
+  for (const slice of verses) {
+    const sid = slice[0]?.sid;
+    if (sid) out.set(sid, listVerseMarkers(slice));
+  }
+  return out;
 }
 
 function synthesizeMissingMarker(marker: string, sid: string): TokenEnvelope[] {
-    return [
-        {
-            tokenType: "marker",
-            text: `\\${marker} `,
-            marker,
-            sid,
-        } as TokenEnvelope,
-        { tokenType: "nl", text: "\n" } as TokenEnvelope,
-    ];
+  return [
+    {
+      tokenType: "marker",
+      text: `\\${marker} `,
+      marker,
+      sid,
+    } as TokenEnvelope,
+    { tokenType: "nl", text: "\n" } as TokenEnvelope,
+  ];
 }
 
 /**
@@ -310,36 +304,33 @@ function synthesizeMissingMarker(marker: string, sid: string): TokenEnvelope[] {
  * skeleton across refactors of the surrounding UI.
  */
 export function formatMarkerSkeleton(tokens: readonly TokenEnvelope[]): string {
-    const parts: string[] = [];
-    let sawTextSinceMarker = false;
-    for (const token of tokens) {
-        if (token.tokenType === "marker") {
-            if (sawTextSinceMarker) parts.push("…");
-            parts.push(`\\${token.marker ?? "?"}`);
-            sawTextSinceMarker = false;
-            continue;
-        }
-        if (token.tokenType === "endMarker") {
-            if (sawTextSinceMarker) parts.push("…");
-            parts.push(`\\${token.marker ?? "?"}*`);
-            sawTextSinceMarker = false;
-            continue;
-        }
-        if (token.tokenType === "numberRange") {
-            parts.push((token.text ?? "").trim());
-            sawTextSinceMarker = false;
-            continue;
-        }
-        if (token.tokenType === "nl") {
-            sawTextSinceMarker = false;
-            continue;
-        }
-        if (
-            token.tokenType === "text" &&
-            (token.text ?? "").trim().length > 0
-        ) {
-            sawTextSinceMarker = true;
-        }
+  const parts: string[] = [];
+  let sawTextSinceMarker = false;
+  for (const token of tokens) {
+    if (token.tokenType === "marker") {
+      if (sawTextSinceMarker) parts.push("…");
+      parts.push(`\\${token.marker ?? "?"}`);
+      sawTextSinceMarker = false;
+      continue;
     }
-    return parts.join(" ");
+    if (token.tokenType === "endMarker") {
+      if (sawTextSinceMarker) parts.push("…");
+      parts.push(`\\${token.marker ?? "?"}*`);
+      sawTextSinceMarker = false;
+      continue;
+    }
+    if (token.tokenType === "numberRange") {
+      parts.push((token.text ?? "").trim());
+      sawTextSinceMarker = false;
+      continue;
+    }
+    if (token.tokenType === "nl") {
+      sawTextSinceMarker = false;
+      continue;
+    }
+    if (token.tokenType === "text" && (token.text ?? "").trim().length > 0) {
+      sawTextSinceMarker = true;
+    }
+  }
+  return parts.join(" ");
 }

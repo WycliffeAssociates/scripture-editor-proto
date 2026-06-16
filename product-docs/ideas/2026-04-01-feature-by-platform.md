@@ -31,6 +31,7 @@ If a bug reproduces identically on both platforms, it is probably here first.
   - Also depends on Tauri capability files under `src/tauri/rust/capabilities/`.
 
 Why it matters:
+
 - Path access bugs can be Desktop-only because of capability scopes.
 - OPFS timing/layout issues are Web-only.
 
@@ -42,6 +43,7 @@ Why it matters:
   - `src/tauri/persistence/TauriStorageRoots.ts`
 
 Why it matters:
+
 - Managed path layout should feel the same product-wise, but the backing storage locations differ.
 - Session files, temp imports, logs, and git metadata all depend on these roots.
 
@@ -57,11 +59,13 @@ Why it matters:
   - Native git behavior depends on libgit2 and Rust-side implementation details.
 
 Why it matters:
+
 - This is one of the biggest divergence zones.
 - Branch behavior, fetch/push semantics, replay/reset behavior, auth transport, and remote inspection can fail differently.
 - Product logic is shared, but the git engine is not.
 
 Current product rule to remember:
+
 - We use `master` as the default branch in this ecosystem.
 - Diverged manual reconciliation is squash-to-final-form, not pick/replay.
 
@@ -77,11 +81,13 @@ Current product rule to remember:
   - Rust implementation lives in `src/tauri/rust/src/import.rs`.
 
 Why it matters:
+
 - Remote URL import is a major divergence point.
 - Desktop remote archive download is native HTTP, not browser fetch.
 - WAF/header/challenge behavior can therefore differ even when the same URL works in browser contexts.
 
 Current notable detail:
+
 - Desktop remote archive download now forwards optional `X-Requested-With` from env for Cloudflare/WAF bypass.
 
 ### USFM Onion / Lint / Format / Diff
@@ -96,6 +102,7 @@ Current notable detail:
   - Can use path-based batch operations.
 
 Why it matters:
+
 - Same app-facing API, different execution engines.
 - Performance and edge-case differences may appear in formatting, linting, token diffing, and path batch operations.
 
@@ -110,6 +117,7 @@ Why it matters:
   - Same base settings model, but adds webview zoom restore and system-font support.
 
 Why it matters:
+
 - Most settings UI is shared.
 - Capability differences are mostly in side effects, not in the stored setting names.
 
@@ -125,6 +133,7 @@ Why it matters:
   - Can reveal files/directories in the OS file explorer.
 
 Why it matters:
+
 - Portable export should match semantically across platforms.
 - OS-level file reveal is Desktop-only.
 
@@ -138,6 +147,7 @@ Why it matters:
   - Rust invoke path.
 
 Why it matters:
+
 - Usually low risk, but worth noting if content fingerprinting ever drifts between platforms.
 
 ### Cloud Host / Transport Configuration
@@ -153,6 +163,7 @@ Why it matters:
   - Native git/archive/network calls hit the direct host.
 
 Why it matters:
+
 - If cloud behavior differs by platform, check env wiring first.
 - Some non-git flows may still trust external URLs directly instead of reconstructing them from platform host config.
 

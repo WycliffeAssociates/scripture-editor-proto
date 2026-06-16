@@ -1,52 +1,48 @@
-import type { SerializedLexicalNode } from "lexical";
-import { describe, expect, it } from "vitest";
-import { transformToShape } from "@/app/domain/editor/utils/modeTransforms.ts";
-import {
-    canonicalSnapshotToChapterState,
-    chapterSnapshotsAreEqual,
-    chapterStateToCanonicalSnapshot,
-} from "@/app/domain/history/canonicalChapterState.ts";
 import { serializeToUsfmString } from "@tests/helpers/serializeToUsfmString.ts";
 import { createTestEditor } from "@tests/helpers/testEditor.ts";
+import type { SerializedLexicalNode } from "lexical";
+import { describe, expect, it } from "vitest";
+
+import { transformToShape } from "@/app/domain/editor/utils/modeTransforms.ts";
+import {
+  canonicalSnapshotToChapterState,
+  chapterSnapshotsAreEqual,
+  chapterStateToCanonicalSnapshot,
+} from "@/app/domain/history/canonicalChapterState.ts";
 
 describe("history canonical snapshot integration", () => {
-    it("remains mode-agnostic between regular and usfm projections", async () => {
-        const editor = await createTestEditor(
-            "\\c 1\n\\p\n\\v 1 In the beginning\\f + \\ft Note\\f*",
-            { needsParagraphs: true },
-        );
-        const regularState = editor.getEditorState().toJSON();
-        const usfmState = transformToShape(
-            structuredClone(regularState),
-            "flat",
-        );
+  it("remains mode-agnostic between regular and usfm projections", async () => {
+    const editor = await createTestEditor(
+      "\\c 1\n\\p\n\\v 1 In the beginning\\f + \\ft Note\\f*",
+      { needsParagraphs: true },
+    );
+    const regularState = editor.getEditorState().toJSON();
+    const usfmState = transformToShape(structuredClone(regularState), "flat");
 
-        const regularSnapshot = chapterStateToCanonicalSnapshot(regularState);
-        const usfmSnapshot = chapterStateToCanonicalSnapshot(usfmState);
+    const regularSnapshot = chapterStateToCanonicalSnapshot(regularState);
+    const usfmSnapshot = chapterStateToCanonicalSnapshot(usfmState);
 
-        expect(chapterSnapshotsAreEqual(regularSnapshot, usfmSnapshot)).toBe(
-            true,
-        );
+    expect(chapterSnapshotsAreEqual(regularSnapshot, usfmSnapshot)).toBe(true);
+  });
+
+  it("round-trips canonical snapshot back to regular mode", async () => {
+    const editor = await createTestEditor("\\c 1\n\\p\n\\v 1 Alpha beta", {
+      needsParagraphs: true,
     });
+    const startState = editor.getEditorState().toJSON();
+    const startUsfm = serializeToUsfmString(
+      startState.root.children as SerializedLexicalNode[],
+    );
 
-    it("round-trips canonical snapshot back to regular mode", async () => {
-        const editor = await createTestEditor("\\c 1\n\\p\n\\v 1 Alpha beta", {
-            needsParagraphs: true,
-        });
-        const startState = editor.getEditorState().toJSON();
-        const startUsfm = serializeToUsfmString(
-            startState.root.children as SerializedLexicalNode[],
-        );
-
-        const snapshot = chapterStateToCanonicalSnapshot(startState);
-        const restored = canonicalSnapshotToChapterState({
-            snapshot,
-            targetShape: "regular",
-        });
-        const restoredUsfm = serializeToUsfmString(
-            restored.root.children as SerializedLexicalNode[],
-        );
-
-        expect(restoredUsfm).toBe(startUsfm);
+    const snapshot = chapterStateToCanonicalSnapshot(startState);
+    const restored = canonicalSnapshotToChapterState({
+      snapshot,
+      targetShape: "regular",
     });
+    const restoredUsfm = serializeToUsfmString(
+      restored.root.children as SerializedLexicalNode[],
+    );
+
+    expect(restoredUsfm).toBe(startUsfm);
+  });
 });

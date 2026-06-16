@@ -1,10 +1,15 @@
 // @vitest-environment jsdom
 
-import { I18nProvider } from "@lingui/react";
 import { i18n } from "@lingui/core";
+import { I18nProvider } from "@lingui/react";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+
+import {
+  presentSharedProjectStatus,
+  sharedProjectActions,
+} from "@/app/domain/project/remoteSync/sharedProjectCopy.ts";
 import {
   CloudProjectStatusBadge,
   CloudProjectStatusBanner,
@@ -67,7 +72,9 @@ function render(ui: React.ReactNode) {
   });
 }
 
-function makeStatus(kind: GitRemoteProjectStatus["kind"]): GitRemoteProjectStatus {
+function makeStatus(
+  kind: GitRemoteProjectStatus["kind"],
+): GitRemoteProjectStatus {
   return {
     projectPath: "/userData/projects/foo",
     kind,
@@ -110,31 +117,46 @@ describe("cloud project status UI", () => {
       />,
     );
 
-    expect(document.body.textContent).toContain("Some changes need your review");
+    expect(document.body.textContent).toContain(
+      "Some changes need your review",
+    );
     expect(document.body.textContent).toContain("Review changes");
     act(() => {
-      document.querySelector("button")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      document
+        .querySelector("button")
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(onReview).toHaveBeenCalledTimes(1);
   });
 
   it("renders a sync action when changes are not yet published", () => {
     const onSync = vi.fn();
+    const status = makeStatus(GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH);
     render(
       <CloudProjectStatusBanner
-        status={makeStatus(GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH)}
+        status={status}
         isRefreshing={false}
         onSync={onSync}
         onReview={vi.fn()}
       />,
     );
 
+    // The banner's copy is owned by the shared-project glossary (it delegates to
+    // `presentSharedProjectStatus`), so assert against that single source rather
+    // than a hardcoded string that silently drifts when the glossary changes.
+    const presented = presentSharedProjectStatus({
+      status,
+      isRefreshing: false,
+      i18n,
+    });
+    expect(document.body.textContent).toContain(presented.detail);
     expect(document.body.textContent).toContain(
-      "Your latest work is saved here but not yet in the shared project.",
+      i18n._(sharedProjectActions.send),
     );
-    expect(document.body.textContent).toContain("Send my changes");
     act(() => {
-      document.querySelector("button")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      document
+        .querySelector("button")
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(onSync).toHaveBeenCalledTimes(1);
   });

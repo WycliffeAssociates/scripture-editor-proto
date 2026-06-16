@@ -1,34 +1,35 @@
 import { Duration, Effect, Ref, Stream } from "effect";
+
 import type { ConsumerBookScope } from "@/app/state/commitFilters.ts";
 import type { CommitEvent } from "@/app/state/types.ts";
 
 /** The union of scopes accumulated since the last successful pass. */
 export type FoldedBookScope = {
-    all: boolean;
-    books: ReadonlySet<string>;
+  all: boolean;
+  books: ReadonlySet<string>;
 };
 
 const EMPTY_FOLD: FoldedBookScope = { all: false, books: new Set() };
 
 function foldInto(
-    acc: FoldedBookScope,
-    scope: ConsumerBookScope,
+  acc: FoldedBookScope,
+  scope: ConsumerBookScope,
 ): FoldedBookScope {
-    if (scope === "all") return { all: true, books: acc.books };
-    if (scope.size === 0) return acc;
-    const books = new Set(acc.books);
-    for (const book of scope) {
-        books.add(book);
-    }
-    return { all: acc.all, books };
+  if (scope === "all") return { all: true, books: acc.books };
+  if (scope.size === 0) return acc;
+  const books = new Set(acc.books);
+  for (const book of scope) {
+    books.add(book);
+  }
+  return { all: acc.all, books };
 }
 
 function foldUnion(a: FoldedBookScope, b: FoldedBookScope): FoldedBookScope {
-    const books = new Set(a.books);
-    for (const book of b.books) {
-        books.add(book);
-    }
-    return { all: a.all || b.all, books };
+  const books = new Set(a.books);
+  for (const book of b.books) {
+    books.add(book);
+  }
+  return { all: a.all || b.all, books };
 }
 
 /**
@@ -54,38 +55,36 @@ function foldUnion(a: FoldedBookScope, b: FoldedBookScope): FoldedBookScope {
  * pipeline fiber.
  */
 export function makeFoldedScopePipeline(args: {
-    changes: Stream.Stream<CommitEvent>;
-    scopeFor: (event: CommitEvent) => ConsumerBookScope;
-    debounceMs: number;
-    run: (scope: FoldedBookScope) => Effect.Effect<void>;
+  changes: Stream.Stream<CommitEvent>;
+  scopeFor: (event: CommitEvent) => ConsumerBookScope;
+  debounceMs: number;
+  run: (scope: FoldedBookScope) => Effect.Effect<void>;
 }): Effect.Effect<void> {
-    return Effect.gen(function* () {
-        const acc = yield* Ref.make<FoldedBookScope>(EMPTY_FOLD);
-        yield* args.changes.pipe(
-            Stream.map(args.scopeFor),
-            Stream.filter((scope) => scope === "all" || scope.size > 0),
-            Stream.mapEffect((scope) =>
-                Ref.update(acc, (current) => foldInto(current, scope)),
-            ),
-            Stream.debounce(Duration.millis(args.debounceMs)),
-            Stream.switchMap(() =>
-                Stream.fromEffect(
-                    Effect.gen(function* () {
-                        const taken = yield* Ref.getAndSet(acc, EMPTY_FOLD);
-                        if (!taken.all && taken.books.size === 0) return;
-                        yield* args
-                            .run(taken)
-                            .pipe(
-                                Effect.onInterrupt(() =>
-                                    Ref.update(acc, (current) =>
-                                        foldUnion(current, taken),
-                                    ),
-                                ),
-                            );
-                    }),
+  return Effect.gen(function* () {
+    const acc = yield* Ref.make<FoldedBookScope>(EMPTY_FOLD);
+    yield* args.changes.pipe(
+      Stream.map(args.scopeFor),
+      Stream.filter((scope) => scope === "all" || scope.size > 0),
+      Stream.mapEffect((scope) =>
+        Ref.update(acc, (current) => foldInto(current, scope)),
+      ),
+      Stream.debounce(Duration.millis(args.debounceMs)),
+      Stream.switchMap(() =>
+        Stream.fromEffect(
+          Effect.gen(function* () {
+            const taken = yield* Ref.getAndSet(acc, EMPTY_FOLD);
+            if (!taken.all && taken.books.size === 0) return;
+            yield* args
+              .run(taken)
+              .pipe(
+                Effect.onInterrupt(() =>
+                  Ref.update(acc, (current) => foldUnion(current, taken)),
                 ),
-            ),
-            Stream.runDrain,
-        );
-    });
+              );
+          }),
+        ),
+      ),
+      Stream.runDrain,
+    );
+  });
 }

@@ -237,13 +237,25 @@ interface AuthSessionProvider {
 }
 
 interface GitRemoteProjectService {
-  listWritableRepos(input: ListWritableReposInput): Promise<GitRemoteRepoSummary[]>;
+  listWritableRepos(
+    input: ListWritableReposInput,
+  ): Promise<GitRemoteRepoSummary[]>;
   createRepo(input: CreateGitRemoteRepoInput): Promise<GitRemoteRepoSummary>;
-  cloneLinkedProject(input: CloneGitRemoteProjectInput): Promise<ClonedGitRemoteProject>;
-  attachExistingProject(input: AttachGitRemoteProjectInput): Promise<ProjectLocalGitRemoteInfo>;
-  inspectRemoteState(input: InspectGitRemoteStateInput): Promise<RemoteStateSummary>;
-  fetchRemoteLatest(input: FetchGitRemoteLatestInput): Promise<RemoteLatestSnapshot>;
-  publishCurrentBranch(input: PublishGitRemoteBranchInput): Promise<PublishResult>;
+  cloneLinkedProject(
+    input: CloneGitRemoteProjectInput,
+  ): Promise<ClonedGitRemoteProject>;
+  attachExistingProject(
+    input: AttachGitRemoteProjectInput,
+  ): Promise<ProjectLocalGitRemoteInfo>;
+  inspectRemoteState(
+    input: InspectGitRemoteStateInput,
+  ): Promise<RemoteStateSummary>;
+  fetchRemoteLatest(
+    input: FetchGitRemoteLatestInput,
+  ): Promise<RemoteLatestSnapshot>;
+  publishCurrentBranch(
+    input: PublishGitRemoteBranchInput,
+  ): Promise<PublishResult>;
 }
 
 type ListWritableReposInput = {
@@ -315,7 +327,12 @@ type ClonedGitRemoteProject = {
 type RemoteStateSummary = {
   localHead: string | null;
   remoteHead: string | null;
-  relationship: "upToDate" | "aheadOnly" | "behindOnly" | "diverged" | "untrackedRemote";
+  relationship:
+    | "upToDate"
+    | "aheadOnly"
+    | "behindOnly"
+    | "diverged"
+    | "untrackedRemote";
 };
 
 type RemoteLatestSnapshot = {
@@ -507,7 +524,9 @@ Reasoning:
 ### Durable Link File Boundary
 
 ```ts
-async function readProjectLocalGitRemoteInfo(projectPath: string): Promise<ProjectLocalGitRemoteInfoFile> {
+async function readProjectLocalGitRemoteInfo(
+  projectPath: string,
+): Promise<ProjectLocalGitRemoteInfoFile> {
   // read Dovetail-owned cloud link file from project root
   // validate schema version and required fields
   // return null when file is absent
@@ -520,7 +539,9 @@ async function writeProjectLocalGitRemoteInfo(
   // persist durable cloud linkage facts only
 }
 
-async function removeProjectLocalGitRemoteInfo(projectPath: string): Promise<void> {
+async function removeProjectLocalGitRemoteInfo(
+  projectPath: string,
+): Promise<void> {
   // used by export/share sanitization or explicit unlink flows
 }
 ```
@@ -531,7 +552,10 @@ async function removeProjectLocalGitRemoteInfo(projectPath: string): Promise<voi
 interface GitRemoteStatusStore {
   get(projectPath: string): GitRemoteProjectStatusRecord | null;
   set(projectPath: string, record: GitRemoteProjectStatusRecord): void;
-  patch(projectPath: string, updates: Partial<GitRemoteProjectStatusRecord>): void;
+  patch(
+    projectPath: string,
+    updates: Partial<GitRemoteProjectStatusRecord>,
+  ): void;
   clear(projectPath: string): void;
 }
 ```

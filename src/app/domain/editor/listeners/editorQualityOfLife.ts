@@ -1,14 +1,15 @@
 import { $getSelection, $isRangeSelection, type LexicalEditor } from "lexical";
+
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import {
-    ALL_CHAR_MARKERS,
-    VALID_NOTE_MARKERS,
+  ALL_CHAR_MARKERS,
+  VALID_NOTE_MARKERS,
 } from "@/core/domain/usfm/onionMarkers.ts";
 
 const isCharOrNoteMarkerBoundary = (marker: string | null): boolean => {
-    if (!marker) return false;
-    return ALL_CHAR_MARKERS.has(marker) || VALID_NOTE_MARKERS.has(marker);
+  if (!marker) return false;
+  return ALL_CHAR_MARKERS.has(marker) || VALID_NOTE_MARKERS.has(marker);
 };
 
 /**
@@ -21,226 +22,219 @@ const isCharOrNoteMarkerBoundary = (marker: string | null): boolean => {
  * @returns `true` if the selection was moved and the event should be stopped, `false` otherwise.
  */
 export function moveToAdjacentNodesWhenSeemsAppropriate(
-    editor: LexicalEditor,
-    event: KeyboardEvent,
+  editor: LexicalEditor,
+  event: KeyboardEvent,
 ): boolean {
-    // We will return this value. It's set to true inside the update if we handle the event.
-    let isHandled = false;
-    const key = event.key;
-    // todo: make trigger configurable maybe
-    if (key !== " ") return false;
-    const selection = $getSelection();
-    // This logic only applies to a collapsed cursor (a caret), not a range selection.
-    if (!$isRangeSelection(selection) || !selection.isCollapsed()) {
-        return false;
-    }
-    const anchorNode = selection.anchor.getNode();
-    const anchorOffset = selection.anchor.offset;
-    // Ensure we are inside a USFMTextNode before doing anything.
-    if (!$isUSFMTextNode(anchorNode)) {
-        return false;
-    }
-    const isAtEndBoundary =
-        anchorOffset >= anchorNode.getTextContent().trim().length;
-    if (!isAtEndBoundary) return false;
+  // We will return this value. It's set to true inside the update if we handle the event.
+  let isHandled = false;
+  const key = event.key;
+  // todo: make trigger configurable maybe
+  if (key !== " ") return false;
+  const selection = $getSelection();
+  // This logic only applies to a collapsed cursor (a caret), not a range selection.
+  if (!$isRangeSelection(selection) || !selection.isCollapsed()) {
+    return false;
+  }
+  const anchorNode = selection.anchor.getNode();
+  const anchorOffset = selection.anchor.offset;
+  // Ensure we are inside a USFMTextNode before doing anything.
+  if (!$isUSFMTextNode(anchorNode)) {
+    return false;
+  }
+  const isAtEndBoundary =
+    anchorOffset >= anchorNode.getTextContent().trim().length;
+  if (!isAtEndBoundary) return false;
 
-    // --- Scenario 1: Inside a 'marker' node ---
+  // --- Scenario 1: Inside a 'marker' node ---
+  if (
+    anchorNode.getTokenType() === UsfmTokenTypes.marker ||
+    anchorNode.getTokenType() === UsfmTokenTypes.endMarker
+  ) {
+    const nextSibling = anchorNode.getNextSibling();
+    if (nextSibling && $isUSFMTextNode(nextSibling)) {
+      // Move the caret to the very beginning of the next node.
+      isHandled = true;
+      event.preventDefault();
+      event.stopPropagation();
+      editor.update(() => {
+        const marker = anchorNode.getMarker();
+        if (!marker) return;
+        if (nextSibling.getTokenType() === UsfmTokenTypes.numberRange) {
+          nextSibling.selectEnd();
+        } else {
+          const skipLeadingSpaceForBoundary =
+            isCharOrNoteMarkerBoundary(marker);
+          if (
+            !skipLeadingSpaceForBoundary &&
+            !nextSibling.getTextContent().startsWith(" ")
+          ) {
+            nextSibling.setTextContent(` ${nextSibling.getTextContent()}`);
+          }
+          const selectOffset = skipLeadingSpaceForBoundary ? 0 : 1;
+          nextSibling.select(selectOffset, selectOffset);
+        }
+      });
+    }
+  }
+  // --- Scenario 2: Inside a 'numberRange' node ---
+  else if (anchorNode.getTokenType() === UsfmTokenTypes.numberRange) {
+    const nextSibling = anchorNode.getNextSibling();
+
+    // Check if the next sibling is the specific type we want to jump to.
     if (
-        anchorNode.getTokenType() === UsfmTokenTypes.marker ||
-        anchorNode.getTokenType() === UsfmTokenTypes.endMarker
+      $isUSFMTextNode(nextSibling) &&
+      nextSibling.getTokenType() === UsfmTokenTypes.text
     ) {
-        const nextSibling = anchorNode.getNextSibling();
-        if (nextSibling && $isUSFMTextNode(nextSibling)) {
-            // Move the caret to the very beginning of the next node.
-            isHandled = true;
-            event.preventDefault();
-            event.stopPropagation();
-            editor.update(() => {
-                const marker = anchorNode.getMarker();
-                if (!marker) return;
-                if (nextSibling.getTokenType() === UsfmTokenTypes.numberRange) {
-                    nextSibling.selectEnd();
-                } else {
-                    const skipLeadingSpaceForBoundary =
-                        isCharOrNoteMarkerBoundary(marker);
-                    if (
-                        !skipLeadingSpaceForBoundary &&
-                        !nextSibling.getTextContent().startsWith(" ")
-                    ) {
-                        nextSibling.setTextContent(
-                            ` ${nextSibling.getTextContent()}`,
-                        );
-                    }
-                    const selectOffset = skipLeadingSpaceForBoundary ? 0 : 1;
-                    nextSibling.select(selectOffset, selectOffset);
-                }
-            });
+      // Move the caret to the beginning of that text node.
+      isHandled = true;
+      event.preventDefault();
+      event.stopPropagation();
+      editor.update(() => {
+        // if for some reason next text node doens't start with space, make sure if does.
+        const nextTextContent = nextSibling.getTextContent();
+        if (!nextTextContent.startsWith(" ")) {
+          nextSibling.setTextContent(` ${nextTextContent}`);
         }
+        nextSibling.select(1, 1);
+      });
     }
-    // --- Scenario 2: Inside a 'numberRange' node ---
-    else if (anchorNode.getTokenType() === UsfmTokenTypes.numberRange) {
-        const nextSibling = anchorNode.getNextSibling();
+  }
 
-        // Check if the next sibling is the specific type we want to jump to.
-        if (
-            $isUSFMTextNode(nextSibling) &&
-            nextSibling.getTokenType() === UsfmTokenTypes.text
-        ) {
-            // Move the caret to the beginning of that text node.
-            isHandled = true;
-            event.preventDefault();
-            event.stopPropagation();
-            editor.update(() => {
-                // if for some reason next text node doens't start with space, make sure if does.
-                const nextTextContent = nextSibling.getTextContent();
-                if (!nextTextContent.startsWith(" ")) {
-                    nextSibling.setTextContent(` ${nextTextContent}`);
-                }
-                nextSibling.select(1, 1);
-            });
-        }
-    }
-
-    return isHandled;
+  return isHandled;
 }
 
 export function normalizeSelectionAtHiddenMarkerBoundary(
-    editor: LexicalEditor,
+  editor: LexicalEditor,
 ): boolean {
-    let doNormalize = false;
-    let nextNodeKey: string | null = null;
+  let doNormalize = false;
+  let nextNodeKey: string | null = null;
 
-    editor.read(() => {
-        const selection = $getSelection();
-        if (!$isRangeSelection(selection) || !selection.isCollapsed()) return;
-        const anchorNode = selection.anchor.getNode();
-        const anchorOffset = selection.anchor.offset;
-        if (!$isUSFMTextNode(anchorNode)) return;
-        if (anchorNode.getTokenType() !== UsfmTokenTypes.marker) return;
-        const markerTextLength = anchorNode.getTextContent().length;
-        if (anchorOffset < markerTextLength) return;
+  editor.read(() => {
+    const selection = $getSelection();
+    if (!$isRangeSelection(selection) || !selection.isCollapsed()) return;
+    const anchorNode = selection.anchor.getNode();
+    const anchorOffset = selection.anchor.offset;
+    if (!$isUSFMTextNode(anchorNode)) return;
+    if (anchorNode.getTokenType() !== UsfmTokenTypes.marker) return;
+    const markerTextLength = anchorNode.getTextContent().length;
+    if (anchorOffset < markerTextLength) return;
 
-        const nextSibling = anchorNode.getNextSibling();
-        if (!$isUSFMTextNode(nextSibling)) return;
+    const nextSibling = anchorNode.getNextSibling();
+    if (!$isUSFMTextNode(nextSibling)) return;
 
-        const nextTokenType = nextSibling.getTokenType();
-        if (
-            nextTokenType !== UsfmTokenTypes.numberRange &&
-            nextTokenType !== UsfmTokenTypes.text
-        ) {
-            return;
-        }
-        nextNodeKey = nextSibling.getKey();
-        doNormalize = true;
-    });
-    if (doNormalize) {
-        editor.update(() => {
-            if (!nextNodeKey) return;
-            const selection = $getSelection();
-            if (!$isRangeSelection(selection) || !selection.isCollapsed())
-                return;
-
-            const anchorNode = selection.anchor.getNode();
-            const anchorOffset = selection.anchor.offset;
-            if (!$isUSFMTextNode(anchorNode)) return;
-            if (anchorNode.getTokenType() !== UsfmTokenTypes.marker) return;
-            if (anchorNode.getTextContent().length > anchorOffset) return;
-
-            const nextSibling = anchorNode.getNextSibling();
-            if (!$isUSFMTextNode(nextSibling)) return;
-            if (nextSibling.getKey() !== nextNodeKey) return;
-            nextSibling.select(0, 0);
-        });
+    const nextTokenType = nextSibling.getTokenType();
+    if (
+      nextTokenType !== UsfmTokenTypes.numberRange &&
+      nextTokenType !== UsfmTokenTypes.text
+    ) {
+      return;
     }
-    return doNormalize;
+    nextNodeKey = nextSibling.getKey();
+    doNormalize = true;
+  });
+  if (doNormalize) {
+    editor.update(() => {
+      if (!nextNodeKey) return;
+      const selection = $getSelection();
+      if (!$isRangeSelection(selection) || !selection.isCollapsed()) return;
+
+      const anchorNode = selection.anchor.getNode();
+      const anchorOffset = selection.anchor.offset;
+      if (!$isUSFMTextNode(anchorNode)) return;
+      if (anchorNode.getTokenType() !== UsfmTokenTypes.marker) return;
+      if (anchorNode.getTextContent().length > anchorOffset) return;
+
+      const nextSibling = anchorNode.getNextSibling();
+      if (!$isUSFMTextNode(nextSibling)) return;
+      if (nextSibling.getKey() !== nextNodeKey) return;
+      nextSibling.select(0, 0);
+    });
+  }
+  return doNormalize;
 }
 
 export function redirectPrintableTypingAtHiddenMarkerBoundary(
-    editor: LexicalEditor,
-    event: KeyboardEvent,
+  editor: LexicalEditor,
+  event: KeyboardEvent,
 ): boolean {
-    if (event.key.length !== 1) return false;
-    if (event.key === " ") return false;
-    if (event.metaKey || event.ctrlKey) return false;
+  if (event.key.length !== 1) return false;
+  if (event.key === " ") return false;
+  if (event.metaKey || event.ctrlKey) return false;
 
-    let isHandled = false;
-    let targetNodeKey: string | null = null;
-    let nextTextWithInsertedChar = "";
-    let nextOffset = 0;
+  let isHandled = false;
+  let targetNodeKey: string | null = null;
+  let nextTextWithInsertedChar = "";
+  let nextOffset = 0;
 
-    editor.read(() => {
-        const selection = $getSelection();
-        if (!$isRangeSelection(selection) || !selection.isCollapsed()) return;
+  editor.read(() => {
+    const selection = $getSelection();
+    if (!$isRangeSelection(selection) || !selection.isCollapsed()) return;
 
-        const anchorNode = selection.anchor.getNode();
-        const anchorOffset = selection.anchor.offset;
-        if (!$isUSFMTextNode(anchorNode)) return;
+    const anchorNode = selection.anchor.getNode();
+    const anchorOffset = selection.anchor.offset;
+    if (!$isUSFMTextNode(anchorNode)) return;
 
-        let targetNode = null;
-        if (anchorNode.getTokenType() === UsfmTokenTypes.marker) {
-            if (anchorOffset < anchorNode.getTextContent().length) return;
-            const nextSibling = anchorNode.getNextSibling();
-            if (!$isUSFMTextNode(nextSibling)) return;
-            if (
-                nextSibling.getTokenType() !== UsfmTokenTypes.numberRange &&
-                nextSibling.getTokenType() !== UsfmTokenTypes.text
-            ) {
-                return;
-            }
-            targetNode = nextSibling;
-        } else if (anchorNode.getTokenType() === UsfmTokenTypes.numberRange) {
-            const leadingWhitespaceLength =
-                anchorNode.getTextContent().match(/^\s*/u)?.[0].length ?? 0;
-            if (anchorOffset > leadingWhitespaceLength) return;
-            const previousSibling = anchorNode.getPreviousSibling();
-            if (!$isUSFMTextNode(previousSibling)) return;
-            if (previousSibling.getTokenType() !== UsfmTokenTypes.marker)
-                return;
-            targetNode = anchorNode;
-        } else {
-            return;
-        }
-        const targetText = targetNode.getTextContent();
-        const insertionOffset =
-            targetNode.getTokenType() === UsfmTokenTypes.numberRange
-                ? (targetText.match(/^\s*/u)?.[0].length ?? 0)
-                : 0;
-        nextTextWithInsertedChar =
-            targetText.slice(0, insertionOffset) +
-            event.key +
-            targetText.slice(insertionOffset);
+    let targetNode = null;
+    if (anchorNode.getTokenType() === UsfmTokenTypes.marker) {
+      if (anchorOffset < anchorNode.getTextContent().length) return;
+      const nextSibling = anchorNode.getNextSibling();
+      if (!$isUSFMTextNode(nextSibling)) return;
+      if (
+        nextSibling.getTokenType() !== UsfmTokenTypes.numberRange &&
+        nextSibling.getTokenType() !== UsfmTokenTypes.text
+      ) {
+        return;
+      }
+      targetNode = nextSibling;
+    } else if (anchorNode.getTokenType() === UsfmTokenTypes.numberRange) {
+      const leadingWhitespaceLength =
+        anchorNode.getTextContent().match(/^\s*/u)?.[0].length ?? 0;
+      if (anchorOffset > leadingWhitespaceLength) return;
+      const previousSibling = anchorNode.getPreviousSibling();
+      if (!$isUSFMTextNode(previousSibling)) return;
+      if (previousSibling.getTokenType() !== UsfmTokenTypes.marker) return;
+      targetNode = anchorNode;
+    } else {
+      return;
+    }
+    const targetText = targetNode.getTextContent();
+    const insertionOffset =
+      targetNode.getTokenType() === UsfmTokenTypes.numberRange
+        ? (targetText.match(/^\s*/u)?.[0].length ?? 0)
+        : 0;
+    nextTextWithInsertedChar =
+      targetText.slice(0, insertionOffset) +
+      event.key +
+      targetText.slice(insertionOffset);
 
-        nextOffset = Math.min(
-            insertionOffset + 1,
-            nextTextWithInsertedChar.length,
-        );
-        targetNodeKey = targetNode.getKey();
-        isHandled = true;
-    });
+    nextOffset = Math.min(insertionOffset + 1, nextTextWithInsertedChar.length);
+    targetNodeKey = targetNode.getKey();
+    isHandled = true;
+  });
 
-    if (!isHandled || !targetNodeKey) return false;
+  if (!isHandled || !targetNodeKey) return false;
 
-    event.preventDefault();
-    event.stopPropagation();
+  event.preventDefault();
+  event.stopPropagation();
 
-    editor.update(() => {
-        const selection = $getSelection();
-        if (!$isRangeSelection(selection) || !selection.isCollapsed()) return;
+  editor.update(() => {
+    const selection = $getSelection();
+    if (!$isRangeSelection(selection) || !selection.isCollapsed()) return;
 
-        const anchorNode = selection.anchor.getNode();
-        const currentNode =
-            $isUSFMTextNode(anchorNode) && anchorNode.getKey() === targetNodeKey
-                ? anchorNode
-                : $isUSFMTextNode(anchorNode)
-                  ? anchorNode.getNextSibling()
-                  : null;
+    const anchorNode = selection.anchor.getNode();
+    const currentNode =
+      $isUSFMTextNode(anchorNode) && anchorNode.getKey() === targetNodeKey
+        ? anchorNode
+        : $isUSFMTextNode(anchorNode)
+          ? anchorNode.getNextSibling()
+          : null;
 
-        if (!$isUSFMTextNode(currentNode)) return;
-        if (currentNode.getKey() !== targetNodeKey) return;
+    if (!$isUSFMTextNode(currentNode)) return;
+    if (currentNode.getKey() !== targetNodeKey) return;
 
-        currentNode.setTextContent(nextTextWithInsertedChar);
-        currentNode.select(nextOffset, nextOffset);
-    });
+    currentNode.setTextContent(nextTextWithInsertedChar);
+    currentNode.select(nextOffset, nextOffset);
+  });
 
-    return isHandled;
+  return isHandled;
 }

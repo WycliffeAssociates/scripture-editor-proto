@@ -19,22 +19,29 @@ tauri-build = { version = "2.5.1", features = [] }
 
 [dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
-tauri = { version = "2.9.2", features = [] }
+tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
-tauri-plugin-fs = "2.4.4"
+tauri-plugin-fs = "2"
 git2 = { version = "0.20.2", features = ["https", "ssh"] }
 tauri-plugin-os = "2"
 md-5 = "0.10.0"
 tauri-plugin-dialog = "2"
 # Content findings: onion's `vref` module projects per-verse text; ssc-core
 # analyzes it (see src/sous.rs). Both pinned to git tags.
-usfm_onion = { git = "https://github.com/WycliffeAssociates/usfm-onion.git", tag = "v0.0.7" }
+usfm_onion = { git = "https://github.com/WycliffeAssociates/usfm-onion.git", tag = "v0.0.8" }
+# Target-agnostic serde DTO layer shared with the wasm bindings: the single
+# source of the marker wire-contract strings the editor's `buildRegistry` reads.
+# Default features only — `wasm` (tsify/wasm-bindgen) is for the web bindings.
+usfm_onion_dto = { git = "https://github.com/WycliffeAssociates/usfm-onion.git", tag = "v0.0.8", package = "usfm_onion_dto" }
 ssc-core = { git = "https://github.com/WycliffeAssociates/scripture-sous-chef.git", tag = "v0.0.1" }
 rayon = "1.10.0"
 zip = "2.4.2"
-reqwest = { version = "0.12.23", default-features = false, features = ["blocking", "rustls-tls"] }
+reqwest = { version = "0.12.23", default-features = false, features = [
+  "blocking",
+  "rustls-tls",
+] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-window-state = "2.4.1"

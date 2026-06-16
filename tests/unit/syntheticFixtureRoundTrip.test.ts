@@ -66,20 +66,22 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
 import type { SerializedEditorState } from "lexical";
-import { beforeAll, describe, expect, it } from "vitest";
-import { type EditorShape, EDITOR_SHAPES } from "@/app/data/editor.ts";
-import { transformToShape } from "@/app/domain/editor/utils/modeTransforms.ts";
-import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
-import {
-  lexicalToTokens,
-  tokensToLexical,
-} from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
-import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 // `tokensToUsfm` is the upstream-canonical serializer added in
 // usfm-onion v0.0.2; it preserves USFM 3.1 attribute lists that the
 // `tokens.map(t => t.text).join("")` shorthand silently drops.
 import { tokensToUsfm } from "usfm-onion-web";
+import { beforeAll, describe, expect, it } from "vitest";
+
+import { type EditorShape, EDITOR_SHAPES } from "@/app/data/editor.ts";
+import { transformToShape } from "@/app/domain/editor/utils/modeTransforms.ts";
+import {
+  lexicalToTokens,
+  tokensToLexical,
+} from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
+import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(__filename);
@@ -93,7 +95,11 @@ const FIXTURES: Array<{ name: FixtureName; file: string }> = [
   { name: "common-errors", file: "common-errors.usfm" },
 ];
 
-const SHAPES: EditorShape[] = [EDITOR_SHAPES.regular, EDITOR_SHAPES.form, EDITOR_SHAPES.flat];
+const SHAPES: EditorShape[] = [
+  EDITOR_SHAPES.regular,
+  EDITOR_SHAPES.form,
+  EDITOR_SHAPES.flat,
+];
 
 // Lock in the divergences we know exist as of 2026-05-14 so the
 // suite stays green and any future improvement lights up as a
@@ -152,7 +158,11 @@ function serializeState(state: SerializedEditorState): string {
   );
 }
 
-function scenarioId(fixture: FixtureName, kind: "load" | "flip", parts: string): string {
+function scenarioId(
+  fixture: FixtureName,
+  kind: "load" | "flip",
+  parts: string,
+): string {
   return `${fixture} ${kind} ${parts}`;
 }
 
@@ -183,7 +193,11 @@ describe("synthetic fixture round-trip", () => {
       for (const sourceShape of SHAPES) {
         for (const targetShape of SHAPES) {
           if (sourceShape === targetShape) continue;
-          const scenario = scenarioId(fixture.name, "flip", `${sourceShape}→${targetShape}`);
+          const scenario = scenarioId(
+            fixture.name,
+            "flip",
+            `${sourceShape}→${targetShape}`,
+          );
           const runner = maybeFails(scenario);
           runner(
             `flips ${sourceShape} → ${targetShape} → ${sourceShape} byte-identical`,

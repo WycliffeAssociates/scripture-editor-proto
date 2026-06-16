@@ -1,4 +1,5 @@
 import os from "node:os";
+
 import { defineConfig, devices } from "@playwright/test";
 
 const requestedWorkers = process.env.PLAYWRIGHT_WORKERS

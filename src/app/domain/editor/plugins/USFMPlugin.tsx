@@ -1,5 +1,6 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { useEffect } from "react";
+
 import { useEditorInput } from "@/app/domain/editor/hooks/useEditorInput.ts";
 import { useEditorView } from "@/app/domain/editor/hooks/useEditorView.ts";
 import { FindingsOverlayPlugin } from "@/app/domain/editor/plugins/FindingsOverlayPlugin.tsx";
@@ -15,24 +16,24 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
  * plugins that sit on top of the document.
  */
 export function USFMPlugin() {
-    const [editor] = useLexicalComposerContext();
-    const { actions } = useWorkspaceContext();
-    useEditorInput(editor);
-    useEditorView(editor);
+  const [editor] = useLexicalComposerContext();
+  const { actions } = useWorkspaceContext();
+  useEditorInput(editor);
+  useEditorView(editor);
 
-    // NOTE: the editor's `editable` flag (mode + interaction gate) is owned
-    // solely by GateEditablePlugin in Editor.tsx. Setting it here too would race
-    // and could re-enable typing while the gate is meant to be read-only.
+  // NOTE: the editor's `editable` flag (mode + interaction gate) is owned
+  // solely by GateEditablePlugin in Editor.tsx. Setting it here too would race
+  // and could re-enable typing while the gate is meant to be read-only.
 
-    useEffect(() => {
-        actions.syncEditorToVisibleChapter(editor);
-    }, [actions, editor]);
+  useEffect(() => {
+    actions.syncEditorToVisibleChapter(editor);
+  }, [actions, editor]);
 
-    return (
-        <>
-            <FindingsOverlayPlugin editor={editor} />
-            <VerseMarkerSuggestPlugin />
-            <SearchReplaceSuggestPlugin />
-        </>
-    );
+  return (
+    <>
+      <FindingsOverlayPlugin editor={editor} />
+      <VerseMarkerSuggestPlugin />
+      <SearchReplaceSuggestPlugin />
+    </>
+  );
 }

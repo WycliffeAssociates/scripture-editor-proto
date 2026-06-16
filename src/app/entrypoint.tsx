@@ -6,8 +6,10 @@ import "@/app/ui/styles/modules/usfm.css.ts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { useEffect } from "react";
+
 import type { PlatformAndWeb } from "@/app/data/constants.ts";
 import type { SettingsManager } from "@/app/data/settings.ts";
+import type { MirrorSessionFactory } from "@/app/domain/mirror/mirrorSessionFactory.ts";
 import { routeTree } from "@/app/generated/routeTree.gen.ts";
 import type { LibraryService } from "@/app/library/LibraryService.ts";
 import { UpdateBanner } from "@/app/ui/components/blocks/UpdateBanner.tsx";
@@ -34,96 +36,106 @@ import type { ProjectsService } from "@/core/persistence/WorkspaceService.ts";
  * stay platform-neutral.
  */
 type EntryPointProps = {
-    settingsManager: SettingsManager;
-    fileSystem: FileSystem;
-    md5Service: IMd5Service;
-    authSessionProvider: AuthSessionProvider;
-    giteaHostBaseUrl: string | null;
-    storageRoots: StorageRoots;
-    projectsService: ProjectsService;
-    libraryService: LibraryService;
-    importService: ImportService;
-    usfmOnionService: IUsfmOnionService;
-    sousService: ISousService;
-    gitProvider: GitProvider;
-    opener: IOpener;
-    platform: PlatformAndWeb;
-    /** Desktop wires `TauriUpdaterService`; web passes null (no auto-updates). */
-    updaterService?: IUpdaterService | null;
+  settingsManager: SettingsManager;
+  fileSystem: FileSystem;
+  md5Service: IMd5Service;
+  authSessionProvider: AuthSessionProvider;
+  giteaHostBaseUrl: string | null;
+  storageRoots: StorageRoots;
+  projectsService: ProjectsService;
+  libraryService: LibraryService;
+  importService: ImportService;
+  usfmOnionService: IUsfmOnionService;
+  sousService: ISousService;
+  gitProvider: GitProvider;
+  opener: IOpener;
+  platform: PlatformAndWeb;
+  /** Desktop wires `TauriUpdaterService`; web passes null (no auto-updates). */
+  updaterService?: IUpdaterService | null;
+  /**
+   * Builds the workspace mirror session, invoked by the kernel builder at load:
+   * web attaches a worker (token mirror + wasm engines + OPFS backup off the
+   * main thread); desktop attaches two sinks (Rust resident mirror for
+   * lint/sous + a wasm-free backup worker).
+   */
+  mirrorSessionFactory: MirrorSessionFactory;
 };
 
 const queryClient = new QueryClient();
 
 export interface RouterContext {
-    /**
-     * Router-wide service bag exposed to route loaders, hooks, and components.
-     *
-     * This is the bridge between platform bootstrap and the rest of the app.
-     * Downstream code should pull shared seams from here instead of importing
-     * platform implementations directly.
-     */
-    queryClient: QueryClient;
-    settingsManager: SettingsManager;
-    fileSystem: FileSystem;
-    md5Service: IMd5Service;
-    authSessionProvider: AuthSessionProvider;
-    giteaHostBaseUrl: string | null;
-    storageRoots: StorageRoots;
-    projectsService: ProjectsService;
-    libraryService: LibraryService;
-    importService: ImportService;
-    usfmOnionService: IUsfmOnionService;
-    sousService: ISousService;
-    gitProvider: GitProvider;
-    opener: IOpener;
-    platform: PlatformAndWeb;
-    updaterService: IUpdaterService | null;
+  /**
+   * Router-wide service bag exposed to route loaders, hooks, and components.
+   *
+   * This is the bridge between platform bootstrap and the rest of the app.
+   * Downstream code should pull shared seams from here instead of importing
+   * platform implementations directly.
+   */
+  queryClient: QueryClient;
+  settingsManager: SettingsManager;
+  fileSystem: FileSystem;
+  md5Service: IMd5Service;
+  authSessionProvider: AuthSessionProvider;
+  giteaHostBaseUrl: string | null;
+  storageRoots: StorageRoots;
+  projectsService: ProjectsService;
+  libraryService: LibraryService;
+  importService: ImportService;
+  usfmOnionService: IUsfmOnionService;
+  sousService: ISousService;
+  gitProvider: GitProvider;
+  opener: IOpener;
+  platform: PlatformAndWeb;
+  updaterService: IUpdaterService | null;
+  mirrorSessionFactory: MirrorSessionFactory;
 }
 
 const wrapCreateRouter = (
-    settingsManager: SettingsManager,
-    fileSystem: FileSystem,
-    md5Service: IMd5Service,
-    authSessionProvider: AuthSessionProvider,
-    giteaHostBaseUrl: string | null,
-    storageRoots: StorageRoots,
-    projectsService: ProjectsService,
-    libraryService: LibraryService,
-    importService: ImportService,
-    usfmOnionService: IUsfmOnionService,
-    sousService: ISousService,
-    gitProvider: GitProvider,
-    opener: IOpener,
-    platform: PlatformAndWeb,
-    updaterService: IUpdaterService | null,
+  settingsManager: SettingsManager,
+  fileSystem: FileSystem,
+  md5Service: IMd5Service,
+  authSessionProvider: AuthSessionProvider,
+  giteaHostBaseUrl: string | null,
+  storageRoots: StorageRoots,
+  projectsService: ProjectsService,
+  libraryService: LibraryService,
+  importService: ImportService,
+  usfmOnionService: IUsfmOnionService,
+  sousService: ISousService,
+  gitProvider: GitProvider,
+  opener: IOpener,
+  platform: PlatformAndWeb,
+  updaterService: IUpdaterService | null,
+  mirrorSessionFactory: MirrorSessionFactory,
 ) => {
-    const router = createRouter({
-        routeTree,
-        context: {
-            settingsManager,
-            queryClient,
-            fileSystem,
-            md5Service,
-            authSessionProvider,
-            giteaHostBaseUrl,
-            storageRoots,
-            projectsService,
-            libraryService,
-            importService,
-            usfmOnionService,
-            sousService,
-            gitProvider,
-            opener,
-            platform,
-            updaterService,
-        },
-    });
-    return router;
+  const router = createRouter({
+    routeTree,
+    context: {
+      settingsManager,
+      queryClient,
+      fileSystem,
+      md5Service,
+      authSessionProvider,
+      giteaHostBaseUrl,
+      storageRoots,
+      projectsService,
+      libraryService,
+      importService,
+      usfmOnionService,
+      sousService,
+      gitProvider,
+      opener,
+      platform,
+      updaterService,
+      mirrorSessionFactory,
+    },
+  });
+  return router;
 };
 declare module "@tanstack/react-router" {
-    interface Register {
-        router: ReturnType<typeof wrapCreateRouter>;
-    }
+  interface Register {
+    router: ReturnType<typeof wrapCreateRouter>;
+  }
 }
 
 /**
@@ -135,6 +147,24 @@ declare module "@tanstack/react-router" {
  * library, filesystem, import, and editor seams.
  */
 export function App({
+  settingsManager,
+  fileSystem,
+  md5Service,
+  authSessionProvider,
+  giteaHostBaseUrl,
+  storageRoots,
+  projectsService,
+  libraryService,
+  importService,
+  usfmOnionService,
+  sousService,
+  gitProvider,
+  opener,
+  platform,
+  updaterService = null,
+  mirrorSessionFactory,
+}: EntryPointProps) {
+  const router = wrapCreateRouter(
     settingsManager,
     fileSystem,
     md5Service,
@@ -149,48 +179,32 @@ export function App({
     gitProvider,
     opener,
     platform,
-    updaterService = null,
-}: EntryPointProps) {
-    const router = wrapCreateRouter(
-        settingsManager,
-        fileSystem,
-        md5Service,
-        authSessionProvider,
-        giteaHostBaseUrl,
-        storageRoots,
-        projectsService,
-        libraryService,
-        importService,
-        usfmOnionService,
-        sousService,
-        gitProvider,
-        opener,
-        platform,
-        updaterService,
-    );
+    updaterService,
+    mirrorSessionFactory,
+  );
 
-    useEffect(() => {
-        void (async () => {
-            try {
-                // Reconcile the index against managed storage before the first
-                // route render so library listings do not show stale Dexie rows.
-                await projectsService.reconcileIndex();
-                await router.invalidate();
-            } catch (error) {
-                console.error("Failed to reconcile indexed projects", error);
-            }
-        })();
-    }, [projectsService, router]);
+  useEffect(() => {
+    void (async () => {
+      try {
+        // Reconcile the index against managed storage before the first
+        // route render so library listings do not show stale Dexie rows.
+        await projectsService.reconcileIndex();
+        await router.invalidate();
+      } catch (error) {
+        console.error("Failed to reconcile indexed projects", error);
+      }
+    })();
+  }, [projectsService, router]);
 
-    return (
-        <I18nEntry defaultLocale={settingsManager.get("appLanguage")}>
-            <QueryClientProvider client={queryClient}>
-                <ThemeQueryProvider>
-                    <NotificationViewport />
-                    <UpdateBanner updaterService={updaterService} />
-                    <RouterProvider router={router} />
-                </ThemeQueryProvider>
-            </QueryClientProvider>
-        </I18nEntry>
-    );
+  return (
+    <I18nEntry defaultLocale={settingsManager.get("appLanguage")}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeQueryProvider>
+          <NotificationViewport />
+          <UpdateBanner updaterService={updaterService} />
+          <RouterProvider router={router} />
+        </ThemeQueryProvider>
+      </QueryClientProvider>
+    </I18nEntry>
+  );
 }

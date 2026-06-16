@@ -1,6 +1,7 @@
 mod git;
 mod import;
 mod md5;
+mod mirror; // resident token mirror (managed State) + generation-aware analyze.
 mod sous; // vref projection + sous content-findings analysis.
 mod updater;
 mod usfm_onion;
@@ -28,6 +29,10 @@ pub fn run() {
             .plugin(tauri_plugin_process::init());
     }
     builder
+        // The resident token mirror: seeded by the frontend's load-time
+        // `fullSync` patch and maintained by `mirror_push_patch`; lint/sous read
+        // it via the generation-aware analyze commands.
+        .manage(mirror::MirrorState::default())
         .invoke_handler(tauri::generate_handler![
             md5::calculate_md5,
             usfm_onion::usfm_onion_marker_catalog,
@@ -43,6 +48,9 @@ pub fn run() {
             usfm_onion::usfm_onion_diff_tokens,
             usfm_onion::usfm_onion_revert_diff_block,
             sous::sous_analyze,
+            mirror::mirror_push_patch,
+            mirror::mirror_lint,
+            mirror::mirror_sous_analyze,
             git::git_clone_remote_repo,
             git::git_ensure_remote,
             git::git_ensure_repo,

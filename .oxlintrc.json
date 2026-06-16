@@ -1,0 +1,29 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "import"],
+  // Match the old Biome scope: only the explicitly-configured rules run (Biome
+  // had `recommended` disabled). Turning the default categories off keeps this
+  // a like-for-like swap; adopting oxlint's fuller recommended set is a
+  // separate, opt-in cleanup pass.
+  "categories": {
+    "correctness": "off"
+  },
+  "ignorePatterns": [
+    "**/routeTree.gen.ts",
+    "src/app/generated/**",
+    "src/tauri/rust/**",
+    "src/app/ui/i18n/locales/**",
+    "tests/**",
+    "dist-web/**"
+  ],
+  "rules": {
+    "typescript/consistent-type-imports": "warn",
+    "typescript/no-non-null-assertion": "error",
+    "react/only-export-components": [
+      "warn",
+      { "allowConstantExport": true, "allowExportNames": ["Route"] }
+    ],
+    "import/extensions": "warn",
+    "no-unused-vars": "warn"
+  }
+}

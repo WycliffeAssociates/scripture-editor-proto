@@ -1,351 +1,352 @@
+import { InMemoryFileSystem } from "@tests/helpers/InMemoryFileSystem.ts";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+
 import { ScriptureBurritoProjectLoader } from "@/core/domain/project/ScriptureBurritoProjectLoader.ts";
 import { isRemoteSyncCapable } from "@/core/library/ReferenceItemSupport.ts";
-import { InMemoryFileSystem } from "@tests/helpers/InMemoryFileSystem.ts";
 
 const mockMd5Service = {
-    calculateMd5: vi.fn((text: string) => Promise.resolve(`mock-md5-${text}`)),
+  calculateMd5: vi.fn((text: string) => Promise.resolve(`mock-md5-${text}`)),
 };
 
 describe("ScriptureBurritoProjectLoader path-based loading", () => {
-    let loader: ScriptureBurritoProjectLoader;
-    let fileSystem: InMemoryFileSystem;
-    const folderName = "test-burrito-id";
-    const projectRootPath = `/projects/${folderName}`;
-    const sampleMetadataJson = {
-        format: "scripture burrito",
-        meta: {
-            version: "1.0.0",
-            category: "source",
-            generator: {
-                softwareName: "Repo consolidator",
-                softwareVersion: "1.0.0",
-                userName: "test@example.com",
-            },
-            defaultLocale: "en",
-            dateCreated: new Date().toISOString(),
-            normalization: "NFC",
+  let loader: ScriptureBurritoProjectLoader;
+  let fileSystem: InMemoryFileSystem;
+  const folderName = "test-burrito-id";
+  const projectRootPath = `/projects/${folderName}`;
+  const sampleMetadataJson = {
+    format: "scripture burrito",
+    meta: {
+      version: "1.0.0",
+      category: "source",
+      generator: {
+        softwareName: "Repo consolidator",
+        softwareVersion: "1.0.0",
+        userName: "test@example.com",
+      },
+      defaultLocale: "en",
+      dateCreated: new Date().toISOString(),
+      normalization: "NFC",
+    },
+    idAuthorities: {
+      wycliffeassociates: {
+        id: "https://www.wycliffeassociates.org",
+        name: { en: "Wycliffe Associates" },
+      },
+    },
+    identification: {
+      primary: {},
+      name: { en: "My Test Burrito Project" },
+      abbreviation: { en: "bible" },
+    },
+    source: [
+      {
+        identifier: "https://example.com/my-test-burrito.git",
+        language: "en",
+        version: "main",
+      },
+    ],
+    confidential: false,
+    languages: [
+      {
+        tag: "en",
+        name: { en: "English" },
+        scriptDirection: "ltr",
+      },
+    ],
+    type: {
+      flavorType: {
+        name: "scripture",
+        flavor: {
+          name: "textTranslation",
+          projectType: "standard",
+          translationType: "firstTranslation",
+          audience: "common",
+          usfmVersion: "3.0",
         },
-        idAuthorities: {
-            wycliffeassociates: {
-                id: "https://www.wycliffeassociates.org",
-                name: { en: "Wycliffe Associates" },
-            },
+        currentScope: {
+          MAT: [],
         },
-        identification: {
-            primary: {},
-            name: { en: "My Test Burrito Project" },
-            abbreviation: { en: "bible" },
+      },
+    },
+    copyright: {
+      licenses: [{ ingredient: "LICENSE.md" }],
+    },
+    localizedNames: {
+      MAT: {
+        short: { en: "Matthew" },
+        abbr: { en: "MAT" },
+        long: { en: "Matthew" },
+      },
+    },
+    ingredients: {
+      "41-MAT.usfm": {
+        checksum: { md5: "old-md5" },
+        mimeType: "text/x-usfm",
+        size: 11,
+        scope: { MAT: [] },
+      },
+    },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fileSystem = new InMemoryFileSystem();
+    loader = new ScriptureBurritoProjectLoader(mockMd5Service);
+  });
+
+  test("opens a project and exposes ingredient-backed books", async () => {
+    await fileSystem.writeText(
+      `${projectRootPath}/metadata.json`,
+      JSON.stringify(sampleMetadataJson),
+    );
+    await fileSystem.writeText(
+      `${projectRootPath}/41-MAT.usfm`,
+      "\\id MAT\n\\c 1\n\\v 1 In the beginning",
+    );
+
+    const project = await loader.openProject({
+      fs: fileSystem,
+      projectRootPath,
+      folderName,
+      displayName: "My Test Burrito Project",
+    });
+
+    expect(project).not.toBeNull();
+    expect(project?.projectPath).toBe(projectRootPath);
+    expect(project?.language).toEqual({
+      code: "en",
+      name: "English",
+      direction: "ltr",
+    });
+    expect(project?.books).toEqual([
+      {
+        bookCode: "MAT",
+        title: "Matthew",
+        fileName: "41-MAT.usfm",
+        storageKey: "41-MAT.usfm",
+        path: `${projectRootPath}/41-MAT.usfm`,
+      },
+    ]);
+    expect(await project?.listBooks()).toEqual([
+      {
+        bookCode: "MAT",
+        title: "Matthew",
+        fileName: "41-MAT.usfm",
+        storageKey: "41-MAT.usfm",
+        path: `${projectRootPath}/41-MAT.usfm`,
+      },
+    ]);
+
+    const book = await project?.getBook("41-MAT.usfm");
+    expect(book?.contents).toContain("\\id MAT");
+  });
+
+  test("opens numbered-book ingredients from scripture burrito metadata", async () => {
+    const numberedMetadata = {
+      ...sampleMetadataJson,
+      identification: {
+        ...sampleMetadataJson.identification,
+        name: { en: "Numbered Book Project" },
+      },
+      localizedNames: {
+        "1CO": {
+          short: { en: "1 Corinthians" },
+          abbr: { en: "1CO" },
+          long: { en: "1 Corinthians" },
         },
-        source: [
-            {
-                identifier: "https://example.com/my-test-burrito.git",
-                language: "en",
-                version: "main",
-            },
-        ],
-        confidential: false,
-        languages: [
-            {
-                tag: "en",
-                name: { en: "English" },
-                scriptDirection: "ltr",
-            },
-        ],
-        type: {
-            flavorType: {
-                name: "scripture",
-                flavor: {
-                    name: "textTranslation",
-                    projectType: "standard",
-                    translationType: "firstTranslation",
-                    audience: "common",
-                    usfmVersion: "3.0",
-                },
-                currentScope: {
-                    MAT: [],
-                },
-            },
+        "2TH": {
+          short: { en: "2 Thessalonians" },
+          abbr: { en: "2TH" },
+          long: { en: "2 Thessalonians" },
         },
-        copyright: {
-            licenses: [{ ingredient: "LICENSE.md" }],
+      },
+      ingredients: {
+        "47-1CO.usfm": {
+          checksum: { md5: "old-md5-1co" },
+          mimeType: "text/usfm",
+          size: 12,
+          scope: { "1CO": [] },
         },
-        localizedNames: {
-            MAT: {
-                short: { en: "Matthew" },
-                abbr: { en: "MAT" },
-                long: { en: "Matthew" },
-            },
+        "54-2TH.usfm": {
+          checksum: { md5: "old-md5-2th" },
+          mimeType: "text/usfm",
+          size: 12,
+          scope: { "2TH": [] },
         },
-        ingredients: {
-            "41-MAT.usfm": {
-                checksum: { md5: "old-md5" },
-                mimeType: "text/x-usfm",
-                size: 11,
-                scope: { MAT: [] },
-            },
-        },
+      },
     };
 
-    beforeEach(() => {
-        vi.clearAllMocks();
-        fileSystem = new InMemoryFileSystem();
-        loader = new ScriptureBurritoProjectLoader(mockMd5Service);
+    await fileSystem.writeText(
+      `${projectRootPath}/metadata.json`,
+      JSON.stringify(numberedMetadata),
+    );
+    await fileSystem.writeText(`${projectRootPath}/47-1CO.usfm`, "\\id 1CO");
+    await fileSystem.writeText(`${projectRootPath}/54-2TH.usfm`, "\\id 2TH");
+
+    const project = await loader.openProject({
+      fs: fileSystem,
+      projectRootPath,
+      folderName,
+      displayName: "Numbered Book Project",
     });
 
-    test("opens a project and exposes ingredient-backed books", async () => {
-        await fileSystem.writeText(
-            `${projectRootPath}/metadata.json`,
-            JSON.stringify(sampleMetadataJson),
-        );
-        await fileSystem.writeText(
-            `${projectRootPath}/41-MAT.usfm`,
-            "\\id MAT\n\\c 1\n\\v 1 In the beginning",
-        );
+    expect(project?.books).toEqual([
+      {
+        bookCode: "1CO",
+        title: "1 Corinthians",
+        fileName: "47-1CO.usfm",
+        storageKey: "47-1CO.usfm",
+        path: `${projectRootPath}/47-1CO.usfm`,
+      },
+      {
+        bookCode: "2TH",
+        title: "2 Thessalonians",
+        fileName: "54-2TH.usfm",
+        storageKey: "54-2TH.usfm",
+        path: `${projectRootPath}/54-2TH.usfm`,
+      },
+    ]);
+    expect(await project?.listBooks()).toEqual([
+      {
+        bookCode: "1CO",
+        title: "1 Corinthians",
+        fileName: "47-1CO.usfm",
+        storageKey: "47-1CO.usfm",
+        path: `${projectRootPath}/47-1CO.usfm`,
+      },
+      {
+        bookCode: "2TH",
+        title: "2 Thessalonians",
+        fileName: "54-2TH.usfm",
+        storageKey: "54-2TH.usfm",
+        path: `${projectRootPath}/54-2TH.usfm`,
+      },
+    ]);
+    await expect(project?.getBook("47-1CO.usfm")).resolves.toMatchObject({
+      contents: "\\id 1CO",
+      bookCode: "1CO",
+    });
+  });
 
-        const project = await loader.openProject({
-            fs: fileSystem,
-            projectRootPath,
-            folderName,
-            displayName: "My Test Burrito Project",
-        });
+  test("opens a scripture burrito as a loaded reference item", async () => {
+    await fileSystem.writeText(
+      `${projectRootPath}/metadata.json`,
+      JSON.stringify(sampleMetadataJson),
+    );
+    await fileSystem.writeText(
+      `${projectRootPath}/41-MAT.usfm`,
+      "\\id MAT\n\\c 1\n\\v 1 In the beginning",
+    );
 
-        expect(project).not.toBeNull();
-        expect(project?.projectPath).toBe(projectRootPath);
-        expect(project?.language).toEqual({
-            code: "en",
-            name: "English",
-            direction: "ltr",
-        });
-        expect(project?.books).toEqual([
-            {
-                bookCode: "MAT",
-                title: "Matthew",
-                fileName: "41-MAT.usfm",
-                storageKey: "41-MAT.usfm",
-                path: `${projectRootPath}/41-MAT.usfm`,
-            },
-        ]);
-        expect(await project?.listBooks()).toEqual([
-            {
-                bookCode: "MAT",
-                title: "Matthew",
-                fileName: "41-MAT.usfm",
-                storageKey: "41-MAT.usfm",
-                path: `${projectRootPath}/41-MAT.usfm`,
-            },
-        ]);
-
-        const book = await project?.getBook("41-MAT.usfm");
-        expect(book?.contents).toContain("\\id MAT");
+    const resource = await loader.openResource({
+      fs: fileSystem,
+      projectRootPath,
+      folderName,
+      displayName: "My Test Burrito Project",
     });
 
-    test("opens numbered-book ingredients from scripture burrito metadata", async () => {
-        const numberedMetadata = {
-            ...sampleMetadataJson,
-            identification: {
-                ...sampleMetadataJson.identification,
-                name: { en: "Numbered Book Project" },
-            },
-            localizedNames: {
-                "1CO": {
-                    short: { en: "1 Corinthians" },
-                    abbr: { en: "1CO" },
-                    long: { en: "1 Corinthians" },
-                },
-                "2TH": {
-                    short: { en: "2 Thessalonians" },
-                    abbr: { en: "2TH" },
-                    long: { en: "2 Thessalonians" },
-                },
-            },
-            ingredients: {
-                "47-1CO.usfm": {
-                    checksum: { md5: "old-md5-1co" },
-                    mimeType: "text/usfm",
-                    size: 12,
-                    scope: { "1CO": [] },
-                },
-                "54-2TH.usfm": {
-                    checksum: { md5: "old-md5-2th" },
-                    mimeType: "text/usfm",
-                    size: 12,
-                    scope: { "2TH": [] },
-                },
-            },
-        };
+    expect(resource?.descriptor).toEqual({
+      id: "My Test Burrito Project",
+      displayName: "My Test Burrito Project",
+      type: "usfmScripture",
+      containerFormat: "scripture-burrito",
+      language: {
+        code: "en",
+        name: "English",
+        direction: "ltr",
+      },
+      readOnly: false,
+    });
+    expect(isRemoteSyncCapable(resource)).toBe(false);
+    expect(resource?.remoteSource).toBeUndefined();
+    await expect(resource?.listDocuments()).resolves.toEqual([
+      {
+        id: "41-MAT.usfm",
+        name: "Matthew",
+        browsePath: ["41-MAT"],
+      },
+    ]);
+    await expect(
+      resource?.readDocument("41-MAT.usfm" as never),
+    ).resolves.toEqual({
+      id: "41-MAT.usfm",
+      name: "Matthew",
+      browsePath: ["41-MAT"],
+      contents: "\\id MAT\n\\c 1\n\\v 1 In the beginning",
+    });
+  });
 
-        await fileSystem.writeText(
-            `${projectRootPath}/metadata.json`,
-            JSON.stringify(numberedMetadata),
-        );
-        await fileSystem.writeText(`${projectRootPath}/47-1CO.usfm`, "\\id 1CO");
-        await fileSystem.writeText(`${projectRootPath}/54-2TH.usfm`, "\\id 2TH");
+  test("saveBook rewrites the file and updates burrito md5 and size", async () => {
+    await fileSystem.writeText(
+      `${projectRootPath}/metadata.json`,
+      JSON.stringify(sampleMetadataJson),
+    );
+    await fileSystem.writeText(`${projectRootPath}/41-MAT.usfm`, "old");
 
-        const project = await loader.openProject({
-            fs: fileSystem,
-            projectRootPath,
-            folderName,
-            displayName: "Numbered Book Project",
-        });
-
-        expect(project?.books).toEqual([
-            {
-                bookCode: "1CO",
-                title: "1 Corinthians",
-                fileName: "47-1CO.usfm",
-                storageKey: "47-1CO.usfm",
-                path: `${projectRootPath}/47-1CO.usfm`,
-            },
-            {
-                bookCode: "2TH",
-                title: "2 Thessalonians",
-                fileName: "54-2TH.usfm",
-                storageKey: "54-2TH.usfm",
-                path: `${projectRootPath}/54-2TH.usfm`,
-            },
-        ]);
-        expect(await project?.listBooks()).toEqual([
-            {
-                bookCode: "1CO",
-                title: "1 Corinthians",
-                fileName: "47-1CO.usfm",
-                storageKey: "47-1CO.usfm",
-                path: `${projectRootPath}/47-1CO.usfm`,
-            },
-            {
-                bookCode: "2TH",
-                title: "2 Thessalonians",
-                fileName: "54-2TH.usfm",
-                storageKey: "54-2TH.usfm",
-                path: `${projectRootPath}/54-2TH.usfm`,
-            },
-        ]);
-        await expect(project?.getBook("47-1CO.usfm")).resolves.toMatchObject({
-            contents: "\\id 1CO",
-            bookCode: "1CO",
-        });
+    const project = await loader.openProject({
+      fs: fileSystem,
+      projectRootPath,
+      folderName,
+      displayName: "My Test Burrito Project",
     });
 
-    test("opens a scripture burrito as a loaded reference item", async () => {
-        await fileSystem.writeText(
-            `${projectRootPath}/metadata.json`,
-            JSON.stringify(sampleMetadataJson),
-        );
-        await fileSystem.writeText(
-            `${projectRootPath}/41-MAT.usfm`,
-            "\\id MAT\n\\c 1\n\\v 1 In the beginning",
-        );
+    await project?.saveBook("41-MAT.usfm", "new content");
 
-        const resource = await loader.openResource({
-            fs: fileSystem,
-            projectRootPath,
-            folderName,
-            displayName: "My Test Burrito Project",
-        });
+    expect(await fileSystem.readText(`${projectRootPath}/41-MAT.usfm`)).toBe(
+      "new content",
+    );
+    expect(mockMd5Service.calculateMd5).toHaveBeenCalledWith("new content");
+    const metadata = JSON.parse(
+      await fileSystem.readText(`${projectRootPath}/metadata.json`),
+    );
+    expect(metadata.ingredients["41-MAT.usfm"].checksum.md5).toBe(
+      "mock-md5-new content",
+    );
+    expect(metadata.ingredients["41-MAT.usfm"].size).toBe("new content".length);
+  });
 
-        expect(resource?.descriptor).toEqual({
-            id: "My Test Burrito Project",
-            displayName: "My Test Burrito Project",
-            type: "usfmScripture",
-            containerFormat: "scripture-burrito",
-            language: {
-                code: "en",
-                name: "English",
-                direction: "ltr",
-            },
-            readOnly: false,
-        });
-        expect(isRemoteSyncCapable(resource)).toBe(false);
-        expect(resource?.remoteSource).toBeUndefined();
-        await expect(resource?.listDocuments()).resolves.toEqual([
-            {
-                id: "41-MAT.usfm",
-                name: "Matthew",
-                browsePath: ["41-MAT"],
-            },
-        ]);
-        await expect(
-            resource?.readDocument("41-MAT.usfm" as never),
-        ).resolves.toEqual({
-            id: "41-MAT.usfm",
-            name: "Matthew",
-            browsePath: ["41-MAT"],
-            contents: "\\id MAT\n\\c 1\n\\v 1 In the beginning",
-        });
+  test("addBook creates a file and adds a new ingredient", async () => {
+    await fileSystem.writeText(
+      `${projectRootPath}/metadata.json`,
+      JSON.stringify({
+        ...sampleMetadataJson,
+        ingredients: {},
+      }),
+    );
+
+    const project = await loader.openProject({
+      fs: fileSystem,
+      projectRootPath,
+      folderName,
+      displayName: "My Test Burrito Project",
     });
 
-    test("saveBook rewrites the file and updates burrito md5 and size", async () => {
-        await fileSystem.writeText(
-            `${projectRootPath}/metadata.json`,
-            JSON.stringify(sampleMetadataJson),
-        );
-        await fileSystem.writeText(`${projectRootPath}/41-MAT.usfm`, "old");
-
-        const project = await loader.openProject({
-            fs: fileSystem,
-            projectRootPath,
-            folderName,
-            displayName: "My Test Burrito Project",
-        });
-
-        await project?.saveBook("41-MAT.usfm", "new content");
-
-        expect(await fileSystem.readText(`${projectRootPath}/41-MAT.usfm`)).toBe(
-            "new content",
-        );
-        expect(mockMd5Service.calculateMd5).toHaveBeenCalledWith("new content");
-        const metadata = JSON.parse(
-            await fileSystem.readText(`${projectRootPath}/metadata.json`),
-        );
-        expect(metadata.ingredients["41-MAT.usfm"].checksum.md5).toBe(
-            "mock-md5-new content",
-        );
-        expect(metadata.ingredients["41-MAT.usfm"].size).toBe("new content".length);
+    const added = await project?.addBook("MRK", {
+      localizedBookTitle: "Mark",
+      contents: "\\id MRK\n\\c 1\n\\v 1 The beginning",
     });
 
-    test("addBook creates a file and adds a new ingredient", async () => {
-        await fileSystem.writeText(
-            `${projectRootPath}/metadata.json`,
-            JSON.stringify({
-                ...sampleMetadataJson,
-                ingredients: {},
-            }),
-        );
-
-        const project = await loader.openProject({
-            fs: fileSystem,
-            projectRootPath,
-            folderName,
-            displayName: "My Test Burrito Project",
-        });
-
-        const added = await project?.addBook("MRK", {
-            localizedBookTitle: "Mark",
-            contents: "\\id MRK\n\\c 1\n\\v 1 The beginning",
-        });
-
-        expect(added).toEqual({
-            bookCode: "MRK",
-            title: "Mark",
-            fileName: "42-MRK.usfm",
-            storageKey: "42-MRK.usfm",
-            path: `${projectRootPath}/42-MRK.usfm`,
-        });
-        expect(await fileSystem.readText(`${projectRootPath}/42-MRK.usfm`)).toContain(
-            "\\id MRK",
-        );
-
-        const metadata = JSON.parse(
-            await fileSystem.readText(`${projectRootPath}/metadata.json`),
-        );
-        expect(metadata.ingredients["42-MRK.usfm"]).toBeTruthy();
-        expect(project?.books).toContainEqual({
-            bookCode: "MRK",
-            title: "Mark",
-            fileName: "42-MRK.usfm",
-            storageKey: "42-MRK.usfm",
-            path: `${projectRootPath}/42-MRK.usfm`,
-        });
+    expect(added).toEqual({
+      bookCode: "MRK",
+      title: "Mark",
+      fileName: "42-MRK.usfm",
+      storageKey: "42-MRK.usfm",
+      path: `${projectRootPath}/42-MRK.usfm`,
     });
+    expect(
+      await fileSystem.readText(`${projectRootPath}/42-MRK.usfm`),
+    ).toContain("\\id MRK");
+
+    const metadata = JSON.parse(
+      await fileSystem.readText(`${projectRootPath}/metadata.json`),
+    );
+    expect(metadata.ingredients["42-MRK.usfm"]).toBeTruthy();
+    expect(project?.books).toContainEqual({
+      bookCode: "MRK",
+      title: "Mark",
+      fileName: "42-MRK.usfm",
+      storageKey: "42-MRK.usfm",
+      path: `${projectRootPath}/42-MRK.usfm`,
+    });
+  });
 });

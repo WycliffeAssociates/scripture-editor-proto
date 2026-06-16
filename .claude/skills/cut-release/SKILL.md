@@ -111,6 +111,7 @@ git push origin "v${NEW_VERSION}"
 ```
 
 The tag push fires `release.yml` on `refs/tags/v${NEW_VERSION}`. `compute-channel` resolves channel = `stable`, which builds:
+
 - Universal macOS (signed + notarized via App Store Connect)
 - Windows MSI + NSIS
 - Linux AppImage + .deb + .rpm

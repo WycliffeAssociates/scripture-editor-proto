@@ -11,6 +11,7 @@
 // the change.
 
 import type { SerializedLexicalNode } from "lexical";
+
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 
@@ -57,6 +58,10 @@ export function tokenText(
 /** Collapse a token list down to its text (with linebreaks as "\n"). */
 export function tokenTexts(tokens: SerializedLexicalNode[]): string[] {
   return tokens.map((token) =>
-    token.type === "linebreak" ? "\n" : "text" in token ? (token as { text: string }).text : "",
+    token.type === "linebreak"
+      ? "\n"
+      : "text" in token
+        ? (token as { text: string }).text
+        : "",
   );
 }

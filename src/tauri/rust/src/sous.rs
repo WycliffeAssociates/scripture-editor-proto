@@ -147,6 +147,13 @@ fn severity_str(severity: ssc_core::Severity) -> String {
 
 #[tauri::command]
 pub fn sous_analyze(tokens: Vec<SousFlatTokenDto>) -> SousResultDto {
+    analyze_tokens(tokens)
+}
+
+/// The sous analysis over flat editor tokens: build the vref projection, run
+/// sous per verse, return the segment map + UTF-16 findings. Shared by the
+/// stateless `sous_analyze` command and the resident-mirror analyze command.
+pub fn analyze_tokens(tokens: Vec<SousFlatTokenDto>) -> SousResultDto {
     let editor_tokens = build_editor_tokens(tokens);
     let index = usfm_onion::vref::tokens_to_vref_index(&editor_tokens);
 

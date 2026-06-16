@@ -17,25 +17,26 @@
 // owing it a decision.
 
 import type { ReactNode } from "react";
+
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { Utf16Span } from "@/core/domain/usfm/vrefTypes.ts";
 
 /** Where a finding lives in the editor. */
 export type Anchor =
-    | {
-          kind: "token";
-          /** The token-id (`data-id`) this finding is pinned to. */
-          tokenId: string;
-          /** Verse/segment id, when the source carries one. */
-          sid?: string;
-      }
-    | {
-          kind: "content";
-          /** Verse id whose projection the range addresses. */
-          sid: string;
-          /** UTF-16 range into that verse's projected text. */
-          range: Utf16Span;
-      };
+  | {
+      kind: "token";
+      /** The token-id (`data-id`) this finding is pinned to. */
+      tokenId: string;
+      /** Verse/segment id, when the source carries one. */
+      sid?: string;
+    }
+  | {
+      kind: "content";
+      /** Verse id whose projection the range addresses. */
+      sid: string;
+      /** UTF-16 range into that verse's projected text. */
+      range: Utf16Span;
+    };
 
 /**
  * Generalizes onion's `issueType`: structure = USFM markup problems, content =
@@ -46,25 +47,25 @@ export type FindingCategory = "structure" | "content";
 export type FindingSeverity = "error" | "warning" | "info";
 
 type FindingBase = {
-    /**
-     * Deterministic identity, derived from canonical fields by the normalizer
-     * (`normalizeFindings.ts`) — never minted fresh per pass. Message text and
-     * fix payloads are deliberately excluded: both vary for reasons other than
-     * identity (locale, surrounding content) and would churn ids. Stability is
-     * load-bearing — it is what lets consumers diff by key instead of
-     * repainting.
-     */
-    id: string;
-    /** `LintCode` | sous `RuleId`, depending on `source`. */
-    code: string;
-    severity: FindingSeverity;
-    category: FindingCategory;
-    anchor: Anchor;
-    /**
-     * The token-ids this finding covers, for the hover zip. Token anchors carry
-     * their own token(s); content anchors resolve theirs at draw time.
-     */
-    touchedTokenIds?: string[];
+  /**
+   * Deterministic identity, derived from canonical fields by the normalizer
+   * (`normalizeFindings.ts`) — never minted fresh per pass. Message text and
+   * fix payloads are deliberately excluded: both vary for reasons other than
+   * identity (locale, surrounding content) and would churn ids. Stability is
+   * load-bearing — it is what lets consumers diff by key instead of
+   * repainting.
+   */
+  id: string;
+  /** `LintCode` | sous `RuleId`, depending on `source`. */
+  code: string;
+  severity: FindingSeverity;
+  category: FindingCategory;
+  anchor: Anchor;
+  /**
+   * The token-ids this finding covers, for the hover zip. Token anchors carry
+   * their own token(s); content anchors resolve theirs at draw time.
+   */
+  touchedTokenIds?: string[];
 };
 
 /**
@@ -75,12 +76,12 @@ type FindingBase = {
  * An `app` arm joins the union with the first real app-namespaced producer.
  */
 export type Finding =
-    | (FindingBase & { source: "onion"; issue: LintIssue })
-    | (FindingBase & {
-          source: "sous-chef";
-          /** sous confidence, when the rule scores; undefined for binary rules. */
-          score?: number;
-      });
+  | (FindingBase & { source: "onion"; issue: LintIssue })
+  | (FindingBase & {
+      source: "sous-chef";
+      /** sous confidence, when the rule scores; undefined for binary rules. */
+      score?: number;
+    });
 
 /**
  * Chapter-bucketed findings — the store's per-book node shape. Chapter 0 is
@@ -98,11 +99,11 @@ export type FindingActionKind = "primary" | "default";
  * command surfaces.
  */
 export type FindingAction = {
-    id: string;
-    label: string;
-    icon?: ReactNode;
-    kind?: FindingActionKind;
-    run: () => void | Promise<void>;
+  id: string;
+  label: string;
+  icon?: ReactNode;
+  kind?: FindingActionKind;
+  run: () => void | Promise<void>;
 };
 
 /**
@@ -112,8 +113,8 @@ export type FindingAction = {
  * deliberate, reviewed act.
  */
 export type FindingDetails =
-    | { mode: "inline"; render: () => ReactNode }
-    | { mode: "modal"; open: () => void };
+  | { mode: "inline"; render: () => ReactNode }
+  | { mode: "modal"; open: () => void };
 
 /**
  * A finding plus its React-edge decoration — what surfaces actually render.
@@ -122,10 +123,10 @@ export type FindingDetails =
  * next render with no invalidation machinery.
  */
 export type DecoratedFinding = {
-    /** Mirror of `finding.id` — the render key. */
-    id: string;
-    finding: Finding;
-    message: string;
-    actions: FindingAction[];
-    details?: FindingDetails;
+  /** Mirror of `finding.id` — the render key. */
+  id: string;
+  finding: Finding;
+  message: string;
+  actions: FindingAction[];
+  details?: FindingDetails;
 };

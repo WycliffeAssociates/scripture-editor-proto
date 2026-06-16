@@ -1,6 +1,7 @@
 # Release Pipeline & Auto-Updater
 
 ## What this covers
+
 - Two release channels (Stable, Nightly) sharing one channel-aware workflow.
 - Tauri auto-updater (desktop only) end-to-end: signing, manifest serving, in-app UX.
 - Cloudflare topology (two Workers, one R2 bucket).
@@ -8,10 +9,10 @@
 
 ## Channels
 
-| Channel | Trigger              | Tag format                                   | Audience       |
-| ------- | -------------------- | -------------------------------------------- | -------------- |
-| Stable  | push of `v*` tag     | `v0.1.5`                                     | Public users.  |
-| Nightly | push to `master`     | `nightly-0.1.4-<YYYYMMDD>.<run>.sha<sha7>`   | Internal only. |
+| Channel | Trigger          | Tag format                                 | Audience       |
+| ------- | ---------------- | ------------------------------------------ | -------------- |
+| Stable  | push of `v*` tag | `v0.1.5`                                   | Public users.  |
+| Nightly | push to `master` | `nightly-0.1.4-<YYYYMMDD>.<run>.sha<sha7>` | Internal only. |
 
 Tags for Stable are cut via the **`cut-release` skill** (`.claude/skills/cut-release/SKILL.md`): branch off `origin/master`, run `scripts/patchAppVersion.mjs ${NEW_VERSION}` to patch the three in-tree manifests, open a release-prep PR, merge it, and tag the merge commit. The tag push fires `release.yml`. Tags for Nightly are derived inside `release.yml`'s `compute-channel` job and pushed by `tauri-action`.
 
@@ -19,11 +20,11 @@ Release-please was set up early and then removed (`1a5c5a21`) once the cost of m
 
 ## Workflows
 
-| File                                    | Purpose                                                                                                       |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| File                                    | Purpose                                                                                                         |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `.github/workflows/verify.yml`          | Required check on `master`. Architecture, typecheck, knip, unit, cargo check, frontend + web build, Playwright. |
-| `.github/workflows/release.yml`         | Channel-aware build + publish. See "Job graph" below.                                                         |
-| `.github/workflows/nightly-cleanup.yml` | Daily cron that deletes Nightly GH Releases older than 30 days (R2 retains an extra 30 days).                 |
+| `.github/workflows/release.yml`         | Channel-aware build + publish. See "Job graph" below.                                                           |
+| `.github/workflows/nightly-cleanup.yml` | Daily cron that deletes Nightly GH Releases older than 30 days (R2 retains an extra 30 days).                   |
 
 Branch protection on `master` requires the `verify` check; tag pushes are exempt so a freshly-merged release-prep PR can be tagged without re-running PR review.
 
@@ -72,6 +73,7 @@ Stable's `app_version` is the tag minus the leading `v`. The `cut-release` skill
 Nightly's `app_version` is `<base>-<github.run_number>`, e.g. `0.1.4-42`. A single numeric pre-release identifier — Tauri's MSI bundler only accepts a single-identifier pre-release that is numeric-only and ≤ 65535, so multi-identifier forms with date/sha break the Windows build. `github.run_number` is monotonic per `release.yml` dispatch and fits forever.
 
 Date + commit SHA are NOT in the version string. They're available via:
+
 - The git tag (`git show nightly-0.1.4-42`)
 - The GH Release publish date
 - `VITE_VERSION_TAG` / `VITE_GITHUB_SHA` baked into the binary for Settings → About
@@ -80,10 +82,10 @@ Date + commit SHA are NOT in the version string. They're available via:
 
 ## Cloudflare topology
 
-| Worker             | Location                                  | Role                                                                  |
-| ------------------ | ----------------------------------------- | --------------------------------------------------------------------- |
-| `zephyr-spa`       | Root `wrangler.jsonc`                     | Static SPA. Two envs: production (`zephyr.bibletranslationtools.org`), nightly (`zephyr-nightly.bttdev.org`). |
-| `zephyr-updater`   | `workers/zephyr-updater/wrangler.toml`    | Updater manifest endpoint. Two envs: production (`updater.zephyr.bibletranslationtools.org`), nightly (`updater.zephyr.bttdev.org`). |
+| Worker           | Location                               | Role                                                                                                                                 |
+| ---------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `zephyr-spa`     | Root `wrangler.jsonc`                  | Static SPA. Two envs: production (`zephyr.bibletranslationtools.org`), nightly (`zephyr-nightly.bttdev.org`).                        |
+| `zephyr-updater` | `workers/zephyr-updater/wrangler.toml` | Updater manifest endpoint. Two envs: production (`updater.zephyr.bibletranslationtools.org`), nightly (`updater.zephyr.bttdev.org`). |
 
 The split is structural: Cloudflare disallows env vars / secrets on workers that only serve static assets, so the SPA stays code-free and the updater (which needs `GH_TOKEN` and channel-scoped vars) is a sibling.
 
@@ -95,11 +97,11 @@ R2 bucket `zephyr-releases` mirrors every release under `<channel>/<tag>/` via r
 
 `zephyr-updater` serves three paths off the `updater.zephyr.*` hostnames:
 
-| Endpoint                                    | Purpose                                                    |
-| ------------------------------------------- | ---------------------------------------------------------- |
-| `/{target}/{current_version}`               | Auto-check at launch. 204 if no newer; manifest otherwise. |
-| `/versions`                                 | List recent releases for the manual picker.                |
-| `/{target}/at/{specific_version}`           | Manifest for an exact version (manual switch).             |
+| Endpoint                          | Purpose                                                    |
+| --------------------------------- | ---------------------------------------------------------- |
+| `/{target}/{current_version}`     | Auto-check at launch. 204 if no newer; manifest otherwise. |
+| `/versions`                       | List recent releases for the manual picker.                |
+| `/{target}/at/{specific_version}` | Manifest for an exact version (manual switch).             |
 
 `{target}` follows Tauri's convention: `darwin-aarch64`, `darwin-x86_64`, `linux-x86_64`, `windows-x86_64`. The Tauri OS plugin returns `macos` for darwin, so `TauriUpdaterService.resolveUpdaterTarget()` maps that to `darwin` before building manifest URLs.
 
@@ -133,11 +135,11 @@ Install failures surface via `useInstallUpdate`'s `onError` toast (localized via
 
 ## Operator runbook (terse)
 
-| Task                                  | How                                                                                                                          |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Cut a Stable release                  | Invoke the `cut-release` skill ("cut 0.X.Y" or "cut a patch") — it branches, patches versions, opens the PR, and after merge tags + pushes. `release.yml` then runs Stable. |
-| Trigger a Nightly                     | Push (or merge) to `master`. `release.yml` runs Nightly automatically.                                                       |
-| Rotate `GH_TOKEN`                     | Update `updater-gh-token` in 1Password. Next `release.yml` run refreshes the worker secret.                                  |
-| Manually deploy a worker              | `cd workers/zephyr-updater && pnpm wrangler deploy --env <env>` (or root for `zephyr-spa`).                                  |
-| Force a nightly cleanup               | `workflow_dispatch` on `nightly-cleanup.yml` with the `retention_days` input.                                                |
-| Switch a desktop user to old version  | They open Settings → Advanced → Switch version → pick the older tag → confirm downgrade.                                     |
+| Task                                 | How                                                                                                                                                                         |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cut a Stable release                 | Invoke the `cut-release` skill ("cut 0.X.Y" or "cut a patch") — it branches, patches versions, opens the PR, and after merge tags + pushes. `release.yml` then runs Stable. |
+| Trigger a Nightly                    | Push (or merge) to `master`. `release.yml` runs Nightly automatically.                                                                                                      |
+| Rotate `GH_TOKEN`                    | Update `updater-gh-token` in 1Password. Next `release.yml` run refreshes the worker secret.                                                                                 |
+| Manually deploy a worker             | `cd workers/zephyr-updater && pnpm wrangler deploy --env <env>` (or root for `zephyr-spa`).                                                                                 |
+| Force a nightly cleanup              | `workflow_dispatch` on `nightly-cleanup.yml` with the `retention_days` input.                                                                                               |
+| Switch a desktop user to old version | They open Settings → Advanced → Switch version → pick the older tag → confirm downgrade.                                                                                    |

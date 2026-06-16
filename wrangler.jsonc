@@ -10,7 +10,7 @@
   "compatibility_date": "2025-11-10",
   "assets": {
     "directory": "./dist-web",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
   },
   "env": {
     "production": {
@@ -19,9 +19,9 @@
         {
           "pattern": "zephyr.bibletranslationtools.org",
           "custom_domain": true,
-          "zone_name": "bibletranslationtools.org"
-        }
-      ]
+          "zone_name": "bibletranslationtools.org",
+        },
+      ],
     },
     "nightly": {
       "name": "zephyr-spa-nightly",
@@ -29,9 +29,9 @@
         {
           "pattern": "zephyr-nightly.bttdev.org",
           "custom_domain": true,
-          "zone_name": "bttdev.org"
-        }
-      ]
-    }
-  }
+          "zone_name": "bttdev.org",
+        },
+      ],
+    },
+  },
 }

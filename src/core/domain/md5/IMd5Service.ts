@@ -5,8 +5,8 @@
  * caring whether hashing is done by browser code or a desktop-native backend.
  */
 export interface IMd5Service {
-    /**
-     * Calculate a stable checksum for text content.
-     */
-    calculateMd5(text: string): Promise<string>;
+  /**
+   * Calculate a stable checksum for text content.
+   */
+  calculateMd5(text: string): Promise<string>;
 }

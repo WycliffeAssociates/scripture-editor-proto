@@ -1,4 +1,5 @@
 import { Duration, Effect, Stream } from "effect";
+
 import type { LayoutTickStore } from "@/app/state/LayoutTickStore.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 
@@ -13,20 +14,20 @@ import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
  * this pipeline covers the commit-driven half.
  */
 export function makeOverlayTickPipeline(args: {
-    workingFilesStore: WorkingFilesStore;
-    layoutTickStore: LayoutTickStore;
+  workingFilesStore: WorkingFilesStore;
+  layoutTickStore: LayoutTickStore;
 }): Effect.Effect<void> {
-    return args.workingFilesStore.changes.pipe(
-        // Skip selection-only commits — cursor movement doesn't change layout
-        // and re-measuring overlays on every arrow key wastes work. Scroll/
-        // resize/font signals still bump the tick directly.
-        Stream.filter((event) => event.meta.kind !== "metadataOnly"),
-        Stream.debounce(Duration.millis(16)),
-        Stream.tap(() =>
-            Effect.sync(() => {
-                args.layoutTickStore.bump();
-            }),
-        ),
-        Stream.runDrain,
-    );
+  return args.workingFilesStore.changes.pipe(
+    // Skip selection-only commits — cursor movement doesn't change layout
+    // and re-measuring overlays on every arrow key wastes work. Scroll/
+    // resize/font signals still bump the tick directly.
+    Stream.filter((event) => event.meta.kind !== "metadataOnly"),
+    Stream.debounce(Duration.millis(16)),
+    Stream.tap(() =>
+      Effect.sync(() => {
+        args.layoutTickStore.bump();
+      }),
+    ),
+    Stream.runDrain,
+  );
 }

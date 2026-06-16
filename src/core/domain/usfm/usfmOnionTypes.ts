@@ -1,21 +1,21 @@
 import type {
-    AttributeItem as OnionAttributeItem,
-    BuildSidBlocksOptions as OnionBuildSidBlocksOptions,
-    ChapterTokenDiff as OnionChapterTokenDiff,
-    ClosingBehavior as OnionClosingBehavior,
-    DiffUndoSide as OnionDiffUndoSide,
-    LintCode as OnionLintCode,
-    LintIssue as OnionLintIssue,
-    LintOptions as OnionLintOptions,
-    LintScope as OnionLintScope,
-    MarkerInfo as OnionMarkerInfo,
-    MarkerPayload as OnionMarkerPayload,
-    ParagraphCategory as OnionParagraphCategory,
-    ParsedUsfm as OnionParsedUsfm,
-    Token as OnionToken,
-    TokenAlignment as OnionTokenAlignment,
-    UsfmMarkerCatalog as OnionUsfmMarkerCatalog,
-    TokenFix,
+  AttributeItem as OnionAttributeItem,
+  BuildSidBlocksOptions as OnionBuildSidBlocksOptions,
+  ChapterTokenDiff as OnionChapterTokenDiff,
+  ClosingBehavior as OnionClosingBehavior,
+  DiffUndoSide as OnionDiffUndoSide,
+  LintCode as OnionLintCode,
+  LintIssue as OnionLintIssue,
+  LintOptions as OnionLintOptions,
+  LintScope as OnionLintScope,
+  MarkerInfo as OnionMarkerInfo,
+  MarkerPayload as OnionMarkerPayload,
+  ParagraphCategory as OnionParagraphCategory,
+  ParsedUsfm as OnionParsedUsfm,
+  Token as OnionToken,
+  TokenAlignment as OnionTokenAlignment,
+  UsfmMarkerCatalog as OnionUsfmMarkerCatalog,
+  TokenFix,
 } from "usfm-onion-web";
 
 /**
@@ -60,48 +60,48 @@ export type LintIssue = OnionLintIssue;
 export type { TokenFix };
 
 export type IntoTokensOptions = {
-    mergeHorizontalWhitespace?: boolean;
+  mergeHorizontalWhitespace?: boolean;
 };
 
 export type TokenScopeItem = {
-    path?: string;
-    tokens?: Token[];
+  path?: string;
+  tokens?: Token[];
 };
 
 export type LintScopeOptions = {
-    lintOptions?: LintOptions;
-    tokenOptions?: TokenLintOptions;
+  lintOptions?: LintOptions;
+  tokenOptions?: TokenLintOptions;
 };
 
 export type FormatScopeOptions = {
-    tokenOptions?: IntoTokensOptions;
+  tokenOptions?: IntoTokensOptions;
 };
 
 export type DiffPathPair = {
-    baselinePath: string;
-    currentPath: string;
+  baselinePath: string;
+  currentPath: string;
 };
 
 export type DiffScopeItem = {
-    baselinePath?: string;
-    currentPath?: string;
-    baselineTokens?: Token[];
-    currentTokens?: Token[];
+  baselinePath?: string;
+  currentPath?: string;
+  baselineTokens?: Token[];
+  currentTokens?: Token[];
 };
 
 export type DiffScopeOptions = {
-    tokenOptions?: IntoTokensOptions;
-    buildOptions?: BuildSidBlocksOptions;
+  tokenOptions?: IntoTokensOptions;
+  buildOptions?: BuildSidBlocksOptions;
 };
 
 export type TokenScopeLintSuppression = {
-    code: OnionLintCode | string;
-    sid: string;
+  code: OnionLintCode | string;
+  sid: string;
 };
 
 export type TokenLintOptions = {
-    disabledRules?: string[];
-    suppressions?: TokenScopeLintSuppression[];
+  disabledRules?: string[];
+  suppressions?: TokenScopeLintSuppression[];
 };
 
 /**
@@ -112,91 +112,91 @@ export type TokenLintOptions = {
 export type LintScope = OnionLintScope;
 
 export type LintOptions = Omit<OnionLintOptions, "scope"> & {
-    /**
-     * Optional at the editor boundary, required by the library. The editor does
-     * not yet thread chapter-grain scope, so the service layer defaults this to
-     * whole-book (`"book"`) — preserving today's lint behavior. Chapter-level
-     * keying/caching is the eventual upgrade path.
-     *
-     * TODO(lint-scope): thread chapter-grain scope (deferred; see agent-tmp/ideas).
-     */
-    scope?: LintScope;
-    includeParseRecoveries?: boolean;
-    tokenView?: IntoTokensOptions;
-    tokenRules?: TokenLintOptions;
+  /**
+   * Optional at the editor boundary, required by the library. The editor does
+   * not yet thread chapter-grain scope, so the service layer defaults this to
+   * whole-book (`"book"`) — preserving today's lint behavior. Chapter-level
+   * keying/caching is the eventual upgrade path.
+   *
+   * TODO(lint-scope): thread chapter-grain scope (deferred; see agent-tmp/ideas).
+   */
+  scope?: LintScope;
+  includeParseRecoveries?: boolean;
+  tokenView?: IntoTokensOptions;
+  tokenRules?: TokenLintOptions;
 };
 
 export type ProjectUsfmOptions = {
-    tokenOptions?: IntoTokensOptions;
-    lintOptions?: LintOptions | null;
-    /**
-     * When true, each parse result carries `sourceMd5` — the md5 of the source
-     * bytes the parser read. Computed where the bytes already are (Rust for path
-     * IO, JS for content IO), so crash-recovery can baseline a book without a
-     * second read or an extra IPC round-trip. Off by default; only the editable
-     * workspace load requests it.
-     */
-    includeSourceMd5?: boolean;
+  tokenOptions?: IntoTokensOptions;
+  lintOptions?: LintOptions | null;
+  /**
+   * When true, each parse result carries `sourceMd5` — the md5 of the source
+   * bytes the parser read. Computed where the bytes already are (Rust for path
+   * IO, JS for content IO), so crash-recovery can baseline a book without a
+   * second read or an extra IPC round-trip. Off by default; only the editable
+   * workspace load requests it.
+   */
+  includeSourceMd5?: boolean;
 };
 
 export type ProjectedUsfmDocument = {
-    tokens: Token[];
-    lintIssues: LintIssue[] | null;
-    /** md5 of the parsed source bytes; present only when `includeSourceMd5` was set. */
-    sourceMd5?: string;
+  tokens: Token[];
+  lintIssues: LintIssue[] | null;
+  /** md5 of the parsed source bytes; present only when `includeSourceMd5` was set. */
+  sourceMd5?: string;
 };
 
 export type UsfmMarkerCatalog = {
-    raw?: RawUsfmMarkerCatalog;
-    allMarkers: string[];
-    paragraphMarkers: string[];
-    noteMarkers: string[];
-    noteSubmarkers: string[];
-    regularCharacterMarkers: string[];
-    documentMarkers: string[];
-    chapterVerseMarkers: string[];
-    infoByMarker: Record<string, MarkerInfo>;
+  raw?: RawUsfmMarkerCatalog;
+  allMarkers: string[];
+  paragraphMarkers: string[];
+  noteMarkers: string[];
+  noteSubmarkers: string[];
+  regularCharacterMarkers: string[];
+  documentMarkers: string[];
+  chapterVerseMarkers: string[];
+  infoByMarker: Record<string, MarkerInfo>;
 };
 
 export type TokenTransformChange = {
-    kind: string;
-    code: string;
-    label: string;
-    labelParams: Record<string, string>;
-    targetTokenId: string | null;
+  kind: string;
+  code: string;
+  label: string;
+  labelParams: Record<string, string>;
+  targetTokenId: string | null;
 };
 
 export type SkippedTokenTransform = {
-    kind: string;
-    code: string;
-    label: string;
-    labelParams: Record<string, string>;
-    reasonCode: string;
-    targetTokenId: string | null;
-    reason: string;
+  kind: string;
+  code: string;
+  label: string;
+  labelParams: Record<string, string>;
+  reasonCode: string;
+  targetTokenId: string | null;
+  reason: string;
 };
 
 export type TokenTransformResult = {
-    tokens: Token[];
-    appliedChanges: TokenTransformChange[];
-    skippedChanges: SkippedTokenTransform[];
+  tokens: Token[];
+  appliedChanges: TokenTransformChange[];
+  skippedChanges: SkippedTokenTransform[];
 };
 
 export type Diff = {
-    blockId: string;
-    semanticSid: string;
-    status: OnionChapterTokenDiff["status"];
-    original?: OnionChapterTokenDiff["original"];
-    current?: OnionChapterTokenDiff["current"];
-    originalText: string;
-    currentText: string;
-    originalTextOnly: string;
-    currentTextOnly: string;
-    isWhitespaceChange: boolean;
-    isUsfmStructureChange: boolean;
-    originalTokens: Token[];
-    currentTokens: Token[];
-    originalAlignment: DiffTokenAlignment[];
-    currentAlignment: DiffTokenAlignment[];
-    undoSide: DiffUndoSide;
+  blockId: string;
+  semanticSid: string;
+  status: OnionChapterTokenDiff["status"];
+  original?: OnionChapterTokenDiff["original"];
+  current?: OnionChapterTokenDiff["current"];
+  originalText: string;
+  currentText: string;
+  originalTextOnly: string;
+  currentTextOnly: string;
+  isWhitespaceChange: boolean;
+  isUsfmStructureChange: boolean;
+  originalTokens: Token[];
+  currentTokens: Token[];
+  originalAlignment: DiffTokenAlignment[];
+  currentAlignment: DiffTokenAlignment[];
+  undoSide: DiffUndoSide;
 };

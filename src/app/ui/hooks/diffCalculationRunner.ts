@@ -1,7 +1,7 @@
 const DEFAULT_LOADING_DELAY_MS = 200;
 
 export type DiffCalculationRunner = {
-    run: <T>(work: () => Promise<T>) => Promise<T>;
+  run: <T>(work: () => Promise<T>) => Promise<T>;
 };
 
 /**
@@ -9,41 +9,41 @@ export type DiffCalculationRunner = {
  * spinner and stale runs cannot turn the indicator back off out of order.
  */
 export function createDiffCalculationRunner(args: {
-    setIsCalculatingDiffs: (value: boolean) => void;
-    delayMs?: number;
+  setIsCalculatingDiffs: (value: boolean) => void;
+  delayMs?: number;
 }): DiffCalculationRunner {
-    const delayMs = args.delayMs ?? DEFAULT_LOADING_DELAY_MS;
-    let latestOperationId = 0;
-    let loadingTimer: ReturnType<typeof setTimeout> | null = null;
+  const delayMs = args.delayMs ?? DEFAULT_LOADING_DELAY_MS;
+  let latestOperationId = 0;
+  let loadingTimer: ReturnType<typeof setTimeout> | null = null;
 
-    return {
-        run: async <T>(work: () => Promise<T>): Promise<T> => {
-            latestOperationId += 1;
-            const operationId = latestOperationId;
+  return {
+    run: async <T>(work: () => Promise<T>): Promise<T> => {
+      latestOperationId += 1;
+      const operationId = latestOperationId;
 
-            if (loadingTimer) {
-                clearTimeout(loadingTimer);
-                loadingTimer = null;
-            }
+      if (loadingTimer) {
+        clearTimeout(loadingTimer);
+        loadingTimer = null;
+      }
 
-            loadingTimer = setTimeout(() => {
-                if (latestOperationId !== operationId) return;
-                args.setIsCalculatingDiffs(true);
-            }, delayMs);
+      loadingTimer = setTimeout(() => {
+        if (latestOperationId !== operationId) return;
+        args.setIsCalculatingDiffs(true);
+      }, delayMs);
 
-            try {
-                return await work();
-            } finally {
-                if (latestOperationId === operationId) {
-                    if (loadingTimer) {
-                        clearTimeout(loadingTimer);
-                        loadingTimer = null;
-                    }
-                    args.setIsCalculatingDiffs(false);
-                }
-            }
-        },
-    };
+      try {
+        return await work();
+      } finally {
+        if (latestOperationId === operationId) {
+          if (loadingTimer) {
+            clearTimeout(loadingTimer);
+            loadingTimer = null;
+          }
+          args.setIsCalculatingDiffs(false);
+        }
+      }
+    },
+  };
 }
 
 /**
@@ -51,14 +51,14 @@ export function createDiffCalculationRunner(args: {
  * workspace UI on large scripture sets.
  */
 export async function yieldToMainThread(): Promise<void> {
-    await new Promise<void>((resolve) => {
-        if (
-            typeof window !== "undefined" &&
-            typeof window.requestAnimationFrame === "function"
-        ) {
-            window.requestAnimationFrame(() => resolve());
-            return;
-        }
-        setTimeout(() => resolve(), 0);
-    });
+  await new Promise<void>((resolve) => {
+    if (
+      typeof window !== "undefined" &&
+      typeof window.requestAnimationFrame === "function"
+    ) {
+      window.requestAnimationFrame(() => resolve());
+      return;
+    }
+    setTimeout(() => resolve(), 0);
+  });
 }

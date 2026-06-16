@@ -32,115 +32,115 @@
 import { gt as semverGt, valid as semverValid } from "semver";
 
 type Env = {
-    GH_REPO: string;
-    GH_TAG_PREFIX: string;
-    CHANNEL: string;
-    GH_TOKEN?: string;
+  GH_REPO: string;
+  GH_TAG_PREFIX: string;
+  CHANNEL: string;
+  GH_TOKEN?: string;
 };
 
 type GhAsset = {
-    name: string;
-    browser_download_url: string;
-    size: number;
+  name: string;
+  browser_download_url: string;
+  size: number;
 };
 
 type GhRelease = {
-    tag_name: string;
-    name: string;
-    published_at: string;
-    prerelease: boolean;
-    body: string;
-    assets: GhAsset[];
+  tag_name: string;
+  name: string;
+  published_at: string;
+  prerelease: boolean;
+  body: string;
+  assets: GhAsset[];
 };
 
 type TauriManifest = {
-    version: string;
-    notes: string;
-    pub_date: string;
-    platforms: Record<string, { signature: string; url: string }>;
+  version: string;
+  notes: string;
+  pub_date: string;
+  platforms: Record<string, { signature: string; url: string }>;
 };
 
 const CACHE_TTL_SECONDS = 60;
 
 export default {
-    async fetch(request: Request, env: Env): Promise<Response> {
-        const url = new URL(request.url);
-        const cache = caches.default;
-        const cacheKey = new Request(url.toString());
-        const cached = await cache.match(cacheKey);
-        if (cached) return cached;
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url);
+    const cache = caches.default;
+    const cacheKey = new Request(url.toString());
+    const cached = await cache.match(cacheKey);
+    if (cached) return cached;
 
-        const path = url.pathname.replace(/^\/+|\/+$/g, "").split("/");
-        let response: Response;
+    const path = url.pathname.replace(/^\/+|\/+$/g, "").split("/");
+    let response: Response;
 
-        if (path.length === 1 && path[0] === "versions") {
-            response = await listVersions(env);
-        } else if (path.length === 2) {
-            response = await latestManifest(path[0], path[1], env);
-        } else if (path.length === 3 && path[1] === "at") {
-            response = await manifestAtVersion(path[0], path[2], env);
-        } else {
-            response = new Response("not found", { status: 404 });
-        }
+    if (path.length === 1 && path[0] === "versions") {
+      response = await listVersions(env);
+    } else if (path.length === 2) {
+      response = await latestManifest(path[0], path[1], env);
+    } else if (path.length === 3 && path[1] === "at") {
+      response = await manifestAtVersion(path[0], path[2], env);
+    } else {
+      response = new Response("not found", { status: 404 });
+    }
 
-        if (response.ok || response.status === 204) {
-            const cacheable = response.clone();
-            cacheable.headers.set(
-                "cache-control",
-                `public, max-age=${CACHE_TTL_SECONDS}`,
-            );
-            await cache.put(cacheKey, cacheable);
-        }
-        return response;
-    },
+    if (response.ok || response.status === 204) {
+      const cacheable = response.clone();
+      cacheable.headers.set(
+        "cache-control",
+        `public, max-age=${CACHE_TTL_SECONDS}`,
+      );
+      await cache.put(cacheKey, cacheable);
+    }
+    return response;
+  },
 } satisfies ExportedHandler<Env>;
 
 async function listVersions(env: Env): Promise<Response> {
-    const releases = await fetchReleases(env);
-    const versions = releases.map((r) => ({
-        version: stripTagPrefix(r.tag_name, env.GH_TAG_PREFIX),
-        tag: r.tag_name,
-        published_at: r.published_at,
-        prerelease: r.prerelease,
-    }));
-    return json(versions);
+  const releases = await fetchReleases(env);
+  const versions = releases.map((r) => ({
+    version: stripTagPrefix(r.tag_name, env.GH_TAG_PREFIX),
+    tag: r.tag_name,
+    published_at: r.published_at,
+    prerelease: r.prerelease,
+  }));
+  return json(versions);
 }
 
 async function latestManifest(
-    target: string,
-    currentVersion: string,
-    env: Env,
+  target: string,
+  currentVersion: string,
+  env: Env,
 ): Promise<Response> {
-    const releases = await fetchReleases(env);
-    const latest = releases[0];
-    if (!latest) return new Response("no releases", { status: 404 });
+  const releases = await fetchReleases(env);
+  const latest = releases[0];
+  if (!latest) return new Response("no releases", { status: 404 });
 
-    const latestVersion = stripTagPrefix(latest.tag_name, env.GH_TAG_PREFIX);
-    if (!isNewer(latestVersion, currentVersion)) {
-        return new Response(null, { status: 204 });
-    }
+  const latestVersion = stripTagPrefix(latest.tag_name, env.GH_TAG_PREFIX);
+  if (!isNewer(latestVersion, currentVersion)) {
+    return new Response(null, { status: 204 });
+  }
 
-    const manifest = await buildManifest(target, latest, env);
-    if (!manifest) {
-        return new Response(`no asset for target ${target}`, { status: 404 });
-    }
-    return json(manifest);
+  const manifest = await buildManifest(target, latest, env);
+  if (!manifest) {
+    return new Response(`no asset for target ${target}`, { status: 404 });
+  }
+  return json(manifest);
 }
 
 async function manifestAtVersion(
-    target: string,
-    version: string,
-    env: Env,
+  target: string,
+  version: string,
+  env: Env,
 ): Promise<Response> {
-    const tag = `${env.GH_TAG_PREFIX}${version}`;
-    const release = await fetchRelease(tag, env);
-    if (!release) return new Response(`no release ${tag}`, { status: 404 });
+  const tag = `${env.GH_TAG_PREFIX}${version}`;
+  const release = await fetchRelease(tag, env);
+  if (!release) return new Response(`no release ${tag}`, { status: 404 });
 
-    const manifest = await buildManifest(target, release, env);
-    if (!manifest) {
-        return new Response(`no asset for target ${target}`, { status: 404 });
-    }
-    return json(manifest);
+  const manifest = await buildManifest(target, release, env);
+  if (!manifest) {
+    return new Response(`no asset for target ${target}`, { status: 404 });
+  }
+  return json(manifest);
 }
 
 /**
@@ -162,32 +162,32 @@ async function manifestAtVersion(
  * version find a match.
  */
 async function buildManifest(
-    target: string,
-    release: GhRelease,
-    env: Env,
+  target: string,
+  release: GhRelease,
+  env: Env,
 ): Promise<TauriManifest | null> {
-    const platformAsset = findPlatformAsset(target, release.assets);
-    if (!platformAsset) return null;
+  const platformAsset = findPlatformAsset(target, release.assets);
+  if (!platformAsset) return null;
 
-    const sigAsset = release.assets.find(
-        (a) => a.name === `${platformAsset.name}.sig`,
-    );
-    if (!sigAsset) return null;
+  const sigAsset = release.assets.find(
+    (a) => a.name === `${platformAsset.name}.sig`,
+  );
+  if (!sigAsset) return null;
 
-    const sigContents = await fetchSignatureText(sigAsset.browser_download_url);
-    if (sigContents === null) return null;
+  const sigContents = await fetchSignatureText(sigAsset.browser_download_url);
+  if (sigContents === null) return null;
 
-    const payload = {
-        signature: sigContents,
-        url: platformAsset.browser_download_url,
-    };
+  const payload = {
+    signature: sigContents,
+    url: platformAsset.browser_download_url,
+  };
 
-    return {
-        version: stripTagPrefix(release.tag_name, env.GH_TAG_PREFIX),
-        notes: release.body || release.name,
-        pub_date: release.published_at,
-        platforms: aliasedPlatforms(target, payload),
-    };
+  return {
+    version: stripTagPrefix(release.tag_name, env.GH_TAG_PREFIX),
+    notes: release.body || release.name,
+    pub_date: release.published_at,
+    platforms: aliasedPlatforms(target, payload),
+  };
 }
 
 /**
@@ -196,24 +196,24 @@ async function buildManifest(
  * one asset URL serves all aliases.
  */
 function aliasedPlatforms(
-    target: string,
-    payload: { signature: string; url: string },
+  target: string,
+  payload: { signature: string; url: string },
 ): Record<string, { signature: string; url: string }> {
-    const aliasGroups: string[][] = [
-        ["darwin", "darwin-aarch64", "darwin-x86_64"],
-        ["linux", "linux-x86_64"],
-        ["windows", "windows-x86_64"],
-    ];
-    const aliases = aliasGroups.find((group) => group.includes(target)) ?? [
-        target,
-    ];
-    return Object.fromEntries(aliases.map((alias) => [alias, payload]));
+  const aliasGroups: string[][] = [
+    ["darwin", "darwin-aarch64", "darwin-x86_64"],
+    ["linux", "linux-x86_64"],
+    ["windows", "windows-x86_64"],
+  ];
+  const aliases = aliasGroups.find((group) => group.includes(target)) ?? [
+    target,
+  ];
+  return Object.fromEntries(aliases.map((alias) => [alias, payload]));
 }
 
 async function fetchSignatureText(url: string): Promise<string | null> {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    return (await res.text()).trim();
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  return (await res.text()).trim();
 }
 
 /**
@@ -229,32 +229,32 @@ async function fetchSignatureText(url: string): Promise<string | null> {
  * continues to work if someone calls with the more specific name.
  */
 function findPlatformAsset(
-    target: string,
-    assets: GhAsset[],
+  target: string,
+  assets: GhAsset[],
 ): GhAsset | undefined {
-    const darwinPatterns = [/\.app\.tar\.gz$/];
-    const linuxPatterns = [/\.AppImage\.tar\.gz$/];
-    const windowsPatterns = [/\.msi\.zip$/, /\.nsis\.zip$/];
-    const patterns: Record<string, RegExp[]> = {
-        darwin: darwinPatterns,
-        "darwin-aarch64": darwinPatterns,
-        "darwin-x86_64": darwinPatterns,
-        linux: linuxPatterns,
-        "linux-x86_64": linuxPatterns,
-        windows: windowsPatterns,
-        "windows-x86_64": windowsPatterns,
-    };
-    const candidates = patterns[target];
-    if (!candidates) return undefined;
-    for (const pattern of candidates) {
-        const match = assets.find((a) => pattern.test(a.name));
-        if (match) return match;
-    }
-    return undefined;
+  const darwinPatterns = [/\.app\.tar\.gz$/];
+  const linuxPatterns = [/\.AppImage\.tar\.gz$/];
+  const windowsPatterns = [/\.msi\.zip$/, /\.nsis\.zip$/];
+  const patterns: Record<string, RegExp[]> = {
+    darwin: darwinPatterns,
+    "darwin-aarch64": darwinPatterns,
+    "darwin-x86_64": darwinPatterns,
+    linux: linuxPatterns,
+    "linux-x86_64": linuxPatterns,
+    windows: windowsPatterns,
+    "windows-x86_64": windowsPatterns,
+  };
+  const candidates = patterns[target];
+  if (!candidates) return undefined;
+  for (const pattern of candidates) {
+    const match = assets.find((a) => pattern.test(a.name));
+    if (match) return match;
+  }
+  return undefined;
 }
 
 function stripTagPrefix(tag: string, prefix: string): string {
-    return tag.startsWith(prefix) ? tag.slice(prefix.length) : tag;
+  return tag.startsWith(prefix) ? tag.slice(prefix.length) : tag;
 }
 
 /**
@@ -272,54 +272,55 @@ function stripTagPrefix(tag: string, prefix: string): string {
  * matches the manifest format.
  */
 function isNewer(latest: string, current: string): boolean {
-    if (latest === current) return false;
-    const latestSemver = semverValid(latest) ?? semverValid(latest.replace(/^v/, ""));
-    const currentSemver =
-        semverValid(current) ?? semverValid(current.replace(/^v/, ""));
-    if (!latestSemver || !currentSemver) return false;
-    return semverGt(latestSemver, currentSemver);
+  if (latest === current) return false;
+  const latestSemver =
+    semverValid(latest) ?? semverValid(latest.replace(/^v/, ""));
+  const currentSemver =
+    semverValid(current) ?? semverValid(current.replace(/^v/, ""));
+  if (!latestSemver || !currentSemver) return false;
+  return semverGt(latestSemver, currentSemver);
 }
 
 async function fetchReleases(env: Env): Promise<GhRelease[]> {
-    const res = await ghFetch(
-        `https://api.github.com/repos/${env.GH_REPO}/releases?per_page=30`,
-        env,
-    );
-    if (!res.ok) return [];
-    const all = (await res.json()) as GhRelease[];
-    return all.filter((r) => r.tag_name.startsWith(env.GH_TAG_PREFIX));
+  const res = await ghFetch(
+    `https://api.github.com/repos/${env.GH_REPO}/releases?per_page=30`,
+    env,
+  );
+  if (!res.ok) return [];
+  const all = (await res.json()) as GhRelease[];
+  return all.filter((r) => r.tag_name.startsWith(env.GH_TAG_PREFIX));
 }
 
 async function fetchRelease(tag: string, env: Env): Promise<GhRelease | null> {
-    const res = await ghFetch(
-        `https://api.github.com/repos/${env.GH_REPO}/releases/tags/${encodeURIComponent(tag)}`,
-        env,
-    );
-    if (!res.ok) return null;
-    return (await res.json()) as GhRelease;
+  const res = await ghFetch(
+    `https://api.github.com/repos/${env.GH_REPO}/releases/tags/${encodeURIComponent(tag)}`,
+    env,
+  );
+  if (!res.ok) return null;
+  return (await res.json()) as GhRelease;
 }
 
 function ghFetch(url: string, env: Env): Promise<Response> {
-    const headers: Record<string, string> = {
-        accept: "application/vnd.github+json",
-        "user-agent": `zephyr-updater-worker/${env.CHANNEL}`,
-    };
-    if (env.GH_TOKEN) headers.authorization = `Bearer ${env.GH_TOKEN}`;
-    return fetch(url, { headers });
+  const headers: Record<string, string> = {
+    accept: "application/vnd.github+json",
+    "user-agent": `zephyr-updater-worker/${env.CHANNEL}`,
+  };
+  if (env.GH_TOKEN) headers.authorization = `Bearer ${env.GH_TOKEN}`;
+  return fetch(url, { headers });
 }
 
 function json(body: unknown): Response {
-    return new Response(JSON.stringify(body), {
-        headers: {
-            "content-type": "application/json",
-            // Tauri webviews enforce browser CORS for JS fetch() calls. The
-            // Settings version picker and any future webview-side caller
-            // need `Access-Control-Allow-Origin: *` so the response body is
-            // visible to JS. The Rust-side plugin path (auto-check, install)
-            // doesn't go through CORS, but we set this here for the JS path.
-            "access-control-allow-origin": "*",
-            "access-control-allow-methods": "GET",
-            "cache-control": "no-store",
-        },
-    });
+  return new Response(JSON.stringify(body), {
+    headers: {
+      "content-type": "application/json",
+      // Tauri webviews enforce browser CORS for JS fetch() calls. The
+      // Settings version picker and any future webview-side caller
+      // need `Access-Control-Allow-Origin: *` so the response body is
+      // visible to JS. The Rust-side plugin path (auto-check, install)
+      // doesn't go through CORS, but we set this here for the JS path.
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "GET",
+      "cache-control": "no-store",
+    },
+  });
 }

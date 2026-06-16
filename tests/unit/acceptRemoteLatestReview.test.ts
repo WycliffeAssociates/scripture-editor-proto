@@ -1,4 +1,6 @@
+import { InMemoryFileSystem } from "@tests/helpers/InMemoryFileSystem.ts";
 import { describe, expect, it, vi } from "vitest";
+
 import { acceptRemoteLatestReview } from "@/app/domain/project/acceptRemoteLatestReview.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
 import { GIT_REMOTE_PROJECT_STATUS_CONNECTED } from "@/core/persistence/gitRemoteModels.ts";
@@ -7,7 +9,6 @@ import {
   writeGitRemoteProjectStatus,
 } from "@/core/persistence/gitRemoteStore.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
-import { InMemoryFileSystem } from "@tests/helpers/InMemoryFileSystem.ts";
 
 const storageRoots: StorageRoots = {
   appDataRoot: "/appData",

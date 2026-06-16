@@ -1,25 +1,34 @@
+import { InMemoryFileSystem } from "@tests/helpers/InMemoryFileSystem.ts";
+import { makeBook, makeChapter } from "@tests/helpers/workspaceFixtures.ts";
 // @vitest-environment jsdom
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+
 import type {
   ScriptureBookState,
   ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { RecoveredConflictTracker } from "@/app/state/RecoveredConflictTracker.ts";
 import { SaveStatusStore } from "@/app/state/SaveStatusStore.ts";
+import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
 import { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
-import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { useSaveAndRevert } from "@/app/ui/hooks/save/useSaveAndRevert.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
-import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 import { writeGitRemoteProjectInfo } from "@/core/persistence/gitRemoteStore.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
-import { InMemoryFileSystem } from "@tests/helpers/InMemoryFileSystem.ts";
-import { makeBook, makeChapter } from "@tests/helpers/workspaceFixtures.ts";
+import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 
 const notificationMocks = vi.hoisted(() => ({
   showErrorNotification: vi.fn(),
@@ -140,9 +149,12 @@ function createHistory(): CustomHistoryHook {
     peekUndoLabel: () => null,
     peekRedoLabel: () => null,
     captureEditorUpdate: vi.fn(),
-    runTransaction: async ({ run }) => {
-      return await run();
-    },
+    captureHistory: vi.fn(() => ({
+      beforeFiles: [],
+      selectionBefore: null,
+      currentKey: "",
+    })),
+    recordHistory: vi.fn(),
     setNextTypingLabel: vi.fn(),
     undo: vi.fn(),
     redo: vi.fn(),
@@ -213,14 +225,18 @@ describe("useSaveAndRevert", () => {
 
     const workingFiles = [makeWorkingFile()];
     const store = new WorkingFilesStore(workingFiles);
-    const saveBook: Project["saveBook"] = vi.fn<Project["saveBook"]>().mockResolvedValue(undefined);
-    const addBook: Project["addBook"] = vi.fn<Project["addBook"]>().mockResolvedValue({
-      bookCode: "MAT",
-      title: "Matthew",
-      fileName: "41-MAT.usfm",
-      storageKey: "41-MAT.usfm",
-      path: "/userData/projects/foo/41-MAT.usfm",
-    });
+    const saveBook: Project["saveBook"] = vi
+      .fn<Project["saveBook"]>()
+      .mockResolvedValue(undefined);
+    const addBook: Project["addBook"] = vi
+      .fn<Project["addBook"]>()
+      .mockResolvedValue({
+        bookCode: "MAT",
+        title: "Matthew",
+        fileName: "41-MAT.usfm",
+        storageKey: "41-MAT.usfm",
+        path: "/userData/projects/foo/41-MAT.usfm",
+      });
     const commitAll: GitProvider["commitAll"] = vi
       .fn<GitProvider["commitAll"]>()
       .mockResolvedValue({ hash: "local-save-hash" });
@@ -247,7 +263,9 @@ describe("useSaveAndRevert", () => {
         getSettings: vi.fn() as never,
         get: vi
           .fn()
-          .mockImplementation((key: string) => (key === "autoPushOnSave" ? true : undefined)),
+          .mockImplementation((key: string) =>
+            key === "autoPushOnSave" ? true : undefined,
+          ),
         set: vi.fn(),
         update: vi.fn(),
         applySettings: vi.fn(),
@@ -270,7 +288,10 @@ describe("useSaveAndRevert", () => {
       await save.actions.saveProjectToDisk();
     });
 
-    expect(saveBook).toHaveBeenCalledWith("41-MAT.usfm", "\\c 1\n\\p\nNew text.\n");
+    expect(saveBook).toHaveBeenCalledWith(
+      "41-MAT.usfm",
+      "\\c 1\n\\p\nNew text.\n",
+    );
     expect(addBook).not.toHaveBeenCalled();
     expect(commitAll).toHaveBeenCalledWith(
       "/userData/projects/foo",
@@ -317,11 +338,13 @@ describe("useSaveAndRevert", () => {
     const commitAll = vi
       .fn<GitProvider["commitAll"]>()
       .mockResolvedValue({ hash: "local-save-hash" });
-    const pushCurrentBranch = vi.fn<GitProvider["pushCurrentBranch"]>().mockResolvedValue({
-      outcome: "offline",
-      localHead: "local-save-hash",
-      remoteHead: null,
-    });
+    const pushCurrentBranch = vi
+      .fn<GitProvider["pushCurrentBranch"]>()
+      .mockResolvedValue({
+        outcome: "offline",
+        localHead: "local-save-hash",
+        remoteHead: null,
+      });
 
     const save = renderSaveHook({
       editorMode: "regular",
@@ -342,7 +365,9 @@ describe("useSaveAndRevert", () => {
         getSettings: vi.fn() as never,
         get: vi
           .fn()
-          .mockImplementation((key: string) => (key === "autoPushOnSave" ? true : undefined)),
+          .mockImplementation((key: string) =>
+            key === "autoPushOnSave" ? true : undefined,
+          ),
         set: vi.fn(),
         update: vi.fn(),
         applySettings: vi.fn(),
@@ -446,7 +471,8 @@ describe("useSaveAndRevert", () => {
     expect(notificationMocks.showErrorNotification).toHaveBeenCalledWith({
       notification: {
         title: "Version History Warning",
-        message: "Your changes were saved, but a local version checkpoint could not be created.",
+        message:
+          "Your changes were saved, but a local version checkpoint could not be created.",
       },
     });
   });
@@ -456,21 +482,27 @@ describe("useSaveAndRevert", () => {
     const workingFiles = [makeWorkingFile()];
     const store = new WorkingFilesStore(workingFiles);
     const callOrder: string[] = [];
-    const saveBook: Project["saveBook"] = vi.fn<Project["saveBook"]>(async () => {
-      callOrder.push("saveBook");
-      return Promise.resolve(undefined);
-    });
-    const addBook: Project["addBook"] = vi.fn<Project["addBook"]>().mockResolvedValue({
-      bookCode: "MAT",
-      title: "Matthew",
-      fileName: "41-MAT.usfm",
-      storageKey: "41-MAT.usfm",
-      path: "/userData/projects/foo/41-MAT.usfm",
-    });
-    const commitAll: GitProvider["commitAll"] = vi.fn<GitProvider["commitAll"]>(async () => {
-      callOrder.push("commitAll");
-      return { hash: "local-save-hash" };
-    });
+    const saveBook: Project["saveBook"] = vi.fn<Project["saveBook"]>(
+      async () => {
+        callOrder.push("saveBook");
+        return Promise.resolve(undefined);
+      },
+    );
+    const addBook: Project["addBook"] = vi
+      .fn<Project["addBook"]>()
+      .mockResolvedValue({
+        bookCode: "MAT",
+        title: "Matthew",
+        fileName: "41-MAT.usfm",
+        storageKey: "41-MAT.usfm",
+        path: "/userData/projects/foo/41-MAT.usfm",
+      });
+    const commitAll: GitProvider["commitAll"] = vi.fn<GitProvider["commitAll"]>(
+      async () => {
+        callOrder.push("commitAll");
+        return { hash: "local-save-hash" };
+      },
+    );
     const pushCurrentBranch: GitProvider["pushCurrentBranch"] = vi
       .fn<GitProvider["pushCurrentBranch"]>()
       .mockResolvedValue({
@@ -501,7 +533,9 @@ describe("useSaveAndRevert", () => {
         getSettings: vi.fn() as never,
         get: vi
           .fn()
-          .mockImplementation((key: string) => (key === "autoPushOnSave" ? true : undefined)),
+          .mockImplementation((key: string) =>
+            key === "autoPushOnSave" ? true : undefined,
+          ),
         set: vi.fn(),
         update: vi.fn(),
         applySettings: vi.fn(),
@@ -531,7 +565,10 @@ describe("useSaveAndRevert", () => {
 
   it("partial save honesty (0a): a mid-loop write failure leaves only persisted books clean", async () => {
     const fileSystem = new InMemoryFileSystem();
-    const makeDirtyBookFor = (code: string, fileName: string): ScriptureBookState =>
+    const makeDirtyBookFor = (
+      code: string,
+      fileName: string,
+    ): ScriptureBookState =>
       makeBook({
         bookCode: code,
         title: code,
@@ -552,10 +589,12 @@ describe("useSaveAndRevert", () => {
 
     // Stop-on-first-failure: the 2nd book's write throws.
     let writeCount = 0;
-    const saveBook: Project["saveBook"] = vi.fn<Project["saveBook"]>(async () => {
-      writeCount += 1;
-      if (writeCount === 2) throw new Error("disk full");
-    });
+    const saveBook: Project["saveBook"] = vi.fn<Project["saveBook"]>(
+      async () => {
+        writeCount += 1;
+        if (writeCount === 2) throw new Error("disk full");
+      },
+    );
     const addBook: Project["addBook"] = vi.fn();
     const baseProject = createProject({ saveBook, addBook });
     const loadedProject: Project = {

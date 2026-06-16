@@ -6,14 +6,15 @@
 // injects `onClose`.
 
 import { useSyncExternalStore } from "react";
+
 import type { WorkspaceModalStore } from "@/app/state/WorkspaceModalStore.ts";
 
 export function WorkspaceModalOutlet({
-    store,
+  store,
 }: {
-    store: WorkspaceModalStore;
+  store: WorkspaceModalStore;
 }) {
-    const entry = useSyncExternalStore(store.subscribe, store.getSnapshot);
-    if (!entry) return null;
-    return <entry.Component {...entry.props} onClose={store.close} />;
+  const entry = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  if (!entry) return null;
+  return <entry.Component {...entry.props} onClose={store.close} />;
 }

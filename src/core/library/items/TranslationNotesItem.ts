@@ -8,18 +8,18 @@ import type { LibraryItemBase } from "@/core/library/items/UsfmScriptureItem.ts"
  * tiny files.
  */
 export type PackedTranslationNotesBook = {
-    bookCode: string;
-    chapters: readonly PackedTranslationNotesChapter[];
+  bookCode: string;
+  chapters: readonly PackedTranslationNotesChapter[];
 };
 
 export type PackedTranslationNotesChapter = {
-    chapterNumber: number;
-    verses: readonly PackedTranslationNotesVerse[];
+  chapterNumber: number;
+  verses: readonly PackedTranslationNotesVerse[];
 };
 
 export type PackedTranslationNotesVerse = {
-    verseNumber: number;
-    rawMarkdown: string;
+  verseNumber: number;
+  rawMarkdown: string;
 };
 
 /**
@@ -30,11 +30,11 @@ export type PackedTranslationNotesVerse = {
  * document collection.
  */
 export type TranslationNotesItem = LibraryItemBase & {
-    type: "translationNotes";
-    listBookCodes(): Promise<readonly string[]>;
-    readBook(bookCode: string): Promise<PackedTranslationNotesBook | null>;
-    readChapter(
-        bookCode: string,
-        chapterNumber: number,
-    ): Promise<Record<string, string> | null>;
+  type: "translationNotes";
+  listBookCodes(): Promise<readonly string[]>;
+  readBook(bookCode: string): Promise<PackedTranslationNotesBook | null>;
+  readChapter(
+    bookCode: string,
+    chapterNumber: number,
+  ): Promise<Record<string, string> | null>;
 };

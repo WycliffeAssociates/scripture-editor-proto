@@ -1,68 +1,69 @@
 import type { LexicalEditor } from "lexical";
 import { type RefObject, useCallback, useRef, useState } from "react";
+
 import { DATA_JS } from "@/app/data/constants.ts";
 import {
-    alignTargetResultsToReferenceOrder,
-    applySort,
-    buildPairKey,
-    dedupeByVerse,
-    pairReferenceResultsToTarget,
-    type SortOption,
+  alignTargetResultsToReferenceOrder,
+  applySort,
+  buildPairKey,
+  dedupeByVerse,
+  pairReferenceResultsToTarget,
+  type SortOption,
 } from "@/app/domain/search/SearchProjectionService.ts";
 import {
-    buildSearchChapters,
-    buildTargetSidTextLookup,
-    chapterKey,
-    findChapter,
-    listChapterKeys,
-    runSearch,
-    type SearchContentProvider,
-    type SearchResult,
+  buildSearchChapters,
+  buildTargetSidTextLookup,
+  chapterKey,
+  findChapter,
+  listChapterKeys,
+  runSearch,
+  type SearchContentProvider,
+  type SearchResult,
 } from "@/app/domain/search/SearchService.ts";
 import type {
-    ScriptureBookState,
-    ScriptureChapterState,
+  ScriptureBookState,
+  ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { SearchHighlightStore } from "@/app/state/SearchHighlightStore.ts";
 import { useDebouncedCallback } from "@/app/ui/hooks/general/useDebouncedCallback.ts";
 import type {
-    SearchMatch,
-    SearchRunOptionOverrides,
-    SearchRunResult,
-    SearchRunScope,
+  SearchMatch,
+  SearchRunOptionOverrides,
+  SearchRunResult,
+  SearchRunScope,
 } from "@/app/ui/hooks/search/searchTypes.ts";
 import type { SearchQuery } from "@/core/domain/search/types.ts";
 
 type Params = {
-    resolvedContentProvider: SearchContentProvider;
-    pickedFile: ScriptureBookState;
-    pickedChapter?: ScriptureChapterState;
-    currentChapterSid: string;
-    editorRef: RefObject<LexicalEditor | null>;
-    searchHighlightStore: SearchHighlightStore;
-    collectMatchesInCurrentEditor: (
-        activeSearchTerm: string,
-        options: SearchRunOptionOverrides & {
-            baseMatchCase: boolean;
-            baseMatchWholeWord: boolean;
-        },
-    ) => SearchMatch[];
-    pick: (
-        result: SearchResult,
-        args: {
-            activeSearchTerm: string;
-            searchReference: boolean;
-            matchCase: boolean;
-            matchWholeWord: boolean;
-        },
-    ) => void;
-    currentMatchesControls: {
-        setCurrentMatches: (value: SearchMatch[]) => void;
-        setCurrentMatchIndex: (value: number) => void;
-        setPickedResult: (value: SearchResult | null) => void;
-        pickedResult: SearchResult | null;
-        currentMatchIndex: number;
-    };
+  resolvedContentProvider: SearchContentProvider;
+  pickedFile: ScriptureBookState;
+  pickedChapter?: ScriptureChapterState;
+  currentChapterSid: string;
+  editorRef: RefObject<LexicalEditor | null>;
+  searchHighlightStore: SearchHighlightStore;
+  collectMatchesInCurrentEditor: (
+    activeSearchTerm: string,
+    options: SearchRunOptionOverrides & {
+      baseMatchCase: boolean;
+      baseMatchWholeWord: boolean;
+    },
+  ) => SearchMatch[];
+  pick: (
+    result: SearchResult,
+    args: {
+      activeSearchTerm: string;
+      searchReference: boolean;
+      matchCase: boolean;
+      matchWholeWord: boolean;
+    },
+  ) => void;
+  currentMatchesControls: {
+    setCurrentMatches: (value: SearchMatch[]) => void;
+    setCurrentMatchIndex: (value: number) => void;
+    setPickedResult: (value: SearchResult | null) => void;
+    pickedResult: SearchResult | null;
+    currentMatchIndex: number;
+  };
 };
 
 /**
@@ -73,25 +74,25 @@ type Params = {
  * teardown step.
  */
 function resetSearchUiState(args: {
-    searchAbortController: RefObject<AbortController | null>;
-    searchHighlightStore: SearchHighlightStore;
-    setTargetResults: (value: SearchResult[]) => void;
-    setReferenceResults: (value: SearchResult[]) => void;
-    setCurrentMatches: (value: SearchMatch[]) => void;
-    setCurrentMatchIndex: (value: number) => void;
-    setPickedResult: (value: SearchResult | null) => void;
-    setIsSearching: (value: boolean) => void;
+  searchAbortController: RefObject<AbortController | null>;
+  searchHighlightStore: SearchHighlightStore;
+  setTargetResults: (value: SearchResult[]) => void;
+  setReferenceResults: (value: SearchResult[]) => void;
+  setCurrentMatches: (value: SearchMatch[]) => void;
+  setCurrentMatchIndex: (value: number) => void;
+  setPickedResult: (value: SearchResult | null) => void;
+  setIsSearching: (value: boolean) => void;
 }) {
-    if (args.searchAbortController.current) {
-        args.searchAbortController.current.abort();
-    }
-    args.searchHighlightStore.clear();
-    args.setTargetResults([]);
-    args.setReferenceResults([]);
-    args.setCurrentMatches([]);
-    args.setCurrentMatchIndex(0);
-    args.setPickedResult(null);
-    args.setIsSearching(false);
+  if (args.searchAbortController.current) {
+    args.searchAbortController.current.abort();
+  }
+  args.searchHighlightStore.clear();
+  args.setTargetResults([]);
+  args.setReferenceResults([]);
+  args.setCurrentMatches([]);
+  args.setCurrentMatchIndex(0);
+  args.setPickedResult(null);
+  args.setIsSearching(false);
 }
 
 /**
@@ -102,509 +103,484 @@ function resetSearchUiState(args: {
  * results, and exposing the current result collections back to the UI.
  */
 export function useSearchExecution({
-    resolvedContentProvider,
-    pickedFile,
-    pickedChapter,
-    currentChapterSid,
-    editorRef,
-    searchHighlightStore,
-    collectMatchesInCurrentEditor,
-    pick,
-    currentMatchesControls,
+  resolvedContentProvider,
+  pickedFile,
+  pickedChapter,
+  currentChapterSid,
+  editorRef,
+  searchHighlightStore,
+  collectMatchesInCurrentEditor,
+  pick,
+  currentMatchesControls,
 }: Params) {
-    const [searchTerm, setSearchTerm] = useState<string>("");
-    const [isSearching, setIsSearching] = useState(false);
-    const [targetResults, setTargetResults] = useState<SearchResult[]>([]);
-    const [referenceResults, setReferenceResults] = useState<SearchResult[]>(
-        [],
-    );
-    const [currentSort, setCurrentSort] = useState<SortOption>("canonical");
-    const [isSearchPaneOpen, setIsSearchPaneOpen] = useState(false);
-    const [matchWholeWord, setMatchWholeWordState] = useState(false);
-    const [matchCase, setMatchCaseState] = useState(false);
-    const [searchUSFM, setSearchUSFMState] = useState(false);
-    const [searchReference, setSearchReferenceState] = useState(false);
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [targetResults, setTargetResults] = useState<SearchResult[]>([]);
+  const [referenceResults, setReferenceResults] = useState<SearchResult[]>([]);
+  const [currentSort, setCurrentSort] = useState<SortOption>("canonical");
+  const [isSearchPaneOpen, setIsSearchPaneOpen] = useState(false);
+  const [matchWholeWord, setMatchWholeWordState] = useState(false);
+  const [matchCase, setMatchCaseState] = useState(false);
+  const [searchUSFM, setSearchUSFMState] = useState(false);
+  const [searchReference, setSearchReferenceState] = useState(false);
 
-    const searchAbortController = useRef<AbortController | null>(null);
+  const searchAbortController = useRef<AbortController | null>(null);
 
-    const hasReferenceSearchAvailable = Boolean(
-        resolvedContentProvider.getReferenceFiles().length,
-    );
+  const hasReferenceSearchAvailable = Boolean(
+    resolvedContentProvider.getReferenceFiles().length,
+  );
 
-    const results = searchReference ? referenceResults : targetResults;
+  const results = searchReference ? referenceResults : targetResults;
 
-    const sortBy = useCallback(
-        (option: SortOption) => {
-            setCurrentSort(option);
+  const sortBy = useCallback(
+    (option: SortOption) => {
+      setCurrentSort(option);
 
-            const currentlySelected =
-                currentMatchesControls.pickedResult ??
-                results[currentMatchesControls.currentMatchIndex] ??
-                null;
+      const currentlySelected =
+        currentMatchesControls.pickedResult ??
+        results[currentMatchesControls.currentMatchIndex] ??
+        null;
 
-            let sortedTargetResults = applySort(targetResults, option);
-            let sortedReferenceResults = applySort(referenceResults, option);
+      let sortedTargetResults = applySort(targetResults, option);
+      let sortedReferenceResults = applySort(referenceResults, option);
 
-            if (searchReference) {
-                sortedReferenceResults = applySort(referenceResults, option);
-                sortedTargetResults = alignTargetResultsToReferenceOrder({
-                    referenceResults: sortedReferenceResults,
-                    unsortedTargetResults: targetResults,
-                });
-            }
+      if (searchReference) {
+        sortedReferenceResults = applySort(referenceResults, option);
+        sortedTargetResults = alignTargetResultsToReferenceOrder({
+          referenceResults: sortedReferenceResults,
+          unsortedTargetResults: targetResults,
+        });
+      }
 
-            const sortedResults: SearchResult[] = searchReference
-                ? sortedReferenceResults
-                : sortedTargetResults;
+      const sortedResults: SearchResult[] = searchReference
+        ? sortedReferenceResults
+        : sortedTargetResults;
 
-            setTargetResults(sortedTargetResults);
-            setReferenceResults(sortedReferenceResults);
+      setTargetResults(sortedTargetResults);
+      setReferenceResults(sortedReferenceResults);
 
-            if (currentlySelected) {
-                const newIndex = sortedResults.findIndex(
-                    (r) =>
-                        r.sid === currentlySelected.sid &&
-                        r.naturalIndex === currentlySelected.naturalIndex &&
-                        r.source === currentlySelected.source &&
-                        buildPairKey(r) === buildPairKey(currentlySelected),
-                );
-                currentMatchesControls.setCurrentMatchIndex(
-                    newIndex !== -1 ? newIndex : 0,
-                );
-            }
-        },
-        [
-            currentMatchesControls,
-            referenceResults,
-            results,
-            searchReference,
-            targetResults,
-        ],
-    );
+      if (currentlySelected) {
+        const newIndex = sortedResults.findIndex(
+          (r) =>
+            r.sid === currentlySelected.sid &&
+            r.naturalIndex === currentlySelected.naturalIndex &&
+            r.source === currentlySelected.source &&
+            buildPairKey(r) === buildPairKey(currentlySelected),
+        );
+        currentMatchesControls.setCurrentMatchIndex(
+          newIndex !== -1 ? newIndex : 0,
+        );
+      }
+    },
+    [
+      currentMatchesControls,
+      referenceResults,
+      results,
+      searchReference,
+      targetResults,
+    ],
+  );
 
-    const runSearchLogic = useCallback(
-        async (
-            query: string,
-            options: {
-                autoPick?: boolean;
-                scope?: SearchRunScope;
-                overrides?: SearchRunOptionOverrides;
-            } = {},
-        ): Promise<SearchRunResult | null> => {
-            const {
-                autoPick = true,
-                scope = "project",
-                overrides = {},
-            } = options;
-            const effectiveMatchCase = overrides.matchCase ?? matchCase;
-            const effectiveMatchWholeWord =
-                overrides.matchWholeWord ?? matchWholeWord;
-            const effectiveSearchUSFM = overrides.searchUSFM ?? searchUSFM;
-            const effectiveSearchReference =
-                overrides.searchReference ?? searchReference;
-            const effectiveReferenceFiles =
-                overrides.referenceFiles ??
-                resolvedContentProvider.getReferenceFiles();
-            const effectiveHasReferenceSearchAvailable =
-                effectiveReferenceFiles.length > 0;
+  const runSearchLogic = useCallback(
+    async (
+      query: string,
+      options: {
+        autoPick?: boolean;
+        scope?: SearchRunScope;
+        overrides?: SearchRunOptionOverrides;
+      } = {},
+    ): Promise<SearchRunResult | null> => {
+      const { autoPick = true, scope = "project", overrides = {} } = options;
+      const effectiveMatchCase = overrides.matchCase ?? matchCase;
+      const effectiveMatchWholeWord =
+        overrides.matchWholeWord ?? matchWholeWord;
+      const effectiveSearchUSFM = overrides.searchUSFM ?? searchUSFM;
+      const effectiveSearchReference =
+        overrides.searchReference ?? searchReference;
+      const effectiveReferenceFiles =
+        overrides.referenceFiles ?? resolvedContentProvider.getReferenceFiles();
+      const effectiveHasReferenceSearchAvailable =
+        effectiveReferenceFiles.length > 0;
 
-            if (searchAbortController.current) {
-                searchAbortController.current.abort();
-            }
+      if (searchAbortController.current) {
+        searchAbortController.current.abort();
+      }
 
-            const controller = new AbortController();
-            searchAbortController.current = controller;
-            const signal = controller.signal;
+      const controller = new AbortController();
+      searchAbortController.current = controller;
+      const signal = controller.signal;
 
-            if (!query.trim()) {
-                setTargetResults([]);
-                setReferenceResults([]);
-                setIsSearching(false);
-                return {
-                    sortedResults: [],
-                    searchMatches: [],
-                };
-            }
+      if (!query.trim()) {
+        setTargetResults([]);
+        setReferenceResults([]);
+        setIsSearching(false);
+        return {
+          sortedResults: [],
+          searchMatches: [],
+        };
+      }
 
-            setIsSearching(true);
+      setIsSearching(true);
 
-            const searchResultsContainer = document.querySelector(
-                `[data-js="${DATA_JS.searchResultsScrollContainer}"]`,
-            );
-            if (searchResultsContainer) {
-                searchResultsContainer.scrollTop = 0;
-            }
+      const searchResultsContainer = document.querySelector(
+        `[data-js="${DATA_JS.searchResultsScrollContainer}"]`,
+      );
+      if (searchResultsContainer) {
+        searchResultsContainer.scrollTop = 0;
+      }
 
-            if (signal.aborted) return null;
+      if (signal.aborted) return null;
 
-            searchHighlightStore.clear();
+      searchHighlightStore.clear();
 
-            const targetFilesToSearch =
-                resolvedContentProvider.getTargetFiles();
-            const targetChapterKeySet = listChapterKeys(targetFilesToSearch);
-            const queryOptions: SearchQuery = {
-                term: query,
-                matchCase: effectiveMatchCase,
-                wholeWord: effectiveMatchWholeWord,
-            };
+      const targetFilesToSearch = resolvedContentProvider.getTargetFiles();
+      const targetChapterKeySet = listChapterKeys(targetFilesToSearch);
+      const queryOptions: SearchQuery = {
+        term: query,
+        matchCase: effectiveMatchCase,
+        wholeWord: effectiveMatchWholeWord,
+      };
 
-            let nextTargetResults = targetResults;
-            let nextReferenceResults = referenceResults;
+      let nextTargetResults = targetResults;
+      let nextReferenceResults = referenceResults;
 
-            if (scope === "currentChapter") {
-                if (effectiveSearchReference) {
-                    if (!effectiveHasReferenceSearchAvailable) {
-                        nextReferenceResults = [];
-                        nextTargetResults = [];
-                    } else {
-                        const sidToText = buildTargetSidTextLookup({
-                            files: targetFilesToSearch,
-                            searchUSFM: effectiveSearchUSFM,
-                        });
-                        nextReferenceResults = referenceResults;
-                        nextTargetResults = pairReferenceResultsToTarget({
-                            referenceResults: nextReferenceResults,
-                            targetSidText: sidToText,
-                        });
-                    }
-                } else {
-                    const currentBookId = pickedFile.bookCode;
-                    const currentChapNum = pickedChapter?.chapterNumber ?? 1;
-                    const targetChapter = findChapter(targetFilesToSearch, {
-                        bookCode: currentBookId,
-                        chapterNum: currentChapNum,
-                    });
-                    const chapterResults = targetChapter
-                        ? runSearch({
-                              chapters: buildSearchChapters({
-                                  files: targetFilesToSearch,
-                                  searchUSFM: effectiveSearchUSFM,
-                                  restrictToChapterKeys: new Set<string>([
-                                      chapterKey(currentBookId, currentChapNum),
-                                  ]),
-                              }),
-                              query: queryOptions,
-                              source: "target",
-                          })
-                        : [];
-                    const dedupedChapterResults = dedupeByVerse(chapterResults);
-                    const untouchedResults = targetResults.filter(
-                        (result) =>
-                            !(
-                                result.bibleIdentifier === currentBookId &&
-                                result.chapNum === currentChapNum
-                            ),
-                    );
-                    nextTargetResults = [
-                        ...untouchedResults,
-                        ...dedupedChapterResults,
-                    ];
-                    nextReferenceResults = [];
-                }
-            } else {
-                if (effectiveSearchReference) {
-                    if (!effectiveHasReferenceSearchAvailable) {
-                        nextReferenceResults = [];
-                        nextTargetResults = [];
-                    } else {
-                        const rawReferenceResults = runSearch({
-                            chapters: buildSearchChapters({
-                                files: effectiveReferenceFiles,
-                                searchUSFM: effectiveSearchUSFM,
-                                restrictToChapterKeys: targetChapterKeySet,
-                            }),
-                            query: queryOptions,
-                            source: "reference",
-                        });
-                        nextReferenceResults =
-                            dedupeByVerse(rawReferenceResults);
-
-                        const sidToText = buildTargetSidTextLookup({
-                            files: targetFilesToSearch,
-                            searchUSFM: effectiveSearchUSFM,
-                        });
-                        nextTargetResults = pairReferenceResultsToTarget({
-                            referenceResults: nextReferenceResults,
-                            targetSidText: sidToText,
-                        });
-                    }
-                } else {
-                    nextTargetResults = runSearch({
-                        chapters: buildSearchChapters({
-                            files: targetFilesToSearch,
-                            searchUSFM: effectiveSearchUSFM,
-                        }),
-                        query: queryOptions,
-                        source: "target",
-                    });
-                    nextTargetResults = dedupeByVerse(nextTargetResults);
-                    nextReferenceResults = [];
-                }
-            }
-
-            if (signal.aborted) return null;
-
-            let sortedTargetResults = applySort(nextTargetResults, currentSort);
-            let sortedReferenceResults = applySort(
-                nextReferenceResults,
-                currentSort,
-            );
-            let sortedResults = sortedTargetResults;
-
-            if (
-                effectiveSearchReference &&
-                effectiveHasReferenceSearchAvailable
-            ) {
-                sortedReferenceResults = applySort(
-                    nextReferenceResults,
-                    currentSort,
-                );
-                sortedTargetResults = alignTargetResultsToReferenceOrder({
-                    referenceResults: sortedReferenceResults,
-                    unsortedTargetResults: nextTargetResults,
-                });
-                sortedResults = sortedReferenceResults;
-            }
-
-            setTargetResults(sortedTargetResults);
-            setReferenceResults(sortedReferenceResults);
-
-            if (!autoPick) {
-                const searchMatches = effectiveSearchReference
-                    ? []
-                    : collectMatchesInCurrentEditor(query, {
-                          ...overrides,
-                          baseMatchCase: effectiveMatchCase,
-                          baseMatchWholeWord: effectiveMatchWholeWord,
-                      });
-                currentMatchesControls.setCurrentMatches(searchMatches);
-                currentMatchesControls.setCurrentMatchIndex(0);
-                currentMatchesControls.setPickedResult(null);
-                const editor = editorRef.current;
-                if (editor && !effectiveSearchReference) {
-                    searchHighlightStore.set([
-                        { editor, matches: searchMatches },
-                    ]);
-                }
-                setIsSearching(false);
-                return {
-                    sortedResults,
-                    searchMatches,
-                };
-            }
-
-            const firstInThisChap = sortedResults.findIndex((r) =>
-                r.sid.startsWith(currentChapterSid),
-            );
-            if (firstInThisChap !== -1) {
-                currentMatchesControls.setCurrentMatchIndex(firstInThisChap);
-                pick(sortedResults[firstInThisChap], {
-                    activeSearchTerm: query,
-                    searchReference: effectiveSearchReference,
-                    matchCase: effectiveMatchCase,
-                    matchWholeWord: effectiveMatchWholeWord,
-                });
-            } else {
-                currentMatchesControls.setCurrentMatchIndex(0);
-                currentMatchesControls.setPickedResult(null);
-            }
-
-            setIsSearching(false);
-            return {
-                sortedResults,
-                searchMatches: [],
-            };
-        },
-        [
-            collectMatchesInCurrentEditor,
-            currentChapterSid,
-            currentMatchesControls,
-            currentSort,
-            editorRef,
-            matchCase,
-            matchWholeWord,
-            pick,
-            pickedChapter?.chapterNumber,
-            pickedFile.bookCode,
-            referenceResults,
-            resolvedContentProvider,
-            searchHighlightStore,
-            searchReference,
-            searchUSFM,
-            targetResults,
-        ],
-    );
-
-    const handleSearchDebounced = useDebouncedCallback((query: string) => {
-        void runSearchLogic(query);
-    }, 500);
-
-    const onSearchChange = useCallback(
-        (value: string) => {
-            setSearchTerm(value);
-
-            if (!value.trim()) {
-                resetSearchUiState({
-                    searchAbortController,
-                    searchHighlightStore,
-                    setTargetResults,
-                    setReferenceResults,
-                    setCurrentMatches: currentMatchesControls.setCurrentMatches,
-                    setCurrentMatchIndex:
-                        currentMatchesControls.setCurrentMatchIndex,
-                    setPickedResult: currentMatchesControls.setPickedResult,
-                    setIsSearching,
-                });
-                return;
-            }
-
-            const searchResultsContainer = document.querySelector(
-                `[data-js="${DATA_JS.searchResultsScrollContainer}"]`,
-            );
-            if (searchResultsContainer) {
-                searchResultsContainer.scrollTop = 0;
-            }
-
-            handleSearchDebounced(value);
-        },
-        [currentMatchesControls, handleSearchDebounced, searchHighlightStore],
-    );
-
-    const submitSearchNow = useCallback(() => {
-        const query = searchTerm.trim();
-        if (!query) {
-            resetSearchUiState({
-                searchAbortController,
-                searchHighlightStore,
-                setTargetResults,
-                setReferenceResults,
-                setCurrentMatches: currentMatchesControls.setCurrentMatches,
-                setCurrentMatchIndex:
-                    currentMatchesControls.setCurrentMatchIndex,
-                setPickedResult: currentMatchesControls.setPickedResult,
-                setIsSearching,
+      if (scope === "currentChapter") {
+        if (effectiveSearchReference) {
+          if (!effectiveHasReferenceSearchAvailable) {
+            nextReferenceResults = [];
+            nextTargetResults = [];
+          } else {
+            const sidToText = buildTargetSidTextLookup({
+              files: targetFilesToSearch,
+              searchUSFM: effectiveSearchUSFM,
             });
-            return;
+            nextReferenceResults = referenceResults;
+            nextTargetResults = pairReferenceResultsToTarget({
+              referenceResults: nextReferenceResults,
+              targetSidText: sidToText,
+            });
+          }
+        } else {
+          const currentBookId = pickedFile.bookCode;
+          const currentChapNum = pickedChapter?.chapterNumber ?? 1;
+          const targetChapter = findChapter(targetFilesToSearch, {
+            bookCode: currentBookId,
+            chapterNum: currentChapNum,
+          });
+          const chapterResults = targetChapter
+            ? runSearch({
+                chapters: buildSearchChapters({
+                  files: targetFilesToSearch,
+                  searchUSFM: effectiveSearchUSFM,
+                  restrictToChapterKeys: new Set<string>([
+                    chapterKey(currentBookId, currentChapNum),
+                  ]),
+                }),
+                query: queryOptions,
+                source: "target",
+              })
+            : [];
+          const dedupedChapterResults = dedupeByVerse(chapterResults);
+          const untouchedResults = targetResults.filter(
+            (result) =>
+              !(
+                result.bibleIdentifier === currentBookId &&
+                result.chapNum === currentChapNum
+              ),
+          );
+          nextTargetResults = [...untouchedResults, ...dedupedChapterResults];
+          nextReferenceResults = [];
         }
-        void runSearchLogic(searchTerm);
-    }, [
-        currentMatchesControls,
-        runSearchLogic,
+      } else {
+        if (effectiveSearchReference) {
+          if (!effectiveHasReferenceSearchAvailable) {
+            nextReferenceResults = [];
+            nextTargetResults = [];
+          } else {
+            const rawReferenceResults = runSearch({
+              chapters: buildSearchChapters({
+                files: effectiveReferenceFiles,
+                searchUSFM: effectiveSearchUSFM,
+                restrictToChapterKeys: targetChapterKeySet,
+              }),
+              query: queryOptions,
+              source: "reference",
+            });
+            nextReferenceResults = dedupeByVerse(rawReferenceResults);
+
+            const sidToText = buildTargetSidTextLookup({
+              files: targetFilesToSearch,
+              searchUSFM: effectiveSearchUSFM,
+            });
+            nextTargetResults = pairReferenceResultsToTarget({
+              referenceResults: nextReferenceResults,
+              targetSidText: sidToText,
+            });
+          }
+        } else {
+          nextTargetResults = runSearch({
+            chapters: buildSearchChapters({
+              files: targetFilesToSearch,
+              searchUSFM: effectiveSearchUSFM,
+            }),
+            query: queryOptions,
+            source: "target",
+          });
+          nextTargetResults = dedupeByVerse(nextTargetResults);
+          nextReferenceResults = [];
+        }
+      }
+
+      if (signal.aborted) return null;
+
+      let sortedTargetResults = applySort(nextTargetResults, currentSort);
+      let sortedReferenceResults = applySort(nextReferenceResults, currentSort);
+      let sortedResults = sortedTargetResults;
+
+      if (effectiveSearchReference && effectiveHasReferenceSearchAvailable) {
+        sortedReferenceResults = applySort(nextReferenceResults, currentSort);
+        sortedTargetResults = alignTargetResultsToReferenceOrder({
+          referenceResults: sortedReferenceResults,
+          unsortedTargetResults: nextTargetResults,
+        });
+        sortedResults = sortedReferenceResults;
+      }
+
+      setTargetResults(sortedTargetResults);
+      setReferenceResults(sortedReferenceResults);
+
+      if (!autoPick) {
+        const searchMatches = effectiveSearchReference
+          ? []
+          : collectMatchesInCurrentEditor(query, {
+              ...overrides,
+              baseMatchCase: effectiveMatchCase,
+              baseMatchWholeWord: effectiveMatchWholeWord,
+            });
+        currentMatchesControls.setCurrentMatches(searchMatches);
+        currentMatchesControls.setCurrentMatchIndex(0);
+        currentMatchesControls.setPickedResult(null);
+        const editor = editorRef.current;
+        if (editor && !effectiveSearchReference) {
+          searchHighlightStore.set([{ editor, matches: searchMatches }]);
+        }
+        setIsSearching(false);
+        return {
+          sortedResults,
+          searchMatches,
+        };
+      }
+
+      const firstInThisChap = sortedResults.findIndex((r) =>
+        r.sid.startsWith(currentChapterSid),
+      );
+      if (firstInThisChap !== -1) {
+        currentMatchesControls.setCurrentMatchIndex(firstInThisChap);
+        pick(sortedResults[firstInThisChap], {
+          activeSearchTerm: query,
+          searchReference: effectiveSearchReference,
+          matchCase: effectiveMatchCase,
+          matchWholeWord: effectiveMatchWholeWord,
+        });
+      } else {
+        currentMatchesControls.setCurrentMatchIndex(0);
+        currentMatchesControls.setPickedResult(null);
+      }
+
+      setIsSearching(false);
+      return {
+        sortedResults,
+        searchMatches: [],
+      };
+    },
+    [
+      collectMatchesInCurrentEditor,
+      currentChapterSid,
+      currentMatchesControls,
+      currentSort,
+      editorRef,
+      matchCase,
+      matchWholeWord,
+      pick,
+      pickedChapter?.chapterNumber,
+      pickedFile.bookCode,
+      referenceResults,
+      resolvedContentProvider,
+      searchHighlightStore,
+      searchReference,
+      searchUSFM,
+      targetResults,
+    ],
+  );
+
+  const handleSearchDebounced = useDebouncedCallback((query: string) => {
+    void runSearchLogic(query);
+  }, 500);
+
+  const onSearchChange = useCallback(
+    (value: string) => {
+      setSearchTerm(value);
+
+      if (!value.trim()) {
+        resetSearchUiState({
+          searchAbortController,
+          searchHighlightStore,
+          setTargetResults,
+          setReferenceResults,
+          setCurrentMatches: currentMatchesControls.setCurrentMatches,
+          setCurrentMatchIndex: currentMatchesControls.setCurrentMatchIndex,
+          setPickedResult: currentMatchesControls.setPickedResult,
+          setIsSearching,
+        });
+        return;
+      }
+
+      const searchResultsContainer = document.querySelector(
+        `[data-js="${DATA_JS.searchResultsScrollContainer}"]`,
+      );
+      if (searchResultsContainer) {
+        searchResultsContainer.scrollTop = 0;
+      }
+
+      handleSearchDebounced(value);
+    },
+    [currentMatchesControls, handleSearchDebounced, searchHighlightStore],
+  );
+
+  const submitSearchNow = useCallback(() => {
+    const query = searchTerm.trim();
+    if (!query) {
+      resetSearchUiState({
+        searchAbortController,
         searchHighlightStore,
-        searchTerm,
-    ]);
-
-    const rerunForCurrentChapter = useCallback(() => {
-        if (!isSearchPaneOpen) return;
-        if (!searchTerm.trim()) return;
-        setTimeout(() => {
-            void runSearchLogic(searchTerm, {
-                autoPick: false,
-                scope: "currentChapter",
-            });
-        }, 0);
-    }, [isSearchPaneOpen, runSearchLogic, searchTerm]);
-
-    const setMatchCase = useCallback(
-        (next: boolean) => {
-            setMatchCaseState(next);
-            if (searchTerm.trim()) {
-                void runSearchLogic(searchTerm, {
-                    autoPick: false,
-                    scope: "project",
-                    overrides: { matchCase: next },
-                });
-            }
-        },
-        [runSearchLogic, searchTerm],
-    );
-
-    const setMatchWholeWord = useCallback(
-        (next: boolean) => {
-            setMatchWholeWordState(next);
-            if (searchTerm.trim()) {
-                void runSearchLogic(searchTerm, {
-                    autoPick: false,
-                    scope: "project",
-                    overrides: { matchWholeWord: next },
-                });
-            }
-        },
-        [runSearchLogic, searchTerm],
-    );
-
-    const setSearchUSFM = useCallback(
-        (next: boolean) => {
-            setSearchUSFMState(next);
-            if (searchTerm.trim()) {
-                void runSearchLogic(searchTerm, {
-                    autoPick: false,
-                    scope: "project",
-                    overrides: { searchUSFM: next },
-                });
-            }
-        },
-        [runSearchLogic, searchTerm],
-    );
-
-    const setSearchReference = useCallback(
-        (next: boolean) => {
-            if (!hasReferenceSearchAvailable) {
-                setSearchReferenceState(false);
-                return;
-            }
-            setSearchReferenceState(next);
-            if (searchTerm.trim()) {
-                void runSearchLogic(searchTerm, {
-                    autoPick: false,
-                    scope: "project",
-                    overrides: { searchReference: next },
-                });
-            }
-        },
-        [hasReferenceSearchAvailable, runSearchLogic, searchTerm],
-    );
-
-    const setSearchPaneOpen = useCallback(
-        (next: boolean | ((prevState: boolean) => boolean)) => {
-            setIsSearchPaneOpen((prev) => {
-                const resolved = typeof next === "function" ? next(prev) : next;
-                if (resolved && searchTerm.trim()) {
-                    void runSearchLogic(searchTerm, {
-                        autoPick: false,
-                    });
-                }
-                return resolved;
-            });
-        },
-        [runSearchLogic, searchTerm],
-    );
-
-    return {
-        searchTerm,
-        isSearching,
-        targetResults,
-        referenceResults,
-        currentSort,
-        isSearchPaneOpen,
-        matchWholeWord,
-        matchCase,
-        searchUSFM,
-        searchReference,
-        hasReferenceSearchAvailable,
-        results,
-        onSearchChange,
-        submitSearchNow,
-        rerunForCurrentChapter,
-        sortBy,
-        setMatchCase,
-        setMatchWholeWord,
-        setSearchUSFM,
-        setSearchReference,
-        setSearchPaneOpen,
-        runSearchLogic,
-        setSearchReferenceState,
         setTargetResults,
         setReferenceResults,
-    };
+        setCurrentMatches: currentMatchesControls.setCurrentMatches,
+        setCurrentMatchIndex: currentMatchesControls.setCurrentMatchIndex,
+        setPickedResult: currentMatchesControls.setPickedResult,
+        setIsSearching,
+      });
+      return;
+    }
+    void runSearchLogic(searchTerm);
+  }, [
+    currentMatchesControls,
+    runSearchLogic,
+    searchHighlightStore,
+    searchTerm,
+  ]);
+
+  const rerunForCurrentChapter = useCallback(() => {
+    if (!isSearchPaneOpen) return;
+    if (!searchTerm.trim()) return;
+    setTimeout(() => {
+      void runSearchLogic(searchTerm, {
+        autoPick: false,
+        scope: "currentChapter",
+      });
+    }, 0);
+  }, [isSearchPaneOpen, runSearchLogic, searchTerm]);
+
+  const setMatchCase = useCallback(
+    (next: boolean) => {
+      setMatchCaseState(next);
+      if (searchTerm.trim()) {
+        void runSearchLogic(searchTerm, {
+          autoPick: false,
+          scope: "project",
+          overrides: { matchCase: next },
+        });
+      }
+    },
+    [runSearchLogic, searchTerm],
+  );
+
+  const setMatchWholeWord = useCallback(
+    (next: boolean) => {
+      setMatchWholeWordState(next);
+      if (searchTerm.trim()) {
+        void runSearchLogic(searchTerm, {
+          autoPick: false,
+          scope: "project",
+          overrides: { matchWholeWord: next },
+        });
+      }
+    },
+    [runSearchLogic, searchTerm],
+  );
+
+  const setSearchUSFM = useCallback(
+    (next: boolean) => {
+      setSearchUSFMState(next);
+      if (searchTerm.trim()) {
+        void runSearchLogic(searchTerm, {
+          autoPick: false,
+          scope: "project",
+          overrides: { searchUSFM: next },
+        });
+      }
+    },
+    [runSearchLogic, searchTerm],
+  );
+
+  const setSearchReference = useCallback(
+    (next: boolean) => {
+      if (!hasReferenceSearchAvailable) {
+        setSearchReferenceState(false);
+        return;
+      }
+      setSearchReferenceState(next);
+      if (searchTerm.trim()) {
+        void runSearchLogic(searchTerm, {
+          autoPick: false,
+          scope: "project",
+          overrides: { searchReference: next },
+        });
+      }
+    },
+    [hasReferenceSearchAvailable, runSearchLogic, searchTerm],
+  );
+
+  const setSearchPaneOpen = useCallback(
+    (next: boolean | ((prevState: boolean) => boolean)) => {
+      setIsSearchPaneOpen((prev) => {
+        const resolved = typeof next === "function" ? next(prev) : next;
+        if (resolved && searchTerm.trim()) {
+          void runSearchLogic(searchTerm, {
+            autoPick: false,
+          });
+        }
+        return resolved;
+      });
+    },
+    [runSearchLogic, searchTerm],
+  );
+
+  return {
+    searchTerm,
+    isSearching,
+    targetResults,
+    referenceResults,
+    currentSort,
+    isSearchPaneOpen,
+    matchWholeWord,
+    matchCase,
+    searchUSFM,
+    searchReference,
+    hasReferenceSearchAvailable,
+    results,
+    onSearchChange,
+    submitSearchNow,
+    rerunForCurrentChapter,
+    sortBy,
+    setMatchCase,
+    setMatchWholeWord,
+    setSearchUSFM,
+    setSearchReference,
+    setSearchPaneOpen,
+    runSearchLogic,
+    setSearchReferenceState,
+    setTargetResults,
+    setReferenceResults,
+  };
 }

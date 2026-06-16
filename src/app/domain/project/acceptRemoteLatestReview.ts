@@ -2,9 +2,9 @@ import { adoptRemoteLatestAsLocalBase } from "@/app/domain/project/adoptRemoteLa
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
 import {
-    createDefaultGitRemoteProjectStatus,
-    GIT_REMOTE_PROJECT_STATUS_CONNECTED,
-    type GitRemoteProjectStatus,
+  createDefaultGitRemoteProjectStatus,
+  GIT_REMOTE_PROJECT_STATUS_CONNECTED,
+  type GitRemoteProjectStatus,
 } from "@/core/persistence/gitRemoteModels.ts";
 import { applyGitRemoteProjectStatus } from "@/core/persistence/gitRemoteStore.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
@@ -17,32 +17,31 @@ import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
  * advances to the already-reviewed remote head.
  */
 export async function acceptRemoteLatestReview(args: {
-    projectPath: string;
-    trackedBranch: string;
-    remoteHead: string;
-    fileSystem: FileSystem;
-    storageRoots: StorageRoots;
-    gitProvider: GitProvider;
-    now?: () => string;
+  projectPath: string;
+  trackedBranch: string;
+  remoteHead: string;
+  fileSystem: FileSystem;
+  storageRoots: StorageRoots;
+  gitProvider: GitProvider;
+  now?: () => string;
 }): Promise<GitRemoteProjectStatus> {
-    const replay = await adoptRemoteLatestAsLocalBase({
-        projectPath: args.projectPath,
-        trackedBranch: args.trackedBranch,
-        remoteHead: args.remoteHead,
-        gitProvider: args.gitProvider,
-    });
-    const nextStatus = await applyGitRemoteProjectStatus({
-        fileSystem: args.fileSystem,
-        storageRoots: args.storageRoots,
-        projectPath: args.projectPath,
-        update: (existing) => ({
-            ...(existing ??
-                createDefaultGitRemoteProjectStatus(args.projectPath)),
-            kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
-            lastCheckedAt: args.now?.() ?? new Date().toISOString(),
-            lastKnownLocalHead: replay.head ?? args.remoteHead,
-            lastKnownRemoteHead: args.remoteHead,
-        }),
-    });
-    return nextStatus;
+  const replay = await adoptRemoteLatestAsLocalBase({
+    projectPath: args.projectPath,
+    trackedBranch: args.trackedBranch,
+    remoteHead: args.remoteHead,
+    gitProvider: args.gitProvider,
+  });
+  const nextStatus = await applyGitRemoteProjectStatus({
+    fileSystem: args.fileSystem,
+    storageRoots: args.storageRoots,
+    projectPath: args.projectPath,
+    update: (existing) => ({
+      ...(existing ?? createDefaultGitRemoteProjectStatus(args.projectPath)),
+      kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
+      lastCheckedAt: args.now?.() ?? new Date().toISOString(),
+      lastKnownLocalHead: replay.head ?? args.remoteHead,
+      lastKnownRemoteHead: args.remoteHead,
+    }),
+  });
+  return nextStatus;
 }

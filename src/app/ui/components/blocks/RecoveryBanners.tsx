@@ -11,23 +11,23 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
  * where and how the banners are rendered.
  */
 export function RecoveryBanners() {
-    const { recovery } = useWorkspaceContext();
-    return (
-        <>
-            {recovery.isRestoredBannerOpen && (
-                <RestoredBuffersBanner
-                    bookCodes={recovery.restoredBookCodes}
-                    conflictedBookCodes={recovery.conflictedBookCodes}
-                    onKeep={recovery.keepRecoveredWork}
-                    onDiscard={recovery.discardRecoveredWork}
-                />
-            )}
-            {recovery.isRecoveryReportOpen && (
-                <RecoveryReportBanner
-                    entries={recovery.recoveryReportEntries}
-                    onDismiss={recovery.dismissRecoveryReport}
-                />
-            )}
-        </>
-    );
+  const { recovery } = useWorkspaceContext();
+  return (
+    <>
+      {recovery.isRestoredBannerOpen && (
+        <RestoredBuffersBanner
+          bookCodes={recovery.restoredBookCodes}
+          conflictedBookCodes={recovery.conflictedBookCodes}
+          onKeep={recovery.keepRecoveredWork}
+          onDiscard={recovery.discardRecoveredWork}
+        />
+      )}
+      {recovery.isRecoveryReportOpen && (
+        <RecoveryReportBanner
+          entries={recovery.recoveryReportEntries}
+          onDismiss={recovery.dismissRecoveryReport}
+        />
+      )}
+    </>
+  );
 }

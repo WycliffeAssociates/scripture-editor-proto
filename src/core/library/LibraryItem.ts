@@ -1,9 +1,9 @@
 import type { TranslationNotesItem } from "@/core/library/items/TranslationNotesItem.ts";
 import type { UsfmScriptureItem } from "@/core/library/items/UsfmScriptureItem.ts";
 import type {
-    AnchorNavigationCapability,
-    LibraryItemCapabilities,
-    RemoteSyncCapability,
+  AnchorNavigationCapability,
+  LibraryItemCapabilities,
+  RemoteSyncCapability,
 } from "@/core/library/LibraryItemCapabilities.ts";
 
 export type * from "@/core/library/items/TranslationNotesItem.ts";
@@ -24,18 +24,18 @@ export type LibraryItem = UsfmScriptureItem | TranslationNotesItem;
  * Narrow a generic loaded item to the editable scripture noun.
  */
 export function isUsfmScriptureItem(
-    item: LibraryItem,
+  item: LibraryItem,
 ): item is UsfmScriptureItem {
-    return item.type === "usfmScripture";
+  return item.type === "usfmScripture";
 }
 
 /**
  * Narrow a generic loaded item to the Translation Notes noun.
  */
 export function isTranslationNotesItem(
-    item: LibraryItem,
+  item: LibraryItem,
 ): item is TranslationNotesItem {
-    return item.type === "translationNotes";
+  return item.type === "translationNotes";
 }
 
 /**
@@ -44,9 +44,9 @@ export function isTranslationNotesItem(
  * opt in without changing the top-level library seam.
  */
 export function isEditableItem(item: LibraryItem): item is UsfmScriptureItem & {
-    capabilities: LibraryItemCapabilities & { editableWith: "usfmScripture" };
+  capabilities: LibraryItemCapabilities & { editableWith: "usfmScripture" };
 } {
-    return item.capabilities.editableWith === "usfmScripture";
+  return item.capabilities.editableWith === "usfmScripture";
 }
 
 /**
@@ -54,11 +54,11 @@ export function isEditableItem(item: LibraryItem): item is UsfmScriptureItem & {
  * remote source.
  */
 export function isRemoteSyncCapable(item: LibraryItem): item is LibraryItem & {
-    capabilities: LibraryItemCapabilities & {
-        remoteSync: RemoteSyncCapability;
-    };
+  capabilities: LibraryItemCapabilities & {
+    remoteSync: RemoteSyncCapability;
+  };
 } {
-    return item.capabilities.remoteSync?.kind === "remoteSync";
+  return item.capabilities.remoteSync?.kind === "remoteSync";
 }
 
 /**
@@ -66,11 +66,11 @@ export function isRemoteSyncCapable(item: LibraryItem): item is LibraryItem & {
  * browseable reference documents.
  */
 export function isAnchorNavigationCapable(
-    item: LibraryItem,
+  item: LibraryItem,
 ): item is LibraryItem & {
-    capabilities: LibraryItemCapabilities & {
-        anchorNavigation: AnchorNavigationCapability;
-    };
+  capabilities: LibraryItemCapabilities & {
+    anchorNavigation: AnchorNavigationCapability;
+  };
 } {
-    return item.capabilities.anchorNavigation?.kind === "anchorNavigation";
+  return item.capabilities.anchorNavigation?.kind === "anchorNavigation";
 }

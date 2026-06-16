@@ -1,6 +1,7 @@
 # Find and Replace
 
 ## What this feature does
+
 - Searches across the loaded project (all books and chapters currently in memory).
 - Finds matches by SID-scoped text segments so results can jump to exact scripture locations.
 - Supports:
@@ -16,6 +17,7 @@
   - Case mismatches first
 
 ## How to access it in the app
+
 - In a project, click the search icon in the top toolbar.
 - Keyboard shortcuts:
   - `Cmd/Ctrl + F`: open search and focus input
@@ -24,6 +26,7 @@
 - Mobile: bottom drawer.
 
 ## Typical user flow
+
 1. Open search (`Cmd/Ctrl + F` or toolbar icon).
 2. Enter a query.
 3. Optionally enable `Match Case`, `Whole Word`, or `Include USFM markers`.
@@ -33,6 +36,7 @@
 6. Use `Review & Save` to persist changes to disk.
 
 ## Current limits and non-goals
+
 - **No project-wide "Replace All"** affordance. The blast radius of a
   single-click replace across every chapter was judged too easy to mess
   up unknowingly, so the UI exposes only one-match-at-a-time replacement.
@@ -50,8 +54,8 @@ the highlighter directly. When the structure-maintenance pipeline or a
 chapter swap moved Lexical nodes between paints, the painted decorations
 drifted away from where matches actually lived.
 
-The current architecture decouples *what should be highlighted* from
-*when to repaint*:
+The current architecture decouples _what should be highlighted_ from
+_when to repaint_:
 
 - **`SearchHighlightStore`** (`src/app/state/SearchHighlightStore.ts`) holds
   the current `SearchHighlightInput[] | null`. Search hooks (execution,
@@ -63,6 +67,14 @@ The current architecture decouples *what should be highlighted* from
   bumped by `overlayTickPipeline` after commits and by workspace-level
   scroll / resize listeners, so highlights stay in lockstep with the live
   DOM.
+
+Search reads `currentTokens` directly from each `ScriptureChapterState` via
+`tokensToLexical` in flat mode (`chapterFlatChildren` in `SearchService.ts`).
+This is mode-independent: the flat token projection carries every token's
+`sid` and text regardless of whether the editor is in regular, form, or flat
+shape. A separate Lexical in-editor scan (`collectMatchesInCurrentEditor`)
+handles the active-chapter highlight matches — it runs against the live editor
+tree so caret positions are exact.
 
 Replace operations mutate Lexical directly in `editor.update()`, then
 re-run `runSearchLogic()` so the result list and highlights stay
@@ -91,6 +103,7 @@ contract (undo restores editor text) is in
 tests.
 
 ## Key modules (for agents)
+
 - `src/app/ui/components/views/search-panel/SearchPanel.tsx`
 - `src/app/ui/components/views/search-panel/SearchControls.tsx`
 - `src/app/ui/components/views/search-panel/SearchResults.tsx`

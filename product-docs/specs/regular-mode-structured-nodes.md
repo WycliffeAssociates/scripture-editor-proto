@@ -37,9 +37,9 @@ Self-gating — they act only when the selection is inside a numbered node.
   previous sibling.
 - **Two-stage delete:** a backspace that would empty the node empties it (caret
   stays, the missing-number finding appears); a second backspace removes the
-  whole node. At the prose edge, the node's *sole* trailing space is onion's
+  whole node. At the prose edge, the node's _sole_ trailing space is onion's
   argument delimiter and is protected (deleting it would strand the digits and
-  diverge model from bytes); disk *excess* whitespace deletes one char at a
+  diverge model from bytes); disk _excess_ whitespace deletes one char at a
   time as ordinary content.
 - **Space-at-end caret jump** — required whitespace already exists, so a space
   at the node end just moves the caret to where typing belongs.
@@ -79,4 +79,3 @@ against known markers → `parseUsfm` → the same pairing pass), not a regex.
 - `src/app/domain/editor/utils/modeTransforms.ts` — pairing pass
 - `src/app/domain/editor/pipelines/structureMaintenancePipeline.ts`,
   `tokenFixpointPipeline.ts`
-- Settled design + rationale: `agent-tmp/plans/regular-mode-structured-nodes/`

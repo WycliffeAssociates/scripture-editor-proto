@@ -21,11 +21,11 @@ import { getParagraphCategory } from "@/core/domain/usfm/onionMarkers.ts";
 import type { ParagraphCategory } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 export type ParagraphMarkerCategory =
-    | "poetry"
-    | "heading"
-    | "rule"
-    | "list"
-    | "paragraph";
+  | "poetry"
+  | "heading"
+  | "rule"
+  | "list"
+  | "paragraph";
 
 /**
  * App presentation grouping with no upstream equivalent: blank-line and
@@ -41,32 +41,32 @@ const RULE_MARKERS = new Set(["b", "pb"]);
  * if the catalog gains them.
  */
 const LOCAL_UNCATALOGED_MARKERS: Record<string, ParagraphMarkerCategory> = {
-    ms4: "heading",
-    sb: "heading",
-    ph1: "paragraph",
-    ph2: "paragraph",
-    ph3: "paragraph",
-    hl: "paragraph",
+  ms4: "heading",
+  sb: "heading",
+  ph1: "paragraph",
+  ph2: "paragraph",
+  ph3: "paragraph",
+  hl: "paragraph",
 };
 
 /** Project the catalog's semantic category onto a form-mode block category. */
 function formCategoryForParagraphCategory(
-    category: ParagraphCategory,
+  category: ParagraphCategory,
 ): ParagraphMarkerCategory | null {
-    switch (category) {
-        case "section":
-            return "heading";
-        case "poetry":
-            return "poetry";
-        case "list":
-            return "list";
-        case "body":
-            return "paragraph";
-        // identification / introduction / title / table / peripheral / other:
-        // not a form-mode block.
-        default:
-            return null;
-    }
+  switch (category) {
+    case "section":
+      return "heading";
+    case "poetry":
+      return "poetry";
+    case "list":
+      return "list";
+    case "body":
+      return "paragraph";
+    // identification / introduction / title / table / peripheral / other:
+    // not a form-mode block.
+    default:
+      return null;
+  }
 }
 
 /**
@@ -74,16 +74,16 @@ function formCategoryForParagraphCategory(
  * marker is not paragraph-class (and therefore should not start a new block).
  */
 export function classifyParagraphMarker(
-    marker: string,
+  marker: string,
 ): ParagraphMarkerCategory | null {
-    // Local overrides first: the app's "rule" grouping and the legacy markers
-    // the catalog omits both take precedence over (or stand in for) the catalog.
-    if (RULE_MARKERS.has(marker)) return "rule";
-    const local = LOCAL_UNCATALOGED_MARKERS[marker];
-    if (local) return local;
+  // Local overrides first: the app's "rule" grouping and the legacy markers
+  // the catalog omits both take precedence over (or stand in for) the catalog.
+  if (RULE_MARKERS.has(marker)) return "rule";
+  const local = LOCAL_UNCATALOGED_MARKERS[marker];
+  if (local) return local;
 
-    const category = getParagraphCategory(marker);
-    return category ? formCategoryForParagraphCategory(category) : null;
+  const category = getParagraphCategory(marker);
+  return category ? formCategoryForParagraphCategory(category) : null;
 }
 
 /**
@@ -93,6 +93,6 @@ export function classifyParagraphMarker(
  * for any direct consumer.
  */
 export function isSectionMarker(marker: string): boolean {
-    if (marker === "ms4" || marker === "sb") return true;
-    return getParagraphCategory(marker) === "section";
+  if (marker === "ms4" || marker === "sb") return true;
+  return getParagraphCategory(marker) === "section";
 }

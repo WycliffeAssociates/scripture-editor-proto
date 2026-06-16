@@ -1,6 +1,7 @@
 # Save, Diff, and Revert
 
 ## What this feature does
+
 - Tracks unsaved chapter edits in working state.
 - Generates reviewable diffs before saving.
 - Diffs are computed by SID block runs over flattened token streams (not raw paragraph containers).
@@ -24,6 +25,7 @@
 - Keeps local save authoritative: linked projects save locally first, then optionally publish to cloud as follow-on behavior.
 
 ## How to access it in the app
+
 - In a project toolbar, click `Review & Save` (or save icon on smaller screens).
 - Diff modal actions:
   - `Save all changes`
@@ -41,6 +43,7 @@
     - Per-hunk `Undo` overlays in the Current pane
 
 ## Typical user flow
+
 1. Make edits.
 2. Open `Review & Save`.
 3. Choose `List view` for SID-level entries or `Chapter view` for side-by-side chapter context.
@@ -50,6 +53,7 @@
 7. Save all changes to persist to disk.
 
 ## Linked cloud project behavior
+
 - `Review & Save` still means local save first.
 - If the project is cloud-linked and auto-publish is enabled, publish happens after the local save completes.
 - Advanced save policy settings can relax how much review is shown:
@@ -108,7 +112,7 @@ It returns one `SaveResult`:
   (unreviewed recovered conflicts without attestation).
 
 **Invariant — "saved to disk" ≠ "versioned" ≠ "published."** A git-checkpoint
-or publish failure is a *warning*, not a save failure: the bytes are on disk
+or publish failure is a _warning_, not a save failure: the bytes are on disk
 and the persisted books are marked clean regardless. That's why checkpoint and
 publish are independent substates inside the `saved` result rather than things
 that can fail the save.
@@ -123,7 +127,7 @@ The save command cooperates with the crash-recovery autosave feature
   non-empty and the option isn't `true`, the precondition check returns
   `{ kind: "blocked", reason: "recovered-review-required" }` without touching
   disk. `useSave.saveReview.open` forces the diff modal (bypassing `Auto
-  Accept My Work on Save`) while the tracker holds entries; the modal's
+Accept My Work on Save`) while the tracker holds entries; the modal's
   local-review Save action passes the attestation. The attestation is **only**
   issued from the local-unsaved-review modal path — never from
   external-compare-review — which is enforced by blocking external-compare
@@ -134,11 +138,10 @@ The save command cooperates with the crash-recovery autosave feature
 - **Captured-content rebase per chapter.** The pipeline freezes
   `{ tokens }` per chapter at the save snapshot (the same synchronous instant
   the payload is built) and, after successful per-book persistence,
-  `rebaseChapterToCapturedSave` advances `sourceTokens` and reconstructs
-  `loadedLexicalState` from the *captured* tokens — not live `currentTokens`,
-  so a keystroke mid-save stays dirty rather than being silently swallowed.
-  This is what makes the per-chapter `dirty` flag honest under concurrent
-  mutation during a save, and what lets the
+  `rebaseChapterToCapturedSave` advances `sourceTokens` to the captured tokens
+  and re-derives `dirty` — so a keystroke mid-save stays dirty rather than
+  being silently swallowed. This is what makes the per-chapter `dirty` flag
+  honest under concurrent mutation during a save, and what lets the
   `recoveredConflictTrackerSubscriber` clear tracker entries by observing the
   chapter clean.
 
@@ -147,6 +150,7 @@ successful book write so the dirty-buffer pipeline's next backup wrapper
 records the freshly-saved disk content as the new baseline.
 
 ## Current limits and non-goals
+
 - Saving writes changed books as full USFM book content assembled from chapter state. `serializeChaptersToUsfm` emits chapters in their stored order (no sorting) and re-applies each chapter's original `eol` (`\n` or `\r\n`) so CRLF files round-trip as CRLF rather than producing phantom whitespace-only diffs.
 - The project file itself is never autosaved; explicit save is the only thing that changes disk. Background dirty-buffer backups are a separate safety-net file (`crash-recovery-autosave.md`).
 - Diff UI only shows chapters currently marked dirty.
@@ -174,6 +178,12 @@ fresh snapshot from the editor each time. The relevant paths:
   via `draftWithChapters`, rebases each to its captured-save tokens (which
   flips `dirty` to `false`), and bulk-commits. Books that failed to persist
   keep their dirty state.
+- **Per-diff-block revert goes through the validated async seam.**
+  `revertDiff` awaits the onion service to compute the reverted tokens, so it
+  rides `withWorkingFilesDraft` (`workingFileCommand.ts`): the draft is
+  checked out before the await, the mutation runs inside `mutate`, and
+  `commitIfNotStale` aborts on a stale chapter or a closed gate rather than
+  clobbering a concurrent commit.
 - **External-compare apply goes through the validated incoming boundary.**
   A hunk apply (`applyIncomingHunkToCurrent`) has to await a token compute, so
   it commits through `applyIncomingToStore` / `runIncomingMutation`
@@ -182,12 +192,26 @@ fresh snapshot from the editor each time. The relevant paths:
   closed gate, then overlay only the affected chapters onto the latest read.
   The synchronous full-chapter / all-chapter applies build a
   `draftWithChapters` and bulk-commit in one stack frame with a gate recheck
-  at the commit boundary. Both (compute on scratch / draft → validate →
-  commit) replace the old "mutate-in-place, then call rebuild" approach.
-- **Revert all** uses the same pattern with the original loaded source.
+  at the commit boundary.
+- **Revert all** and **revert chapter** use `withWorkingFilesDraftSync` —
+  the synchronous sibling in `workingFileCommand.ts` — since no await
+  intervenes between reading `sourceTokens` and writing `currentTokens`.
+
+## Print changes (WIP)
+
+A `PrintChangesButton` lives in the diff modal toolbar (`DiffViewerToolbar.tsx`).
+It calls `buildPrintChanges` (wired through `useExternalCompare`) which delegates
+to `buildPrintChangeSet` (`src/app/domain/project/print/buildPrintChangeSet.ts`)
+and `renderPrintDocument.ts`. The feature diffs a saved checkpoint against the
+current working state and renders a printable HTML document scoped by book/chapter
+and granularity. As of this writing it is merged but marked WIP and has not been
+formally reviewed.
 
 ## Key modules (for agents)
+
 - `src/app/domain/project/savePipeline.ts` (`runSavePipeline`, `SaveResult`)
+- `src/app/domain/project/workingFileCommand.ts` (`withWorkingFilesDraft`,
+  `withWorkingFilesDraftSync`, `commitIfNotStale`)
 - `src/app/ui/hooks/useSave.tsx`
 - `src/app/ui/hooks/save/useSaveAndRevert.ts`
 - `src/app/ui/hooks/save/useExternalCompare.ts`
@@ -204,8 +228,12 @@ fresh snapshot from the editor each time. The relevant paths:
 - `src/core/domain/usfm/sidBlockDiff.ts`
 - `src/core/domain/usfm/sidBlockRevert.ts`
 - `src/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts`
+- `src/app/domain/project/print/buildPrintChangeSet.ts`,
+  `renderPrintDocument.ts` (WIP print-changes feature)
+- `src/app/ui/components/blocks/DiffModal/PrintChangesButton.tsx`
 
 ## Validation references
+
 - `tests/e2e/save.spec.ts`
   - List view review + chapter navigation + single-diff revert
   - Save persistence after reload

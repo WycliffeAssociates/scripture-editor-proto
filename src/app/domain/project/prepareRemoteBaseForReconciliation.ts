@@ -1,9 +1,10 @@
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
 import {
-    GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY,
-    GIT_REMOTE_RELATIONSHIP_DIVERGED,
-    type GitRemoteRelationshipKind,
+  GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY,
+  GIT_REMOTE_RELATIONSHIP_DIVERGED,
+  type GitRemoteRelationshipKind,
 } from "@/core/persistence/gitRemoteRelationship.ts";
+
 import { adoptRemoteLatestAsLocalBase } from "./adoptRemoteLatestAsLocalBase.ts";
 
 /**
@@ -14,23 +15,23 @@ import { adoptRemoteLatestAsLocalBase } from "./adoptRemoteLatestAsLocalBase.ts"
  * git ancestry underneath it.
  */
 export async function prepareRemoteBaseForReconciliation(args: {
-    projectPath: string;
-    trackedBranch: string;
-    remoteHead: string;
-    relationship: GitRemoteRelationshipKind;
-    gitProvider: GitProvider;
+  projectPath: string;
+  trackedBranch: string;
+  remoteHead: string;
+  relationship: GitRemoteRelationshipKind;
+  gitProvider: GitProvider;
 }) {
-    if (
-        args.relationship !== GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY &&
-        args.relationship !== GIT_REMOTE_RELATIONSHIP_DIVERGED
-    ) {
-        return null;
-    }
+  if (
+    args.relationship !== GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY &&
+    args.relationship !== GIT_REMOTE_RELATIONSHIP_DIVERGED
+  ) {
+    return null;
+  }
 
-    return adoptRemoteLatestAsLocalBase({
-        projectPath: args.projectPath,
-        trackedBranch: args.trackedBranch,
-        remoteHead: args.remoteHead,
-        gitProvider: args.gitProvider,
-    });
+  return adoptRemoteLatestAsLocalBase({
+    projectPath: args.projectPath,
+    trackedBranch: args.trackedBranch,
+    remoteHead: args.remoteHead,
+    gitProvider: args.gitProvider,
+  });
 }

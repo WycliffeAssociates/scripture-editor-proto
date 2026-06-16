@@ -1,195 +1,196 @@
 import { createHeadlessEditor } from "@lexical/headless";
 import {
-    $createParagraphNode,
-    $getRoot,
-    $isElementNode,
-    type LexicalEditor,
-    LineBreakNode,
-    ParagraphNode,
+  $createParagraphNode,
+  $getRoot,
+  $isElementNode,
+  type LexicalEditor,
+  LineBreakNode,
+  ParagraphNode,
 } from "lexical";
 import { describe, expect, it, vi } from "vitest";
+
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { settingsDefaults } from "@/app/data/settings.ts";
 import {
-    maintainDocumentStructure,
-    maintainDocumentStructureDebounced,
+  maintainDocumentStructure,
+  maintainDocumentStructureDebounced,
 } from "@/app/domain/editor/listeners/maintainDocumentStructure.ts";
 import {
-    $createUSFMParagraphNode,
-    USFMParagraphNode,
+  $createUSFMParagraphNode,
+  USFMParagraphNode,
 } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
-    $createUSFMTextNode,
-    $isUSFMTextNode,
-    USFMTextNode,
+  $createUSFMTextNode,
+  $isUSFMTextNode,
+  USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 
 function createEmptyTestEditor(): LexicalEditor {
-    return createHeadlessEditor({
-        nodes: [USFMParagraphNode, USFMTextNode, ParagraphNode, LineBreakNode],
-    });
+  return createHeadlessEditor({
+    nodes: [USFMParagraphNode, USFMTextNode, ParagraphNode, LineBreakNode],
+  });
 }
 
 function removeAllRootChildren() {
-    const root = $getRoot();
-    for (const child of root.getChildren()) {
-        child.remove();
-    }
+  const root = $getRoot();
+  for (const child of root.getChildren()) {
+    child.remove();
+  }
 }
 
 function applyMaintainDocumentStructure(
-    editor: LexicalEditor,
-    editorMode: "regular" | "plain",
+  editor: LexicalEditor,
+  editorMode: "regular" | "plain",
 ) {
-    maintainDocumentStructure(editor.getEditorState(), editor, {
-        ...settingsDefaults,
-        editorMode,
-    });
+  maintainDocumentStructure(editor.getEditorState(), editor, {
+    ...settingsDefaults,
+    editorMode,
+  });
 }
 
 function applyMaintainDocumentStructureDebounced(
-    editor: LexicalEditor,
-    editorMode: "regular" | "plain",
+  editor: LexicalEditor,
+  editorMode: "regular" | "plain",
 ) {
-    maintainDocumentStructureDebounced(editor.getEditorState(), editor, {
-        ...settingsDefaults,
-        editorMode,
-    });
+  maintainDocumentStructureDebounced(editor.getEditorState(), editor, {
+    ...settingsDefaults,
+    editorMode,
+  });
 }
 
 function updateAndFlush(editor: LexicalEditor, fn: () => void): Promise<void> {
-    return new Promise((resolve) => {
-        editor.update(fn, { discrete: true, onUpdate: resolve });
-    });
+  return new Promise((resolve) => {
+    editor.update(fn, { discrete: true, onUpdate: resolve });
+  });
 }
 
 function flush(editor: LexicalEditor): Promise<void> {
-    return updateAndFlush(editor, () => {});
+  return updateAndFlush(editor, () => {});
 }
 
 describe("maintainDocumentStructure", () => {
-    it("SOURCE: regular-mode paragraph enforcement does not apply (root paragraph wrapper remains)", async () => {
-        const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-        const editor = createEmptyTestEditor();
+  it("SOURCE: regular-mode paragraph enforcement does not apply (root paragraph wrapper remains)", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const editor = createEmptyTestEditor();
 
-        await updateAndFlush(editor, () => {
-            removeAllRootChildren();
+    await updateAndFlush(editor, () => {
+      removeAllRootChildren();
 
-            const wrapper = $createParagraphNode();
-            wrapper.append(
-                $createUSFMTextNode("hello", {
-                    id: "t-src",
-                    inPara: "p",
-                    tokenType: UsfmTokenTypes.text,
-                }),
-            );
-            $getRoot().append(wrapper);
-        });
-
-        applyMaintainDocumentStructure(editor, "plain");
-        await flush(editor);
-
-        editor.getEditorState().read(() => {
-            const root = $getRoot();
-            const children = root.getChildren();
-            expect(children).toHaveLength(1);
-
-            const only = children[0];
-            expect($isElementNode(only)).toBe(true);
-            if (!$isElementNode(only)) {
-                throw new Error("Expected root child to be an element node");
-            }
-            expect(only.getType()).toBe("paragraph");
-        });
-
-        logSpy.mockRestore();
+      const wrapper = $createParagraphNode();
+      wrapper.append(
+        $createUSFMTextNode("hello", {
+          id: "t-src",
+          inPara: "p",
+          tokenType: UsfmTokenTypes.text,
+        }),
+      );
+      $getRoot().append(wrapper);
     });
 
-    it("debounced: does not add leading space after char endMarker boundary", async () => {
-        const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-        const editor = createEmptyTestEditor();
+    applyMaintainDocumentStructure(editor, "plain");
+    await flush(editor);
 
-        await updateAndFlush(editor, () => {
-            removeAllRootChildren();
-            const paragraph = $createUSFMParagraphNode({
-                id: "char-boundary-para",
-                marker: "p",
-            });
-            const end = $createUSFMTextNode("\\fqa*", {
-                id: "end",
-                tokenType: UsfmTokenTypes.endMarker,
-                marker: "fqa",
-            });
-            const punctuation = $createUSFMTextNode(",", {
-                id: "punct",
-                tokenType: UsfmTokenTypes.text,
-            });
-            paragraph.append(end, punctuation);
-            $getRoot().append(paragraph);
-        });
+    editor.getEditorState().read(() => {
+      const root = $getRoot();
+      const children = root.getChildren();
+      expect(children).toHaveLength(1);
 
-        applyMaintainDocumentStructureDebounced(editor, "regular");
-        await flush(editor);
-
-        editor.getEditorState().read(() => {
-            const root = $getRoot();
-            const para = root.getFirstChild();
-            if (!para || !$isElementNode(para)) {
-                throw new Error("Expected paragraph node");
-            }
-            const children = para.getChildren();
-            const end = children[0];
-            const punctuation = children[1];
-            if (!$isUSFMTextNode(end) || !$isUSFMTextNode(punctuation)) {
-                throw new Error("Expected USFM text children");
-            }
-            expect(end.getTextContent()).toBe("\\fqa*");
-            expect(punctuation.getTextContent()).toBe(",");
-        });
-
-        logSpy.mockRestore();
+      const only = children[0];
+      expect($isElementNode(only)).toBe(true);
+      if (!$isElementNode(only)) {
+        throw new Error("Expected root child to be an element node");
+      }
+      expect(only.getType()).toBe("paragraph");
     });
 
-    it("debounced: does not invent spacing at verse marker boundaries", async () => {
-        const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-        const editor = createEmptyTestEditor();
+    logSpy.mockRestore();
+  });
 
-        await updateAndFlush(editor, () => {
-            removeAllRootChildren();
-            const paragraph = $createUSFMParagraphNode({
-                id: "verse-spacing-para",
-                marker: "p",
-            });
-            const verseMarker = $createUSFMTextNode("\\v", {
-                id: "v-marker",
-                tokenType: UsfmTokenTypes.marker,
-                marker: "v",
-            });
-            const text = $createUSFMTextNode("Text", {
-                id: "text",
-                tokenType: UsfmTokenTypes.text,
-            });
-            paragraph.append(verseMarker, text);
-            $getRoot().append(paragraph);
-        });
+  it("debounced: does not add leading space after char endMarker boundary", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const editor = createEmptyTestEditor();
 
-        applyMaintainDocumentStructureDebounced(editor, "regular");
-        await flush(editor);
-
-        editor.getEditorState().read(() => {
-            const root = $getRoot();
-            const para = root.getFirstChild();
-            if (!para || !$isElementNode(para)) {
-                throw new Error("Expected paragraph node");
-            }
-            const children = para.getChildren();
-            const text = children[1];
-            if (!$isUSFMTextNode(text)) {
-                throw new Error("Expected USFM text node");
-            }
-            expect(text.getTextContent()).toBe("Text");
-        });
-
-        logSpy.mockRestore();
+    await updateAndFlush(editor, () => {
+      removeAllRootChildren();
+      const paragraph = $createUSFMParagraphNode({
+        id: "char-boundary-para",
+        marker: "p",
+      });
+      const end = $createUSFMTextNode("\\fqa*", {
+        id: "end",
+        tokenType: UsfmTokenTypes.endMarker,
+        marker: "fqa",
+      });
+      const punctuation = $createUSFMTextNode(",", {
+        id: "punct",
+        tokenType: UsfmTokenTypes.text,
+      });
+      paragraph.append(end, punctuation);
+      $getRoot().append(paragraph);
     });
+
+    applyMaintainDocumentStructureDebounced(editor, "regular");
+    await flush(editor);
+
+    editor.getEditorState().read(() => {
+      const root = $getRoot();
+      const para = root.getFirstChild();
+      if (!para || !$isElementNode(para)) {
+        throw new Error("Expected paragraph node");
+      }
+      const children = para.getChildren();
+      const end = children[0];
+      const punctuation = children[1];
+      if (!$isUSFMTextNode(end) || !$isUSFMTextNode(punctuation)) {
+        throw new Error("Expected USFM text children");
+      }
+      expect(end.getTextContent()).toBe("\\fqa*");
+      expect(punctuation.getTextContent()).toBe(",");
+    });
+
+    logSpy.mockRestore();
+  });
+
+  it("debounced: does not invent spacing at verse marker boundaries", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const editor = createEmptyTestEditor();
+
+    await updateAndFlush(editor, () => {
+      removeAllRootChildren();
+      const paragraph = $createUSFMParagraphNode({
+        id: "verse-spacing-para",
+        marker: "p",
+      });
+      const verseMarker = $createUSFMTextNode("\\v", {
+        id: "v-marker",
+        tokenType: UsfmTokenTypes.marker,
+        marker: "v",
+      });
+      const text = $createUSFMTextNode("Text", {
+        id: "text",
+        tokenType: UsfmTokenTypes.text,
+      });
+      paragraph.append(verseMarker, text);
+      $getRoot().append(paragraph);
+    });
+
+    applyMaintainDocumentStructureDebounced(editor, "regular");
+    await flush(editor);
+
+    editor.getEditorState().read(() => {
+      const root = $getRoot();
+      const para = root.getFirstChild();
+      if (!para || !$isElementNode(para)) {
+        throw new Error("Expected paragraph node");
+      }
+      const children = para.getChildren();
+      const text = children[1];
+      if (!$isUSFMTextNode(text)) {
+        throw new Error("Expected USFM text node");
+      }
+      expect(text.getTextContent()).toBe("Text");
+    });
+
+    logSpy.mockRestore();
+  });
 });

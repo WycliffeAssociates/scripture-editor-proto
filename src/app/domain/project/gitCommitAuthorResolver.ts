@@ -5,36 +5,36 @@ import { readGitRemoteProjectInfo } from "@/core/persistence/gitRemoteStore.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 
 export async function resolveGitCommitAuthorForProject(args: {
-    projectPath: string;
-    fileSystem: FileSystem;
-    storageRoots: StorageRoots;
-    authSessionProvider: AuthSessionProvider;
+  projectPath: string;
+  fileSystem: FileSystem;
+  storageRoots: StorageRoots;
+  authSessionProvider: AuthSessionProvider;
 }): Promise<{ name: string; email: string }> {
-    const remoteInfo = await readGitRemoteProjectInfo({
-        fileSystem: args.fileSystem,
-        storageRoots: args.storageRoots,
-        projectPath: args.projectPath,
-    });
-    if (!remoteInfo) {
-        return GIT_COMMIT_AUTHOR;
-    }
+  const remoteInfo = await readGitRemoteProjectInfo({
+    fileSystem: args.fileSystem,
+    storageRoots: args.storageRoots,
+    projectPath: args.projectPath,
+  });
+  if (!remoteInfo) {
+    return GIT_COMMIT_AUTHOR;
+  }
 
-    const session = await args.authSessionProvider.getCurrentSession();
-    if (!session || session.hostBaseUrl !== remoteInfo.hostBaseUrl) {
-        return GIT_COMMIT_AUTHOR;
-    }
+  const session = await args.authSessionProvider.getCurrentSession();
+  if (!session || session.hostBaseUrl !== remoteInfo.hostBaseUrl) {
+    return GIT_COMMIT_AUTHOR;
+  }
 
-    return {
-        name: session.username,
-        email: buildNoreplyEmail(session.username, session.hostBaseUrl),
-    };
+  return {
+    name: session.username,
+    email: buildNoreplyEmail(session.username, session.hostBaseUrl),
+  };
 }
 
 function buildNoreplyEmail(username: string, hostBaseUrl: string): string {
-    try {
-        const hostname = new URL(hostBaseUrl).hostname;
-        return `${username}@users.noreply.${hostname}`;
-    } catch {
-        return `${username}@users.noreply.zephyr.local`;
-    }
+  try {
+    const hostname = new URL(hostBaseUrl).hostname;
+    return `${username}@users.noreply.${hostname}`;
+  } catch {
+    return `${username}@users.noreply.zephyr.local`;
+  }
 }

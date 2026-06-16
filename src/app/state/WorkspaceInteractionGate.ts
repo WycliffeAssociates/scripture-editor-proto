@@ -20,42 +20,42 @@ type Listener = () => void;
  *                               chosen Keep/Discard; block everything until they do.
  */
 export type WorkspaceInteractionGate =
-    | { kind: "open" }
-    | { kind: "saving" }
-    | { kind: "recovery-decision-pending" };
+  | { kind: "open" }
+  | { kind: "saving" }
+  | { kind: "recovery-decision-pending" };
 
 export function requireGateOpen(gate: WorkspaceInteractionGate): boolean {
-    return gate.kind === "open";
+  return gate.kind === "open";
 }
 
 export class WorkspaceGateStore {
-    private gate: WorkspaceInteractionGate;
-    private readonly listeners = new Set<Listener>();
+  private gate: WorkspaceInteractionGate;
+  private readonly listeners = new Set<Listener>();
 
-    constructor(initial: WorkspaceInteractionGate = { kind: "open" }) {
-        this.gate = initial;
-    }
+  constructor(initial: WorkspaceInteractionGate = { kind: "open" }) {
+    this.gate = initial;
+  }
 
-    get(): WorkspaceInteractionGate {
-        return this.gate;
-    }
+  get(): WorkspaceInteractionGate {
+    return this.gate;
+  }
 
-    isOpen(): boolean {
-        return requireGateOpen(this.gate);
-    }
+  isOpen(): boolean {
+    return requireGateOpen(this.gate);
+  }
 
-    set(next: WorkspaceInteractionGate): void {
-        if (next.kind === this.gate.kind) return;
-        this.gate = next;
-        for (const listener of this.listeners) listener();
-    }
+  set(next: WorkspaceInteractionGate): void {
+    if (next.kind === this.gate.kind) return;
+    this.gate = next;
+    for (const listener of this.listeners) listener();
+  }
 
-    subscribe(listener: Listener): () => void {
-        this.listeners.add(listener);
-        return () => this.listeners.delete(listener);
-    }
+  subscribe(listener: Listener): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
 
-    getSnapshot(): WorkspaceInteractionGate {
-        return this.gate;
-    }
+  getSnapshot(): WorkspaceInteractionGate {
+    return this.gate;
+  }
 }

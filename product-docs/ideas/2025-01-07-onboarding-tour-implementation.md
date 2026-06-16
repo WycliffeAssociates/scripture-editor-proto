@@ -3,12 +3,15 @@
 ## Section 1: Project Setup & Dependencies
 
 ### 1.1 Install Tour Library
+
 **Task**: Install react-joyride (or alternative popular tour library)
 
 **Files to touch**:
+
 - `package.json`
 
 **Steps**:
+
 1. Run: `pnpm add react-joyride`
 2. Verify installation successful
 3. Run `pnpm biome` to ensure formatting
@@ -16,6 +19,7 @@
 **Testing**: No tests needed for dependency installation
 
 **Notes**:
+
 - react-joyride is well-maintained, actively developed (check latest version before installing)
 - TypeScript support is built-in
 - No additional peer dependencies beyond what's already in the project
@@ -25,9 +29,11 @@
 ---
 
 ### 1.2 Create Tour Directory Structure
+
 **Task**: Set up the directory structure for tour-related files
 
 **Files to create**:
+
 - `src/app/ui/tour/TourProvider.tsx`
 - `src/app/ui/tour/useTour.ts`
 - `src/app/ui/tour/tourConfig.ts`
@@ -39,6 +45,7 @@
 - `src/app/ui/tour/steps/exportSteps.tsx`
 
 **Steps**:
+
 1. Create directories with mkdir command
 2. Create empty placeholder files to establish structure
 3. Add basic file headers with purpose comments
@@ -50,12 +57,15 @@
 ---
 
 ### 2.7 Create Custom Types (Only for Tour-Specific Logic)
+
 **Task**: Define types for localStorage state and tour context (not duplicating Joyride types)
 
 **Files to touch**:
+
 - `src/app/ui/tour/types.ts` (new file)
 
 **Implementation**:
+
 ```typescript
 // Joyride's state is managed by the library, we only need our custom state
 export interface TourState {
@@ -79,6 +89,7 @@ export interface TourStorageState {
 ```
 
 **Testing**:
+
 - Unit test: Verify TypeScript types are correctly defined and exported
 
 **Dependencies**: None (can be done in parallel with other tasks)
@@ -88,33 +99,46 @@ export interface TourStorageState {
 ## Section 2: Tour Configuration & Content
 
 ### 2.1 Implement Tour Content - Getting Started Group
+
 **Task**: Create the first group of tour steps for welcome and workspace overview
 
 **Files to touch**:
+
 - `src/app/ui/tour/steps/gettingStartedSteps.tsx` (create this new file)
 
 **Implementation**:
+
 ```tsx
-import { Trans } from '@lingui/react/macro';
-import type { Step } from 'react-joyride';
+import { Trans } from "@lingui/react/macro";
+import type { Step } from "react-joyride";
 
 export const gettingStartedSteps: Step[] = [
   {
     target: `[data-testid="${TESTING_IDS.onboarding.mainLayout}"]`,
-    content: <Trans>Welcome to Dovetail! This is where you edit and manage your scripture files.</Trans>,
-    placement: 'bottom',
+    content: (
+      <Trans>
+        Welcome to Dovetail! This is where you edit and manage your scripture
+        files.
+      </Trans>
+    ),
+    placement: "bottom",
     disableBeacon: true,
   },
   {
     target: `[data-testid="${TESTING_IDS.onboarding.sidebar}"]`,
-    content: <Trans>Use this sidebar to navigate between files and manage your workspace.</Trans>,
-    placement: 'right',
+    content: (
+      <Trans>
+        Use this sidebar to navigate between files and manage your workspace.
+      </Trans>
+    ),
+    placement: "right",
     disableBeacon: false,
   },
 ];
 ```
 
 **Testing**:
+
 - Unit test: Verify array contains valid Step objects
 - Unit test: Verify each step has required fields (target, content)
 - E2E test: Verify steps can be displayed in browser
@@ -126,39 +150,49 @@ export const gettingStartedSteps: Step[] = [
 ---
 
 ### 2.2 Implement Tour Content - Workspace Management Group
+
 **Task**: Create tour steps for file operations and project management
 
 **Files to touch**:
+
 - `src/app/ui/tour/steps/workspaceSteps.tsx`
 
 **Implementation**:
+
 ```tsx
-import { Trans } from '@lingui/react/macro';
-import type { Step } from 'react-joyride';
+import { Trans } from "@lingui/react/macro";
+import type { Step } from "react-joyride";
 
 export const workspaceSteps: Step[] = [
   {
     target: `[data-testid="${TESTING_IDS.onboarding.fileBrowserButton}"]`,
-    content: <Trans>Open your USFM files here to begin editing scripture.</Trans>,
-    placement: 'bottom',
+    content: (
+      <Trans>Open your USFM files here to begin editing scripture.</Trans>
+    ),
+    placement: "bottom",
     disableBeacon: false,
   },
   {
     target: `[data-testid="${TESTING_IDS.onboarding.recentProjectsList}"]`,
-    content: <Trans>Find and reopen your recent projects from this list.</Trans>,
-    placement: 'right',
+    content: (
+      <Trans>Find and reopen your recent projects from this list.</Trans>
+    ),
+    placement: "right",
     disableBeacon: false,
   },
   {
     target: `[data-testid="${TESTING_IDS.onboarding.newProjectButton}"]`,
-    content: <Trans>Create a new project to start translating from scratch.</Trans>,
-    placement: 'bottom',
+    content: (
+      <Trans>Create a new project to start translating from scratch.</Trans>
+    ),
+    placement: "bottom",
     disableBeacon: false,
   },
 ];
 ```
 
 **Testing**:
+
 - Unit test: Verify array contains valid Step objects
 - E2E test: Verify each target element exists in UI
 
@@ -167,39 +201,57 @@ export const workspaceSteps: Step[] = [
 ---
 
 ### 2.3 Implement Tour Content - Editor Group
+
 **Task**: Create tour steps for the USFM editor functionality
 
 **Files to touch**:
+
 - `src/app/ui/tour/steps/editorSteps.tsx`
 
 **Implementation**:
+
 ```tsx
-import { Trans } from '@lingui/react/macro';
-import type { Step } from 'react-joyride';
+import { Trans } from "@lingui/react/macro";
+import type { Step } from "react-joyride";
 
 export const editorSteps: Step[] = [
   {
     target: `[data-testid="${TESTING_IDS.onboarding.editorArea}"]`,
-    content: <Trans>Type your scripture text here. Paragraph and verse markers are handled automatically.</Trans>,
-    placement: 'top',
+    content: (
+      <Trans>
+        Type your scripture text here. Paragraph and verse markers are handled
+        automatically.
+      </Trans>
+    ),
+    placement: "top",
     disableBeacon: false,
   },
   {
     target: `[data-testid="${TESTING_IDS.onboarding.toolbar}"]`,
-    content: <Trans>Use these tools to insert chapter markers, headings, and other formatting.</Trans>,
-    placement: 'bottom',
+    content: (
+      <Trans>
+        Use these tools to insert chapter markers, headings, and other
+        formatting.
+      </Trans>
+    ),
+    placement: "bottom",
     disableBeacon: false,
   },
   {
     target: `[data-testid="${TESTING_IDS.onboarding.formattingPalette}"]`,
-    content: <Trans>Quickly add common markers like paragraph breaks and verse numbers.</Trans>,
-    placement: 'left',
+    content: (
+      <Trans>
+        Quickly add common markers like paragraph breaks and verse numbers.
+      </Trans>
+    ),
+    placement: "left",
     disableBeacon: false,
   },
 ];
 ```
 
 **Testing**:
+
 - Unit test: Verify array contains valid Step objects
 - E2E test: Verify each target element exists in UI
 
@@ -208,33 +260,45 @@ export const editorSteps: Step[] = [
 ---
 
 ### 2.4 Implement Tour Content - Search Group
+
 **Task**: Create tour steps for search and navigation features
 
 **Files to touch**:
+
 - `src/app/ui/tour/steps/searchSteps.tsx`
 
 **Implementation**:
+
 ```tsx
-import { Trans } from '@lingui/react/macro';
-import type { Step } from 'react-joyride';
+import { Trans } from "@lingui/react/macro";
+import type { Step } from "react-joyride";
 
 export const searchSteps: Step[] = [
   {
     target: `[data-testid="${TESTING_IDS.onboarding.searchButton}"]`,
-    content: <Trans>Find any word or phrase in your document with the search tool.</Trans>,
-    placement: 'bottom',
+    content: (
+      <Trans>
+        Find any word or phrase in your document with the search tool.
+      </Trans>
+    ),
+    placement: "bottom",
     disableBeacon: false,
   },
   {
     target: `[data-testid="${TESTING_IDS.onboarding.replaceButton}"]`,
-    content: <Trans>Replace text across your entire project or just the current chapter.</Trans>,
-    placement: 'bottom',
+    content: (
+      <Trans>
+        Replace text across your entire project or just the current chapter.
+      </Trans>
+    ),
+    placement: "bottom",
     disableBeacon: false,
   },
 ];
 ```
 
 **Testing**:
+
 - Unit test: Verify array contains valid Step objects
 - E2E test: Verify each target element exists in UI
 
@@ -243,33 +307,41 @@ export const searchSteps: Step[] = [
 ---
 
 ### 2.5 Implement Tour Content - Export Group
+
 **Task**: Create tour steps for saving and exporting
 
 **Files to touch**:
+
 - `src/app/ui/tour/steps/exportSteps.tsx`
 
 **Implementation**:
+
 ```tsx
-import { Trans } from '@lingui/react/macro';
-import type { Step } from 'react-joyride';
+import { Trans } from "@lingui/react/macro";
+import type { Step } from "react-joyride";
 
 export const exportSteps: Step[] = [
   {
     target: `[data-testid="${TESTING_IDS.onboarding.saveButton}"]`,
     content: <Trans>Save your work regularly to keep your changes safe.</Trans>,
-    placement: 'bottom',
+    placement: "bottom",
     disableBeacon: false,
   },
   {
     target: `[data-testid="${TESTING_IDS.onboarding.exportButton}"]`,
-    content: <Trans>Export your finished scripture in different formats when you're ready.</Trans>,
-    placement: 'bottom',
+    content: (
+      <Trans>
+        Export your finished scripture in different formats when you're ready.
+      </Trans>
+    ),
+    placement: "bottom",
     disableBeacon: false,
   },
 ];
 ```
 
 **Testing**:
+
 - Unit test: Verify array contains valid Step objects
 - E2E test: Verify each target element exists in UI
 
@@ -278,19 +350,22 @@ export const exportSteps: Step[] = [
 ---
 
 ### 2.6 Create Central Tour Configuration
+
 **Task**: Combine all step groups into a single exportable configuration
 
 **Files to touch**:
+
 - `src/app/ui/tour/tourConfig.ts`
 
 **Implementation**:
+
 ```ts
-import { gettingStartedSteps } from './steps/gettingStartedSteps';
-import { workspaceSteps } from './steps/workspaceSteps';
-import { editorSteps } from './steps/editorSteps';
-import { searchSteps } from './steps/searchSteps';
-import { exportSteps } from './steps/exportSteps';
-import type { Step, Options } from 'react-joyride';
+import { gettingStartedSteps } from "./steps/gettingStartedSteps";
+import { workspaceSteps } from "./steps/workspaceSteps";
+import { editorSteps } from "./steps/editorSteps";
+import { searchSteps } from "./steps/searchSteps";
+import { exportSteps } from "./steps/exportSteps";
+import type { Step, Options } from "react-joyride";
 
 // Combine all steps into a flat array for the tour library
 export const tourSteps: Step[] = [
@@ -326,6 +401,7 @@ export const tourConfig: Partial<Options> = {
 ```
 
 **Testing**:
+
 - Unit test: Verify all step groups are properly merged
 - Unit test: Verify total step count equals sum of all groups
 - Unit test: Verify tourConfig conforms to Joyride's Options type
@@ -337,14 +413,17 @@ export const tourConfig: Partial<Options> = {
 ## Section 3: Tour Provider & State Management
 
 ### 3.1 Implement localStorage Storage Utilities
+
 **Task**: Create utilities for reading/writing tour state to localStorage
 
 **Files to touch**:
+
 - `src/app/ui/tour/storage.ts` (new file)
 
 **Implementation**:
+
 ```ts
-const TOUR_STORAGE_KEY = 'dovetail-tour-status';
+const TOUR_STORAGE_KEY = "dovetail-tour-status";
 
 export interface TourStorageState {
   hasSeenPrompt: boolean;
@@ -363,7 +442,7 @@ export function getTourState(): TourStorageState {
       return { ...DEFAULT_STATE, ...JSON.parse(stored) };
     }
   } catch (error) {
-    console.warn('Failed to read tour state from localStorage:', error);
+    console.warn("Failed to read tour state from localStorage:", error);
   }
   return { ...DEFAULT_STATE };
 }
@@ -374,7 +453,7 @@ export function setTourState(state: Partial<TourStorageState>): void {
     const updated = { ...current, ...state };
     localStorage.setItem(TOUR_STORAGE_KEY, JSON.stringify(updated));
   } catch (error) {
-    console.warn('Failed to write tour state to localStorage:', error);
+    console.warn("Failed to write tour state to localStorage:", error);
   }
 }
 
@@ -384,6 +463,7 @@ export function resetTourState(): void {
 ```
 
 **Testing**:
+
 - Unit test: getTourState returns default state when localStorage is empty
 - Unit test: getTourState merges stored values with defaults
 - Unit test: setTourState updates only provided fields
@@ -395,16 +475,25 @@ export function resetTourState(): void {
 ---
 
 ### 3.2 Create Tour Context
+
 **Task**: Set up React context for tour state management
 
 **Files to touch**:
+
 - `src/app/ui/tour/TourContext.tsx` (new file)
 
 **Implementation**:
+
 ```tsx
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import type { TourContextValue, TourState } from './types';
-import { getTourState, setTourState } from './storage';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  ReactNode,
+} from "react";
+import type { TourContextValue, TourState } from "./types";
+import { getTourState, setTourState } from "./storage";
 
 const TourContext = createContext<TourContextValue | undefined>(undefined);
 
@@ -419,16 +508,16 @@ export function TourProvider({ children }: { children: ReactNode }) {
   });
 
   const startTour = useCallback(() => {
-    setState(prev => ({ ...prev, isActive: true }));
+    setState((prev) => ({ ...prev, isActive: true }));
     setTourState({ hasSeenPrompt: true, hasStartedTour: true });
   }, []);
 
   const stopTour = useCallback(() => {
-    setState(prev => ({ ...prev, isActive: false }));
+    setState((prev) => ({ ...prev, isActive: false }));
   }, []);
 
   const resetTour = useCallback(() => {
-    setState(prev => ({ ...prev, isActive: true, hasStartedTour: false }));
+    setState((prev) => ({ ...prev, isActive: true, hasStartedTour: false }));
     setTourState({ hasSeenPrompt: true, hasStartedTour: false });
   }, []);
 
@@ -445,13 +534,14 @@ export function TourProvider({ children }: { children: ReactNode }) {
 export function useTour(): TourContextValue {
   const context = useContext(TourContext);
   if (!context) {
-    throw new Error('useTour must be used within a TourProvider');
+    throw new Error("useTour must be used within a TourProvider");
   }
   return context;
 }
 ```
 
 **Testing**:
+
 - Integration test: Provider renders children correctly
 - Integration test: startTour updates state and localStorage
 - Integration test: stopTour only updates isActive
@@ -464,16 +554,19 @@ export function useTour(): TourContextValue {
 ---
 
 ### 3.3 Implement Joyride Tour Component Wrapper
+
 **Task**: Create the actual tour component that integrates React Joyride with our state
 
 **Files to touch**:
+
 - `src/app/ui/tour/Tour.tsx` (new file)
 
 **Implementation**:
+
 ```tsx
-import Joyride, { CallBackProps, STATUS } from 'react-joyride';
-import { useTour } from './TourContext';
-import { tourConfig } from './tourConfig';
+import Joyride, { CallBackProps, STATUS } from "react-joyride";
+import { useTour } from "./TourContext";
+import { tourConfig } from "./tourConfig";
 
 export function Tour() {
   const { state, stopTour } = useTour();
@@ -497,6 +590,7 @@ export function Tour() {
 ```
 
 **Testing**:
+
 - Integration test: Tour renders when state.isActive is true
 - Integration test: Tour doesn't render when state.isActive is false
 - Integration test: Joyride component receives correct props from tourConfig
@@ -511,17 +605,20 @@ export function Tour() {
 ---
 
 ### 3.4 Create useTour Hook (Export Wrapper)
+
 **Task**: Export the useTour hook for easy access throughout the app
 
 **Files to touch**:
+
 - `src/app/ui/tour/index.ts` (new file)
 
 **Implementation**:
+
 ```ts
-export { TourProvider, useTour } from './TourContext';
-export { Tour } from './Tour';
-export { tourConfig, tourSteps } from './tourConfig';
-export * from './types';
+export { TourProvider, useTour } from "./TourContext";
+export { Tour } from "./Tour";
+export { tourConfig, tourSteps } from "./tourConfig";
+export * from "./types";
 ```
 
 **Testing**: No tests needed for re-exports
@@ -533,19 +630,23 @@ export * from './types';
 ## Section 4: App Integration
 
 ### 4.1 Wrap App with TourProvider
+
 **Task**: Integrate TourProvider into the app's component tree
 
 **Files to touch**:
+
 - `src/app/App.tsx` (or equivalent root component)
 
 **Implementation**:
+
 1. Import TourProvider from tour module
 2. Wrap the entire app (or as high as needed) with TourProvider
 3. Ensure it's above any components that need to use useTour
 
 Example:
+
 ```tsx
-import { TourProvider } from './ui/tour';
+import { TourProvider } from "./ui/tour";
 // ... other imports
 
 function App() {
@@ -559,6 +660,7 @@ function App() {
 ```
 
 **Testing**:
+
 - Integration test: App renders with TourProvider wrapper
 - Integration test: Components can access useTour hook without errors
 - Integration test: Tour state persists across app renders
@@ -570,15 +672,18 @@ function App() {
 ---
 
 ### 4.2 Create FirstLaunchPrompt Component
+
 **Task**: Create a modal that appears on first launch to prompt users about the tour
 
 **Files to touch**:
+
 - `src/app/ui/tour/FirstLaunchPrompt.tsx` (new file)
 
 **Implementation**:
+
 ```tsx
-import { useTour } from './TourContext';
-import { Modal, Button, Title, Text } from '@mantine/core';
+import { useTour } from "./TourContext";
+import { Modal, Button, Title, Text } from "@mantine/core";
 
 export function FirstLaunchPrompt() {
   const { state, startTour } = useTour();
@@ -596,10 +701,15 @@ export function FirstLaunchPrompt() {
       size="md"
     >
       <Title order={3}>Welcome to Dovetail!</Title>
-      <Text mt="sm">
-        Would you like a guided tour of the main features?
-      </Text>
-      <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
+      <Text mt="sm">Would you like a guided tour of the main features?</Text>
+      <div
+        style={{
+          display: "flex",
+          gap: "1rem",
+          marginTop: "1.5rem",
+          justifyContent: "flex-end",
+        }}
+      >
         <Button variant="default" onClick={() => startTour()}>
           Yes, show me around
         </Button>
@@ -613,6 +723,7 @@ export function FirstLaunchPrompt() {
 ```
 
 **Testing**:
+
 - Integration test: Modal shows when hasSeenPrompt is false
 - Integration test: Modal doesn't show when hasSeenPrompt is true
 - Integration test: Both Yes and No buttons call startTour
@@ -625,19 +736,23 @@ export function FirstLaunchPrompt() {
 ---
 
 ### 4.3 Render Tour and FirstLaunchPrompt in App
+
 **Task**: Add Tour and FirstLaunchPrompt components to the main app layout
 
 **Files to touch**:
+
 - `src/app/App.tsx` (or equivalent root component)
 
 **Implementation**:
+
 1. Import Tour and FirstLaunchPrompt from tour module
 2. Render both components at the top level of the app
 
 Example:
+
 ```tsx
-import { Tour, TourProvider } from './ui/tour';
-import { FirstLaunchPrompt } from './ui/tour/FirstLaunchPrompt';
+import { Tour, TourProvider } from "./ui/tour";
+import { FirstLaunchPrompt } from "./ui/tour/FirstLaunchPrompt";
 // ... other imports
 
 function App() {
@@ -652,6 +767,7 @@ function App() {
 ```
 
 **Testing**:
+
 - Integration test: Both components render without errors
 - Integration test: Tour doesn't interfere with existing app functionality
 - E2E test: App loads and functions normally with tour components present
@@ -661,19 +777,23 @@ function App() {
 ---
 
 ### 4.4 Add "Retake Tour" Button to Settings
+
 **Task**: Create a button in the settings page that allows users to restart the tour
 
 **Files to touch**:
+
 - `src/app/routes/settings.tsx` (or equivalent settings route)
 
 **Implementation**:
+
 1. Import useTour hook
 2. Add a button that calls resetTour
 3. Style it to match existing settings buttons
 
 Example:
+
 ```tsx
-import { useTour } from '../ui/tour';
+import { useTour } from "../ui/tour";
 // ... other imports
 
 export function Route() {
@@ -683,12 +803,12 @@ export function Route() {
     <div>
       {/* existing settings content */}
 
-      <div style={{ marginTop: '2rem', padding: '1rem', border: '1px solid #ddd' }}>
+      <div
+        style={{ marginTop: "2rem", padding: "1rem", border: "1px solid #ddd" }}
+      >
         <h3>Help & Learning</h3>
         <p>Learn how to use Dovetail's features.</p>
-        <Button onClick={resetTour}>
-          Retake Tour
-        </Button>
+        <Button onClick={resetTour}>Retake Tour</Button>
       </div>
     </div>
   );
@@ -696,6 +816,7 @@ export function Route() {
 ```
 
 **Testing**:
+
 - Integration test: Reset tour button calls resetTour
 - Integration test: Tour starts after clicking button
 - E2E test: User can navigate to settings and restart tour
@@ -708,18 +829,22 @@ export function Route() {
 ---
 
 ### 4.5 Verify and Add data-tourid Attributes (If Needed)
+
 **Task**: Audit existing UI components and add data-tourid attributes for elements without data-testid
 
 **Files to touch**:
+
 - Varies - any UI components that need tour targeting but lack data-testid
 
 **Implementation**:
+
 1. Review tourConfig.ts to see all target selectors
 2. For each target, check if the corresponding element has data-testid
 3. If not, add data-tourid attribute to the component
 4. Update tour step target to use data-tourid instead
 
 Example:
+
 ```tsx
 // Before: No test ID
 <button onClick={handleOpen}>Open File</button>
@@ -729,12 +854,14 @@ Example:
 ```
 
 Then update tourConfig:
+
 ```ts
 // Update target
 target: '[data-tourid="file-browser-button"]',
 ```
 
 **Testing**:
+
 - E2E test: Each tour step can find its target element
 - E2E test: Full tour completes without missing targets
 
@@ -747,13 +874,16 @@ target: '[data-tourid="file-browser-button"]',
 ## Section 5: Testing Implementation
 
 ### 5.1 Unit Tests - Storage Utilities
+
 **Task**: Write comprehensive unit tests for localStorage utilities
 
 **Files to touch**:
+
 - `tests/unit/tour/storage.test.ts` (new file)
 
 **Implementation**:
 Test cases:
+
 1. getTourState returns default state when localStorage is empty
 2. getTourState merges stored values with defaults
 3. setTourState updates only provided fields, preserves others
@@ -770,13 +900,16 @@ Test cases:
 ---
 
 ### 5.2 Unit Tests - TourContext
+
 **Task**: Write unit tests for TourProvider and useTour hook
 
 **Files to touch**:
+
 - `tests/unit/tour/TourContext.test.tsx` (new file)
 
 **Implementation**:
 Test cases:
+
 1. TourProvider renders children without errors
 2. TourProvider hydrates initial state from localStorage
 3. startTour updates isActive to true
@@ -795,13 +928,16 @@ Test cases:
 ---
 
 ### 5.3 Unit Tests - Tour Component
+
 **Task**: Write unit tests for the Tour component wrapper
 
 **Files to touch**:
+
 - `tests/unit/tour/Tour.test.tsx` (new file)
 
 **Implementation**:
 Test cases:
+
 1. Tour renders when state.isActive is true
 2. Tour doesn't render when state.isActive is false
 3. Joyride component receives correct props from tourConfig
@@ -816,13 +952,16 @@ Test cases:
 ---
 
 ### 5.4 Unit Tests - FirstLaunchPrompt
+
 **Task**: Write unit tests for the first launch modal
 
 **Files to touch**:
+
 - `tests/unit/tour/FirstLaunchPrompt.test.tsx` (new file)
 
 **Implementation**:
 Test cases:
+
 1. Modal is visible when hasSeenPrompt is false
 2. Modal is hidden when hasSeenPrompt is true
 3. "Yes" button calls startTour
@@ -838,13 +977,16 @@ Test cases:
 ---
 
 ### 5.5 Unit Tests - Tour Configuration
+
 **Task**: Write unit tests for tour configuration structure
 
 **Files to touch**:
+
 - `tests/unit/tour/tourConfig.test.ts` (new file)
 
 **Implementation**:
 Test cases:
+
 1. tourSteps array is not empty
 2. Each step in tourSteps has required fields (target, content)
 3. All step groups are exported correctly
@@ -859,13 +1001,16 @@ Test cases:
 ---
 
 ### 5.6 Integration Tests - End-to-End Tour Flow
+
 **Task**: Write integration tests for the complete tour user flow
 
 **Files to touch**:
+
 - `tests/unit/tour/tourFlow.integration.tsx` (new file)
 
 **Implementation**:
 Test cases:
+
 1. First launch shows modal, clicking "Yes" starts tour
 2. First launch shows modal, clicking "No" dismisses without tour
 3. Tour progresses through all steps
@@ -882,13 +1027,16 @@ Test cases:
 ---
 
 ### 5.7 E2E Tests - Playwright
+
 **Task**: Write end-to-end tests using Playwright
 
 **Files to touch**:
+
 - `tests/e2e/tour.spec.ts` (new file)
 
 **Implementation**:
 Test cases:
+
 1. Full tour walkthrough - click through all steps to completion
 2. Skip functionality - verify "Skip Tour" button dismisses tour at step 3
 3. Settings restart - navigate to settings, click retake, verify tour restarts
@@ -907,12 +1055,15 @@ Test cases:
 ---
 
 ### 5.8 Run All Tests and Fix Issues
+
 **Task**: Execute full test suite and address any failures
 
 **Files to touch**:
+
 - Varies based on test failures
 
 **Implementation**:
+
 1. Run unit tests: `pnpm test:unit`
 2. Run integration tests: `pnpm test:integration`
 3. Run E2E tests: `pnpm test.e2e`

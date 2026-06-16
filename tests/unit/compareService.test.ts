@@ -1,392 +1,339 @@
-import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
-import { UsfmTokenTypes } from "@/app/data/editor.ts";
-import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
-import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+
 import {
-    buildCompareResultAsync,
-    type CompareMetadataSummary,
-} from "@/app/domain/project/compare/compareService.ts";
-import { normalizeTokenSids } from "@/core/domain/usfm/tokenSidNormalization.ts";
-import {
-    applyIncomingChapter,
-    applyIncomingChapterAll,
-    applyIncomingHunk,
+  applyIncomingChapter,
+  applyIncomingChapterAll,
+  applyIncomingHunk,
 } from "@/app/domain/project/compare/compareMutations.ts";
+import {
+  buildCompareResultAsync,
+  type CompareMetadataSummary,
+} from "@/app/domain/project/compare/compareService.ts";
+import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
+import { normalizeTokenSids } from "@/core/domain/usfm/tokenSidNormalization.ts";
 import type { Diff, Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 
 function makeTokens(text: string, sid: string, id: string): Token[] {
-    return [
-        {
-            id,
-            kind: "text",
-            span: { start: 0, end: text.length },
-            sid,
-            source: text,
-        },
-    ];
-}
-
-function makeEditorState(
-    text: string,
-    sid: string,
-    id: string,
-): SerializedEditorState<SerializedLexicalNode> {
-    return {
-        root: {
-            type: "root",
-            version: 1,
-            direction: "ltr",
-            format: "start",
-            indent: 0,
-            children: [
-                {
-                    type: "paragraph",
-                    version: 1,
-                    direction: "ltr",
-                    format: "",
-                    indent: 0,
-                    textFormat: 0,
-                    textStyle: "",
-                    children: [
-                        createSerializedUSFMTextNode({
-                            text,
-                            sid,
-                            id,
-                            tokenType: UsfmTokenTypes.text,
-                        }),
-                    ],
-                } as unknown as SerializedLexicalNode,
-            ],
-        },
-    };
+  return [
+    {
+      id,
+      kind: "text",
+      span: { start: 0, end: text.length },
+      sid,
+      source: text,
+    },
+  ];
 }
 
 function makeFiles(args: {
-    loadedText: string;
-    currentText: string;
-    bookCode?: string;
-    chapterNum?: number;
+  loadedText: string;
+  currentText: string;
+  bookCode?: string;
+  chapterNum?: number;
 }): ScriptureBookState[] {
-    const bookCode = args.bookCode ?? "GEN";
-    const chapterNum = args.chapterNum ?? 1;
-    return [
+  const bookCode = args.bookCode ?? "GEN";
+  const chapterNum = args.chapterNum ?? 1;
+  return [
+    {
+      path: `/tmp/${bookCode}.usfm`,
+      title: bookCode,
+      bookCode,
+      nextBookId: null,
+      prevBookId: null,
+      chapters: [
         {
-            path: `/tmp/${bookCode}.usfm`,
-            title: bookCode,
-            bookCode,
-            nextBookId: null,
-            prevBookId: null,
-            chapters: [
-                {
-                    chapterNumber: chapterNum,
-                    dirty: args.loadedText !== args.currentText,
-                    eol: "\n" as const,
-                    sourceTokens: makeTokens(
-                        args.loadedText,
-                        `${bookCode} ${chapterNum}:1`,
-                        `${bookCode}-loaded`,
-                    ),
-                    currentTokens: makeTokens(
-                        args.currentText,
-                        `${bookCode} ${chapterNum}:1`,
-                        `${bookCode}-current`,
-                    ),
-                    loadedLexicalState: makeEditorState(
-                        args.loadedText,
-                        `${bookCode} ${chapterNum}:1`,
-                        `${bookCode}-tok`,
-                    ),
-                    lexicalState: makeEditorState(
-                        args.currentText,
-                        `${bookCode} ${chapterNum}:1`,
-                        `${bookCode}-tok`,
-                    ),
-                },
-            ],
+          chapterNumber: chapterNum,
+          dirty: args.loadedText !== args.currentText,
+          eol: "\n" as const,
+          direction: "ltr" as const,
+          sourceTokens: makeTokens(
+            args.loadedText,
+            `${bookCode} ${chapterNum}:1`,
+            `${bookCode}-loaded`,
+          ),
+          currentTokens: makeTokens(
+            args.currentText,
+            `${bookCode} ${chapterNum}:1`,
+            `${bookCode}-current`,
+          ),
         },
-    ];
+      ],
+    },
+  ];
 }
 
 function makeDiffs(baselineTokens: Token[], currentTokens: Token[]): Diff[] {
-    const originalText = baselineTokens.map((token) => token.source).join("");
-    const currentText = currentTokens.map((token) => token.source).join("");
-    if (originalText === currentText) {
-        return [];
-    }
+  const originalText = baselineTokens.map((token) => token.source).join("");
+  const currentText = currentTokens.map((token) => token.source).join("");
+  if (originalText === currentText) {
+    return [];
+  }
 
-    return [
-        {
-            blockId:
-                baselineTokens[0]?.sid ?? currentTokens[0]?.sid ?? "block-0",
-            semanticSid:
-                baselineTokens[0]?.sid ?? currentTokens[0]?.sid ?? "unknown",
-            status: "modified",
-            originalText,
-            currentText,
-            originalTextOnly: originalText,
-            currentTextOnly: currentText,
-            isWhitespaceChange: false,
-            isUsfmStructureChange: false,
-            originalTokens: baselineTokens,
-            currentTokens,
-            originalAlignment: [],
-            currentAlignment: [],
-            undoSide: "current",
-        },
-    ];
+  return [
+    {
+      blockId: baselineTokens[0]?.sid ?? currentTokens[0]?.sid ?? "block-0",
+      semanticSid: baselineTokens[0]?.sid ?? currentTokens[0]?.sid ?? "unknown",
+      status: "modified",
+      originalText,
+      currentText,
+      originalTextOnly: originalText,
+      currentTextOnly: currentText,
+      isWhitespaceChange: false,
+      isUsfmStructureChange: false,
+      originalTokens: baselineTokens,
+      currentTokens,
+      originalAlignment: [],
+      currentAlignment: [],
+      undoSide: "current",
+    },
+  ];
 }
 
 function createStubUsfmOnionService(): IUsfmOnionService {
-    return {
-        supportsPathIo: false,
-        async getMarkerCatalog() {
-            return await webUsfmOnionService.getMarkerCatalog();
-        },
-        async diffScope(scope): Promise<Diff[][]> {
-            return scope.map((item) =>
-                makeDiffs(item.baselineTokens ?? [], item.currentTokens ?? []),
-            );
-        },
-        async diffTokens(
-            baselineTokens: Token[],
-            currentTokens: Token[],
-        ): Promise<Diff[]> {
-            return makeDiffs(baselineTokens, currentTokens);
-        },
-        async revertDiffBlock(
-            baselineTokens: Token[],
-            _currentTokens: Token[],
-            _blockId: string,
-        ): Promise<Token[]> {
-            return structuredClone(baselineTokens);
-        },
-    } as IUsfmOnionService;
+  return {
+    supportsPathIo: false,
+    async getMarkerCatalog() {
+      return await webUsfmOnionService.getMarkerCatalog();
+    },
+    async diffScope(scope): Promise<Diff[][]> {
+      return scope.map((item) =>
+        makeDiffs(item.baselineTokens ?? [], item.currentTokens ?? []),
+      );
+    },
+    async diffTokens(
+      baselineTokens: Token[],
+      currentTokens: Token[],
+    ): Promise<Diff[]> {
+      return makeDiffs(baselineTokens, currentTokens);
+    },
+    async revertDiffBlock(
+      baselineTokens: Token[],
+      _currentTokens: Token[],
+      _blockId: string,
+    ): Promise<Token[]> {
+      return structuredClone(baselineTokens);
+    },
+  } as IUsfmOnionService;
 }
 
 const usfmOnionService = createStubUsfmOnionService();
 
 describe("compareService.buildCompareResultAsync", () => {
-    it("normalizes chapter-0 document markers onto the intro sid", () => {
-        const normalized = normalizeTokenSids(
-            [
-                {
-                    id: "GEN-0",
-                    kind: "marker",
-                    sid: "",
-                    marker: "id",
-                    source: "\\id",
-                    span: { start: 0, end: 3 },
-                },
-                {
-                    id: "GEN-1",
-                    kind: "bookCode",
-                    sid: "GEN 0:0",
-                    source: " GEN",
-                    span: { start: 3, end: 7 },
-                },
-            ],
-            "GEN",
-        );
+  it("normalizes chapter-0 document markers onto the intro sid", () => {
+    const normalized = normalizeTokenSids(
+      [
+        {
+          id: "GEN-0",
+          kind: "marker",
+          sid: "",
+          marker: "id",
+          source: "\\id",
+          span: { start: 0, end: 3 },
+        },
+        {
+          id: "GEN-1",
+          kind: "bookCode",
+          sid: "GEN 0:0",
+          source: " GEN",
+          span: { start: 3, end: 7 },
+        },
+      ],
+      "GEN",
+    );
 
-        expect(normalized[0]?.sid).toBe("GEN 0:0");
-        expect(normalized[1]?.sid).toBe("GEN 0:0");
+    expect(normalized[0]?.sid).toBe("GEN 0:0");
+    expect(normalized[1]?.sid).toBe("GEN 0:0");
+  });
+
+  it("uses the current dirty workspace as the compare baseline", async () => {
+    const current = makeFiles({
+      loadedText: "alpha",
+      currentText: "beta",
+    });
+    const source = makeFiles({
+      loadedText: "gamma",
+      currentText: "gamma",
     });
 
-    it("uses the current dirty workspace as the compare baseline", async () => {
-        const current = makeFiles({
-            loadedText: "alpha",
-            currentText: "beta",
-        });
-        const source = makeFiles({
-            loadedText: "gamma",
-            currentText: "gamma",
-        });
-
-        const result = await buildCompareResultAsync({
-            currentFiles: current,
-            sourceFiles: source,
-            currentMetadata: undefined,
-            sourceMetadata: undefined,
-            usfmOnionService,
-        });
-
-        expect(result.diffs).toHaveLength(1);
-        expect(result.diffs[0]?.originalDisplayText).toContain("beta");
-        expect(result.diffs[0]?.currentDisplayText).toContain("gamma");
+    const result = await buildCompareResultAsync({
+      currentFiles: current,
+      sourceFiles: source,
+      currentMetadata: undefined,
+      sourceMetadata: undefined,
+      usfmOnionService,
     });
 
-    it("reports book/chapter coverage differences", async () => {
-        const current = makeFiles({
-            loadedText: "alpha",
-            currentText: "alpha",
-            bookCode: "GEN",
-        });
-        const source = makeFiles({
-            loadedText: "gamma",
-            currentText: "gamma",
-            bookCode: "EXO",
-        });
+    expect(result.diffs).toHaveLength(1);
+    expect(result.diffs[0]?.originalDisplayText).toContain("beta");
+    expect(result.diffs[0]?.currentDisplayText).toContain("gamma");
+  });
 
-        const result = await buildCompareResultAsync({
-            currentFiles: current,
-            sourceFiles: source,
-            currentMetadata: undefined,
-            sourceMetadata: undefined,
-            usfmOnionService,
-        });
-
-        expect(result.warnings.map((w) => w.code)).toContain(
-            "book_coverage_diff",
-        );
+  it("reports book/chapter coverage differences", async () => {
+    const current = makeFiles({
+      loadedText: "alpha",
+      currentText: "alpha",
+      bookCode: "GEN",
+    });
+    const source = makeFiles({
+      loadedText: "gamma",
+      currentText: "gamma",
+      bookCode: "EXO",
     });
 
-    it("emits compatibility warnings for language/direction/project id mismatch", async () => {
-        const current = makeFiles({
-            loadedText: "alpha",
-            currentText: "alpha",
-        });
-        const source = makeFiles({
-            loadedText: "alpha",
-            currentText: "alpha",
-        });
-
-        const currentMeta: CompareMetadataSummary = {
-            projectId: "p1",
-            languageId: "en",
-            languageDirection: "ltr",
-        };
-        const sourceMeta: CompareMetadataSummary = {
-            projectId: "p2",
-            languageId: "es",
-            languageDirection: "rtl",
-        };
-
-        const result = await buildCompareResultAsync({
-            currentFiles: current,
-            sourceFiles: source,
-            currentMetadata: currentMeta,
-            sourceMetadata: sourceMeta,
-            usfmOnionService,
-        });
-
-        expect(result.warnings.map((w) => w.code)).toEqual(
-            expect.arrayContaining([
-                "project_id_mismatch",
-                "language_id_mismatch",
-                "direction_mismatch",
-            ]),
-        );
+    const result = await buildCompareResultAsync({
+      currentFiles: current,
+      sourceFiles: source,
+      currentMetadata: undefined,
+      sourceMetadata: undefined,
+      usfmOnionService,
     });
+
+    expect(result.warnings.map((w) => w.code)).toContain("book_coverage_diff");
+  });
+
+  it("emits compatibility warnings for language/direction/project id mismatch", async () => {
+    const current = makeFiles({
+      loadedText: "alpha",
+      currentText: "alpha",
+    });
+    const source = makeFiles({
+      loadedText: "alpha",
+      currentText: "alpha",
+    });
+
+    const currentMeta: CompareMetadataSummary = {
+      projectId: "p1",
+      languageId: "en",
+      languageDirection: "ltr",
+    };
+    const sourceMeta: CompareMetadataSummary = {
+      projectId: "p2",
+      languageId: "es",
+      languageDirection: "rtl",
+    };
+
+    const result = await buildCompareResultAsync({
+      currentFiles: current,
+      sourceFiles: source,
+      currentMetadata: currentMeta,
+      sourceMetadata: sourceMeta,
+      usfmOnionService,
+    });
+
+    expect(result.warnings.map((w) => w.code)).toEqual(
+      expect.arrayContaining([
+        "project_id_mismatch",
+        "language_id_mismatch",
+        "direction_mismatch",
+      ]),
+    );
+  });
 });
 
 describe("compareService apply incoming", () => {
-    it("applies an incoming hunk to the working chapter", async () => {
-        const current = makeFiles({
-            loadedText: "alpha",
-            currentText: "alpha",
-        });
-        const source = makeFiles({
-            loadedText: "gamma",
-            currentText: "gamma",
-        });
-        const result = await buildCompareResultAsync({
-            currentFiles: current,
-            sourceFiles: source,
-            currentMetadata: undefined,
-            sourceMetadata: undefined,
-            usfmOnionService,
-        });
-
-        const diff = result.diffs[0];
-        expect(diff).toBeDefined();
-        if (!diff) return;
-
-        await applyIncomingHunk({
-            workingFiles: current,
-            sourceFiles: source,
-            diff,
-            usfmOnionService,
-            shape: "flat",
-        });
-
-        const after = await buildCompareResultAsync({
-            currentFiles: current,
-            sourceFiles: source,
-            currentMetadata: undefined,
-            sourceMetadata: undefined,
-            usfmOnionService,
-        });
-        expect(after.diffs).toHaveLength(0);
+  it("applies an incoming hunk to the working chapter", async () => {
+    const current = makeFiles({
+      loadedText: "alpha",
+      currentText: "alpha",
+    });
+    const source = makeFiles({
+      loadedText: "gamma",
+      currentText: "gamma",
+    });
+    const result = await buildCompareResultAsync({
+      currentFiles: current,
+      sourceFiles: source,
+      currentMetadata: undefined,
+      sourceMetadata: undefined,
+      usfmOnionService,
     });
 
-    it("applies full incoming chapter and resolves all chapter diffs", async () => {
-        const current = makeFiles({
-            loadedText: "alpha",
-            currentText: "alpha",
-            chapterNum: 1,
-        });
-        const source = makeFiles({
-            loadedText: "gamma",
-            currentText: "gamma",
-            chapterNum: 1,
-        });
+    const diff = result.diffs[0];
+    expect(diff).toBeDefined();
+    if (!diff) return;
 
-        applyIncomingChapter({
-            workingFiles: current,
-            sourceFiles: source,
-            bookCode: "GEN",
-            chapterNum: 1,
-            shape: "flat",
-        });
-
-        const after = await buildCompareResultAsync({
-            currentFiles: current,
-            sourceFiles: source,
-            currentMetadata: undefined,
-            sourceMetadata: undefined,
-            usfmOnionService,
-        });
-        expect(after.diffs).toHaveLength(0);
+    await applyIncomingHunk({
+      workingFiles: current,
+      sourceFiles: source,
+      diff,
+      usfmOnionService,
     });
 
-    it("applies all incoming chapters across coverage", async () => {
-        const current = makeFiles({
-            loadedText: "alpha",
-            currentText: "alpha",
-            bookCode: "GEN",
-            chapterNum: 1,
-        });
-        const source = [
-            ...makeFiles({
-                loadedText: "gamma",
-                currentText: "gamma",
-                bookCode: "GEN",
-                chapterNum: 1,
-            }),
-            ...makeFiles({
-                loadedText: "delta",
-                currentText: "delta",
-                bookCode: "EXO",
-                chapterNum: 2,
-            }),
-        ];
-
-        applyIncomingChapterAll({
-            workingFiles: current,
-            sourceFiles: source,
-            shape: "flat",
-        });
-
-        const after = await buildCompareResultAsync({
-            currentFiles: current,
-            sourceFiles: source,
-            currentMetadata: undefined,
-            sourceMetadata: undefined,
-            usfmOnionService,
-        });
-        expect(after.diffs).toHaveLength(0);
+    const after = await buildCompareResultAsync({
+      currentFiles: current,
+      sourceFiles: source,
+      currentMetadata: undefined,
+      sourceMetadata: undefined,
+      usfmOnionService,
     });
+    expect(after.diffs).toHaveLength(0);
+  });
+
+  it("applies full incoming chapter and resolves all chapter diffs", async () => {
+    const current = makeFiles({
+      loadedText: "alpha",
+      currentText: "alpha",
+      chapterNum: 1,
+    });
+    const source = makeFiles({
+      loadedText: "gamma",
+      currentText: "gamma",
+      chapterNum: 1,
+    });
+
+    applyIncomingChapter({
+      workingFiles: current,
+      sourceFiles: source,
+      bookCode: "GEN",
+      chapterNum: 1,
+    });
+
+    const after = await buildCompareResultAsync({
+      currentFiles: current,
+      sourceFiles: source,
+      currentMetadata: undefined,
+      sourceMetadata: undefined,
+      usfmOnionService,
+    });
+    expect(after.diffs).toHaveLength(0);
+  });
+
+  it("applies all incoming chapters across coverage", async () => {
+    const current = makeFiles({
+      loadedText: "alpha",
+      currentText: "alpha",
+      bookCode: "GEN",
+      chapterNum: 1,
+    });
+    const source = [
+      ...makeFiles({
+        loadedText: "gamma",
+        currentText: "gamma",
+        bookCode: "GEN",
+        chapterNum: 1,
+      }),
+      ...makeFiles({
+        loadedText: "delta",
+        currentText: "delta",
+        bookCode: "EXO",
+        chapterNum: 2,
+      }),
+    ];
+
+    applyIncomingChapterAll({
+      workingFiles: current,
+      sourceFiles: source,
+    });
+
+    const after = await buildCompareResultAsync({
+      currentFiles: current,
+      sourceFiles: source,
+      currentMetadata: undefined,
+      sourceMetadata: undefined,
+      usfmOnionService,
+    });
+    expect(after.diffs).toHaveLength(0);
+  });
 });

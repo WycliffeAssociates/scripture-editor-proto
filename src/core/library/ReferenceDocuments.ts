@@ -7,7 +7,7 @@
 declare const referenceDocumentIdBrand: unique symbol;
 
 export type ReferenceDocumentId = string & {
-    readonly [referenceDocumentIdBrand]: true;
+  readonly [referenceDocumentIdBrand]: true;
 };
 
 /**
@@ -15,9 +15,9 @@ export type ReferenceDocumentId = string & {
  * inside a loaded reference item.
  */
 export type ReferenceDocumentReference = {
-    id: ReferenceDocumentId;
-    name: string;
-    browsePath?: readonly string[];
+  id: ReferenceDocumentId;
+  name: string;
+  browsePath?: readonly string[];
 };
 
 /**
@@ -25,7 +25,7 @@ export type ReferenceDocumentReference = {
  * browsing seam.
  */
 export type ReferenceDocument = ReferenceDocumentReference & {
-    contents: string;
+  contents: string;
 };
 
 /**
@@ -33,25 +33,25 @@ export type ReferenceDocument = ReferenceDocumentReference & {
  * type used by browse/read reference flows.
  */
 export function createReferenceDocumentId(id: string): ReferenceDocumentId {
-    return id.trim() as ReferenceDocumentId;
+  return id.trim() as ReferenceDocumentId;
 }
 
 /**
  * Normalize one lightweight document reference row for menus and browse surfaces.
  */
 export function createReferenceDocumentReference(
-    document: ReferenceDocumentReference,
+  document: ReferenceDocumentReference,
 ): ReferenceDocumentReference {
-    return {
-        ...document,
-        id: createReferenceDocumentId(document.id),
-        name: document.name.trim(),
-        browsePath:
-            document.browsePath?.flatMap((segment) => {
-                const trimmed = segment.trim();
-                return trimmed ? [trimmed] : [];
-            }) ?? undefined,
-    };
+  return {
+    ...document,
+    id: createReferenceDocumentId(document.id),
+    name: document.name.trim(),
+    browsePath:
+      document.browsePath?.flatMap((segment) => {
+        const trimmed = segment.trim();
+        return trimmed ? [trimmed] : [];
+      }) ?? undefined,
+  };
 }
 
 /**
@@ -59,10 +59,10 @@ export function createReferenceDocumentReference(
  * read-document seam.
  */
 export function createReferenceDocument(
-    document: ReferenceDocument,
+  document: ReferenceDocument,
 ): ReferenceDocument {
-    return {
-        ...createReferenceDocumentReference(document),
-        contents: document.contents,
-    };
+  return {
+    ...createReferenceDocumentReference(document),
+    contents: document.contents,
+  };
 }

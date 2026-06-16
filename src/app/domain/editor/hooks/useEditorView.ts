@@ -1,5 +1,6 @@
 import type { LexicalEditor } from "lexical";
 import { useEffect } from "react";
+
 import { syncReferencePaneSid } from "@/app/domain/editor/listeners/syncReferencePaneSid.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
@@ -12,27 +13,27 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
  * item and the current sync toggles from workspace state.
  */
 export function useEditorView(editor: LexicalEditor) {
-    const { referenceResource } = useWorkspaceContext();
+  const { referenceResource } = useWorkspaceContext();
 
-    useEffect(() => {
-        const syncRefScrollUnregister = syncReferencePaneSid(
-            editor,
-            referenceResource?.activeReferenceResourcePath,
-            Boolean(
-                referenceResource?.supportsScriptureNavigation &&
-                    referenceResource?.isReferenceNavSynced &&
-                    referenceResource?.isReferenceScrollSynced,
-            ),
-        );
-
-        return () => {
-            syncRefScrollUnregister();
-        };
-    }, [
-        editor,
-        referenceResource?.activeReferenceResourcePath,
-        referenceResource?.isReferenceNavSynced,
+  useEffect(() => {
+    const syncRefScrollUnregister = syncReferencePaneSid(
+      editor,
+      referenceResource?.activeReferenceResourcePath,
+      Boolean(
+        referenceResource?.supportsScriptureNavigation &&
+        referenceResource?.isReferenceNavSynced &&
         referenceResource?.isReferenceScrollSynced,
-        referenceResource?.supportsScriptureNavigation,
-    ]);
+      ),
+    );
+
+    return () => {
+      syncRefScrollUnregister();
+    };
+  }, [
+    editor,
+    referenceResource?.activeReferenceResourcePath,
+    referenceResource?.isReferenceNavSynced,
+    referenceResource?.isReferenceScrollSynced,
+    referenceResource?.supportsScriptureNavigation,
+  ]);
 }

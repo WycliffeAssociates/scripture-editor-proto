@@ -1,75 +1,71 @@
 import type { Page } from "@playwright/test";
+
 import { TESTING_IDS } from "@/app/data/constants.ts";
+
 import { expect, test } from "../helpers/e2e/fixtures.ts";
 
 async function openProjectDrawer(page: Page) {
-    // "Browse projects" opens the projects pane — the drawer-open-button
-    // testid is now wired to the Settings button (different pane).
-    await page.getByRole("button", { name: "Browse projects" }).click();
-    await expect(
-        page.getByTestId(TESTING_IDS.appDrawer.projectsList),
-    ).toBeVisible();
+  // "Browse projects" opens the projects pane — the drawer-open-button
+  // testid is now wired to the Settings button (different pane).
+  await page.getByRole("button", { name: "Browse projects" }).click();
+  await expect(
+    page.getByTestId(TESTING_IDS.appDrawer.projectsList),
+  ).toBeVisible();
 }
 
 test.describe("Project Drawer Workflows", () => {
-    test("lists projects and supports export + open actions", async ({
-        editorPage: page,
-    }) => {
-        await openProjectDrawer(page);
+  test("lists projects and supports export + open actions", async ({
+    editorPage: page,
+  }) => {
+    await openProjectDrawer(page);
 
-        const projectsList = page.getByTestId(
-            TESTING_IDS.appDrawer.projectsList,
-        );
-        await expect(projectsList).toBeVisible();
+    const projectsList = page.getByTestId(TESTING_IDS.appDrawer.projectsList);
+    await expect(projectsList).toBeVisible();
 
-        const exportButton = projectsList
-            .getByTestId(TESTING_IDS.appDrawer.itemExport)
-            .first();
-        await expect(exportButton).toBeVisible();
-        const downloadPromise = page.waitForEvent("download");
-        await exportButton.click();
-        const download = await downloadPromise;
-        expect(download).toBeTruthy();
+    const exportButton = projectsList
+      .getByTestId(TESTING_IDS.appDrawer.itemExport)
+      .first();
+    await expect(exportButton).toBeVisible();
+    const downloadPromise = page.waitForEvent("download");
+    await exportButton.click();
+    const download = await downloadPromise;
+    expect(download).toBeTruthy();
 
-        await projectsList
-            .getByTestId(TESTING_IDS.project.listItemButton)
-            .first()
-            .click();
-        await expect(
-            page.getByTestId(TESTING_IDS.mainEditorContainer),
-        ).toBeVisible();
-        expect(page.url()).toContain("/llx_reg");
-    });
+    await projectsList
+      .getByTestId(TESTING_IDS.project.listItemButton)
+      .first()
+      .click();
+    await expect(
+      page.getByTestId(TESTING_IDS.mainEditorContainer),
+    ).toBeVisible();
+    expect(page.url()).toContain("/llx_reg");
+  });
 
-    test("navigates to create route from new project action", async ({
-        editorPage: page,
-    }) => {
-        await openProjectDrawer(page);
-        await expect(page.getByText("New Project")).toBeVisible();
-        await page.getByTestId(TESTING_IDS.appDrawer.newProject).click();
-        await expect(page).toHaveURL(/\/create$/);
-    });
+  test("navigates to create route from new project action", async ({
+    editorPage: page,
+  }) => {
+    await openProjectDrawer(page);
+    await expect(page.getByText("New Project")).toBeVisible();
+    await page.getByTestId(TESTING_IDS.appDrawer.newProject).click();
+    await expect(page).toHaveURL(/\/create$/);
+  });
 
-    test("handles multiple projects in drawer", async ({
-        editorWithTwoProjects: page,
-    }) => {
-        await openProjectDrawer(page);
+  test("handles multiple projects in drawer", async ({
+    editorWithTwoProjects: page,
+  }) => {
+    await openProjectDrawer(page);
 
-        const projectsList = page.getByTestId(
-            TESTING_IDS.appDrawer.projectsList,
-        );
-        const projectItems = await projectsList
-            .locator('[data-testid^="project-list-item-"]')
-            .all();
-        expect(projectItems.length).toBeGreaterThan(1);
+    const projectsList = page.getByTestId(TESTING_IDS.appDrawer.projectsList);
+    const projectItems = await projectsList
+      .locator('[data-testid^="project-list-item-"]')
+      .all();
+    expect(projectItems.length).toBeGreaterThan(1);
 
-        await expect(
-            projectsList
-                .getByTestId(TESTING_IDS.project.listItemButton)
-                .first(),
-        ).toBeVisible();
-        await expect(
-            projectsList.getByTestId(TESTING_IDS.appDrawer.itemExport).first(),
-        ).toBeVisible();
-    });
+    await expect(
+      projectsList.getByTestId(TESTING_IDS.project.listItemButton).first(),
+    ).toBeVisible();
+    await expect(
+      projectsList.getByTestId(TESTING_IDS.appDrawer.itemExport).first(),
+    ).toBeVisible();
+  });
 });

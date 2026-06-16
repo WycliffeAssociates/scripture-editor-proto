@@ -11,9 +11,9 @@ overlays and a panel list.
 A `Finding` carries `id`, `code`, `severity`, `category`, `source`,
 `coveringTokenIds`, and an **anchor** — a closed union of:
 
-- **`token`** — pinned to a token id (structural lint: the issue is *a marker*).
+- **`token`** — pinned to a token id (structural lint: the issue is _a marker_).
 - **`content`** — `(sid, Utf16Span)` into a verse's projected text (sous: the
-  issue is *some characters within a verse*).
+  issue is _some characters within a verse_).
 
 The model holds no display strings: ids derive from canonical fields only, so
 they're stable across locale and re-runs. Adding a producer or anchor kind is a
@@ -22,17 +22,30 @@ deliberate type edit (closed unions), not an open extension point.
 ## Producers (parallel pipelines)
 
 Both subscribe to `WorkingFilesStore.changes` via `makeFoldedScopePipeline` —
-parallel subscribers, not a tee.
+parallel subscribers, not a tee. Analysis runs **off the main thread** in the
+workspace mirror; the pipelines issue commands and the result router commits
+what comes back.
 
-- **onion lint** (`lintPipeline.ts`): book tokens → `IUsfmOnionService.lintScope`
-  → `LintIssue[]` → `normalizeFindings.lintIssuesToFindings` → committed under
-  the `"onion"` slice (`commitBookFindings`).
-- **sous content analysis** (`sousPipeline.ts`, 200 ms): book tokens →
-  `ISousService.analyze` → `SousAnalyzeResult` (findings + a `SegmentsBySid`
-  sidecar) → `sousFindingsToFindings` → committed under the sous slice atomically
-  with its segment map (`commitSousBookFindings`). Tauri runs the `sous_analyze`
-  Rust command; web runs `onion.vrefIndexTokens` + `ssc.analyze_vref` in-process
-  (`WebSousService.ts`). Both emit UTF-16 offsets at their boundary.
+- **onion lint** (`lintPipeline.ts`, 100 ms debounce): folds commit events into
+  a book-granular `AnalyzeScope` and sends an `analyzeLint` command to
+  `MirrorFeed`. The mirror reads its resident tokens for those books, runs the
+  lint engine, and returns a `LintResult`. `mirrorResultRouter` normalizes the
+  raw `LintIssue[]` per book (`onionFindingsByChapter`) and commits them under
+  the `"onion"` slice (`commitBookFindings`). Stale results (generation below
+  the lint high-water mark) are dropped in the router.
+- **sous content analysis** (`sousPipeline.ts`, 100 ms debounce): same pipeline
+  shape — folds to a book-granular scope, sends `analyzeSous` to `MirrorFeed`.
+  The mirror assembles vref tokens and runs the sous engine, returning a
+  `SousResult` (per-book `SousAnalyzeResult`). The router calls
+  `sousFindingsToFindings` and commits findings + the `SegmentsBySid` sidecar
+  atomically into the sous slice (`commitSousBookFindings`). Same stale-drop
+  logic at the sous high-water mark.
+
+**First-paint findings:** at workspace load, `workspaceKernel` awaits an
+initial project-wide lint + sous pass through the mirror (`InitialFindings`).
+The provider seeds `FindingsStore` with these results before first paint so
+the overlay and panel are never empty on open. The same results also flow
+through the live result-router path, making the seed idempotent.
 
 ## FindingsStore (`state/FindingsStore.ts`, `findingsSelectors.ts`)
 
@@ -83,9 +96,12 @@ The decorator registry is closed — a new finding kind is a type edit.
   `presentFinding.ts`, `resolveContentRange.ts`, `decorators/`
 - `src/app/state/FindingsStore.ts`, `findingsSelectors.ts`
 - `src/app/domain/editor/pipelines/lintPipeline.ts`, `sousPipeline.ts`
-- `src/core/domain/sous/ISousService.ts`, `sousTypes.ts`;
-  `src/tauri/domain/sous/TauriSousService.ts`,
-  `src/web/domain/sous/WebSousService.ts`
+- `src/app/domain/editor/pipelines/mirrorResultRouter.ts` — result → store
+  commit path; stale-drop high-water marks live here
+- `src/app/domain/editor/pipelines/mirrorPatchProducer.ts` — `seedMirror`,
+  `InitialFindings`; `src/app/domain/mirror/workspaceKernel.ts` — kernel
+  build, initial pass, `WorkspaceKernelHandle`
+- `src/app/domain/mirror/MirrorFeed.ts`, `mirrorProtocol.ts`
 - `src/core/domain/usfm/vrefTypes.ts`
 - `src/app/domain/editor/plugins/FindingsOverlayPlugin.tsx`,
   `src/app/ui/hooks/useFindings.ts`, `useDecorateFindings.ts`,

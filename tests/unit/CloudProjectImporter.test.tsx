@@ -4,7 +4,16 @@ import { i18n } from "@lingui/core";
 import { I18nProvider } from "@lingui/react";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+
 import { CloudProjectImporter } from "@/app/ui/components/import/CloudProjectImporter.tsx";
 
 let container: HTMLDivElement | null = null;
@@ -84,7 +93,9 @@ describe("CloudProjectImporter", () => {
       />,
     );
 
-    expect(document.body.textContent).toContain("Connect to https://gitea.example.org");
+    expect(document.body.textContent).toContain(
+      "Connect to https://gitea.example.org",
+    );
     expect(document.querySelector('input[type="checkbox"]')).toBeNull();
   });
 
@@ -147,7 +158,9 @@ describe("CloudProjectImporter", () => {
     expect(document.body.textContent).toContain("Load more");
     expect(document.body.textContent).toContain("Only repos I own");
 
-    const filterCheckbox = document.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    const filterCheckbox = document.querySelector<HTMLInputElement>(
+      'input[type="checkbox"]',
+    );
     expect(filterCheckbox).toBeTruthy();
     expect(filterCheckbox?.checked).toBe(false);
 
@@ -165,7 +178,9 @@ describe("CloudProjectImporter", () => {
       addButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    expect(onCloneRepo).toHaveBeenCalledWith(expect.objectContaining({ name: "bho-bible" }));
+    expect(onCloneRepo).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "bho-bible" }),
+    );
   });
 
   it("shows an owned-only empty state when no loaded repo is owned by the session", () => {
@@ -196,7 +211,9 @@ describe("CloudProjectImporter", () => {
       />,
     );
 
-    const filterCheckbox = document.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    const filterCheckbox = document.querySelector<HTMLInputElement>(
+      'input[type="checkbox"]',
+    );
     expect(filterCheckbox).toBeTruthy();
 
     act(() => {
@@ -237,13 +254,15 @@ describe("CloudProjectImporter", () => {
       />,
     );
 
-    const disconnectButton = [...document.querySelectorAll("button")].find((button) =>
-      button.textContent?.includes("Log out"),
+    const disconnectButton = [...document.querySelectorAll("button")].find(
+      (button) => button.textContent?.includes("Log out"),
     );
     expect(disconnectButton).toBeTruthy();
 
     act(() => {
-      disconnectButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      disconnectButton?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
     });
 
     expect(onDisconnect).toHaveBeenCalledTimes(1);
@@ -279,8 +298,8 @@ describe("CloudProjectImporter", () => {
     );
 
     expect(document.body.textContent).toContain("Connect account");
-    const connectButton = [...document.querySelectorAll("button")].find((button) =>
-      button.textContent?.includes("Connect account"),
+    const connectButton = [...document.querySelectorAll("button")].find(
+      (button) => button.textContent?.includes("Connect account"),
     );
     expect(connectButton).toBeTruthy();
 

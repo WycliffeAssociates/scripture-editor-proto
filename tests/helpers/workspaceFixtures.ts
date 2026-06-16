@@ -26,12 +26,12 @@
 //      store assigns `generation`; tests must not pre-set it.
 
 import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
+
 import { type EditorShape, UsfmTokenTypes } from "@/app/data/editor.ts";
 import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { tokensToLexical } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type {
-    ScriptureBookState,
-    ScriptureChapterState,
+  ScriptureBookState,
+  ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { CommitMeta, WorkingFilesPatch } from "@/app/state/types.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
@@ -41,8 +41,8 @@ type CommitMetaInput = Omit<CommitMeta, "generation">;
 type TokenIdent = { sid?: string; id?: string };
 
 function identDefaults(opts: TokenIdent | undefined, fallbackId: string) {
-    const sid = opts?.sid ?? "GEN 1:1";
-    return { sid, id: opts?.id ?? `${sid}-${fallbackId}` };
+  const sid = opts?.sid ?? "GEN 1:1";
+  return { sid, id: opts?.id ?? `${sid}-${fallbackId}` };
 }
 
 /**
@@ -56,32 +56,32 @@ function identDefaults(opts: TokenIdent | undefined, fallbackId: string) {
  * re-deriving the shape.
  */
 export function makeTokens(
-    text: string,
-    opts?: TokenIdent & { withParagraphMarker?: boolean },
+  text: string,
+  opts?: TokenIdent & { withParagraphMarker?: boolean },
 ): Token[] {
-    const { sid, id } = identDefaults(opts, "text");
-    const textToken = {
-        id,
-        kind: "text",
-        span: { start: 0, end: text.length },
-        sid,
-        source: text,
-    } as Token;
-    if (!opts?.withParagraphMarker) return [textToken];
-    return [
-        {
-            id: `${id}-p`,
-            kind: "marker",
-            marker: "p",
-            span: { start: 0, end: 3 },
-            sid,
-            source: "\\p ",
-        } as Token,
-        {
-            ...textToken,
-            span: { start: 3, end: 3 + text.length },
-        } as Token,
-    ];
+  const { sid, id } = identDefaults(opts, "text");
+  const textToken = {
+    id,
+    kind: "text",
+    span: { start: 0, end: text.length },
+    sid,
+    source: text,
+  } as Token;
+  if (!opts?.withParagraphMarker) return [textToken];
+  return [
+    {
+      id: `${id}-p`,
+      kind: "marker",
+      marker: "p",
+      span: { start: 0, end: 3 },
+      sid,
+      source: "\\p ",
+    } as Token,
+    {
+      ...textToken,
+      span: { start: 3, end: 3 + text.length },
+    } as Token,
+  ];
 }
 
 /**
@@ -90,147 +90,128 @@ export function makeTokens(
  * isn't the contract under test. See caveat 1 in the file header.
  */
 export function makeFlatRegularState(
-    text: string,
-    opts?: TokenIdent,
+  text: string,
+  opts?: TokenIdent,
 ): SerializedEditorState<SerializedLexicalNode> {
-    const { sid, id } = identDefaults(opts, "text");
-    return {
-        root: {
-            type: "root",
-            version: 1,
-            direction: "ltr",
-            format: "",
-            indent: 0,
-            children: [
-                {
-                    type: "paragraph",
-                    version: 1,
-                    direction: "ltr",
-                    format: "",
-                    indent: 0,
-                    textFormat: 0,
-                    textStyle: "",
-                    children: [
-                        createSerializedUSFMTextNode({
-                            text,
-                            sid,
-                            id,
-                            tokenType: UsfmTokenTypes.text,
-                        }),
-                    ],
-                } as unknown as SerializedLexicalNode,
-            ],
-        },
-    } as SerializedEditorState<SerializedLexicalNode>;
+  const { sid, id } = identDefaults(opts, "text");
+  return {
+    root: {
+      type: "root",
+      version: 1,
+      direction: "ltr",
+      format: "",
+      indent: 0,
+      children: [
+        {
+          type: "paragraph",
+          version: 1,
+          direction: "ltr",
+          format: "",
+          indent: 0,
+          textFormat: 0,
+          textStyle: "",
+          children: [
+            createSerializedUSFMTextNode({
+              text,
+              sid,
+              id,
+              tokenType: UsfmTokenTypes.text,
+            }),
+          ],
+        } as unknown as SerializedLexicalNode,
+      ],
+    },
+  } as SerializedEditorState<SerializedLexicalNode>;
 }
 
 export type MakeChapterOptions = {
-    bookCode?: string;
-    chapterNumber?: number;
-    /** Current (post-edit) text. Defaults to "Sample text.". */
-    text?: string;
-    /** Loaded-from-disk text. Defaults to `text` (clean chapter). */
-    sourceText?: string;
-    /**
-     * Overrides the dirty flag. Default: derived from `sourceText !== text`
-     * so the common cases ("clean" / "edited from source") need no extra
-     * argument.
-     */
-    dirty?: boolean;
-    /**
-     * When set, materialize `lexicalState` through the production
-     * `tokensToLexical` adapter in this tree shape (and the saved baseline
-     * as flat) instead of the plain-paragraph `makeFlatRegularState` stub —
-     * for tests where the tree shape IS the contract (resolves caveat 1).
-     * Tokens get a leading `\p` marker so form/regular shapes have a
-     * paragraph-class block to build from.
-     */
-    shape?: EditorShape;
+  bookCode?: string;
+  chapterNumber?: number;
+  /** Current (post-edit) text. Defaults to "Sample text.". */
+  text?: string;
+  /** Loaded-from-disk text. Defaults to `text` (clean chapter). */
+  sourceText?: string;
+  /**
+   * Overrides the dirty flag. Default: derived from `sourceText !== text`
+   * so the common cases ("clean" / "edited from source") need no extra
+   * argument.
+   */
+  dirty?: boolean;
+  /**
+   * When set, materialize `lexicalState` through the production
+   * `tokensToLexical` adapter in this tree shape (and the saved baseline
+   * as flat) instead of the plain-paragraph `makeFlatRegularState` stub —
+   * for tests where the tree shape IS the contract (resolves caveat 1).
+   * Tokens get a leading `\p` marker so form/regular shapes have a
+   * paragraph-class block to build from.
+   */
+  shape?: EditorShape;
 };
 
 export function makeChapter(
-    opts: MakeChapterOptions = {},
+  opts: MakeChapterOptions = {},
 ): ScriptureChapterState {
-    const bookCode = opts.bookCode ?? "GEN";
-    const chapterNumber = opts.chapterNumber ?? 1;
-    const text = opts.text ?? "Sample text.";
-    const sourceText = opts.sourceText ?? text;
-    const sid = `${bookCode} ${chapterNumber}:1`;
-    const dirty = opts.dirty ?? sourceText !== text;
-    const withParagraphMarker = opts.shape !== undefined;
-    const sourceTokens = makeTokens(sourceText, {
-        sid,
-        id: `${sid}-source`,
-        withParagraphMarker,
-    });
-    const currentTokens = makeTokens(text, {
-        sid,
-        id: `${sid}-current`,
-        withParagraphMarker,
-    });
-    return {
-        chapterNumber,
-        dirty,
-        eol: "\n",
-        sourceTokens,
-        currentTokens,
-        loadedLexicalState: opts.shape
-            ? tokensToLexical({
-                  tokens: sourceTokens,
-                  direction: "ltr",
-                  mode: "flat",
-              })
-            : makeFlatRegularState(sourceText, {
-                  sid,
-                  id: `${sid}-source`,
-              }),
-        lexicalState: opts.shape
-            ? tokensToLexical({
-                  tokens: currentTokens,
-                  direction: "ltr",
-                  mode: opts.shape,
-              })
-            : makeFlatRegularState(text, {
-                  sid,
-                  id: `${sid}-current`,
-              }),
-    };
+  const bookCode = opts.bookCode ?? "GEN";
+  const chapterNumber = opts.chapterNumber ?? 1;
+  const text = opts.text ?? "Sample text.";
+  const sourceText = opts.sourceText ?? text;
+  const sid = `${bookCode} ${chapterNumber}:1`;
+  const dirty = opts.dirty ?? sourceText !== text;
+  const withParagraphMarker = opts.shape !== undefined;
+  const sourceTokens = makeTokens(sourceText, {
+    sid,
+    id: `${sid}-source`,
+    withParagraphMarker,
+  });
+  const currentTokens = makeTokens(text, {
+    sid,
+    id: `${sid}-current`,
+    withParagraphMarker,
+  });
+  return {
+    chapterNumber,
+    dirty,
+    eol: "\n",
+    direction: "ltr",
+    sourceTokens,
+    currentTokens,
+  };
 }
 
 export type MakeBookOptions = {
-    bookCode?: string;
-    title?: string;
-    path?: string;
-    /** Defaults to a single clean chapter built by `makeChapter`. */
-    chapters?: ScriptureChapterState[];
+  bookCode?: string;
+  title?: string;
+  path?: string;
+  /** Defaults to a single clean chapter built by `makeChapter`. */
+  chapters?: ScriptureChapterState[];
 };
 
 export function makeBook(opts: MakeBookOptions = {}): ScriptureBookState {
-    const bookCode = opts.bookCode ?? "GEN";
-    return {
-        bookCode,
-        title: opts.title ?? bookCode,
-        path: opts.path ?? `/userData/projects/demo/${bookCode}.usfm`,
-        nextBookId: null,
-        prevBookId: null,
-        chapters: opts.chapters ?? [makeChapter({ bookCode })],
-    };
+  const bookCode = opts.bookCode ?? "GEN";
+  return {
+    bookCode,
+    title: opts.title ?? bookCode,
+    path: opts.path ?? `/userData/projects/demo/${bookCode}.usfm`,
+    nextBookId: null,
+    prevBookId: null,
+    chapters: opts.chapters ?? [makeChapter({ bookCode })],
+  };
 }
 
 /** `kind: "chapter"` patch with a default lexical state built from `text`. */
 export function makeChapterPatch(args: {
-    bookCode: string;
-    chapter: number;
-    text: string;
+  bookCode: string;
+  chapter: number;
+  text: string;
 }): WorkingFilesPatch {
-    return {
-        kind: "chapter",
-        bookCode: args.bookCode,
-        chapter: args.chapter,
-        lexicalState: makeFlatRegularState(args.text, {
-            sid: `${args.bookCode} ${args.chapter}:1`,
-        }),
-    };
+  return {
+    kind: "chapter",
+    bookCode: args.bookCode,
+    chapter: args.chapter,
+    lexicalState: makeFlatRegularState(args.text, {
+      sid: `${args.bookCode} ${args.chapter}:1`,
+    }),
+  };
 }
 
 /**
@@ -239,17 +220,16 @@ export function makeChapterPatch(args: {
  * bridge plugin's behavior.
  */
 export function makeCommitMeta(args: {
-    kind: CommitMeta["kind"];
-    bookCode: string;
-    chapter: number;
-    dirtyTextContent?: boolean;
+  kind: CommitMeta["kind"];
+  bookCode: string;
+  chapter: number;
+  dirtyTextContent?: boolean;
 }): CommitMetaInput {
-    return {
-        kind: args.kind,
-        scope: {
-            chapters: [{ bookCode: args.bookCode, chapterNum: args.chapter }],
-        },
-        dirtyTextContent:
-            args.dirtyTextContent ?? args.kind !== "metadataOnly",
-    };
+  return {
+    kind: args.kind,
+    scope: {
+      chapters: [{ bookCode: args.bookCode, chapterNum: args.chapter }],
+    },
+    dirtyTextContent: args.dirtyTextContent ?? args.kind !== "metadataOnly",
+  };
 }

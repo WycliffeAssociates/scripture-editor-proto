@@ -1,9 +1,9 @@
-import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
-import { describe, expect, it } from "vitest";
-import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
-import { applyVersionSnapshotToWorkingFiles } from "@/app/domain/project/versionNavigationService.ts";
-import { serializeToUsfmString } from "@tests/helpers/serializeToUsfmString.ts";
 import { makeBook, makeChapter } from "@tests/helpers/workspaceFixtures.ts";
+import { describe, expect, it } from "vitest";
+
+import { tokensToUsfm } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { applyVersionSnapshotToWorkingFiles } from "@/app/domain/project/versionNavigationService.ts";
+import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 
 function makeFiles(args: {
   loadedText: string;
@@ -27,10 +27,6 @@ function makeFiles(args: {
   ];
 }
 
-function chapterUsfm(state: SerializedEditorState<SerializedLexicalNode>): string {
-  return serializeToUsfmString(state.root.children);
-}
-
 describe("versionNavigationService.applyVersionSnapshotToWorkingFiles", () => {
   it("re-baselines loaded state to selected snapshot", () => {
     const working = makeFiles({
@@ -45,12 +41,11 @@ describe("versionNavigationService.applyVersionSnapshotToWorkingFiles", () => {
     applyVersionSnapshotToWorkingFiles({
       workingFiles: working,
       sourceFiles: older,
-      shape: "flat",
     });
 
     const chapter = working[0]?.chapters[0];
-    expect(chapterUsfm(chapter.lexicalState)).toContain("older");
-    expect(chapterUsfm(chapter.loadedLexicalState)).toContain("older");
+    expect(tokensToUsfm(chapter.currentTokens, chapter.eol)).toContain("older");
+    expect(tokensToUsfm(chapter.sourceTokens, chapter.eol)).toContain("older");
     expect(chapter.dirty).toBe(false);
   });
 
@@ -71,17 +66,19 @@ describe("versionNavigationService.applyVersionSnapshotToWorkingFiles", () => {
     applyVersionSnapshotToWorkingFiles({
       workingFiles: working,
       sourceFiles: olderOne,
-      shape: "flat",
     });
     applyVersionSnapshotToWorkingFiles({
       workingFiles: working,
       sourceFiles: olderTwo,
-      shape: "flat",
     });
 
     const chapter = working[0]?.chapters[0];
-    expect(chapterUsfm(chapter.lexicalState)).toContain("older-2");
-    expect(chapterUsfm(chapter.loadedLexicalState)).toContain("older-2");
+    expect(tokensToUsfm(chapter.currentTokens, chapter.eol)).toContain(
+      "older-2",
+    );
+    expect(tokensToUsfm(chapter.sourceTokens, chapter.eol)).toContain(
+      "older-2",
+    );
     expect(chapter.dirty).toBe(false);
   });
 });

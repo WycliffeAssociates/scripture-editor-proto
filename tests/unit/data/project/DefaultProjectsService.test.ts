@@ -1,26 +1,30 @@
+import { InMemoryFileSystem } from "@tests/helpers/InMemoryFileSystem.ts";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
+
+import { DefaultProjectsService } from "@/app/persistence/DefaultProjectsService.ts";
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 import { ProjectImporter } from "@/core/domain/project/import/ProjectImporter.ts";
-import { createReferenceDocumentId } from "@/core/library/ReferenceDocuments.ts";
 import type { LoadedReferenceItem } from "@/core/library/LoadedReferenceItem.ts";
+import type { ProjectIndex } from "@/core/library/ProjectIndex.ts";
+import { createReferenceDocumentId } from "@/core/library/ReferenceDocuments.ts";
+import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
 import { ensureProjectGitReady } from "@/core/persistence/ensureProjectGitReady.ts";
 import { GIT_REMOTE_PUBLISH_PUBLISHED } from "@/core/persistence/GitProvider.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
-import type { RemoteRepoProvider } from "@/core/persistence/RemoteRepoProvider.ts";
-import type { ProjectIndex } from "@/core/library/ProjectIndex.ts";
-import type { ImportProjectResult } from "@/core/persistence/WorkspaceService.ts";
-import type { Project, ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
-import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
+import { createDefaultGitRemoteProjectStatus } from "@/core/persistence/gitRemoteModels.ts";
 import {
   readGitRemoteProjectInfo,
   readGitRemoteProjectStatus,
   writeGitRemoteProjectInfo,
   writeGitRemoteProjectStatus,
 } from "@/core/persistence/gitRemoteStore.ts";
-import { createDefaultGitRemoteProjectStatus } from "@/core/persistence/gitRemoteModels.ts";
-import { DefaultProjectsService } from "@/app/persistence/DefaultProjectsService.ts";
-import { InMemoryFileSystem } from "@tests/helpers/InMemoryFileSystem.ts";
+import type { RemoteRepoProvider } from "@/core/persistence/RemoteRepoProvider.ts";
+import type {
+  Project,
+  ProjectListItem,
+} from "@/core/persistence/ScriptureWorkspace.ts";
+import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
+import type { ImportProjectResult } from "@/core/persistence/WorkspaceService.ts";
 
 vi.mock("@/core/persistence/ensureProjectGitReady.ts", () => ({
   ensureProjectGitReady: vi.fn(async () => {}),
@@ -188,7 +192,9 @@ function makeOpenedScriptureItem(overrides: Partial<Project> = {}) {
   };
 }
 
-function makeOpenedResource(overrides: Partial<LoadedReferenceItem> = {}): LoadedReferenceItem {
+function makeOpenedResource(
+  overrides: Partial<LoadedReferenceItem> = {},
+): LoadedReferenceItem {
   return {
     folderName: "en_tn_condensed",
     displayName: "English Translation Notes Condensed",
@@ -258,7 +264,9 @@ describe("DefaultProjectsService", () => {
 
     const loadedProject = await projectsService.openProject("reg");
 
-    expect(projectIndex.getProjectByPath).toHaveBeenCalledWith("/userData/projects/reg");
+    expect(projectIndex.getProjectByPath).toHaveBeenCalledWith(
+      "/userData/projects/reg",
+    );
     expect(openItemSpy).toHaveBeenCalledWith({
       fs: fileSystem,
       managedPath: "/userData/projects/reg",
@@ -291,11 +299,13 @@ describe("DefaultProjectsService", () => {
   });
 
   test("openProject uses the indexed display name when available", async () => {
-    const openItemSpy = vi.spyOn(projectsService["itemLoader"], "openItem").mockResolvedValueOnce(
-      makeOpenedScriptureItem({
-        displayName: "Indexed Adhola Bible",
-      }) as never,
-    );
+    const openItemSpy = vi
+      .spyOn(projectsService["itemLoader"], "openItem")
+      .mockResolvedValueOnce(
+        makeOpenedScriptureItem({
+          displayName: "Indexed Adhola Bible",
+        }) as never,
+      );
     vi.mocked(projectIndex.getProjectByPath).mockResolvedValueOnce({
       folderName: "reg",
       projectPath: "/userData/projects/reg",
@@ -316,7 +326,10 @@ describe("DefaultProjectsService", () => {
   });
 
   test("openEditableProject reports non-editable resources explicitly", async () => {
-    await fileSystem.writeText("/userData/projects/en_tn_condensed/manifest.yaml", "projects: []");
+    await fileSystem.writeText(
+      "/userData/projects/en_tn_condensed/manifest.yaml",
+      "projects: []",
+    );
     const openItemSpy = vi
       .spyOn(projectsService["itemLoader"], "openItem")
       .mockResolvedValueOnce(makeOpenedResource() as never);
@@ -386,7 +399,10 @@ describe("DefaultProjectsService", () => {
   });
 
   test("openResource uses the indexed display name and resource loader path", async () => {
-    const openResourceSpy = vi.spyOn(projectsService as any, "reopenManagedResource");
+    const openResourceSpy = vi.spyOn(
+      projectsService as any,
+      "reopenManagedResource",
+    );
     openResourceSpy.mockResolvedValueOnce(makeOpenedResource());
     vi.mocked(projectIndex.getLibraryItemByPath).mockResolvedValueOnce({
       folderName: "en_tn_condensed",
@@ -402,9 +418,14 @@ describe("DefaultProjectsService", () => {
       hasRemoteSync: false,
       libraryGroup: "translation-notes",
     });
-    await fileSystem.writeText("/userData/projects/en_tn_condensed/manifest.yaml", "projects: []");
+    await fileSystem.writeText(
+      "/userData/projects/en_tn_condensed/manifest.yaml",
+      "projects: []",
+    );
 
-    const loadedResource = await projectsService.openResource("/userData/projects/en_tn_condensed");
+    const loadedResource = await projectsService.openResource(
+      "/userData/projects/en_tn_condensed",
+    );
 
     expect(projectIndex.getLibraryItemByPath).toHaveBeenCalledWith(
       "/userData/projects/en_tn_condensed",
@@ -473,7 +494,9 @@ describe("DefaultProjectsService", () => {
     expect(removeSpy).toHaveBeenCalledWith("/userData/projects/reg", {
       recursive: true,
     });
-    expect(projectIndex.deleteProject).toHaveBeenCalledWith("/userData/projects/reg");
+    expect(projectIndex.deleteProject).toHaveBeenCalledWith(
+      "/userData/projects/reg",
+    );
   });
 
   test("deleteProject still accepts an explicit recursive option", async () => {
@@ -489,7 +512,10 @@ describe("DefaultProjectsService", () => {
   });
 
   test("renameDisplayName updates the indexed project row through the service", async () => {
-    await projectsService.renameDisplayName("/userData/projects/reg", "Adhola Bible Revised");
+    await projectsService.renameDisplayName(
+      "/userData/projects/reg",
+      "Adhola Bible Revised",
+    );
 
     expect(projectIndex.renameDisplayName).toHaveBeenCalledWith(
       "/userData/projects/reg",
@@ -513,7 +539,9 @@ describe("DefaultProjectsService", () => {
     const openEditableProjectSpy = vi
       .spyOn(projectsService, "openEditableProject")
       .mockResolvedValueOnce({ project: makeOpenedProject() });
-    vi.mocked(projectIndex.getProjectByPath).mockResolvedValueOnce(importedItem);
+    vi.mocked(projectIndex.getProjectByPath).mockResolvedValueOnce(
+      importedItem,
+    );
 
     const result = await projectsService.importProject({
       type: "fromZipFile",
@@ -527,7 +555,9 @@ describe("DefaultProjectsService", () => {
       },
       expect.any(Function),
     );
-    expect(openEditableProjectSpy).toHaveBeenCalledWith(importedItem.projectPath);
+    expect(openEditableProjectSpy).toHaveBeenCalledWith(
+      importedItem.projectPath,
+    );
     expect(projectIndex.indexItem).toHaveBeenCalledWith(
       expect.objectContaining({
         projectPath: importedItem.projectPath,
@@ -540,7 +570,9 @@ describe("DefaultProjectsService", () => {
         projectPath: importedItem.projectPath,
       }),
     });
-    expect(projectIndex.getProjectByPath).toHaveBeenCalledWith(importedItem.projectPath);
+    expect(projectIndex.getProjectByPath).toHaveBeenCalledWith(
+      importedItem.projectPath,
+    );
     expect(result).toEqual({
       project: importedItem,
       gitReady: true,
@@ -558,13 +590,21 @@ describe("DefaultProjectsService", () => {
       languageCode: "adh",
       languageName: "Adhola",
     };
-    vi.spyOn(ProjectImporter.prototype, "import").mockResolvedValueOnce(importedItem.projectPath);
+    vi.spyOn(ProjectImporter.prototype, "import").mockResolvedValueOnce(
+      importedItem.projectPath,
+    );
     vi.spyOn(projectsService, "openEditableProject").mockResolvedValueOnce({
       project: makeOpenedProject(),
     });
-    vi.mocked(projectIndex.getProjectByPath).mockResolvedValueOnce(importedItem);
-    vi.mocked(ensureProjectGitReady).mockRejectedValueOnce(new Error("Repo init failed"));
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(projectIndex.getProjectByPath).mockResolvedValueOnce(
+      importedItem,
+    );
+    vi.mocked(ensureProjectGitReady).mockRejectedValueOnce(
+      new Error("Repo init failed"),
+    );
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
 
     const result = await projectsService.importProject({
       type: "fromZipFile",
@@ -603,7 +643,9 @@ describe("DefaultProjectsService", () => {
       hasRemoteSync: false,
       libraryGroup: "translation-notes" as const,
     };
-    vi.spyOn(ProjectImporter.prototype, "import").mockResolvedValueOnce(importedPath);
+    vi.spyOn(ProjectImporter.prototype, "import").mockResolvedValueOnce(
+      importedPath,
+    );
     await fileSystem.writeText(
       `${importedPath}/manifest.yaml`,
       `dublin_core:
@@ -627,8 +669,12 @@ projects:
       project: null,
       rejectionReason: "not-editable",
     });
-    vi.spyOn(projectsService, "openResource").mockResolvedValueOnce(makeOpenedResource());
-    vi.mocked(projectIndex.getLibraryItemByPath).mockResolvedValueOnce(importedResourceItem);
+    vi.spyOn(projectsService, "openResource").mockResolvedValueOnce(
+      makeOpenedResource(),
+    );
+    vi.mocked(projectIndex.getLibraryItemByPath).mockResolvedValueOnce(
+      importedResourceItem,
+    );
 
     const result = await projectsService.importProject({
       type: "fromDir",
@@ -659,7 +705,9 @@ projects:
 
   test("importProject returns editable project metadata review result when open is blocked by metadata issues", async () => {
     const importedPath = "/userData/projects/examples";
-    vi.spyOn(ProjectImporter.prototype, "import").mockResolvedValueOnce(importedPath);
+    vi.spyOn(ProjectImporter.prototype, "import").mockResolvedValueOnce(
+      importedPath,
+    );
     await fileSystem.writeText(
       `${importedPath}/manifest.yaml`,
       `dublin_core:
@@ -677,7 +725,10 @@ projects:
     categories: []
 `,
     );
-    await fileSystem.writeText(`${importedPath}/01GENBSB.usfm`, "\\id GEN\n\\c 1\n");
+    await fileSystem.writeText(
+      `${importedPath}/01GENBSB.usfm`,
+      "\\id GEN\n\\c 1\n",
+    );
     vi.spyOn(projectsService, "openEditableProject").mockResolvedValueOnce({
       project: null,
       rejectionReason: "metadata-invalid",
@@ -773,12 +824,19 @@ projects:
     ]);
 
     await fileSystem.writeText("/userData/projects/ulb/manifest.yaml", "");
-    await fileSystem.writeText("/userData/projects/en_tn_condensed/manifest.yaml", "");
+    await fileSystem.writeText(
+      "/userData/projects/en_tn_condensed/manifest.yaml",
+      "",
+    );
 
     await projectsService.reconcileIndex();
 
-    expect(projectIndex.deleteProject).toHaveBeenCalledWith("/userData/projects/missing");
-    expect(projectIndex.deleteProject).not.toHaveBeenCalledWith("/userData/projects/ulb");
+    expect(projectIndex.deleteProject).toHaveBeenCalledWith(
+      "/userData/projects/missing",
+    );
+    expect(projectIndex.deleteProject).not.toHaveBeenCalledWith(
+      "/userData/projects/ulb",
+    );
     expect(projectIndex.deleteProject).not.toHaveBeenCalledWith(
       "/userData/projects/en_tn_condensed",
     );
@@ -999,10 +1057,12 @@ projects:
         remoteRepoProvider,
       },
     });
-    vi.mocked(mockGitProvider.cloneRemoteRepo).mockImplementationOnce(async ({ projectPath }) => {
-      await fileSystem.mkdir(projectPath, { recursive: true });
-      return { head: "abc123" };
-    });
+    vi.mocked(mockGitProvider.cloneRemoteRepo).mockImplementationOnce(
+      async ({ projectPath }) => {
+        await fileSystem.mkdir(projectPath, { recursive: true });
+        return { head: "abc123" };
+      },
+    );
     const importSpy = vi
       .spyOn(projectsService, "importProject")
       .mockRejectedValueOnce(new Error("Invalid repo structure"));
@@ -1024,7 +1084,9 @@ projects:
     ).rejects.toThrow("Invalid repo structure");
 
     expect(importSpy).toHaveBeenCalled();
-    await expect(fileSystem.exists("/userData/projects/bho-bible")).resolves.toBe(false);
+    await expect(
+      fileSystem.exists("/userData/projects/bho-bible"),
+    ).resolves.toBe(false);
     await expect(
       readGitRemoteProjectInfo({
         fileSystem,

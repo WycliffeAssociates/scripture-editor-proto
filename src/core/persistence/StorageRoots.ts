@@ -6,10 +6,10 @@
  * where a given pipeline stage is allowed to read or write.
  */
 export interface StorageRoots {
-    readonly appDataRoot: string;
-    readonly projectsRoot: string;
-    readonly tempRoot: string;
-    readonly cacheRoot: string;
-    readonly logsRoot: string;
-    readonly databaseRoot: string;
+  readonly appDataRoot: string;
+  readonly projectsRoot: string;
+  readonly tempRoot: string;
+  readonly cacheRoot: string;
+  readonly logsRoot: string;
+  readonly databaseRoot: string;
 }

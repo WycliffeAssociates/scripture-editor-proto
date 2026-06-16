@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+
 import {
   extractRowsFromSlice,
   groupFlatTokensByVerse,
   insertMarkerInsideRowText,
 } from "@/app/domain/editor/utils/formModeEntries.ts";
+
 import {
   tokenMarker as marker,
   tokenNumberRange as numberRange,
@@ -30,11 +32,20 @@ describe("formModeEntries", () => {
 
     expect(grouped.prelude).toHaveLength(4);
     expect(grouped.verses).toHaveLength(2);
-    expect(tokenTexts(grouped.verses[0] ?? [])).toEqual(["\\v ", "1", " In the beginning"]);
+    expect(tokenTexts(grouped.verses[0] ?? [])).toEqual([
+      "\\v ",
+      "1",
+      " In the beginning",
+    ]);
   });
 
   it("splits a form field when inserting a marker at the textarea caret", () => {
-    const slice = [marker("v"), numberRange("1"), marker("p"), text(" Alpha beta gamma")];
+    const slice = [
+      marker("v"),
+      numberRange("1"),
+      marker("p"),
+      text(" Alpha beta gamma"),
+    ];
     const paragraphRow = extractRowsFromSlice(slice, "row").find(
       (row) => row.kind === "marker" && row.marker === "p",
     );
@@ -48,6 +59,14 @@ describe("formModeEntries", () => {
       "GEN 1:1",
     );
 
-    expect(tokenTexts(next)).toEqual(["\\v ", "1", "\\p ", " Alpha beta", "\\q2 ", "\n", " gamma"]);
+    expect(tokenTexts(next)).toEqual([
+      "\\v ",
+      "1",
+      "\\p ",
+      " Alpha beta",
+      "\\q2 ",
+      "\n",
+      " gamma",
+    ]);
   });
 });

@@ -1,96 +1,110 @@
 import { useLingui } from "@lingui/react/macro";
 import { useState } from "react";
+
 import {
-    attachRemoteProject,
-    type CloudProjectsService,
-    createRemoteProject,
-    type RemoteSyncTarget,
-    runRemoteSyncAction,
-    type SyncActionMode,
-    saveOwnCopyOnline,
+  attachRemoteProject,
+  type CloudProjectsService,
+  createRemoteProject,
+  type RemoteSyncTarget,
+  runRemoteSyncAction,
+  type SyncActionMode,
+  saveOwnCopyOnline,
 } from "@/app/domain/project/cloudProjectActions.ts";
 import type { RemoteRepoSummary } from "@/core/persistence/RemoteRepoProvider.ts";
 
 export function useCloudProjectActions(args: {
-    projectsService: CloudProjectsService;
-    loadedProjectPath: string;
-    refresh: () => Promise<void>;
+  projectsService: CloudProjectsService;
+  loadedProjectPath: string;
+  refresh: () => Promise<void>;
 }) {
-    const { projectsService, loadedProjectPath, refresh } = args;
-    const { i18n } = useLingui();
-    const [isCreating, setIsCreating] = useState(false);
-    const [isAttaching, setIsAttaching] = useState(false);
-    const [isSavingOwnCopy, setIsSavingOwnCopy] = useState(false);
+  const { projectsService, loadedProjectPath, refresh } = args;
+  const { i18n } = useLingui();
+  const [isCreating, setIsCreating] = useState(false);
+  const [isAttaching, setIsAttaching] = useState(false);
+  const [isSavingOwnCopy, setIsSavingOwnCopy] = useState(false);
+  // Cloud-action failures surface inline in the popover, not as a toast.
+  const [actionError, setActionError] = useState<{
+    title: string;
+    message: string;
+  } | null>(null);
 
-    async function create() {
-        setIsCreating(true);
-        try {
-            await createRemoteProject({
-                projectsService,
-                loadedProjectPath,
-                refresh,
-                i18n,
-            });
-        } finally {
-            setIsCreating(false);
-        }
+  async function create() {
+    setIsCreating(true);
+    setActionError(null);
+    try {
+      const result = await createRemoteProject({
+        projectsService,
+        loadedProjectPath,
+        refresh,
+        i18n,
+      });
+      if (!result.ok) setActionError(result.error);
+    } finally {
+      setIsCreating(false);
     }
+  }
 
-    async function attach(repo: RemoteRepoSummary | null) {
-        if (!repo) return;
-        setIsAttaching(true);
-        try {
-            await attachRemoteProject({
-                projectsService,
-                loadedProjectPath,
-                repo,
-                refresh,
-                i18n,
-            });
-        } finally {
-            setIsAttaching(false);
-        }
+  async function attach(repo: RemoteRepoSummary | null) {
+    if (!repo) return;
+    setIsAttaching(true);
+    setActionError(null);
+    try {
+      const result = await attachRemoteProject({
+        projectsService,
+        loadedProjectPath,
+        repo,
+        refresh,
+        i18n,
+      });
+      if (!result.ok) setActionError(result.error);
+    } finally {
+      setIsAttaching(false);
     }
+  }
 
-    async function saveOwnCopy(repo: { owner: string; name: string } | null) {
-        if (!repo) return;
-        setIsSavingOwnCopy(true);
-        try {
-            await saveOwnCopyOnline({
-                projectsService,
-                loadedProjectPath,
-                repo,
-                refresh,
-                i18n,
-            });
-        } finally {
-            setIsSavingOwnCopy(false);
-        }
+  async function saveOwnCopy(repo: { owner: string; name: string } | null) {
+    if (!repo) return;
+    setIsSavingOwnCopy(true);
+    setActionError(null);
+    try {
+      const result = await saveOwnCopyOnline({
+        projectsService,
+        loadedProjectPath,
+        repo,
+        refresh,
+        i18n,
+      });
+      if (!result.ok) setActionError(result.error);
+    } finally {
+      setIsSavingOwnCopy(false);
     }
+  }
 
-    return {
-        create,
-        attach,
-        saveOwnCopy,
-        isCreating,
-        isAttaching,
-        isSavingOwnCopy,
-    };
+  return {
+    create,
+    attach,
+    saveOwnCopy,
+    isCreating,
+    isAttaching,
+    isSavingOwnCopy,
+    actionError,
+    clearActionError: () => setActionError(null),
+  };
 }
 
 export function useRemoteSyncAction(args: { remote: RemoteSyncTarget }) {
-    const { remote } = args;
-    const [isSyncing, setIsSyncing] = useState(false);
+  const { remote } = args;
+  const [isSyncing, setIsSyncing] = useState(false);
 
-    async function run(mode: SyncActionMode) {
-        if (mode === "none") return;
-        setIsSyncing(true);
-        try {
-            await runRemoteSyncAction({ remote, mode });
-        } finally {
-            setIsSyncing(false);
-        }
+  async function run(mode: SyncActionMode) {
+    if (mode === "none") return;
+    setIsSyncing(true);
+    try {
+      await runRemoteSyncAction({ remote, mode });
+    } finally {
+      setIsSyncing(false);
     }
+  }
 
-    return { run, isSyncing };
+  return { run, isSyncing };
 }

@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
+
 import { projectParamToParsedScripture } from "@/app/domain/api/projectToParsed.tsx";
 import { scriptureProjectToParsedFiles } from "@/app/domain/api/scriptureProjectToParsedFiles.ts";
 import type { LibraryService } from "@/app/library/LibraryService.ts";
-import type { UsfmScriptureItem } from "@/core/library/LibraryItem.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
+import type { UsfmScriptureItem } from "@/core/library/LibraryItem.ts";
 import { ensureProjectGitReady } from "@/core/persistence/ensureProjectGitReady.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
@@ -12,7 +13,6 @@ import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
 vi.mock("@/app/domain/api/scriptureProjectToParsedFiles.ts", () => ({
   scriptureProjectToParsedFiles: vi.fn(async () => ({
     parsedFiles: [],
-    initialLintErrorsByBook: {},
     diskMd5ByBook: new Map<string, string>(),
   })),
 }));
@@ -21,7 +21,9 @@ vi.mock("@/core/persistence/ensureProjectGitReady.ts", () => ({
   ensureProjectGitReady: vi.fn(async () => {}),
 }));
 
-// @ai -> I also hate how extesnive our mocking it, but that's what we have right now, so it's fine. i'm not a testing expert, but I know we don't have the deps in this thing super clean in terms of non mockable, and I think that's likely simpler for backend code anway, so we live with it, BUT we it not be cleaner to put the mocks primarily with their Type in a file, deafult to a vi.fn() or whatever and then you can override if not mocking a fn returned by a factory? ie. getMockFileSys(overide) getTokens(overides) or whatever?
+// TODO(test-mocks): these per-file service mocks are hand-rolled; centralize as
+// per-interface factories (vi.fn() defaults + overrides) — and consider moving
+// the test boundary below the hooks. See agent-tmp/ideas/test-mock-centralization.md.
 const mockFileSystem: FileSystem = {
   readText: vi.fn(),
   readBytes: vi.fn(),
@@ -117,7 +119,6 @@ describe("projectParamToParsedFiles", () => {
     );
     expect(result).toEqual({
       parsedFiles: [],
-      initialLintErrorsByBook: {},
       loadedProject: mockProject,
       rejectionReason: null,
       diskMd5ByBook: new Map<string, string>(),
@@ -165,7 +166,6 @@ describe("projectParamToParsedFiles", () => {
     expect(ensureProjectGitReady).not.toHaveBeenCalled();
     expect(result).toEqual({
       parsedFiles: [],
-      initialLintErrorsByBook: {},
       loadedProject: null,
       rejectionReason: "not-found",
       diskMd5ByBook: new Map<string, string>(),
