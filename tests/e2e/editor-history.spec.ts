@@ -104,7 +104,7 @@ test.describe("Editor History", () => {
       .getByTestId(TESTING_IDS.replaceInput)
       .fill("HistorySearchRefreshToken");
     await editorPage
-      .getByRole("button", { name: "Replace next match" })
+      .getByRole("button", { name: "Replace this match" })
       .first()
       .click();
     await expect(resultItems).toHaveCount(startingCount - 1);
@@ -158,7 +158,7 @@ test.describe("Editor History", () => {
       .getByTestId(TESTING_IDS.replaceInput)
       .fill("HistorySearchRefreshToken");
     await editorPage
-      .getByRole("button", { name: "Replace next match" })
+      .getByRole("button", { name: "Replace this match" })
       .first()
       .click();
     await expect(resultItems).toHaveCount(startingCount - 1);
@@ -207,7 +207,7 @@ test.describe("Editor History", () => {
     await expect.poll(countInlineTokens, { timeout: 10_000 }).toBe(0);
 
     const replaceButton = editorPage
-      .getByRole("button", { name: "Replace next match" })
+      .getByRole("button", { name: "Replace this match" })
       .first();
     await replaceButton.click();
     await expect.poll(countInlineTokens, { timeout: 10_000 }).toBe(1);

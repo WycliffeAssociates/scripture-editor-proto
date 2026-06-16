@@ -320,28 +320,23 @@ test.describe("Search Functionality", () => {
       }
     }
 
-    // Flip "Search in" → reference scope.
-    await page.getByRole("switch", { name: "Search in" }).click();
+    // Flip the search-scope toggle → reference scope. It's now a checkbox-style
+    // ToggleButton (magnifying glass + "Search your project / source text"),
+    // targeted by its stable testid.
+    await page.getByTestId(TESTING_IDS.searchScopeToggle).click();
 
     // Now replace targets read-only source: replace input is disabled.
     await expect(page.getByTestId(TESTING_IDS.replaceInput)).toBeDisabled();
 
-    // A reference result should appear; clicking it should navigate the
-    // main editor location. The visible toolbar location uses the
-    // localized book name, not the data-search-book 3-letter code, so we
-    // just assert the location *changes* rather than equal a specific
-    // book code.
+    // A reference result should appear; clicking it navigates the main editor
+    // to that location and docks the find panel beside the now-revealed editor
+    // (desktop). The docked view hides the toolbar (and its location label), so
+    // assert the dock happened: the toolbar is gone and find stays open.
     const resultItem = page.getByTestId(TESTING_IDS.searchResultItem).first();
     await expect(resultItem).toBeVisible({ timeout: 15_000 });
-    const locationBefore =
-      (await page.getByTestId(TESTING_IDS.currentLocation).textContent()) ?? "";
-    await resultItem.click();
-    // Either the location text changes or it already matched the result;
-    // either way the user-visible state is consistent.
-    const locationAfter =
-      (await page.getByTestId(TESTING_IDS.currentLocation).textContent()) ?? "";
-    expect(locationAfter.length).toBeGreaterThan(0);
-    void locationBefore;
+    await resultItem.getByRole("button", { name: /Navigate to/ }).click();
+    await expect(page.getByTestId(TESTING_IDS.currentLocation)).toHaveCount(0);
+    await expect(page.getByTestId(TESTING_IDS.searchInput)).toBeVisible();
   });
 
   test("can search, navigate results, and replace the current match", async ({
@@ -366,7 +361,7 @@ test.describe("Search Functionality", () => {
     await ensureSearchOptionsExpanded(editorPage);
     await editorPage.getByTestId(TESTING_IDS.replaceInput).fill("foo");
     await editorPage
-      .getByRole("button", { name: "Replace next match" })
+      .getByRole("button", { name: "Replace this match" })
       .first()
       .click();
     await expect(
