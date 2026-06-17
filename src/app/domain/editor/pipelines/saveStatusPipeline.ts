@@ -1,8 +1,21 @@
 import { Effect, Stream } from "effect";
 
-import { isSaveStatusRelevant } from "@/app/state/commitFilters.ts";
 import type { SaveStatusStore } from "@/app/state/SaveStatusStore.ts";
+import type { CommitEvent } from "@/app/state/types.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
+
+/**
+ * Whether save status reacts to a commit — its OWN relevance (no scope axis).
+ * Excludes `metadataOnly` (the save flow's own dirty-flag flips — don't re-flip
+ * mid-save), `structuralFixup`, and `load` (the store seeds its initial status).
+ */
+export function isSaveStatusRelevant(event: CommitEvent): boolean {
+  if (!event.meta.dirtyTextContent) return false;
+  const kind = event.meta.kind;
+  return (
+    kind !== "metadataOnly" && kind !== "structuralFixup" && kind !== "load"
+  );
+}
 
 /**
  * Pipeline that drives `SaveStatusStore` from working-files commits. Pure

@@ -40,7 +40,10 @@ export type Anchor =
 
 /**
  * Generalizes onion's `issueType`: structure = USFM markup problems, content =
- * problems in the text itself. User-facing labels stay "USFM"/"Content".
+ * problems in the text itself. Verse/chapter numbers and chapter labels are
+ * content too — local-lint's consistency checks live here; "consistency" is why
+ * they aren't onion's, not a separate user-facing category. Labels stay
+ * "USFM"/"Content".
  */
 export type FindingCategory = "structure" | "content";
 
@@ -69,11 +72,23 @@ type FindingBase = {
 };
 
 /**
+ * The marching-sequence facts a local-lint message renders from — data only,
+ * never part of identity (the anchor token-id is the address). `found` is the
+ * number on the offending `\c`/`\v`; `previous` is the prior number in the
+ * sequence, present only for codes that compare against one (gap, decrease).
+ */
+export type LocalLintParams = {
+  found: number;
+  previous?: number;
+};
+
+/**
  * Discriminated by producer. Each arm carries the producer payload that
  * decoration/formatting needs — data, not behavior (onion's `fix` rides along
  * so the default decorator can build the apply action; the raw engine
  * `message` on it is locale-independent fallback data for unknown codes).
- * An `app` arm joins the union with the first real app-namespaced producer.
+ * local-lint is self-describing: its `code` selects the message and `params`
+ * fills it, so no engine payload is needed.
  */
 export type Finding =
   | (FindingBase & { source: "onion"; issue: LintIssue })
@@ -81,7 +96,8 @@ export type Finding =
       source: "sous-chef";
       /** sous confidence, when the rule scores; undefined for binary rules. */
       score?: number;
-    });
+    })
+  | (FindingBase & { source: "local-lint"; params: LocalLintParams });
 
 /**
  * Chapter-bucketed findings — the store's per-book node shape. Chapter 0 is

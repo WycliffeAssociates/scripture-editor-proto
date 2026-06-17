@@ -110,7 +110,11 @@ describe("acquireWorkspaceKernel — build order", () => {
       ...buildArgs("p1", factory, true),
       preload: false,
     });
-    expect(handle?.initialFindings).toEqual({ lint: {}, sous: {} });
+    expect(handle?.initialFindings).toEqual({
+      lint: {},
+      sous: {},
+      localLint: {},
+    });
     expect(log).toEqual(["patch:fullSync", "ready"]);
   });
 });

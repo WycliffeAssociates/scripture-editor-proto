@@ -29,6 +29,10 @@ import type { SousFinding } from "@/core/domain/sous/sousTypes.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 import type { Finding, FindingsByChapter } from "./finding.ts";
+import {
+  LOCAL_LINT_SEVERITY,
+  type LocalLintIssue,
+} from "./localLint/numberingRules.ts";
 
 type ProtoFinding = {
   baseKey: string;
@@ -111,6 +115,34 @@ export function groupFindingsByChapter(findings: Finding[]): FindingsByChapter {
 /** The onion commit payload in one step: normalize, then chapter-bucket. */
 export function onionFindingsByChapter(issues: LintIssue[]): FindingsByChapter {
   return groupFindingsByChapter(lintIssuesToFindings(issues));
+}
+
+/**
+ * local-lint numbering issues → token-anchored `Finding`s. Severity comes from
+ * the code (`LOCAL_LINT_SEVERITY`); the category is `"content"` (verse/chapter
+ * numbers are part of the content — "consistency" is the reason these aren't
+ * onion's, not a user-facing category). The marching facts ride along as
+ * `params` for the message; the anchor token-id is the identity, so re-running
+ * over unchanged tokens yields identical ids. The owner
+ * (`localLintPipeline.ts`) supplies the issues — it owns which scope produced
+ * them.
+ */
+export function localLintIssuesToFindings(issues: LocalLintIssue[]): Finding[] {
+  return finalizeFindings(
+    issues.map((issue) => ({
+      baseKey: `local-lint:${issue.code}:${issue.tokenId}:`,
+      build: (id): Finding => ({
+        id,
+        source: "local-lint",
+        code: issue.code,
+        severity: LOCAL_LINT_SEVERITY[issue.code],
+        category: "content",
+        anchor: { kind: "token", tokenId: issue.tokenId, sid: issue.sid },
+        touchedTokenIds: [issue.tokenId],
+        params: { found: issue.found, previous: issue.previous },
+      }),
+    })),
+  );
 }
 
 /** sous `SousFinding` → content-anchored `Finding`. All sous rules are content. */

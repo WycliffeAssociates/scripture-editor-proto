@@ -5,8 +5,13 @@ import { analysisDisabledInMode, EDITOR_MODES } from "@/app/data/editor.ts";
 import type { Settings } from "@/app/data/settings.ts";
 import { maintainDocumentStructure } from "@/app/domain/editor/listeners/maintainDocumentStructure.ts";
 import { maintainDocumentMetaData } from "@/app/domain/editor/listeners/maintainMetadata.ts";
-import { isStructureMaintenanceRelevant } from "@/app/state/commitFilters.ts";
+import type { CommitEvent } from "@/app/state/types.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
+
+/** Whether structure maintenance reacts — its OWN relevance: user edits only. */
+export function isStructureMaintenanceRelevant(event: CommitEvent): boolean {
+  return event.meta.kind === "userEdit" && event.meta.dirtyTextContent;
+}
 
 // Frame cadence. The stamped attributes (sid, inPara, structural-empty) are
 // interactive UI inputs — the reference pane queries `[data-sid]` on

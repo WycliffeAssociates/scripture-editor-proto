@@ -14,6 +14,7 @@ import {
 import { makeDirtyBufferPipeline } from "@/app/domain/editor/pipelines/dirtyBufferPipeline.ts";
 import { makeEditorSyncPipeline } from "@/app/domain/editor/pipelines/editorSyncPipeline.ts";
 import { makeLintPipeline } from "@/app/domain/editor/pipelines/lintPipeline.ts";
+import { makeLocalLintPipeline } from "@/app/domain/editor/pipelines/localLintPipeline.ts";
 import { makeMirrorPatchProducer } from "@/app/domain/editor/pipelines/mirrorPatchProducer.ts";
 import { makeMirrorResultRouter } from "@/app/domain/editor/pipelines/mirrorResultRouter.ts";
 import { makeOverlayTickPipeline } from "@/app/domain/editor/pipelines/overlayTickPipeline.ts";
@@ -295,6 +296,13 @@ export const ProjectProvider = ({
         analysis.segments,
       );
     }
+    // local-lint findings are already normalized (the kernel's sync reduce
+    // produced FindingsByChapter directly), so they commit as-is.
+    for (const [bookCode, byChapter] of Object.entries(
+      kernel.initialFindings.localLint,
+    )) {
+      store.commitBookFindings("local-lint", bookCode, byChapter);
+    }
     return store;
   });
   // One workspace-level modal slot; rendered by the outlet below.
@@ -570,6 +578,20 @@ export const ProjectProvider = ({
             feed: mirrorFeed,
           }),
     [analysisDisabled, workingFilesStore, mirrorFeed],
+  );
+
+  // local-lint consistency findings: the one main-thread producer. Subscribes
+  // to the same store, reduces in-process, and commits straight into the
+  // `local-lint` slice — no mirror feed (see `makeLocalLintPipeline`).
+  useForkedPipeline(
+    () =>
+      analysisDisabled
+        ? Effect.void
+        : makeLocalLintPipeline({
+            workingFilesStore,
+            findingsStore,
+          }),
+    [analysisDisabled, workingFilesStore, findingsStore],
   );
   const history = useCustomHistory({
     workingFilesStore,

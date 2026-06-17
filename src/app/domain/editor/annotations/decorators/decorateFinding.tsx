@@ -136,6 +136,11 @@ function decorationFor(
       // sous findings are report-only today; content fixes arrive later
       // as per-code decorators calling their own domain functions.
       return { actions: [] };
+    case "local-lint":
+      // The numbering codes are report-only by design — there's no canonical
+      // repair for "a verse looks missing". Tier B's chapter-label code is the
+      // only local-lint finding that will carry a fix.
+      return { actions: [] };
   }
 }
 

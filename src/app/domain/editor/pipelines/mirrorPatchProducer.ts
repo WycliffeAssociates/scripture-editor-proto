@@ -18,6 +18,8 @@
 
 import { Effect, Stream } from "effect";
 
+import type { FindingsByChapter } from "@/app/domain/editor/annotations/finding.ts";
+import { isDirtyBufferRelevant } from "@/app/domain/editor/pipelines/dirtyBufferPipeline.ts";
 import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import type {
   FullSyncBook,
@@ -31,7 +33,6 @@ import type {
   ScriptureBookState,
   ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
-import { isDirtyBufferRelevant } from "@/app/state/commitFilters.ts";
 import type { DiskBaseline } from "@/app/state/DirtyBufferStore.ts";
 import type { CommitEvent } from "@/app/state/types.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
@@ -171,10 +172,23 @@ export function seedMirror(args: {
 export type InitialFindings = {
   lint: Record<string, LintIssue[]>;
   sous: Record<string, SousAnalyzeResult>;
+  /**
+   * Already-normalized per-book findings from the main-thread `local-lint`
+   * reduce — not a mirror engine shape (it never round-trips off-main), so the
+   * kernel computes it synchronously and the provider commits it as-is.
+   */
+  localLint: Record<string, FindingsByChapter>;
 };
 
+/** The mirror-awaited subset of {@link InitialFindings} (lint + sous). */
+export type MirrorInitialFindings = Pick<InitialFindings, "lint" | "sous">;
+
 /** Empty initial findings — plain mode (analysis disabled) returns this. */
-export const NO_INITIAL_FINDINGS: InitialFindings = { lint: {}, sous: {} };
+export const NO_INITIAL_FINDINGS: InitialFindings = {
+  lint: {},
+  sous: {},
+  localLint: {},
+};
 
 // Backstop for the load-time resync recovery below: if a re-seed still doesn't
 // let the analyses land, resolve with whatever findings arrived (empty for the
@@ -212,11 +226,11 @@ export async function awaitInitialFindings(args: {
   generation: Generation;
   /** Re-push the seed `fullSync` — caller-supplied so this stays decoupled from the store. */
   reseed: () => void;
-}): Promise<InitialFindings> {
+}): Promise<MirrorInitialFindings> {
   const lintRequestId = `initial-lint-${args.generation}`;
   const sousRequestId = `initial-sous-${args.generation}`;
 
-  return new Promise<InitialFindings>((resolveAll) => {
+  return new Promise<MirrorInitialFindings>((resolveAll) => {
     let lint: Record<string, LintIssue[]> | null = null;
     let sous: Record<string, SousAnalyzeResult> | null = null;
     // Coalesce the resync burst (one per analyze class, same trailing

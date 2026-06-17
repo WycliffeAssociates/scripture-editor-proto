@@ -311,7 +311,7 @@ msgstr "Add line below"
 msgid "Add required space after {marker}"
 msgstr "Add required space after {marker}"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:344
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:342
 msgid "Added"
 msgstr "Added"
 
@@ -416,7 +416,7 @@ msgstr "Auto Accept My Work on Save"
 msgid "Autofix applied for {localizedFixLabel}"
 msgstr "Autofix applied for {localizedFixLabel}"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:336
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:334
 msgid "Available to add"
 msgstr "Available to add"
 
@@ -543,6 +543,10 @@ msgstr "Chapter"
 msgid "Chapter {chapter} appears more than once."
 msgstr "Chapter {chapter} appears more than once."
 
+#: src/app/ui/i18n/localLintLocalization.ts:25
+msgid "Chapter {found} comes after chapter {previous}."
+msgstr "Chapter {found} comes after chapter {previous}."
+
 #: src/app/ui/components/blocks/BookFrontmatterForm.tsx:127
 msgid "Chapter 0 metadata and introductory markers"
 msgstr "Chapter 0 metadata and introductory markers"
@@ -558,6 +562,12 @@ msgstr "Chapter label"
 #: src/app/domain/editor/annotations/decorators/chapterLabelStandardize.ts:153
 msgid "Chapter labels standardized"
 msgstr "Chapter labels standardized"
+
+#: src/app/ui/i18n/localLintLocalization.ts:23
+msgid "Chapter numbers jump from {previous} to {found} — a chapter looks "
+"missing."
+msgstr "Chapter numbers jump from {previous} to {found} — a chapter looks "
+"missing."
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:381
 msgid "Chapter picker"
@@ -867,6 +877,10 @@ msgstr "Connecting..."
 msgid "Connecting…"
 msgstr "Connecting…"
 
+#: src/app/ui/components/blocks/FindingsPopover.tsx:208
+#~ msgid "Consistency"
+#~ msgstr "Consistency"
+
 #: src/app/ui/components/blocks/FindingsPopover.tsx:206
 #: src/app/ui/components/primitives/ToolbarOverflowMenu/ToolbarOverflowMenu.tsx:84
 msgid "Content"
@@ -948,7 +962,7 @@ msgstr "Couldn't create the shared project"
 msgid "Couldn't find a public repository at this link."
 msgstr "Couldn't find a public repository at this link."
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:346
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:344
 msgid "Couldn't load the catalog."
 msgstr "Couldn't load the catalog."
 
@@ -956,7 +970,7 @@ msgstr "Couldn't load the catalog."
 #~ msgid "Couldn't load this reference text."
 #~ msgstr "Couldn't load this reference text."
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:252
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:249
 msgid "Couldn't load this resource."
 msgstr "Couldn't load this resource."
 
@@ -1287,7 +1301,7 @@ msgstr "Failed to import file"
 #~ msgid "Failed to load cloud projects"
 #~ msgstr "Failed to load cloud projects"
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:107
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:105
 msgid "Failed to load translation notes for {referenceBookCode} "
 "{referenceChapterNumber}"
 msgstr "Failed to load translation notes for {referenceBookCode} "
@@ -1587,11 +1601,11 @@ msgstr "Load more"
 #~ msgstr "Loading"
 
 #. placeholder {0}: activeReferenceResource.displayName
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:244
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:242
 msgid "Loading {0}…"
 msgstr "Loading {0}…"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:345
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:343
 msgid "Loading catalog…"
 msgstr "Loading catalog…"
 
@@ -1615,11 +1629,11 @@ msgstr "Loading projects..."
 msgid "Loading remote projects..."
 msgstr "Loading remote projects..."
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:245
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:243
 msgid "Loading resource…"
 msgstr "Loading resource…"
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:103
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:101
 msgid "Loading translation notes for {referenceBookCode} "
 "{referenceChapterNumber}..."
 msgstr "Loading translation notes for {referenceBookCode} "
@@ -1796,7 +1810,7 @@ msgstr "Next chapter"
 msgid "Next match in this verse"
 msgstr "Next match in this verse"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:347
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:345
 msgid "No catalog matches."
 msgstr "No catalog matches."
 
@@ -1838,7 +1852,7 @@ msgstr "No issues match this filter"
 msgid "No linked cloud projects matched this search."
 msgstr "No linked cloud projects matched this search."
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:329
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:328
 msgid "No matches on this device."
 msgstr "No matches on this device."
 
@@ -1878,7 +1892,7 @@ msgstr "No repos you own are visible in this list yet."
 msgid "No repositories you own are visible in this list yet."
 msgstr "No repositories you own are visible in this list yet."
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:330
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:328
 msgid "No resources yet."
 msgstr "No resources yet."
 
@@ -1887,7 +1901,7 @@ msgid "No results for \"{query}\""
 msgstr "No results for \"{query}\""
 
 #. placeholder {0}: search.searchTerm
-#: src/app/ui/components/views/search-panel/SearchResults.tsx:182
+#: src/app/ui/components/views/search-panel/SearchResults.tsx:181
 msgid "No results found for <0>{0}</0>"
 msgstr "No results found for <0>{0}</0>"
 
@@ -1905,7 +1919,7 @@ msgstr "No source selected"
 msgid "No source text"
 msgstr "No source text"
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:111
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:109
 msgid "No translation notes for {referenceBookCode} {referenceChapterNumber}."
 msgstr "No translation notes for {referenceBookCode} {referenceChapterNumber}."
 
@@ -2561,7 +2575,7 @@ msgstr "Search scope"
 #~ msgstr "Search your project"
 
 #. placeholder {0}: search.searchTerm
-#: src/app/ui/components/views/search-panel/SearchResults.tsx:172
+#: src/app/ui/components/views/search-panel/SearchResults.tsx:171
 msgid "Searching for <0>{0}</0>..."
 msgstr "Searching for <0>{0}</0>..."
 
@@ -2881,7 +2895,7 @@ msgid "Some unsaved backups could not be restored automatically:"
 msgstr "Some unsaved backups could not be restored automatically:"
 
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:61
-#: src/app/ui/components/views/search-panel/SearchResults.tsx:52
+#: src/app/ui/components/views/search-panel/SearchResults.tsx:51
 msgid "Source text"
 msgstr "Source text"
 
@@ -3027,6 +3041,10 @@ msgstr "There are updates to receive"
 msgid "This book is already formatted"
 msgstr "This book is already formatted"
 
+#: src/app/ui/i18n/localLintLocalization.ts:27
+msgid "This book starts at chapter {found}, not chapter 1."
+msgstr "This book starts at chapter {found}, not chapter 1."
+
 #: src/app/ui/components/blocks/FindingsPopover.tsx:185
 msgid "This chapter"
 msgstr "This chapter"
@@ -3038,6 +3056,10 @@ msgstr "This chapter has no errors that match your filters"
 #: src/app/ui/hooks/usePrettifyOperations.tsx:145
 msgid "This chapter is already formatted"
 msgstr "This chapter is already formatted"
+
+#: src/app/ui/i18n/localLintLocalization.ts:33
+msgid "This chapter starts at verse {found}, not verse 1."
+msgstr "This chapter starts at verse {found}, not verse 1."
 
 #: src/app/routes/create.tsx:207
 #~ msgid "This device no longer has access to your cloud session."
@@ -3148,7 +3170,7 @@ msgstr "Try matching formatting again once the resource chapter is visible."
 msgid "Type"
 msgstr "Type"
 
-#: src/app/ui/components/views/search-panel/SearchResults.tsx:163
+#: src/app/ui/components/views/search-panel/SearchResults.tsx:162
 msgid "Type to start searching"
 msgstr "Type to start searching"
 
@@ -3258,7 +3280,7 @@ msgstr "USFM mode"
 #~ msgid "USFM Reference Editor"
 #~ msgstr "USFM Reference Editor"
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:196
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:194
 msgid "USFM Resource Editor"
 msgstr "USFM Resource Editor"
 
@@ -3284,9 +3306,13 @@ msgstr "Verse"
 #. placeholder {0}: note.verseNumber
 #. placeholder {0}: props.number
 #: src/app/ui/components/blocks/FormBlockCard.tsx:379
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:127
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:125
 msgid "Verse {0}"
 msgstr "Verse {0}"
+
+#: src/app/ui/i18n/localLintLocalization.ts:31
+msgid "Verse {found} comes after verse {previous}."
+msgstr "Verse {found} comes after verse {previous}."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:160
 msgid "Verse {verse} appears more than once in chapter {chapter}."
@@ -3299,6 +3325,10 @@ msgstr "Verse marker \\v appears before the first \\c."
 #: src/app/ui/components/views/search-panel/SearchResultItem.tsx:71
 msgid "Verse not available in this text"
 msgstr "Verse not available in this text"
+
+#: src/app/ui/i18n/localLintLocalization.ts:29
+msgid "Verse numbers jump from {previous} to {found} — a verse looks missing."
+msgstr "Verse numbers jump from {previous} to {found} — a verse looks missing."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:110
 msgid "Verses must appear inside a paragraph, list, or table."

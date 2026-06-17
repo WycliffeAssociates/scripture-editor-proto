@@ -10,7 +10,12 @@ import {
   findChapter,
   listDirtyChapterRefs,
 } from "@/app/domain/project/workingFileMutations.ts";
-import { diffScopeFor } from "@/app/state/commitFilters.ts";
+import {
+  type ConsumerChapterScope,
+  NO_CHAPTERS,
+  touchedChapters,
+} from "@/app/state/commitFilters.ts";
+import type { CommitEvent } from "@/app/state/types.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import {
   createDiffCalculationRunner,
@@ -26,6 +31,25 @@ import type { Diff as OnionDiff } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { ChapterRef } from "./shared.ts";
 
 const DIFF_CHUNK_SIZE = 8;
+
+/**
+ * Which chapters the unsaved-diff view refreshes for a commit — the diff view's
+ * OWN policy (chapter granularity; diffs are per-chapter). Excludes
+ * `metadataOnly`/`structuralFixup`/`load`. Only consulted while the modal is
+ * open; closed, `open()` rebuilds from the dirty set instead.
+ */
+function diffCommitScope(event: CommitEvent): ConsumerChapterScope {
+  if (!event.meta.dirtyTextContent) return NO_CHAPTERS;
+  const kind = event.meta.kind;
+  if (
+    kind === "metadataOnly" ||
+    kind === "structuralFixup" ||
+    kind === "load"
+  ) {
+    return NO_CHAPTERS;
+  }
+  return touchedChapters(event);
+}
 
 /**
  * Translate low-level USFM diff blocks into the UI-facing diff shape shown in
@@ -174,7 +198,7 @@ export function useDiffModalState(args: {
   }
 
   // Subscribe-while-open: mounted with the modal lifecycle, refreshes the
-  // chapters each commit touches (per `diffScopeFor`). Closed modal = no
+  // chapters each commit touches (per `diffCommitScope`). Closed modal = no
   // subscription, no diff work.
   const { workingFilesStore } = args;
   // refreshChapters is re-created per render but only closes over stable
@@ -186,7 +210,7 @@ export function useDiffModalState(args: {
     const fiber = Effect.runFork(
       Stream.runForEach(workingFilesStore.changes, (event) =>
         Effect.sync(() => {
-          const scope = diffScopeFor(event);
+          const scope = diffCommitScope(event);
           const chapters =
             scope === "all"
               ? listDirtyChapterRefs(workingFilesStore.read())

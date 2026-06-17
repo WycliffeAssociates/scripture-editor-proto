@@ -24,6 +24,7 @@
 // machines must never host two worker sets / token mirrors at once. Plus at
 // most one *dying* kernel mid-grace (the outgoing project during a swap).
 
+import { reduceProjectLocalLint } from "@/app/domain/editor/pipelines/localLintPipeline.ts";
 import {
   awaitInitialFindings,
   type InitialFindings,
@@ -120,6 +121,37 @@ let building: { projectKey: string; promise: Promise<LiveKernel> } | null =
 // re-claim in the window reuses the live kernel instead of rebuilding it.
 const DISPOSE_GRACE_MS = 5_000;
 
+/**
+ * Assemble the project's initial findings: the mirror-awaited lint + sous pass
+ * merged with a synchronous main-thread local-lint reduce over the same loaded
+ * tokens (no mirror round-trip — it never runs off-main). Called only when
+ * analysis is enabled; plain mode uses `NO_INITIAL_FINDINGS`.
+ */
+async function buildInitialFindings(args: {
+  feed: MirrorFeed;
+  generation: number;
+  seedStore: WorkingFilesStore;
+  workspaceBaselineStore: WorkspaceBaselineStore;
+}): Promise<InitialFindings> {
+  const mirrorFindings = await awaitInitialFindings({
+    feed: args.feed,
+    generation: args.generation,
+    // Recovery for a load-time `resyncRequest`: re-push the seed exactly as the
+    // kernel's step 3 did. No router is mounted yet to service the resync.
+    reseed: () =>
+      seedMirror({
+        workingFilesStore: args.seedStore,
+        workspaceBaselineStore: args.workspaceBaselineStore,
+        feed: args.feed,
+        generation: args.generation,
+      }),
+  });
+  return {
+    ...mirrorFindings,
+    localLint: reduceProjectLocalLint(args.seedStore.read()),
+  };
+}
+
 async function buildKernel(
   args: WorkspaceKernelBuildArgs,
 ): Promise<LiveKernel> {
@@ -150,22 +182,16 @@ async function buildKernel(
   // 4. awaitEnginesReady — the ready ACK (wasm/engine init complete).
   await session.ready();
 
-  // 5. initialFindings — the awaited project-wide lint + sous, unless plain
-  //    mode runs no analysis (then findings are empty, matching the live gate).
+  // 5. initialFindings — the awaited project-wide lint + sous (off-main via the
+  //    mirror) plus a synchronous main-thread local-lint reduce over the loaded
+  //    tokens. Plain mode runs no analysis (empty, matching the live gates).
   const initialFindings = args.analysisDisabled
     ? NO_INITIAL_FINDINGS
-    : await awaitInitialFindings({
+    : await buildInitialFindings({
         feed,
         generation,
-        // Recovery for a load-time `resyncRequest`: re-push the seed exactly as
-        // step 3 did. No router is mounted yet to service the resync otherwise.
-        reseed: () =>
-          seedMirror({
-            workingFilesStore: seedStore,
-            workspaceBaselineStore: args.workspaceBaselineStore,
-            feed,
-            generation,
-          }),
+        seedStore,
+        workspaceBaselineStore: args.workspaceBaselineStore,
       });
 
   return {

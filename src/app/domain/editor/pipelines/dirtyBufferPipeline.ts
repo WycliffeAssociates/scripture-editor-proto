@@ -20,12 +20,34 @@
 import { Duration, Effect, Stream } from "effect";
 
 import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
-import { isDirtyBufferRelevant } from "@/app/state/commitFilters.ts";
 import type { CommitEvent } from "@/app/state/types.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 
 const DEFAULT_IDLE_MS = 500;
 const DEFAULT_CEILING_MS = 10000;
+
+/**
+ * Which commits the crash-recovery backup reconciles against — owned here, the
+ * backup subsystem's policy. Shared (by import) with `mirrorPatchProducer`'s
+ * backup fan-out because that's ESSENTIAL identity: both are the same backup
+ * path and must react identically — not the incidental sameness that would call
+ * for independent copies.
+ *
+ * Widest policy of the pipelines: it must react to anything that could make a
+ * book dirty (write a backup) OR clean (clear one), so it canNOT filter on
+ * `dirtyTextContent` — the save flow's clean-mark is `metadataOnly` with
+ * `dirtyTextContent: false`, and that is exactly what should clear a backup.
+ * Only two exclusions:
+ *  - `load` — initial population; restoration is the loader's job, not this.
+ *  - `selectionOnly` *patches* — pure cursor moves change no state. (Keys off the
+ *    patch kind, not `meta.kind`: a `metadataOnly` meta carrying a `bulk`/
+ *    `metadata` patch — the save clean-mark — DOES flip flags and is reconciled.)
+ */
+export function isDirtyBufferRelevant(event: CommitEvent): boolean {
+  if (event.meta.kind === "load") return false;
+  if (event.patch.kind === "selectionOnly") return false;
+  return true;
+}
 
 /**
  * The books a commit could have changed. Chapter-scope commits touch their

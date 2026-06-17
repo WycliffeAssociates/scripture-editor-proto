@@ -250,7 +250,7 @@ export function useCustomHistory({
   //
   // Why this lives here and not in `editorSyncPipeline`: that pipeline only
   // renders committed content for the visible chapter and deliberately EXCLUDES
-  // `undo`/`redo` (see `editorSyncScopeFor`). Replay isn't just a content swap —
+  // `undo`/`redo` (see `editorSyncCommitScope`). Replay isn't just a content swap —
   // it must restore the HISTORICAL cursor + scroll + focus, coordinated with the
   // content push and timed after Lexical reconciles. The pipeline has no cursor
   // concept; splitting content (pipeline) from cursor (here) would race reconcile.
