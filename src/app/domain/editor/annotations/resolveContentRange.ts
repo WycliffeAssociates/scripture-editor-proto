@@ -36,6 +36,45 @@ export type ResolvedContentRange = {
 };
 
 /**
+ * A content range's intersection with one text token, in that token's own
+ * UTF-16 offsets. For text tokens the projection slice IS the token's verbatim
+ * `source`, so these offsets index `source` directly — what a programmatic
+ * content edit (e.g. collapsing a whitespace run) splices against.
+ */
+export type ContentTokenSlice = {
+  tokenId: string;
+  localStart: number;
+  localEnd: number;
+};
+
+/**
+ * The data-only twin of {@link resolveContentRange}: map a content finding's
+ * `(sid, range)` to the ordered token slices it covers, without touching the
+ * DOM. A run that straddles a marker (e.g. text · `\f…\f*` · text) yields one
+ * slice per touched text token — the markers between are simply not segments.
+ */
+export function resolveContentTokenSlices(
+  sid: string,
+  range: Utf16Span,
+  segmentsBySid: SegmentsBySid,
+): ContentTokenSlice[] {
+  const segments = segmentsBySid[sid];
+  if (!segments || range.end <= range.start) return [];
+  const slices: ContentTokenSlice[] = [];
+  for (const segment of segments) {
+    const start = Math.max(range.start, segment.textSpan.start);
+    const end = Math.min(range.end, segment.textSpan.end);
+    if (end <= start) continue; // range doesn't touch this segment
+    slices.push({
+      tokenId: segment.tokenId,
+      localStart: start - segment.textSpan.start,
+      localEnd: end - segment.textSpan.start,
+    });
+  }
+  return slices;
+}
+
+/**
  * Map a UTF-16 offset within an element's text to a (Text node, offset) pair,
  * walking descendant text nodes and accumulating their UTF-16 length.
  *
