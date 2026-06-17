@@ -9,6 +9,7 @@ import type { SettingsManager } from "@/app/data/settings.ts";
 import { Route as projectRoute } from "@/app/routes/$project.tsx";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon/ActionIcon.tsx";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
+import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import * as styles from "@/app/ui/styles/modules/ProjectRow.css.ts";
 import type { ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
 
@@ -124,23 +125,27 @@ export default function ProjectRow({
             </Link>
 
             <div className={styles.actionCluster}>
-              <ActionIconSimple
-                data-testid={TESTING_IDS.project.editButton}
-                onClick={() => setIsEditing(true)}
-                aria-label="Edit project name"
-                className={styles.actionIcon}
-              >
-                <Pencil size={16} />
-              </ActionIconSimple>
+              <IconTooltip label={t`Edit project name`}>
+                <ActionIconSimple
+                  data-testid={TESTING_IDS.project.editButton}
+                  onClick={() => setIsEditing(true)}
+                  aria-label={t`Edit project name`}
+                  className={styles.actionIcon}
+                >
+                  <Pencil size={16} />
+                </ActionIconSimple>
+              </IconTooltip>
 
-              <ActionIconSimple
-                data-testid={TESTING_IDS.project.delete}
-                onClick={() => setConfirmOpen(true)}
-                aria-label="Delete project"
-                className={styles.actionIcon}
-              >
-                <Trash size={16} />
-              </ActionIconSimple>
+              <IconTooltip label={t`Delete project`}>
+                <ActionIconSimple
+                  data-testid={TESTING_IDS.project.delete}
+                  onClick={() => setConfirmOpen(true)}
+                  aria-label={t`Delete project`}
+                  className={styles.actionIcon}
+                >
+                  <Trash size={16} />
+                </ActionIconSimple>
+              </IconTooltip>
             </div>
           </>
         ) : (

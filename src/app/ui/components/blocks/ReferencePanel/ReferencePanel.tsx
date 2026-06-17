@@ -16,6 +16,7 @@ import { TESTING_IDS } from "@/app/data/constants.ts";
 import * as styles from "@/app/ui/components/blocks/ReferencePanel/referencePanel.css.ts";
 import { joinClassNames } from "@/app/ui/components/primitives/classNames.ts";
 import { CloudStatusButton } from "@/app/ui/components/primitives/CloudStatusButton/CloudStatusButton.tsx";
+import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import { useReferenceCatalog } from "@/app/ui/hooks/useReferenceCatalog.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { zLayer } from "@/app/ui/styles/zLayers.ts";
@@ -418,6 +419,7 @@ function CatalogSection(props: {
   errorLabel: string;
   emptyLabel: string;
 }) {
+  const { t } = useLingui();
   return (
     <section>
       <div className={styles.sectionLabel}>{props.sectionLabel}</div>
@@ -472,14 +474,17 @@ function CatalogSection(props: {
                           ) : downloading ? (
                             <Loader2 size={14} className={styles.spin} />
                           ) : (
-                            <CloudStatusButton
-                              state="connected"
-                              className={styles.downloadButton}
-                              icon={<CloudDownload size={15} />}
-                              ariaLabel={`Download ${catalogLabelOf(repo)}`}
-                              tooltipLabel={`Download ${catalogLabelOf(repo)}`}
-                              onClick={() => props.onDownload(repo)}
-                            />
+                            <IconTooltip
+                              label={t`Download ${catalogLabelOf(repo)}`}
+                            >
+                              <CloudStatusButton
+                                state="connected"
+                                className={styles.downloadButton}
+                                icon={<CloudDownload size={15} />}
+                                ariaLabel={t`Download ${catalogLabelOf(repo)}`}
+                                onClick={() => props.onDownload(repo)}
+                              />
+                            </IconTooltip>
                           )}
                         </span>
                       </div>

@@ -1,5 +1,7 @@
+import { useLingui } from "@lingui/react/macro";
 import { Minus, Plus } from "lucide-react";
 
+import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 import * as styles from "./settings.css.ts";
@@ -19,6 +21,7 @@ export default function ZoomControl({
   canSetZoom,
   onValueChange,
 }: ZoomControlProps) {
+  const { t } = useLingui();
   const { project } = useWorkspaceContext();
   const currentZoom = value ?? project.appSettings.zoom ?? 1;
   const canAdjustZoom = canSetZoom ?? project.appSettings.canSetZoom;
@@ -43,27 +46,31 @@ export default function ZoomControl({
 
   return (
     <div className={styles.stepperControl}>
-      <button
-        type="button"
-        className={styles.stepperButton}
-        aria-label="Decrease zoom"
-        onClick={() => commit(currentZoom - ZOOM_STEP)}
-        disabled={currentZoom <= MIN_ZOOM}
-      >
-        <Minus size={16} />
-      </button>
+      <IconTooltip label={t`Decrease zoom`}>
+        <button
+          type="button"
+          className={styles.stepperButton}
+          aria-label={t`Decrease zoom`}
+          onClick={() => commit(currentZoom - ZOOM_STEP)}
+          disabled={currentZoom <= MIN_ZOOM}
+        >
+          <Minus size={16} />
+        </button>
+      </IconTooltip>
       <div className={styles.stepperValue}>
         {Math.round(currentZoom * 100)}%
       </div>
-      <button
-        type="button"
-        className={styles.stepperButton}
-        aria-label="Increase zoom"
-        onClick={() => commit(currentZoom + ZOOM_STEP)}
-        disabled={currentZoom >= MAX_ZOOM}
-      >
-        <Plus size={16} />
-      </button>
+      <IconTooltip label={t`Increase zoom`}>
+        <button
+          type="button"
+          className={styles.stepperButton}
+          aria-label={t`Increase zoom`}
+          onClick={() => commit(currentZoom + ZOOM_STEP)}
+          disabled={currentZoom >= MAX_ZOOM}
+        >
+          <Plus size={16} />
+        </button>
+      </IconTooltip>
     </div>
   );
 }

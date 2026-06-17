@@ -1,6 +1,8 @@
 import { Toast } from "@base-ui/react/toast";
+import { useLingui } from "@lingui/react/macro";
 import { Check, Info, Loader2, X } from "lucide-react";
 
+import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import type { ManagedToastData } from "@/app/ui/components/primitives/notifications.ts";
 import { toastManager } from "@/app/ui/components/primitives/toastManager.ts";
 import * as styles from "@/app/ui/styles/modules/Notifications.module.css.ts";
@@ -28,6 +30,7 @@ function ToastList() {
 function NotificationToast(props: {
   toast: Toast.Root.ToastObject<ManagedToastData>;
 }) {
+  const { t } = useLingui();
   const { toast } = props;
   const data = toast.data;
   const tone = data?.tone ?? "info";
@@ -50,12 +53,14 @@ function NotificationToast(props: {
           ) : null}
         </div>
         {data?.withCloseButton !== false ? (
-          <Toast.Close
-            className={closeButtonClassName}
-            aria-label="Close notification"
-          >
-            <X size={16} />
-          </Toast.Close>
+          <IconTooltip label={t`Close notification`}>
+            <Toast.Close
+              className={closeButtonClassName}
+              aria-label={t`Close notification`}
+            >
+              <X size={16} />
+            </Toast.Close>
+          </IconTooltip>
         ) : null}
       </Toast.Content>
     </Toast.Root>

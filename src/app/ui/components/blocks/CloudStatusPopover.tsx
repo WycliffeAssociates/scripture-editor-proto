@@ -29,6 +29,7 @@ import { AttachResolveStatus } from "@/app/ui/components/blocks/SharedProjectAtt
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import type { CloudStatusButtonState } from "@/app/ui/components/primitives/CloudStatusButton/index.ts";
 import { CloudStatusButton } from "@/app/ui/components/primitives/CloudStatusButton/index.ts";
+import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import { Switch } from "@/app/ui/components/primitives/Switch/Switch.tsx";
 import {
   useCloudProjectActions,
@@ -284,16 +285,18 @@ export function CloudStatusPopover(props: CloudPopoverProps) {
 
   return (
     <BasePopover.Root open={opened} onOpenChange={setOpened}>
-      <BasePopover.Trigger
-        render={
-          <CloudStatusButton
-            state={props.buttonState}
-            tooltipLabel={props.buttonLabel}
-            tooltipDescription={props.buttonDescription}
-            ariaLabel={props.buttonAriaLabel}
-          />
-        }
-      />
+      <IconTooltip label={props.buttonAriaLabel}>
+        <BasePopover.Trigger
+          render={
+            <CloudStatusButton
+              state={props.buttonState}
+              tooltipLabel={props.buttonLabel}
+              tooltipDescription={props.buttonDescription}
+              ariaLabel={props.buttonAriaLabel}
+            />
+          }
+        />
+      </IconTooltip>
       <BasePopover.Portal>
         <BasePopover.Positioner
           side="bottom"

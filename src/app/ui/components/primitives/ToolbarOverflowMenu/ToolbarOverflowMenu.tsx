@@ -1,8 +1,9 @@
 import { Menu } from "@base-ui/react/menu";
-import { Trans } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { BookCopy, ClipboardPaste, Copy, Scissors } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import { zLayer } from "@/app/ui/styles/zLayers.ts";
 
 import * as styles from "./toolbarOverflowMenu.css.ts";
@@ -38,26 +39,29 @@ export interface ToolbarOverflowMenuProps {
  * a known anchor.
  */
 export function ToolbarOverflowMenu(props: ToolbarOverflowMenuProps) {
+  const { t } = useLingui();
   const hasTools = Boolean(
     props.onMatchFormattingToSource || props.onCopyEditorJson,
   );
 
   return (
     <Menu.Root>
-      <Menu.Trigger className={styles.trigger} aria-label="More actions">
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 16 16"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden="true"
-        >
-          <circle cx="8" cy="2.5" r="1.5" fill="currentColor" />
-          <circle cx="8" cy="8" r="1.5" fill="currentColor" />
-          <circle cx="8" cy="13.5" r="1.5" fill="currentColor" />
-        </svg>
-      </Menu.Trigger>
+      <IconTooltip label={t`More actions`}>
+        <Menu.Trigger className={styles.trigger} aria-label={t`More actions`}>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <circle cx="8" cy="2.5" r="1.5" fill="currentColor" />
+            <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+            <circle cx="8" cy="13.5" r="1.5" fill="currentColor" />
+          </svg>
+        </Menu.Trigger>
+      </IconTooltip>
       <Menu.Portal style={{ zIndex: zLayer.toolbarMenu }}>
         <Menu.Positioner sideOffset={4} className={styles.positioner}>
           <Menu.Popup className={styles.popup}>

@@ -1,4 +1,5 @@
 import { Popover as BasePopover } from "@base-ui/react/popover";
+import { useLingui } from "@lingui/react/macro";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -14,6 +15,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import { joinClassNames } from "@/app/ui/components/primitives/classNames.ts";
+import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import { prefetchVersionPreview } from "@/app/ui/hooks/save/versionQueries.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as projectViewStyles from "@/app/ui/styles/modules/Projectview.css.ts";
@@ -31,6 +33,7 @@ const VERSION_TIMESTAMP_FORMATTER = new Intl.DateTimeFormat(undefined, {
 });
 
 export function VersionsPopover() {
+  const { t } = useLingui();
   const [opened, setOpened] = useState(false);
   const { loadedProject, save } = useWorkspaceContext();
   const { gitProvider, usfmOnionService } = useRouter().options.context;
@@ -79,9 +82,13 @@ export function VersionsPopover() {
 
   return (
     <BasePopover.Root open={opened} onOpenChange={setOpened}>
-      <BasePopover.Trigger
-        render={<TriggerButton active={opened} ariaLabel="Previous versions" />}
-      />
+      <IconTooltip label={t`Previous versions`}>
+        <BasePopover.Trigger
+          render={
+            <TriggerButton active={opened} ariaLabel={t`Previous versions`} />
+          }
+        />
+      </IconTooltip>
       <BasePopover.Portal>
         <BasePopover.Positioner
           side="bottom"
@@ -119,14 +126,16 @@ export function VersionsPopover() {
                 >
                   Load more
                 </Button>
-                <button
-                  type="button"
-                  className={styles.closeButton}
-                  onClick={() => setOpened(false)}
-                  aria-label="Close versions"
-                >
-                  <X size={16} />
-                </button>
+                <IconTooltip label={t`Close versions`}>
+                  <button
+                    type="button"
+                    className={styles.closeButton}
+                    onClick={() => setOpened(false)}
+                    aria-label={t`Close versions`}
+                  >
+                    <X size={16} />
+                  </button>
+                </IconTooltip>
               </div>
             </div>
 

@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
+import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import { SelectPrimitive } from "@/app/ui/components/primitives/Select/index.ts";
 import { useConsolidatedCatalog } from "@/app/ui/hooks/useConsolidatedCatalog.ts";
 import * as styles from "@/app/ui/styles/modules/sourcePicker.css.ts";
@@ -301,15 +302,17 @@ export function SourcePicker(props: SourcePickerProps) {
               aria-label={t`Search projects`}
             />
             {query.trim().length > 0 ? (
-              <button
-                type="button"
-                className={styles.clearButton}
-                onClick={() => setQuery("")}
-                aria-label={t`Clear search`}
-                data-testid={TESTING_IDS.language.importerClear}
-              >
-                <X size={18} />
-              </button>
+              <IconTooltip label={t`Clear search`}>
+                <button
+                  type="button"
+                  className={styles.clearButton}
+                  onClick={() => setQuery("")}
+                  aria-label={t`Clear search`}
+                  data-testid={TESTING_IDS.language.importerClear}
+                >
+                  <X size={18} />
+                </button>
+              </IconTooltip>
             ) : null}
           </div>
           <div className={styles.fieldDivider} aria-hidden />
@@ -424,16 +427,18 @@ export function SourcePicker(props: SourcePickerProps) {
                     <div className={styles.cell}>{repo.username}</div>
                     <div className={styles.cell}>{repo.repo_name}</div>
                     <div className={styles.actionCell}>
-                      <button
-                        type="button"
-                        className={styles.downloadButton}
-                        onClick={() => void downloadRepo(repo)}
-                        disabled={props.isBusy || downloadingRepoId === id}
-                        aria-label={t`Download ${languageLabel(repo)}`}
-                        data-testid={TESTING_IDS.language.importerDownload}
-                      >
-                        <CloudDownload size={20} />
-                      </button>
+                      <IconTooltip label={t`Download ${languageLabel(repo)}`}>
+                        <button
+                          type="button"
+                          className={styles.downloadButton}
+                          onClick={() => void downloadRepo(repo)}
+                          disabled={props.isBusy || downloadingRepoId === id}
+                          aria-label={t`Download ${languageLabel(repo)}`}
+                          data-testid={TESTING_IDS.language.importerDownload}
+                        >
+                          <CloudDownload size={20} />
+                        </button>
+                      </IconTooltip>
                     </div>
                   </div>
                 );

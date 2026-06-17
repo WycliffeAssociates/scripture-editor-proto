@@ -1,6 +1,8 @@
+import { useLingui } from "@lingui/react/macro";
 import { Minus, Plus } from "lucide-react";
 
 import { TESTING_IDS } from "@/app/data/constants.ts";
+import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 import * as styles from "./settings.css.ts";
@@ -28,6 +30,7 @@ export default function FontSizeControl({
   value,
   onValueChange,
 }: FontSizeControlProps) {
+  const { t } = useLingui();
   const { project } = useWorkspaceContext();
   const currentValue = value ?? project.appSettings.fontSize;
   const currentPx = parseFontSize(currentValue);
@@ -49,32 +52,36 @@ export default function FontSizeControl({
 
   return (
     <div className={styles.stepperControl}>
-      <button
-        type="button"
-        className={styles.stepperButton}
-        data-testid={TESTING_IDS.settings.fontSizeDecrement}
-        aria-label="Decrease font size"
-        onClick={() => commit(currentPx - FONT_SIZE_STEP)}
-        disabled={currentPx <= MIN_FONT_SIZE_PX}
-      >
-        <Minus size={16} />
-      </button>
+      <IconTooltip label={t`Decrease font size`}>
+        <button
+          type="button"
+          className={styles.stepperButton}
+          data-testid={TESTING_IDS.settings.fontSizeDecrement}
+          aria-label={t`Decrease font size`}
+          onClick={() => commit(currentPx - FONT_SIZE_STEP)}
+          disabled={currentPx <= MIN_FONT_SIZE_PX}
+        >
+          <Minus size={16} />
+        </button>
+      </IconTooltip>
       <div
         className={styles.stepperValue}
         data-testid={TESTING_IDS.settings.fontSizeInput}
       >
         {currentPx}px
       </div>
-      <button
-        type="button"
-        className={styles.stepperButton}
-        data-testid={TESTING_IDS.settings.fontSizeIncrement}
-        aria-label="Increase font size"
-        onClick={() => commit(currentPx + FONT_SIZE_STEP)}
-        disabled={currentPx >= MAX_FONT_SIZE_PX}
-      >
-        <Plus size={16} />
-      </button>
+      <IconTooltip label={t`Increase font size`}>
+        <button
+          type="button"
+          className={styles.stepperButton}
+          data-testid={TESTING_IDS.settings.fontSizeIncrement}
+          aria-label={t`Increase font size`}
+          onClick={() => commit(currentPx + FONT_SIZE_STEP)}
+          disabled={currentPx >= MAX_FONT_SIZE_PX}
+        >
+          <Plus size={16} />
+        </button>
+      </IconTooltip>
     </div>
   );
 }

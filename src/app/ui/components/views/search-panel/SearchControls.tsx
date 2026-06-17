@@ -14,6 +14,7 @@ import type { KeyboardEvent } from "react";
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
 import { ReferencePanel } from "@/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
+import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import { Switch } from "@/app/ui/components/primitives/Switch/Switch.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/useWorkspaceMediaQuery.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
@@ -96,16 +97,17 @@ function SearchInputBar(props: { search: SearchHook }) {
           onChange={(event) => search.onSearchChange(event.currentTarget.value)}
           placeholder={t`Search`}
         />
-        <button
-          type="button"
-          className={styles.searchRunButton}
-          data-testid={TESTING_IDS.searchRunButton}
-          onClick={search.submitSearchNow}
-          aria-label={t`Run search`}
-          title={t`Run search`}
-        >
-          <CornerRightDown size={14} />
-        </button>
+        <IconTooltip label={t`Run search`}>
+          <button
+            type="button"
+            className={styles.searchRunButton}
+            data-testid={TESTING_IDS.searchRunButton}
+            onClick={search.submitSearchNow}
+            aria-label={t`Run search`}
+          >
+            <CornerRightDown size={14} />
+          </button>
+        </IconTooltip>
       </div>
     </div>
   );
@@ -244,17 +246,18 @@ function ToggleButton(props: {
   disabled?: boolean;
 }) {
   return (
-    <button
-      type="button"
-      className={`${styles.toggleButton} ${props.active ? styles.toggleButtonActive : ""}`}
-      data-testid={props.testId}
-      onClick={props.onClick}
-      disabled={props.disabled}
-      aria-label={props.label}
-      aria-pressed={props.active}
-      title={props.label}
-    >
-      {props.icon}
-    </button>
+    <IconTooltip label={props.label}>
+      <button
+        type="button"
+        className={`${styles.toggleButton} ${props.active ? styles.toggleButtonActive : ""}`}
+        data-testid={props.testId}
+        onClick={props.onClick}
+        disabled={props.disabled}
+        aria-label={props.label}
+        aria-pressed={props.active}
+      >
+        {props.icon}
+      </button>
+    </IconTooltip>
   );
 }

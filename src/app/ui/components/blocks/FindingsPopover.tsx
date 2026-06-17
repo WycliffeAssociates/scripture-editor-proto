@@ -34,6 +34,7 @@ import {
 } from "@/app/ui/components/blocks/findingsFilters.utils.ts";
 import * as buttonStyles from "@/app/ui/components/primitives/Button/button.css.ts";
 import { joinClassNames } from "@/app/ui/components/primitives/classNames.ts";
+import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import { useDecorateFindings } from "@/app/ui/hooks/useDecorateFindings.ts";
 import type { FindingCategoryFilter } from "@/app/ui/hooks/useFindings.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
@@ -135,16 +136,18 @@ export function FindingsPopover() {
 
   return (
     <BasePopover.Root open={opened} onOpenChange={setOpened}>
-      <BasePopover.Trigger
-        render={
-          <TriggerButton
-            count={badgeCount}
-            active={opened}
-            ariaLabel={t`Content errors (${badgeCount})`}
-            data-testid={TESTING_IDS.findingsPopover.triggerButton}
-          />
-        }
-      />
+      <IconTooltip label={t`Content errors (${badgeCount})`}>
+        <BasePopover.Trigger
+          render={
+            <TriggerButton
+              count={badgeCount}
+              active={opened}
+              ariaLabel={t`Content errors (${badgeCount})`}
+              data-testid={TESTING_IDS.findingsPopover.triggerButton}
+            />
+          }
+        />
+      </IconTooltip>
       <BasePopover.Portal>
         <BasePopover.Positioner
           side="bottom"
@@ -170,14 +173,16 @@ export function FindingsPopover() {
                   />
                 </div>
               </div>
-              <button
-                type="button"
-                className={styles.closeButton}
-                onClick={() => setOpened(false)}
-                aria-label={t`Close`}
-              >
-                <X size={18} />
-              </button>
+              <IconTooltip label={t`Close`}>
+                <button
+                  type="button"
+                  className={styles.closeButton}
+                  onClick={() => setOpened(false)}
+                  aria-label={t`Close`}
+                >
+                  <X size={18} />
+                </button>
+              </IconTooltip>
             </div>
 
             <div className={styles.scopeTabs}>

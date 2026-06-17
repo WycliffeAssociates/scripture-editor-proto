@@ -4,6 +4,7 @@ import { type FormEvent, useEffect, useState } from "react";
 
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import type { SearchResult } from "@/app/domain/search/SearchService.ts";
+import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import * as styles from "@/app/ui/styles/modules/SearchPanel.css.ts";
 
 const REGEX_SPECIAL_CHARS = /[.*+?^${}()|[\]\\]/g;
@@ -178,15 +179,16 @@ function ResultHeader(props: {
           nextLabel={props.nextLabel}
         />
       ) : null}
-      <button
-        type="button"
-        className={styles.searchResultNavigate}
-        onClick={props.onPick}
-        aria-label={props.navigateLabel}
-        title={props.navigateLabel}
-      >
-        <ArrowRight size={14} />
-      </button>
+      <IconTooltip label={props.navigateLabel}>
+        <button
+          type="button"
+          className={styles.searchResultNavigate}
+          onClick={props.onPick}
+          aria-label={props.navigateLabel}
+        >
+          <ArrowRight size={14} />
+        </button>
+      </IconTooltip>
     </div>
   );
 }
@@ -203,31 +205,33 @@ function OccurrenceStepper(props: {
   const nextDisabled = position >= count - 1;
   return (
     <div className={styles.occurrenceStepper}>
-      <button
-        type="button"
-        className={styles.occurrenceStepButton}
-        data-testid={TESTING_IDS.searchPrevButton}
-        onClick={() => props.onStep("prev")}
-        disabled={prevDisabled}
-        aria-label={props.prevLabel}
-        title={props.prevLabel}
-      >
-        <ChevronLeft size={12} />
-      </button>
+      <IconTooltip label={props.prevLabel}>
+        <button
+          type="button"
+          className={styles.occurrenceStepButton}
+          data-testid={TESTING_IDS.searchPrevButton}
+          onClick={() => props.onStep("prev")}
+          disabled={prevDisabled}
+          aria-label={props.prevLabel}
+        >
+          <ChevronLeft size={12} />
+        </button>
+      </IconTooltip>
       <span className={styles.occurrenceCount}>
         {position + 1}/{count}
       </span>
-      <button
-        type="button"
-        className={styles.occurrenceStepButton}
-        data-testid={TESTING_IDS.searchNextButton}
-        onClick={() => props.onStep("next")}
-        disabled={nextDisabled}
-        aria-label={props.nextLabel}
-        title={props.nextLabel}
-      >
-        <ChevronRight size={12} />
-      </button>
+      <IconTooltip label={props.nextLabel}>
+        <button
+          type="button"
+          className={styles.occurrenceStepButton}
+          data-testid={TESTING_IDS.searchNextButton}
+          onClick={() => props.onStep("next")}
+          disabled={nextDisabled}
+          aria-label={props.nextLabel}
+        >
+          <ChevronRight size={12} />
+        </button>
+      </IconTooltip>
     </div>
   );
 }

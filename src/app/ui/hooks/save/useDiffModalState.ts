@@ -40,15 +40,19 @@ const DIFF_CHUNK_SIZE = 8;
  */
 function diffCommitScope(event: CommitEvent): ConsumerChapterScope {
   if (!event.meta.dirtyTextContent) return NO_CHAPTERS;
-  const kind = event.meta.kind;
-  if (
-    kind === "metadataOnly" ||
-    kind === "structuralFixup" ||
-    kind === "load"
-  ) {
-    return NO_CHAPTERS;
+  // Exhaustive over CommitKind: a new kind won't compile until it picks a side.
+  switch (event.meta.kind) {
+    case "userEdit":
+    case "programmaticFix":
+    case "import":
+    case "undo":
+    case "redo":
+      return touchedChapters(event);
+    case "load":
+    case "structuralFixup":
+    case "metadataOnly":
+      return NO_CHAPTERS;
   }
-  return touchedChapters(event);
 }
 
 /**

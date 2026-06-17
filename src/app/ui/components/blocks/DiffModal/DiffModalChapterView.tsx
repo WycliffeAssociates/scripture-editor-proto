@@ -16,6 +16,7 @@ import {
 import { shouldHideStructuralLineBreak } from "@/app/ui/components/blocks/DiffModal/diffDisplayUtils.ts";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon/index.ts";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
+import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import { ToggleGroup } from "@/app/ui/components/primitives/ToggleGroup/ToggleGroup.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/useWorkspaceMediaQuery.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
@@ -329,17 +330,18 @@ function ChapterActionOverlays({
   return (
     <div className={styles.chapterActionOverlayHost} aria-hidden="true">
       {entries.map((entry) => (
-        <ActionIconSimple
-          key={entry.key}
-          className={styles.chapterHunkAction}
-          data-testid={TESTING_IDS.save.chapterHunkAction}
-          onClick={entry.onClick}
-          aria-label={entry.label}
-          title={entry.label}
-          style={{ left: `${entry.left}px`, top: `${entry.top}px` }}
-        >
-          <RotateCw size={16} />
-        </ActionIconSimple>
+        <IconTooltip key={entry.key} label={entry.label}>
+          <ActionIconSimple
+            className={styles.chapterHunkAction}
+            data-testid={TESTING_IDS.save.chapterHunkAction}
+            onClick={entry.onClick}
+            aria-label={entry.label}
+            title={entry.label}
+            style={{ left: `${entry.left}px`, top: `${entry.top}px` }}
+          >
+            <RotateCw size={16} />
+          </ActionIconSimple>
+        </IconTooltip>
       ))}
     </div>
   );

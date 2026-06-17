@@ -103,7 +103,12 @@ export function CloudStatusButton({
   ...props
 }: CloudStatusButtonProps) {
   const label = tooltipLabel ?? getDefaultTooltipLabel(state);
-  const title = tooltipDescription ? `${label} — ${tooltipDescription}` : label;
+  // Used only as the screen-reader fallback. The visible hover hint comes from
+  // an `IconTooltip` wrapper at the call site (consistent styled tooltip), so
+  // we deliberately don't render a native `title` here — it would double up.
+  const ariaFallback = tooltipDescription
+    ? `${label} — ${tooltipDescription}`
+    : label;
 
   return (
     <button
@@ -114,8 +119,7 @@ export function CloudStatusButton({
         className,
       )}
       data-state={state}
-      aria-label={ariaLabel ?? title}
-      title={title}
+      aria-label={ariaLabel ?? ariaFallback}
       {...props}
     >
       <span className={styles.iconSlot} aria-hidden="true">
