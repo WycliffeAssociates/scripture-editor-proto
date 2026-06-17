@@ -1,24 +1,17 @@
 import {
   $create,
-  $createRangeSelection,
-  $getNodeByKey,
   $getSelection,
   $getState,
   $isRangeSelection,
   $isTextNode,
-  $setSelection,
   $setState,
   COMMAND_PRIORITY_LOW,
-  CONTROLLED_TEXT_INSERTION_COMMAND,
   createState,
   DELETE_CHARACTER_COMMAND,
   type EditorConfig,
-  KEY_ARROW_LEFT_COMMAND,
-  KEY_ARROW_RIGHT_COMMAND,
   KEY_DOWN_COMMAND,
   KEY_SPACE_COMMAND,
   type LexicalEditor,
-  SELECTION_CHANGE_COMMAND,
   type TextNode,
 } from "lexical";
 
@@ -27,6 +20,7 @@ import {
   type SerializedUSFMTextNode,
   USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { registerSeamSelection } from "@/app/domain/editor/selection/seamSelection.ts";
 import {
   idState,
   inParaState,
@@ -434,178 +428,34 @@ function registerDeletion(editor: LexicalEditor, clearProseEdge: () => void) {
 }
 
 /**
- * All numbered-marker caret/editing behavior: boundary arrow stops (direction-
- * agnostic, RTL-safe), the prose-edge canonicalization defenses, two-stage
- * delete, empty-node retype, and the space-jump.
+ * The number/prose seam: a numbered-marker node (always the left member) butts
+ * up against a following non-numbered text node. This is the boundary whose two
+ * stops (`num@end`, `text@0`) the generic seam selection makes reachable.
+ */
+const isNumberedSeam = (left: TextNode, right: TextNode): boolean =>
+  $isUSFMNumberedMarkerNode(left) &&
+  $isTextNode(right) &&
+  !$isUSFMNumberedMarkerNode(right);
+
+/**
+ * All numbered-marker caret/editing behavior. The seam navigation — boundary
+ * arrow stops and the canonicalization defenses that hold the prose `text@0` —
+ * is the generic `registerSeamSelection` (regular mode's number/prose seam is
+ * just `isNumberedSeam`). Layered on top here are the behaviors specific to a
+ * number's *bytes*: two-stage delete, empty-node retype, and the space-jump.
  *
- * The boundary has two model positions at one pixel — the number's end
- * (`num@end`, blue, model-stable) and the prose start (`text@0`, black).
- * Native arrowing only ever rests at ONE of them per direction, so we force
- * the missing stop and defend `text@0` (which Lexical canonicalizes to
- * `prevSibling@end`) on both SELECTION_CHANGE and CONTROLLED_TEXT_INSERTION.
- *
- * Both directions then expose two stops at the boundary pixel: the number's
- * end (`num@end`, blue — model-stable) and the prose start (`text@0`, black).
- * `text@0` is the catch: Lexical canonicalizes it to `prevSibling@end` (the
- * number is a TextNode subclass), so it needs two defenses — one on
- * SELECTION_CHANGE (navigation) and one on CONTROLLED_TEXT_INSERTION (so a
- * typed char lands in the prose, not the number). While the prose edge is
- * armed, the root carries `data-prose-edge` so NumberedCaretPlugin keeps the
- * caret black through the transient canonicalization (no blue flicker).
+ * While a seam edge is armed, `registerSeamSelection` marks the root with
+ * `data-seam-held` so NumberedCaretPlugin keeps the caret black through the
+ * transient canonicalization (no blue flicker). The number-content behaviors
+ * drive that same armed state via `seam.hold(...)`.
  */
 export function registerNumberedMarkerBehaviors(editor: LexicalEditor) {
-  const isPlain = (e: KeyboardEvent) =>
-    !(e.shiftKey || e.altKey || e.metaKey || e.ctrlKey) &&
-    !editor.isComposing();
-
-  // The prose-edge stop (`text@0`): armed with the text node's key while the
-  // caret holds that edge. Mirrored onto the root as `data-prose-edge` so the
-  // caret affordance stays black there even while the model momentarily
-  // canonicalizes to the number's end. Cleared when the selection leaves.
-  let proseEdgeKey: string | null = null;
-  const setProseEdge = (key: string | null) => {
-    proseEdgeKey = key;
-    const root = editor.getRootElement();
-    if (key) root?.setAttribute("data-prose-edge", "true");
-    else root?.removeAttribute("data-prose-edge");
-  };
-
-  const $stop = (node: TextNode, offset: number, event: KeyboardEvent) => {
-    event.preventDefault();
-    node.select(offset, offset);
-    return true;
-  };
-
-  // Map a physical arrow key to a LOGICAL direction (toward the start/prev
-  // vs the end/next) using the element's computed text direction, so RTL
-  // needs no special-casing. String offsets are already logical (0 = start),
-  // so all the boundary math below is direction-neutral.
-  const logicalDir = (
-    physicalKey: "left" | "right",
-    node: TextNode,
-  ): "backward" | "forward" => {
-    const el = editor.getElementByKey(node.getKey());
-    const rtl = el ? getComputedStyle(el).direction === "rtl" : false;
-    const forwardKey = rtl ? "left" : "right";
-    return physicalKey === forwardKey ? "forward" : "backward";
-  };
-
-  const $handleArrow = (
-    event: KeyboardEvent,
-    physicalKey: "left" | "right",
-  ): boolean => {
-    if (!isPlain(event)) return false;
-    const sel = $getSelection();
-    if (!$isRangeSelection(sel) || !sel.isCollapsed()) return false;
-    const node = sel.anchor.getNode();
-    if (!$isTextNode(node)) return false;
-    const offset = sel.anchor.offset;
-
-    if (logicalDir(physicalKey, node) === "backward") {
-      // Toward the start: inside a number, native walks the interior and
-      // crosses the leading linebreak.
-      if ($isUSFMNumberedMarkerNode(node)) {
-        setProseEdge(null);
-        return false;
-      }
-      const prev = node.getPreviousSibling();
-      if (!$isUSFMNumberedMarkerNode(prev)) return false;
-      // The prose start gets its own stop (arm it)...
-      if (offset === 1) {
-        setProseEdge(node.getKey());
-        return $stop(node, 0, event);
-      }
-      // ...then step to the number's end (its blue edge — model-stable).
-      if (offset === 0) {
-        setProseEdge(null);
-        return $stop(prev, prev.getTextContentSize(), event);
-      }
-      return false;
-    }
-
-    // Toward the end: at a number's end with prose next, force the
-    // prose-edge stop (text@0) the browser would otherwise skip.
-    if (!$isUSFMNumberedMarkerNode(node)) return false;
-    if (offset !== node.getTextContentSize()) return false;
-    const next = node.getNextSibling();
-    if (!$isTextNode(next) || $isUSFMNumberedMarkerNode(next)) return false;
-    setProseEdge(next.getKey());
-    return $stop(next, 0, event);
-  };
-
-  const left = editor.registerCommand<KeyboardEvent>(
-    KEY_ARROW_LEFT_COMMAND,
-    (event) => $handleArrow(event, "left"),
-    COMMAND_PRIORITY_LOW,
-  );
-  const right = editor.registerCommand<KeyboardEvent>(
-    KEY_ARROW_RIGHT_COMMAND,
-    (event) => $handleArrow(event, "right"),
-    COMMAND_PRIORITY_LOW,
-  );
-
-  // Restore the held `text@0` if the current selection is its canonicalized
-  // alias (the previous number's @end). Returns:
-  //   "intact"   — already at text@0, nothing to do
-  //   "restored" — was the alias, put back via a fresh selection (node.select
-  //                would mutate the possibly-frozen committed selection here)
-  //   "gone"     — selection genuinely moved elsewhere; caller disarms
-  const $reassertProseEdge = (): "intact" | "restored" | "gone" => {
-    const sel = $getSelection();
-    if (!$isRangeSelection(sel) || !sel.isCollapsed()) return "gone";
-    const node = sel.anchor.getNode();
-    if (node.getKey() === proseEdgeKey && sel.anchor.offset === 0) {
-      return "intact";
-    }
-    if (
-      $isUSFMNumberedMarkerNode(node) &&
-      sel.anchor.offset === node.getTextContentSize() &&
-      node.getNextSibling()?.getKey() === proseEdgeKey
-    ) {
-      const target = $getNodeByKey(proseEdgeKey ?? "");
-      if ($isTextNode(target)) {
-        const restored = $createRangeSelection();
-        restored.anchor.set(target.getKey(), 0, "text");
-        restored.focus.set(target.getKey(), 0, "text");
-        $setSelection(restored);
-        return "restored";
-      }
-    }
-    return "gone";
-  };
-
-  // Navigation defense: DOM-selection ingestion rewrites our held `text@0`
-  // to the previous number's @end. Put it back. Converges because the DOM
-  // caret never actually moved (text@0 and num@end share the pixel) — the
-  // re-set reconciles to a position already occupied, firing no new event.
-  const defend = editor.registerCommand(
-    SELECTION_CHANGE_COMMAND,
-    () => {
-      if (proseEdgeKey === null) return false;
-      if ($reassertProseEdge() === "gone") setProseEdge(null);
-      return false;
-    },
-    COMMAND_PRIORITY_LOW,
-  );
-
-  // Typing defense: `beforeinput` re-canonicalizes the selection to the
-  // number's @end immediately before inserting (a separate trap from the
-  // selectionchange one), so a character typed at the prose edge would land
-  // in the NUMBER. Re-assert text@0 here, before rich-text's inserter (which
-  // runs at COMMAND_PRIORITY_EDITOR, below this), so the char lands in prose.
-  const insert = editor.registerCommand(
-    CONTROLLED_TEXT_INSERTION_COMMAND,
-    () => {
-      if (proseEdgeKey !== null) $reassertProseEdge();
-      return false; // never consume — rich-text still does the insert
-    },
-    COMMAND_PRIORITY_LOW,
-  );
+  const seam = registerSeamSelection(editor, isNumberedSeam);
 
   // Two-stage delete (backspace last digit → empty placeholder; backspace
   // again → remove the whole node), terminator-aware so the number's WS
   // delimiter is never orphaned (see registerDeletion).
-  const del = registerDeletion(editor, () => setProseEdge(null));
+  const del = registerDeletion(editor, () => seam.hold(null));
 
   // Type the first character into an EMPTY numbered node. An empty inline
   // node can't host a DOM caret, so the browser would route the keystroke to
@@ -650,9 +500,9 @@ export function registerNumberedMarkerBehaviors(editor: LexicalEditor) {
     const next = node.getNextSibling();
     if (terminatorPresent && $isTextNode(next)) {
       event.preventDefault();
-      // Arm the prose edge so the jump HOLDS at text@0 (otherwise the
+      // Hold the prose edge so the jump STAYS at text@0 (otherwise the
       // model bounces text@0 ↔ num@end and the caret cycles custom/native).
-      setProseEdge(next.getKey());
+      seam.hold(next.getKey());
       next.select(0, 0);
       return true;
     }
@@ -665,13 +515,9 @@ export function registerNumberedMarkerBehaviors(editor: LexicalEditor) {
   );
 
   return () => {
-    left();
-    right();
-    defend();
-    insert();
+    seam.unregister();
     del();
     typeEmpty();
     space();
-    editor.getRootElement()?.removeAttribute("data-prose-edge");
   };
 }

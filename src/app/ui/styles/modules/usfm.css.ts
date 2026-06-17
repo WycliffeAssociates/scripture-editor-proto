@@ -334,6 +334,19 @@ globalStyle(`${usfmMode} [data-token-type="numberRange"]`, {
   fontWeight: 600,
 });
 
+// Seam affordance (SeamCaretPlugin): the affordance policy writes a variant
+// onto data-caret-affordance for the token the caret is inside. `tint` whispers
+// the extent of what's being edited so the two stops sharing the boundary pixel
+// read apart. Scoped to the flat shapes so it never collides with regular
+// mode's numbered-marker chip tint.
+globalStyle(
+  `[data-mode="usfm"] [data-caret-affordance="tint"], [data-mode="plain"] [data-caret-affordance="tint"]`,
+  {
+    background: `color-mix(in srgb, ${vars.color.brandBase} 12%, transparent)`,
+    borderRadius: "3px",
+  },
+);
+
 // Verse numbers: chip treatment to distinguish from plain leading numerals
 globalStyle(
   `${usfmMode} [data-token-type="marker"][data-marker="v"] + [data-token-type="numberRange"]`,

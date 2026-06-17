@@ -61,11 +61,11 @@ export function NumberedCaretPlugin() {
     let prevKey: string | null | "__init__" = "__init__";
     const apply = (editorState: EditorState) => {
       const root = editor.getRootElement();
-      // While the prose edge is armed (registerNumberedMarkerBehaviors),
-      // the caret is black there even though the model momentarily
-      // canonicalizes into the number — suppress the in-number affordance
-      // so it doesn't flash blue.
-      const atProseEdge = root?.hasAttribute("data-prose-edge") === true;
+      // While a seam edge is armed (registerSeamSelection holds the prose
+      // `text@0` stop), the caret is black there even though the model
+      // momentarily canonicalizes into the number — suppress the in-number
+      // affordance so it doesn't flash blue.
+      const atProseEdge = root?.hasAttribute("data-seam-held") === true;
       const state = atProseEdge
         ? null
         : editorState.read(() => $numberCaretState());
@@ -101,7 +101,7 @@ export function NumberedCaretPlugin() {
         const root = editor.getRootElement();
         const container = root?.parentElement;
         const selection = $getSelection();
-        const atProseEdge = root?.hasAttribute("data-prose-edge") === true;
+        const atProseEdge = root?.hasAttribute("data-seam-held") === true;
         const state = atProseEdge ? null : $numberCaretState();
         if (
           atProseEdge ||

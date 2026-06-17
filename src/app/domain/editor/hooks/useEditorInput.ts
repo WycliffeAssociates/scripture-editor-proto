@@ -41,6 +41,8 @@ import {
   $isUSFMTextNode,
   USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { registerSeamSelection } from "@/app/domain/editor/selection/seamSelection.ts";
+import { isFlatNumberSeam } from "@/app/domain/editor/selection/usfmSeams.ts";
 import { calculateIsStartOfLine } from "@/app/domain/editor/utils/nodePositionUtils.ts";
 import { registerUsfmCopy } from "@/app/domain/editor/utils/usfmCopy.ts";
 import {
@@ -100,6 +102,16 @@ export function useEditorInput(editor: LexicalEditor) {
     // selection is in a numbered node, which exists only in the regular shape.
     const numberedMarkerBehaviorsUnregister =
       registerNumberedMarkerBehaviors(editor);
+
+    // Flat-shape (usfm/plain) twin: generic seam-selection makes both sides of
+    // a verse/chapter-number boundary explicitly reachable + holdable. Regular
+    // shape gets the same reachability from the numbered-marker behaviors above
+    // (which also own number-content delete/space/retype); this is selection
+    // control only.
+    const seamSelection =
+      editorModeToShape(editorModeSetting) === "flat"
+        ? registerSeamSelection(editor, isFlatNumberSeam)
+        : null;
 
     // Regular-mode copy/cut: text/plain = USFM bytes via the token
     // waist (flat modes' default copy is already the bytes).
@@ -330,6 +342,7 @@ export function useEditorInput(editor: LexicalEditor) {
       unregisterTransformWhileTyping();
       redirectParaInsertionToLineBreakUnregister();
       numberedMarkerBehaviorsUnregister();
+      seamSelection?.unregister();
       normalizeSelectionAtHiddenMarkerBoundaryUnregister();
       moveToAdjacentNodesUnregister();
       removeStructuralEmptyParaOnBackspaceUnregister();
