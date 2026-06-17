@@ -1,4 +1,5 @@
 import type { FlatFinding } from "@/app/state/findingsSelectors.ts";
+import { localizeFindingCodeLabel } from "@/app/ui/i18n/findingCodeLabels.ts";
 import { sortListByBookCanonical } from "@/core/data/bible/bible.ts";
 
 const ALL_FILTER_VALUE = "all";
@@ -65,7 +66,7 @@ export function buildFindingCodeOptions(
     { value: ALL_FILTER_VALUE, label: labels.all },
     ...uniqueCodes.map((code) => ({
       value: code,
-      label: formatLintCodeLabel(code),
+      label: localizeFindingCodeLabel(code),
     })),
   ];
 }
@@ -89,9 +90,4 @@ export function buildFindingBookOptions(
       label: localizeBook({ bookCode }) || bookCode,
     })),
   ];
-}
-
-function formatLintCodeLabel(code: string) {
-  const words = code.replace(/[-_]/g, " ").trim();
-  return words ? words[0].toUpperCase() + words.slice(1) : code;
 }
