@@ -28,15 +28,19 @@ const DEFAULT_SOUS_DEBOUNCE_MS = 100;
  */
 export function sousCommitScope(event: CommitEvent): ConsumerBookScope {
   if (!event.meta.dirtyTextContent) return NO_BOOKS;
-  const kind = event.meta.kind;
-  if (
-    kind === "metadataOnly" ||
-    kind === "structuralFixup" ||
-    kind === "load"
-  ) {
-    return NO_BOOKS;
+  // Exhaustive over CommitKind: a new kind won't compile until it picks a side.
+  switch (event.meta.kind) {
+    case "userEdit":
+    case "programmaticFix":
+    case "import":
+    case "undo":
+    case "redo":
+      return touchedBooks(event);
+    case "load":
+    case "structuralFixup":
+    case "metadataOnly":
+      return NO_BOOKS;
   }
-  return touchedBooks(event);
 }
 
 /**
@@ -44,7 +48,9 @@ export function sousCommitScope(event: CommitEvent): ConsumerBookScope {
  * files commits — a PARALLEL subscriber to the same store the lint pipeline
  * rides, on its own calmer debounce.
  *
- * Relevance + expansion live in `sousCommitScope` (book granularity). The folded
+ * `sousCommitScope` fuses relevance (empty set = skip) and expansion into one
+ * function — for a scoped consumer "relevant" just means "non-empty scope", so
+ * there's no separate relevance predicate (book granularity). The folded
  * scope drains as one `analyzeSous` command; the mirror assembles each book's
  * tokens from resident state (the vref build + sous run happen mirror-side) and
  * returns the per-book result. The result router commits findings + the segment

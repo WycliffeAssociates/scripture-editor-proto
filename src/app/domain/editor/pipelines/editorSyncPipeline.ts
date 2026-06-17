@@ -21,9 +21,21 @@ import { setEditorContent } from "@/app/ui/hooks/utils/editorUtils.ts";
  */
 function editorSyncCommitScope(event: CommitEvent): ConsumerChapterScope {
   if (!event.meta.dirtyTextContent) return NO_CHAPTERS;
-  const kind = event.meta.kind;
-  if (kind !== "programmaticFix" && kind !== "import") return NO_CHAPTERS;
-  return touchedChapters(event);
+  // Exhaustive over CommitKind. Only PROGRAMMATIC content mutations sync back
+  // into the visible editor; `userEdit` originates there and `undo`/`redo`
+  // restore their own content + selection.
+  switch (event.meta.kind) {
+    case "programmaticFix":
+    case "import":
+      return touchedChapters(event);
+    case "userEdit":
+    case "undo":
+    case "redo":
+    case "load":
+    case "structuralFixup":
+    case "metadataOnly":
+      return NO_CHAPTERS;
+  }
 }
 
 /**

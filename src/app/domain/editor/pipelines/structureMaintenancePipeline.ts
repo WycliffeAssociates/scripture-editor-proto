@@ -10,7 +10,20 @@ import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 
 /** Whether structure maintenance reacts — its OWN relevance: user edits only. */
 export function isStructureMaintenanceRelevant(event: CommitEvent): boolean {
-  return event.meta.kind === "userEdit" && event.meta.dirtyTextContent;
+  if (!event.meta.dirtyTextContent) return false;
+  // Exhaustive over CommitKind: a new kind won't compile until it picks a side.
+  switch (event.meta.kind) {
+    case "userEdit":
+      return true;
+    case "programmaticFix":
+    case "import":
+    case "undo":
+    case "redo":
+    case "load":
+    case "structuralFixup":
+    case "metadataOnly":
+      return false;
+  }
 }
 
 // Frame cadence. The stamped attributes (sid, inPara, structural-empty) are

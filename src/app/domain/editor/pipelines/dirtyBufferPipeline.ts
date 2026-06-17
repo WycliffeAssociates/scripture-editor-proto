@@ -44,9 +44,21 @@ const DEFAULT_CEILING_MS = 10000;
  *    `metadata` patch — the save clean-mark — DOES flip flags and is reconciled.)
  */
 export function isDirtyBufferRelevant(event: CommitEvent): boolean {
-  if (event.meta.kind === "load") return false;
+  // Pure cursor/selection moves change no state — nothing to reconcile.
   if (event.patch.kind === "selectionOnly") return false;
-  return true;
+  // Exhaustive over CommitKind: a new kind won't compile until it picks a side.
+  switch (event.meta.kind) {
+    case "load": // initial population; the loader handles restoration
+      return false;
+    case "userEdit":
+    case "programmaticFix":
+    case "import":
+    case "undo":
+    case "redo":
+    case "structuralFixup":
+    case "metadataOnly": // e.g. the save clean-mark — must clear a backup
+      return true;
+  }
 }
 
 /**

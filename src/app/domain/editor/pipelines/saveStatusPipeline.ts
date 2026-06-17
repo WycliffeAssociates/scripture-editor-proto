@@ -11,10 +11,19 @@ import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
  */
 export function isSaveStatusRelevant(event: CommitEvent): boolean {
   if (!event.meta.dirtyTextContent) return false;
-  const kind = event.meta.kind;
-  return (
-    kind !== "metadataOnly" && kind !== "structuralFixup" && kind !== "load"
-  );
+  // Exhaustive over CommitKind: a new kind won't compile until it picks a side.
+  switch (event.meta.kind) {
+    case "userEdit":
+    case "programmaticFix":
+    case "import":
+    case "undo":
+    case "redo":
+      return true;
+    case "load":
+    case "structuralFixup":
+    case "metadataOnly":
+      return false;
+  }
 }
 
 /**

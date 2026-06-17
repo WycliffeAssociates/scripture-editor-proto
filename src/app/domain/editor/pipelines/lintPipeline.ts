@@ -27,21 +27,27 @@ const DEFAULT_LINT_DEBOUNCE_MS = 100;
  */
 export function lintCommitScope(event: CommitEvent): ConsumerBookScope {
   if (!event.meta.dirtyTextContent) return NO_BOOKS;
-  const kind = event.meta.kind;
-  if (
-    kind === "metadataOnly" ||
-    kind === "structuralFixup" ||
-    kind === "load"
-  ) {
-    return NO_BOOKS;
+  // Exhaustive over CommitKind: a new kind won't compile until it picks a side.
+  switch (event.meta.kind) {
+    case "userEdit":
+    case "programmaticFix":
+    case "import":
+    case "undo":
+    case "redo":
+      return touchedBooks(event);
+    case "load": // initial state is mirror-seeded
+    case "structuralFixup": // writebacks fix structure, don't surface issues
+    case "metadataOnly": // no text change
+      return NO_BOOKS;
   }
-  return touchedBooks(event);
 }
 
 /**
  * Stream pipeline that drives lint in response to working-files commits.
  *
- * Relevance + expansion live in `lintCommitScope` (book granularity); scopes
+ * `lintCommitScope` fuses relevance (empty set = skip) and expansion into one
+ * function — for a scoped consumer "relevant" just means "non-empty scope", so
+ * there's no separate relevance predicate (book granularity); scopes
  * accumulated across the debounce window are drained as ONE `analyzeLint`
  * command carrying the folded book set + the commit generation. The mirror
  * reads its resident tokens for those books and returns the raw issues per

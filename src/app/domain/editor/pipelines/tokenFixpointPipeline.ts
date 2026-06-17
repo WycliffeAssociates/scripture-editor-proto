@@ -23,15 +23,19 @@ const DEFAULT_FIXPOINT_DEBOUNCE_MS = 250;
  */
 function tokenFixpointCommitScope(event: CommitEvent): ConsumerBookScope {
   if (!event.meta.dirtyTextContent) return NO_BOOKS;
-  const kind = event.meta.kind;
-  if (
-    kind === "metadataOnly" ||
-    kind === "structuralFixup" ||
-    kind === "load"
-  ) {
-    return NO_BOOKS;
+  // Exhaustive over CommitKind: a new kind won't compile until it picks a side.
+  switch (event.meta.kind) {
+    case "userEdit":
+    case "programmaticFix":
+    case "import":
+    case "undo":
+    case "redo":
+      return touchedBooks(event);
+    case "load":
+    case "structuralFixup":
+    case "metadataOnly":
+      return NO_BOOKS;
   }
-  return touchedBooks(event);
 }
 
 /**
