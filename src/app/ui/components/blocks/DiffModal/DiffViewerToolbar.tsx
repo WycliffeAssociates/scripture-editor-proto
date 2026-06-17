@@ -3,7 +3,6 @@ import { Menu } from "@base-ui/react/menu";
 import { ScrollArea } from "@base-ui/react/scroll-area";
 import { Toggle } from "@base-ui/react/toggle";
 import { Toolbar } from "@base-ui/react/toolbar";
-import { Tooltip } from "@base-ui/react/tooltip";
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import {
@@ -30,6 +29,7 @@ import type {
 import { COMPARE_SOURCE_KIND } from "@/app/domain/project/compare/types.ts";
 import { PrintChangesButton } from "@/app/ui/components/blocks/DiffModal/PrintChangesButton.tsx";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
+import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import { SelectPrimitive } from "@/app/ui/components/primitives/Select/index.ts";
 import { ToggleGroup } from "@/app/ui/components/primitives/ToggleGroup/ToggleGroup.tsx";
 import type {
@@ -301,6 +301,7 @@ export function DiffViewerToolbar({
             value={viewMode}
             onValueChange={(value) => setViewMode(value as "list" | "chapter")}
             variant="outlinePill"
+            compact
             items={[
               { label: t`By verse`, value: "list" },
               { label: t`By chapter`, value: "chapter" },
@@ -532,30 +533,19 @@ function ToolbarToggle(props: {
   icon: ReactNode;
 }) {
   return (
-    <Tooltip.Root>
-      <Tooltip.Trigger
+    <IconTooltip label={props.label}>
+      <Toolbar.Button
         render={
-          <Toolbar.Button
-            render={
-              <Toggle
-                pressed={props.pressed}
-                onPressedChange={props.onPressedChange}
-              />
-            }
-            className={styles.toolbarIconToggle}
-            aria-label={props.label}
-          >
-            {props.icon}
-          </Toolbar.Button>
+          <Toggle
+            pressed={props.pressed}
+            onPressedChange={props.onPressedChange}
+          />
         }
-      />
-      <Tooltip.Portal>
-        <Tooltip.Positioner side="top" align="center">
-          <Tooltip.Popup className={styles.toolbarTooltipPopup}>
-            {props.label}
-          </Tooltip.Popup>
-        </Tooltip.Positioner>
-      </Tooltip.Portal>
-    </Tooltip.Root>
+        className={styles.toolbarIconToggle}
+        aria-label={props.label}
+      >
+        {props.icon}
+      </Toolbar.Button>
+    </IconTooltip>
   );
 }

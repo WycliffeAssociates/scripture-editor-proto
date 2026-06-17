@@ -1,4 +1,4 @@
-import { globalStyle, keyframes, style } from "@vanilla-extract/css";
+import { style } from "@vanilla-extract/css";
 
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
 
@@ -8,12 +8,22 @@ const controlRibbonHeight = "2.25rem";
 export const searchPanel = style({
   display: "grid",
   gridTemplateRows: "auto 1fr",
+  // Constrain the single column to the panel width so wide controls/results
+  // can't push it past the docked overlay onto the editor.
+  gridTemplateColumns: "minmax(0, 1fr)",
   width: "100%",
   height: "100%",
+  minWidth: 0,
   minHeight: 0,
   backgroundColor: vars.color.surfacePrimary,
-  paddingTop: vars.spacing.md,
-  gap: vars.spacing.lg,
+  paddingTop: vars.spacing.sm,
+  // Tight gap between the controls block and the results list (lg is 3rem —
+  // far too airy for this seam).
+  gap: vars.spacing.md,
+  // The seam between find and the editor. When docked, the panel's trailing
+  // edge tiles exactly with the editor's leading edge, so this single border
+  // reads as the divider of the find ┊ editor row.
+  borderInlineEnd: `1px solid ${vars.color.surfaceBorder}`,
 });
 
 export const searchPopoverDropdown = style({
@@ -135,7 +145,23 @@ export const searchPanelHeaderTop = style({
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  marginBottom: vars.spacing.md,
+  marginBottom: vars.spacing.sm,
+});
+
+// Trailing cluster: dock toggle + close button.
+export const searchPanelHeaderActions = style({
+  display: "flex",
+  alignItems: "center",
+  gap: vars.spacing.sm,
+});
+
+// Explicit Open/Close Editor control beside the replace field. Kept on the
+// control-ribbon height so it lines up with the toggle squares + replace input,
+// and doesn't shrink/wrap when the row gets tight.
+export const editorDockButton = style({
+  height: controlRibbonHeight,
+  flexShrink: 0,
+  whiteSpace: "nowrap",
 });
 
 export const searchPanelTitle = style({
@@ -171,7 +197,8 @@ export const searchPanelClose = style({
 export const searchControls = style({
   display: "flex",
   flexDirection: "column",
-  gap: vars.spacing.md,
+  // Keep the three rows (input · options · reference) as one tight cluster.
+  gap: vars.spacing.xs,
 });
 
 export const searchInputRow = style({
@@ -288,34 +315,57 @@ export const searchToggles = style({
   minWidth: 0,
 });
 
-export const searchInlineControls = style({
-  display: "inline-flex",
-  alignItems: "flex-end",
-  gap: vars.spacing.xs,
-  flexWrap: "nowrap",
+// Row 3: the reference picker + scope switch on their own line so the toggle
+// row above isn't crammed.
+export const searchReferenceRow = style({
+  display: "flex",
+  alignItems: "center",
+  gap: vars.spacing.sm,
+  flexWrap: "wrap",
   minWidth: 0,
-  marginLeft: "auto",
-  flexShrink: 0,
 });
 
+export const searchReferenceLabel = style({
+  fontSize: vars.typography.bodySmallest.fontSize,
+  fontWeight: 600,
+  color: vars.color.onSurfaceSecondary,
+  whiteSpace: "nowrap",
+});
+
+// Cap the reused reference picker so it doesn't sprawl the full panel width.
+export const searchReferencePicker = style({
+  minWidth: 0,
+  maxWidth: "18rem",
+  flex: "0 1 18rem",
+});
+
+export const searchScopeField = style({
+  display: "inline-flex",
+  alignItems: "center",
+  minWidth: 0,
+});
+
+export const searchScopeSwitch = style({
+  minHeight: controlRibbonHeight,
+  alignItems: "center",
+});
+
+// Compact square icon toggle. Active = tinted brand segment (no checkbox glyph).
 export const toggleButton = style({
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  minHeight: controlRibbonHeight,
-  height: controlRibbonHeight,
-  padding: `0 ${vars.spacing.xs}`,
-  gap: "0.2rem",
+  width: "1.875rem",
+  height: "1.875rem",
+  flexShrink: 0,
+  padding: 0,
   border: `1px solid ${vars.color.surfaceBorder}`,
   borderRadius: vars.border.radius.md,
   backgroundColor: vars.color.surfacePrimary,
   color: vars.color.onSurfaceSecondary,
   cursor: "pointer",
   transition: "all 0.15s ease",
-  fontSize: vars.typography.bodySmallest.fontSize,
-  fontWeight: 500,
   lineHeight: 1,
-  whiteSpace: "nowrap",
   boxSizing: "border-box",
   selectors: {
     "&:hover:not(:disabled)": {
@@ -329,8 +379,7 @@ export const toggleButton = style({
 });
 
 export const toggleButtonActive = style({
-  // Checked reads as a tinted segment with brand text, not a solid blue fill —
-  // the filled checkbox carries the "on" signal.
+  // On reads as a tinted segment with brand text/icon, not a solid blue fill.
   backgroundColor: vars.color.brandLight,
   borderColor: vars.color.brandBase,
   color: vars.color.brandBase,
@@ -341,26 +390,6 @@ export const toggleButtonActive = style({
   },
 });
 
-/** Trailing checkbox glyph — an outlined square that fills brand when checked. */
-export const toggleCheckbox = style({
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  flexShrink: 0,
-  width: "0.875rem",
-  height: "0.875rem",
-  borderRadius: "0.1875rem",
-  border: `1px solid ${vars.color.surfaceBorder}`,
-  backgroundColor: vars.color.surfacePrimary,
-  color: "transparent",
-});
-
-export const toggleCheckboxChecked = style({
-  borderColor: vars.color.brandBase,
-  backgroundColor: vars.color.brandBase,
-  color: vars.button.primary.onSurface,
-});
-
 export const searchReplaceRow = style({
   display: "flex",
   gap: vars.spacing.xs,
@@ -368,116 +397,6 @@ export const searchReplaceRow = style({
   flexWrap: "nowrap",
   minWidth: 0,
   flexShrink: 0,
-});
-
-export const searchModeRow = style({
-  display: "flex",
-  alignItems: "flex-end",
-  gap: vars.spacing.xs,
-  flexWrap: "nowrap",
-  minWidth: 0,
-});
-
-export const searchModeField = style({
-  position: "relative",
-  display: "inline-flex",
-  alignItems: "flex-end",
-  minWidth: 0,
-});
-
-export const searchModeFieldLabel = style({
-  fontSize: "0.65rem",
-  lineHeight: 1,
-  fontWeight: 600,
-  color: vars.color.onSurfaceTertiary,
-  textTransform: "uppercase",
-  letterSpacing: "0.02em",
-  position: "absolute",
-  left: "0.4rem",
-  top: "-0.55rem",
-  backgroundColor: vars.color.surfacePrimary,
-  padding: "0 0.15rem",
-  pointerEvents: "none",
-});
-
-export const searchScopeSwitch = style({
-  minHeight: controlRibbonHeight,
-  alignItems: "center",
-});
-
-export const searchModeLabel = style({
-  fontSize: vars.typography.bodySmallest.fontSize,
-  fontWeight: 600,
-  color: vars.color.onSurfaceSecondary,
-  whiteSpace: "nowrap",
-});
-
-export const searchModeSelect = style({
-  width: "10rem",
-  minWidth: "10rem",
-  height: controlRibbonHeight,
-  minHeight: controlRibbonHeight,
-  padding: `0 ${vars.spacing.xs}`,
-  borderRadius: vars.border.radius.sm,
-  gap: "0.2rem",
-  boxSizing: "border-box",
-});
-
-export const searchModeSelectList = style({
-  maxHeight: "20rem",
-  overflowY: "auto",
-});
-
-export const searchModeLoading = style({
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "0.25rem",
-  fontSize: vars.typography.bodySmallest.fontSize,
-  color: vars.color.onSurfaceSecondary,
-});
-
-const searchModeSpin = keyframes({
-  from: { transform: "rotate(0deg)" },
-  to: { transform: "rotate(360deg)" },
-});
-
-export const searchModeLoadingIcon = style({
-  animation: `${searchModeSpin} 0.9s linear infinite`,
-});
-
-globalStyle(`${searchModeSelect}[data-scope="select"][data-part="trigger"]`, {
-  height: controlRibbonHeight,
-  minHeight: controlRibbonHeight,
-  boxSizing: "border-box",
-  borderRadius: vars.border.radius.md,
-  border: `1px solid ${vars.color.surfaceBorder}`,
-  backgroundColor: vars.color.surfacePrimary,
-  padding: `0 ${vars.spacing.sm}`,
-});
-
-globalStyle(
-  `${searchModeSelect}[data-scope="select"][data-part="trigger"] [data-scope="select"][data-part="value"]`,
-  {
-    fontSize: vars.typography.bodySmallest.fontSize,
-    fontWeight: 500,
-  },
-);
-
-globalStyle(
-  `${searchModeSelect}[data-scope="select"][data-part="trigger"] [data-scope="select"][data-part="icon"]`,
-  {
-    width: ".875rem",
-    height: ".875rem",
-  },
-);
-
-globalStyle(`${searchModeSelect} [data-scope="select"][data-part="value"]`, {
-  fontSize: vars.typography.bodySmallest.fontSize,
-});
-
-globalStyle(`${searchModeSelect} [data-scope="select"][data-part="icon"]`, {
-  width: "1rem",
-  height: "1rem",
 });
 
 export const replaceInputWrapper = style({
@@ -517,8 +436,33 @@ export const searchResultsContainer = style({
   height: "100%",
   overflowY: "auto",
   overflowX: "hidden",
-  paddingInline: vars.spacing.lg,
+  // Content keeps its inline breathing room; the trailing margin pulls the
+  // scrollbar in off the panel edge so it reads against the result list rather
+  // than hugging the editor seam.
+  paddingInlineStart: vars.spacing.lg,
+  paddingInlineEnd: vars.spacing.xs,
+  marginInlineEnd: vars.spacing.sm,
   paddingBlockEnd: "5rem",
+  // Thin, themed, non-overlay scrollbar so it doesn't draw over the result rows
+  // (matches the editor's). Firefox uses scrollbar-width/-color; WebKit/Chromium
+  // (incl. the Tauri webview) uses the ::-webkit-scrollbar pseudo-elements.
+  scrollbarWidth: "thin",
+  scrollbarColor: `${vars.color.brandDark} transparent`,
+  selectors: {
+    "&::-webkit-scrollbar": {
+      width: "0.375rem",
+    },
+    "&::-webkit-scrollbar-track": {
+      backgroundColor: "transparent",
+    },
+    "&::-webkit-scrollbar-thumb": {
+      backgroundColor: vars.color.brandDark,
+      borderRadius: vars.border.radius.lg,
+    },
+    "&::-webkit-scrollbar-thumb:hover": {
+      backgroundColor: vars.color.brandBase,
+    },
+  },
 });
 
 export const searchResultsInner = style({
@@ -577,9 +521,13 @@ export const searchResultItem = style({
   cursor: "pointer",
 });
 
+// The focused (picked) row — its occurrences are the ones the stepper walks, so
+// make the focus unmistakable: a thick brand ring (box-shadow keeps the 1px
+// border's box, so the +2px ring adds no layout shift).
 export const searchResultItemActive = style({
   backgroundColor: vars.toggleGroup.itemSelectedSurface,
   borderColor: vars.color.brandBase,
+  boxShadow: `0 0 0 2px ${vars.color.brandBase}`,
   selectors: {
     "&:hover": {
       backgroundColor: vars.toggleGroup.itemSelectedSurface,
@@ -617,6 +565,47 @@ export const searchResultNavigate = style({
       color: vars.color.brandBase,
     },
   },
+});
+
+// Per-verse occurrence cursor on the active row: ‹ 2/3 ›. Clusters with the
+// navigate button on the trailing edge.
+export const occurrenceStepper = style({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.125rem",
+  marginInlineStart: "auto",
+  marginInlineEnd: vars.spacing.xs,
+});
+
+export const occurrenceStepButton = style({
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "1.25rem",
+  height: "1.25rem",
+  border: "none",
+  borderRadius: vars.border.radius.sm,
+  backgroundColor: "transparent",
+  color: vars.color.onSurfaceSecondary,
+  cursor: "pointer",
+  selectors: {
+    "&:hover:not(:disabled)": {
+      backgroundColor: vars.color.surfaceSecondary,
+      color: vars.color.brandBase,
+    },
+    "&:disabled": {
+      opacity: 0.35,
+      cursor: "default",
+    },
+  },
+});
+
+export const occurrenceCount = style({
+  fontSize: vars.typography.bodySmallest.fontSize,
+  fontVariantNumeric: "tabular-nums",
+  color: vars.color.onSurfaceSecondary,
+  minWidth: "2.25rem",
+  textAlign: "center",
 });
 
 export const searchResultPreview = style({
@@ -667,6 +656,16 @@ export const searchHighlight = style({
   backgroundColor: "rgba(255, 193, 7, 0.4)",
   color: vars.color.onSurfacePrimary,
   fontWeight: 600,
+  padding: "0 2px",
+  borderRadius: "2px",
+});
+
+// The selected occurrence among several in a verse — reads loudest, matching
+// the editor's active-match highlight (`::highlight(matched-search-current)`).
+export const searchHighlightActive = style({
+  backgroundColor: "rgb(249, 115, 22)",
+  color: "white",
+  fontWeight: 700,
   padding: "0 2px",
   borderRadius: "2px",
 });

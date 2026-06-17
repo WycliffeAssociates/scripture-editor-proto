@@ -21,6 +21,8 @@ import type { ReactNode } from "react";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { Utf16Span } from "@/core/domain/usfm/vrefTypes.ts";
 
+import type { LocalLintCode } from "./localLint/numberingRules.ts";
+
 /** Where a finding lives in the editor. */
 export type Anchor =
   | {
@@ -40,7 +42,10 @@ export type Anchor =
 
 /**
  * Generalizes onion's `issueType`: structure = USFM markup problems, content =
- * problems in the text itself. User-facing labels stay "USFM"/"Content".
+ * problems in the text itself. Verse/chapter numbers and chapter labels are
+ * content too — local-lint's consistency checks live here; "consistency" is why
+ * they aren't onion's, not a separate user-facing category. Labels stay
+ * "USFM"/"Content".
  */
 export type FindingCategory = "structure" | "content";
 
@@ -69,11 +74,23 @@ type FindingBase = {
 };
 
 /**
+ * The marching-sequence facts a local-lint message renders from — data only,
+ * never part of identity (the anchor token-id is the address). `found` is the
+ * number on the offending `\c`/`\v`; `previous` is the prior number in the
+ * sequence, present only for codes that compare against one (gap, decrease).
+ */
+export type LocalLintParams = {
+  found: number;
+  previous?: number;
+};
+
+/**
  * Discriminated by producer. Each arm carries the producer payload that
  * decoration/formatting needs — data, not behavior (onion's `fix` rides along
  * so the default decorator can build the apply action; the raw engine
  * `message` on it is locale-independent fallback data for unknown codes).
- * An `app` arm joins the union with the first real app-namespaced producer.
+ * local-lint is self-describing: its `code` selects the message and `params`
+ * fills it, so no engine payload is needed.
  */
 export type Finding =
   | (FindingBase & { source: "onion"; issue: LintIssue })
@@ -81,6 +98,21 @@ export type Finding =
       source: "sous-chef";
       /** sous confidence, when the rule scores; undefined for binary rules. */
       score?: number;
+    })
+  // local-lint splits by code family: the numbering rules carry marching
+  // params; the project-wide `\cl` rule carries the off-dominant stem + the
+  // project's dominant, for the message (and is the one local-lint code with a
+  // fix — "Standardize across project…").
+  | (FindingBase & {
+      source: "local-lint";
+      code: LocalLintCode;
+      params: LocalLintParams;
+    })
+  | (FindingBase & {
+      source: "local-lint";
+      code: "inconsistent-chapter-label";
+      label: string;
+      dominant: string;
     });
 
 /**

@@ -9,19 +9,25 @@ export type SortOption = "canonical" | "caseMismatch";
  * the search pane can render meaningful side-by-side comparisons.
  */
 export function dedupeByVerse(items: SearchResult[]): SearchResult[] {
+  const keyOf = (item: SearchResult) =>
+    [item.source, item.bibleIdentifier, item.chapNum, item.sid].join("|");
+
+  // First pass: tally how many occurrences each verse holds.
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    const key = keyOf(item);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  // Second pass: keep the first occurrence per verse, stamped with the tally so
+  // every row knows whether it has more than one match (drives the stepper).
   const seen = new Set<string>();
   const deduped: SearchResult[] = [];
-
   for (const item of items) {
-    const key = [
-      item.source,
-      item.bibleIdentifier,
-      item.chapNum,
-      item.sid,
-    ].join("|");
+    const key = keyOf(item);
     if (seen.has(key)) continue;
     seen.add(key);
-    deduped.push(item);
+    deduped.push({ ...item, occurrenceCount: counts.get(key) ?? 1 });
   }
 
   return deduped;

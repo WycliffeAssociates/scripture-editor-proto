@@ -7,6 +7,7 @@ import {
   buildTargetSidTextLookup,
   type SearchResult,
 } from "@/app/domain/search/SearchService.ts";
+import { useWorkspaceMediaQuery } from "@/app/ui/contexts/useWorkspaceMediaQuery.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/SearchPanel.css.ts";
 
@@ -20,6 +21,7 @@ type GroupedItem = {
 
 export function SearchResults() {
   const { t } = useLingui();
+  const { isSm } = useWorkspaceMediaQuery();
   const {
     search,
     allProjects,
@@ -46,8 +48,7 @@ export function SearchResults() {
 
   const sourceProjectName = useMemo(() => {
     return (
-      referenceResource.activeReferenceResourceDisplayName ||
-      t`Reference project`
+      referenceResource.activeReferenceResourceDisplayName || t`Source text`
     );
   }, [referenceResource.activeReferenceResourceDisplayName, t]);
 
@@ -124,8 +125,24 @@ export function SearchResults() {
   const isGroupedMode = groupedItems.length > 0;
 
   const handleReplace = useCallback(
-    async (target: SearchResult, replacement: string) => {
-      await search.replaceSearchResult(target, replacement);
+    async (
+      target: SearchResult,
+      replacement: string,
+      occurrenceIndex: number,
+      isActive: boolean,
+    ) => {
+      // Un-cycled rows (cursor on the first match) keep the proven paths: the
+      // active row replaces its current match, others replace their first.
+      // A cycled row targets the exact occurrence the stepper is sitting on.
+      if (occurrenceIndex === 0) {
+        if (isActive) await search.replaceCurrentMatch(replacement);
+        else await search.replaceSearchResult(target, replacement);
+      } else {
+        await search.replaceSearchResult(
+          { ...target, sidOccurrenceIndex: occurrenceIndex },
+          replacement,
+        );
+      }
     },
     [search],
   );
@@ -191,6 +208,11 @@ export function SearchResults() {
             ? groupedItem.sourceResult
             : search.results[virtualRow.index];
           if (!result) return null;
+          const isActiveRow = resolveIsActive(
+            search.pickedResult,
+            result,
+            groupedItem,
+          );
           return (
             <SearchResultRow
               key={
@@ -201,11 +223,7 @@ export function SearchResults() {
               measureRef={virtualizer.measureElement}
               result={result}
               groupedItem={groupedItem}
-              isActive={resolveIsActive(
-                search.pickedResult,
-                result,
-                groupedItem,
-              )}
+              isActive={isActiveRow}
               pickResult={resolvePickResult(
                 result,
                 groupedItem,
@@ -222,8 +240,16 @@ export function SearchResults() {
               sourceProjectName={sourceProjectName}
               currentProjectName={currentProjectName}
               onPick={(pick) => {
+                // The navigate arrow focuses the row AND opens the editor: dock
+                // it beside find on desktop (no-op if already docked), or reveal
+                // it on small screens. Occurrence cycling stays independent of
+                // this — it's row-local and never needs the editor.
                 search.pickSearchResult(pick);
-                search.setIsSearchPaneOpen(false);
+                if (isSm) {
+                  search.setIsSearchPaneOpen(false);
+                } else {
+                  search.dockSearchPane();
+                }
               }}
               onReplace={handleReplace}
             />
@@ -234,6 +260,23 @@ export function SearchResults() {
   );
 }
 
+// Compare by verse identity, not object reference: the stepper picks an
+// occurrence *variant* (`{ ...result, sidOccurrenceIndex }`), so a reference
+// check would lose the active row the moment you cycle within a verse.
+function isSameVerse(
+  a: SearchResult | null | undefined,
+  b: SearchResult | null | undefined,
+): boolean {
+  return (
+    !!a &&
+    !!b &&
+    a.source === b.source &&
+    a.sid === b.sid &&
+    a.bibleIdentifier === b.bibleIdentifier &&
+    a.chapNum === b.chapNum
+  );
+}
+
 function resolveIsActive(
   pickedResult: SearchResult | null | undefined,
   result: SearchResult,
@@ -241,11 +284,11 @@ function resolveIsActive(
 ): boolean {
   if (groupedItem) {
     return (
-      pickedResult === groupedItem.sourceResult ||
-      pickedResult === groupedItem.targetResult
+      isSameVerse(pickedResult, groupedItem.sourceResult) ||
+      isSameVerse(pickedResult, groupedItem.targetResult)
     );
   }
-  return pickedResult === result;
+  return isSameVerse(pickedResult, result);
 }
 
 function resolvePickResult(
@@ -274,7 +317,12 @@ function SearchResultRow(props: {
   sourceProjectName: string;
   currentProjectName: string;
   onPick: (pick: SearchResult) => void;
-  onReplace: (target: SearchResult, replacement: string) => Promise<void>;
+  onReplace: (
+    target: SearchResult,
+    replacement: string,
+    occurrenceIndex: number,
+    isActive: boolean,
+  ) => Promise<void>;
 }) {
   const { groupedItem, result } = props;
   return (
@@ -299,8 +347,13 @@ function SearchResultRow(props: {
         targetResult={groupedItem?.targetResult}
         canReplace={props.canReplace}
         defaultReplaceTerm={props.defaultReplaceTerm}
-        onReplace={(replacement) =>
-          props.onReplace(groupedItem?.targetResult ?? result, replacement)
+        onReplace={(replacement, occurrenceIndex) =>
+          props.onReplace(
+            groupedItem?.targetResult ?? result,
+            replacement,
+            occurrenceIndex,
+            props.isActive,
+          )
         }
       />
     </div>

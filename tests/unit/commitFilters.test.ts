@@ -1,25 +1,21 @@
 // commitFilters.test.ts
 //
-// Single source of truth for per-subscriber commit policy. Each pipeline
-// wires its policy from `src/app/state/commitFilters.ts` — scope policies
-// (`lintScopeFor` / `sousScopeFor`, returning the consumer's work-unit set
-// where empty = skip) and boolean predicates (save status, structure
-// maintenance, dirty buffer). The pipeline integration tests in
-// `tests/unit/integration/` assert the wiring (one representative kind per
-// pipeline) but lean on this file for the exhaustive per-kind matrix.
+// The exhaustive per-CommitKind matrix for each subscriber's commit policy.
+// Policy now lives PER MODULE (each pipeline owns its `<x>CommitScope` /
+// `is<x>Relevant`), so this file imports each from its home rather than a
+// central file. The pipeline integration tests assert the wiring (one
+// representative kind per pipeline) and lean on this file for the full matrix.
 //
-// Flip a polarity in `commitFilters.ts` and one row of the table below
-// will fail with a readable mismatch — that's the contract.
+// Flip a polarity in any policy and one row of the table below fails with a
+// readable mismatch — that's the contract.
 
 import { describe, expect, it } from "vitest";
 
-import {
-  isDirtyBufferRelevant,
-  isSaveStatusRelevant,
-  isStructureMaintenanceRelevant,
-  lintScopeFor,
-  sousScopeFor,
-} from "@/app/state/commitFilters.ts";
+import { isDirtyBufferRelevant } from "@/app/domain/editor/pipelines/dirtyBufferPipeline.ts";
+import { lintCommitScope } from "@/app/domain/editor/pipelines/lintPipeline.ts";
+import { isSaveStatusRelevant } from "@/app/domain/editor/pipelines/saveStatusPipeline.ts";
+import { sousCommitScope } from "@/app/domain/editor/pipelines/sousPipeline.ts";
+import { isStructureMaintenanceRelevant } from "@/app/domain/editor/pipelines/structureMaintenancePipeline.ts";
 import type {
   CommitEvent,
   CommitKind,
@@ -184,17 +180,17 @@ describe("commitFilters policy matrix", () => {
   });
 
   it.each(POLICY)(
-    "lintScopeFor($kind, dirty=$dirty) non-empty → $lint",
+    "lintCommitScope($kind, dirty=$dirty) non-empty → $lint",
     ({ kind, dirty, lint }) => {
-      const scope = lintScopeFor(makeEvent(kind, dirty));
+      const scope = lintCommitScope(makeEvent(kind, dirty));
       expect(scope !== "all" && scope.size === 0).toBe(!lint);
     },
   );
 
   it.each(POLICY)(
-    "sousScopeFor($kind, dirty=$dirty) non-empty → $lint",
+    "sousCommitScope($kind, dirty=$dirty) non-empty → $lint",
     ({ kind, dirty, lint }) => {
-      const scope = sousScopeFor(makeEvent(kind, dirty));
+      const scope = sousCommitScope(makeEvent(kind, dirty));
       expect(scope !== "all" && scope.size === 0).toBe(!lint);
     },
   );
@@ -236,7 +232,7 @@ describe("scope policies — expansion shape", () => {
   }
 
   it("widens chapter refs to their books, deduped", () => {
-    const scope = lintScopeFor(
+    const scope = lintCommitScope(
       makeScopedEvent({
         chapters: [
           { bookCode: "GEN", chapterNum: 1 },
@@ -249,12 +245,12 @@ describe("scope policies — expansion shape", () => {
   });
 
   it("maps project scope to the all sentinel", () => {
-    expect(lintScopeFor(makeScopedEvent({ project: true }))).toBe("all");
-    expect(sousScopeFor(makeScopedEvent({ project: true }))).toBe("all");
+    expect(lintCommitScope(makeScopedEvent({ project: true }))).toBe("all");
+    expect(sousCommitScope(makeScopedEvent({ project: true }))).toBe("all");
   });
 
   it("returns an empty set for an empty chapter list", () => {
-    const scope = lintScopeFor(makeScopedEvent({ chapters: [] }));
+    const scope = lintCommitScope(makeScopedEvent({ chapters: [] }));
     expect(scope !== "all" && scope.size === 0).toBe(true);
   });
 });

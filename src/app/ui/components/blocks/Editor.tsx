@@ -15,6 +15,7 @@ import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
 import {
   domPresentationMode,
   EDITOR_MODES,
+  editorModeToShape,
   isEditableEditorMode,
 } from "@/app/data/editor.ts";
 import { BookFrontmatterFormNode } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
@@ -30,9 +31,14 @@ import { NodeContextMenuPlugin } from "@/app/domain/editor/plugins/ContextMenuPl
 import { CustomHistoryPlugin } from "@/app/domain/editor/plugins/CustomHistoryPlugin.tsx";
 import { HighlightSink } from "@/app/domain/editor/plugins/HighlightSink.tsx";
 import { NumberedCaretPlugin } from "@/app/domain/editor/plugins/NumberedCaretPlugin.tsx";
+import { SeamCaretPlugin } from "@/app/domain/editor/plugins/SeamCaretPlugin.tsx";
 import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin.tsx";
 import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
 import { WorkingFilesBridgePlugin } from "@/app/domain/editor/plugins/WorkingFilesBridgePlugin.tsx";
+import {
+  flatNumberSeamAffordance,
+  isFlatNumberSeam,
+} from "@/app/domain/editor/selection/usfmSeams.ts";
 import { requireGateOpen } from "@/app/state/WorkspaceInteractionGate.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as shellStyles from "@/app/ui/styles/modules/EditorShell.css.ts";
@@ -80,6 +86,12 @@ export function MainEditor() {
   // pending — the Keep/Discard banner above must be resolved first. `saving`
   // is sub-second, so it doesn't get a scrim.
   const isRecoveryPending = gate.kind === "recovery-decision-pending";
+  // Flat shape (usfm/plain) is where verse/chapter numbers stay loose tokens
+  // beside their marker, so it's the shape the seam affordance governs.
+  const isFlatShape =
+    editorModeToShape(
+      project?.appSettings.editorMode ?? EDITOR_MODES.regular,
+    ) === "flat";
 
   return (
     <div className={shellStyles.editorOuter}>
@@ -168,6 +180,12 @@ export function MainEditor() {
         <USFMPlugin />
         <UsfmStylesPlugin />
         <NumberedCaretPlugin />
+        {isFlatShape && (
+          <SeamCaretPlugin
+            isSeam={isFlatNumberSeam}
+            affordance={flatNumberSeamAffordance}
+          />
+        )}
         <NodeContextMenuPlugin />
         <HighlightSink />
         <WorkingFilesBridgePlugin />

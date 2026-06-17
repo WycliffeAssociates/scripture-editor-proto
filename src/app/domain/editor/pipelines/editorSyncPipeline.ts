@@ -2,10 +2,41 @@ import { Deferred, Effect, Stream } from "effect";
 import type { LexicalEditor } from "lexical";
 
 import type { EditorShape } from "@/app/data/editor.ts";
-import { editorSyncScopeFor } from "@/app/state/commitFilters.ts";
+import {
+  type ConsumerChapterScope,
+  NO_CHAPTERS,
+  touchedChapters,
+} from "@/app/state/commitFilters.ts";
 import type { LayoutTickStore } from "@/app/state/LayoutTickStore.ts";
+import type { CommitEvent } from "@/app/state/types.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { setEditorContent } from "@/app/ui/hooks/utils/editorUtils.ts";
+
+/**
+ * Which chapters editor-sync considers — its OWN policy, and the one with a
+ * genuinely different relevance from the analyzers: ONLY programmatic content
+ * mutations sync back into the visible editor. `userEdit` originates FROM the
+ * editor (writing back would clobber selection/IME) and `undo`/`redo` replay
+ * restores its own content + selection, so both are excluded.
+ */
+function editorSyncCommitScope(event: CommitEvent): ConsumerChapterScope {
+  if (!event.meta.dirtyTextContent) return NO_CHAPTERS;
+  // Exhaustive over CommitKind. Only PROGRAMMATIC content mutations sync back
+  // into the visible editor; `userEdit` originates there and `undo`/`redo`
+  // restore their own content + selection.
+  switch (event.meta.kind) {
+    case "programmaticFix":
+    case "import":
+      return touchedChapters(event);
+    case "userEdit":
+    case "undo":
+    case "redo":
+    case "load":
+    case "structuralFixup":
+    case "metadataOnly":
+      return NO_CHAPTERS;
+  }
+}
 
 /**
  * Stream pipeline that keeps the VISIBLE editor in sync with programmatic
@@ -21,7 +52,7 @@ import { setEditorContent } from "@/app/ui/hooks/utils/editorUtils.ts";
  * the user types into pre-fix content. `userEdit` commits are excluded
  * (they originate FROM the editor; writing back clobbers selection/IME) and
  * `undo`/`redo` are excluded (replay restores its own content + selection) —
- * see `editorSyncScopeFor`.
+ * see `editorSyncCommitScope`.
  *
  * Visible book/chapter are read through getters at fire time — navigation
  * can change them after the fiber is forked.
@@ -37,7 +68,7 @@ export function makeEditorSyncPipeline(args: {
   return args.workingFilesStore.changes.pipe(
     Stream.mapEffect((event) =>
       Effect.gen(function* () {
-        const scope = editorSyncScopeFor(event);
+        const scope = editorSyncCommitScope(event);
         if (scope !== "all" && scope.length === 0) return;
         const bookCode = args.getVisibleBookCode();
         const chapterNum = args.getVisibleChapter();

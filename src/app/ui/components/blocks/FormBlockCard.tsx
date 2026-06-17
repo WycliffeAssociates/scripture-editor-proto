@@ -56,6 +56,7 @@ import {
 import { emptyVerseSyntheticIssue } from "@/app/domain/editor/utils/formModeSyntheticLint.ts";
 import { AnnotationPopover } from "@/app/ui/components/blocks/AnnotationPopover.tsx";
 import { AutoTextarea } from "@/app/ui/components/primitives/AutoTextarea/AutoTextarea.tsx";
+import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import {
   FORM_ROW_KEY_ATTR,
   FORM_ROW_SID_ATTR,
@@ -651,26 +652,28 @@ function FragmentRow(props: FragmentRowProps) {
       <div className={styles.rail}>
         {props.readOnly || !isPoetryRow ? null : (
           <>
-            <button
-              type="button"
-              className={styles.iconButton}
-              disabled={!canOutdent}
-              onClick={handleOutdent}
-              aria-label={outdentTitle}
-              title={outdentTitle}
-            >
-              <IndentDecrease size={16} />
-            </button>
-            <button
-              type="button"
-              className={styles.iconButton}
-              disabled={!canIndent}
-              onClick={handleIndent}
-              aria-label={indentTitle}
-              title={indentTitle}
-            >
-              <IndentIncrease size={16} />
-            </button>
+            <IconTooltip label={outdentTitle}>
+              <button
+                type="button"
+                className={styles.iconButton}
+                disabled={!canOutdent}
+                onClick={handleOutdent}
+                aria-label={outdentTitle}
+              >
+                <IndentDecrease size={16} />
+              </button>
+            </IconTooltip>
+            <IconTooltip label={indentTitle}>
+              <button
+                type="button"
+                className={styles.iconButton}
+                disabled={!canIndent}
+                onClick={handleIndent}
+                aria-label={indentTitle}
+              >
+                <IndentIncrease size={16} />
+              </button>
+            </IconTooltip>
           </>
         )}
       </div>
@@ -726,27 +729,30 @@ function FragmentRow(props: FragmentRowProps) {
           </>
         ) : null}
         {!props.readOnly ? (
-          <button
-            type="button"
-            className={`${styles.iconButton} ${styles.iconButtonDanger} ${styles.rowDelete}`}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              handleRowDelete();
-            }}
-            aria-label={
-              props.isFirstInBlock && props.isLastInBlock
-                ? t`Delete paragraph`
-                : t`Delete line`
-            }
-            title={
+          <IconTooltip
+            label={
               props.isFirstInBlock && props.isLastInBlock
                 ? t`Delete paragraph`
                 : t`Delete line`
             }
           >
-            <X size={14} />
-          </button>
+            <button
+              type="button"
+              className={`${styles.iconButton} ${styles.iconButtonDanger} ${styles.rowDelete}`}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                handleRowDelete();
+              }}
+              aria-label={
+                props.isFirstInBlock && props.isLastInBlock
+                  ? t`Delete paragraph`
+                  : t`Delete line`
+              }
+            >
+              <X size={14} />
+            </button>
+          </IconTooltip>
         ) : null}
       </div>
 

@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { DATA_JS } from "@/app/data/constants.ts";
 import { joinClassNames } from "@/app/ui/components/primitives/classNames.ts";
+import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 import * as styles from "./bookChapterPickerSidebar.css.ts";
@@ -226,15 +227,16 @@ function ChapterHeader(props: {
 }) {
   return (
     <div className={styles.chapterHeader}>
-      <button
-        type="button"
-        className={styles.backButton}
-        onClick={props.onBack}
-        aria-label={props.backLabel}
-        title={props.backLabel}
-      >
-        <ChevronLeftIcon size={16} />
-      </button>
+      <IconTooltip label={props.backLabel}>
+        <button
+          type="button"
+          className={styles.backButton}
+          onClick={props.onBack}
+          aria-label={props.backLabel}
+        >
+          <ChevronLeftIcon size={16} />
+        </button>
+      </IconTooltip>
       <div className={styles.chapterHeaderText}>
         <div className={styles.chapterHeaderTitle}>{props.title}</div>
         <div className={styles.chapterHeaderMeta}>{props.subtitle}</div>

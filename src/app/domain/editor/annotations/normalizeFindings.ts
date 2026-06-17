@@ -29,6 +29,10 @@ import type { SousFinding } from "@/core/domain/sous/sousTypes.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 import type { Finding, FindingsByChapter } from "./finding.ts";
+import {
+  LOCAL_LINT_SEVERITY,
+  type LocalLintIssue,
+} from "./localLint/numberingRules.ts";
 
 type ProtoFinding = {
   baseKey: string;
@@ -111,6 +115,74 @@ export function groupFindingsByChapter(findings: Finding[]): FindingsByChapter {
 /** The onion commit payload in one step: normalize, then chapter-bucket. */
 export function onionFindingsByChapter(issues: LintIssue[]): FindingsByChapter {
   return groupFindingsByChapter(lintIssuesToFindings(issues));
+}
+
+/**
+ * local-lint numbering issues → token-anchored `Finding`s. Severity comes from
+ * the code (`LOCAL_LINT_SEVERITY`); the category is `"content"` (verse/chapter
+ * numbers are part of the content — "consistency" is the reason these aren't
+ * onion's, not a user-facing category). The marching facts ride along as
+ * `params` for the message; the anchor token-id is the identity, so re-running
+ * over unchanged tokens yields identical ids. The owner
+ * (`localLintPipeline.ts`) supplies the issues — it owns which scope produced
+ * them.
+ */
+export function localLintIssuesToFindings(issues: LocalLintIssue[]): Finding[] {
+  return finalizeFindings(
+    issues.map((issue) => ({
+      baseKey: `local-lint:${issue.code}:${issue.tokenId}:`,
+      build: (id): Finding => ({
+        id,
+        source: "local-lint",
+        code: issue.code,
+        severity: LOCAL_LINT_SEVERITY[issue.code],
+        category: "content",
+        // No sid: canonical tokens don't carry one, and the owner buckets these
+        // by chapter directly (not via `groupFindingsByChapter`).
+        anchor: { kind: "token", tokenId: issue.tokenId },
+        touchedTokenIds: [issue.tokenId],
+        params: { found: issue.found, previous: issue.previous },
+      }),
+    })),
+  );
+}
+
+/**
+ * One off-dominant `\cl` label, pre-normalization. `label` is the off stem and
+ * `dominant` the project's, both for the message; the owner buckets the finding
+ * by the chapter it found the label in.
+ */
+export type ChapterLabelIssue = {
+  textTokenId: string;
+  label: string;
+  dominant: string;
+};
+
+/**
+ * local-lint `\cl` issues → token-anchored `Finding`s (code
+ * `"inconsistent-chapter-label"`, `warning`). Anchored to the label's text
+ * token — the same token onion's old rule used — so the dormant chapter-label
+ * "Standardize across project…" decorator relights on it.
+ */
+export function localLintChapterLabelFindings(
+  issues: ChapterLabelIssue[],
+): Finding[] {
+  return finalizeFindings(
+    issues.map((issue) => ({
+      baseKey: `local-lint:inconsistent-chapter-label:${issue.textTokenId}:`,
+      build: (id): Finding => ({
+        id,
+        source: "local-lint",
+        code: "inconsistent-chapter-label",
+        severity: "warning",
+        category: "content",
+        anchor: { kind: "token", tokenId: issue.textTokenId },
+        touchedTokenIds: [issue.textTokenId],
+        label: issue.label,
+        dominant: issue.dominant,
+      }),
+    })),
+  );
 }
 
 /** sous `SousFinding` → content-anchored `Finding`. All sous rules are content. */

@@ -4,12 +4,39 @@ import {
   type FoldedBookScope,
   makeFoldedScopePipeline,
 } from "@/app/domain/editor/pipelines/foldedScopePipeline.ts";
-import { lintScopeFor } from "@/app/state/commitFilters.ts";
+import {
+  type ConsumerBookScope,
+  NO_BOOKS,
+  touchedBooks,
+} from "@/app/state/commitFilters.ts";
+import type { CommitEvent } from "@/app/state/types.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 const DEFAULT_FIXPOINT_DEBOUNCE_MS = 250;
+
+/**
+ * The fixpoint alarm's reaction scope — its own copy of "dirty text content at
+ * book scope" (identical to lint's today, but owned here so the dev-only alarm
+ * can change its mind without touching lint).
+ */
+function tokenFixpointCommitScope(event: CommitEvent): ConsumerBookScope {
+  if (!event.meta.dirtyTextContent) return NO_BOOKS;
+  // Exhaustive over CommitKind: a new kind won't compile until it picks a side.
+  switch (event.meta.kind) {
+    case "userEdit":
+    case "programmaticFix":
+    case "import":
+    case "undo":
+    case "redo":
+      return touchedBooks(event);
+    case "load":
+    case "structuralFixup":
+    case "metadataOnly":
+      return NO_BOOKS;
+  }
+}
 
 /**
  * One token-level divergence between the editor's stream and the lexer's
@@ -138,8 +165,7 @@ export function makeTokenFixpointPipeline(args: {
 
   return makeFoldedScopePipeline({
     changes: args.workingFilesStore.changes,
-    // Same relevance as lint: dirty text content at book scope.
-    scopeFor: lintScopeFor,
+    scopeFor: tokenFixpointCommitScope,
     debounceMs: args.debounceMs ?? DEFAULT_FIXPOINT_DEBOUNCE_MS,
     run: assertPass,
   });

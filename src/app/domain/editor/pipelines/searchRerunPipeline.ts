@@ -8,25 +8,27 @@ const DEFAULT_SEARCH_RERUN_DEBOUNCE_MS = 250;
 /**
  * Predicate for events that should trigger an auto-rerun of search.
  *
- * Narrower than `isSaveStatusRelevant`: deliberately excludes `userEdit`
- * because (a) `useSearchReplace.replaceMatch` already runs a scoped
- * rerun synchronously after its own commit, and (b) the search panel
- * occupies the workspace surface — per-keystroke typing isn't expected
- * to happen *while* search results are being viewed; users open the
- * panel, search, replace, then dismiss. Re-tokenizing the project on
- * every typing burst would be wasted work in that flow.
- *
- * What this catches: `undo` / `redo` (replay restores prior content),
+ * Always catches `undo` / `redo` (replay restores prior content),
  * `programmaticFix` (lint apply, prettify), and `import` (revert /
- * external apply). Excludes `metadataOnly`, `structuralFixup`, `load`,
- * and `userEdit`.
+ * external apply). Excludes `metadataOnly`, `structuralFixup`, `load`.
+ *
+ * `userEdit` is conditional via `includeUserEdit`: excluded by default
+ * (per-keystroke typing with the pane closed would re-tokenize the
+ * project for nothing, and the replace path runs its own scoped rerun),
+ * but included while the find panel is open — the docked editor lets the
+ * user edit *beside* live results, so those results must refresh as the
+ * underlying text changes rather than going stale.
  *
  * Exhaustive per-kind matrix lives in
  * `tests/unit/integration/searchRerunPipeline.test.ts`.
  */
-export function isSearchRerunRelevant(event: CommitEvent): boolean {
+export function isSearchRerunRelevant(
+  event: CommitEvent,
+  opts?: { includeUserEdit?: boolean },
+): boolean {
   if (!event.meta.dirtyTextContent) return false;
   const kind = event.meta.kind;
+  if (kind === "userEdit") return opts?.includeUserEdit ?? false;
   return (
     kind === "undo" ||
     kind === "redo" ||
@@ -63,11 +65,22 @@ export function makeSearchRerunPipeline(args: {
    * `runSearchLogic`.
    */
   rerunSearch: (term: string) => void;
+  /**
+   * Whether the find panel is currently open. When true, `userEdit`
+   * commits also trigger a rerun so docked-editing keeps results fresh;
+   * when false (the default), typing never re-runs search. Read live so
+   * the pipeline forks once and reflects the latest pane state.
+   */
+  isSearchActive?: () => boolean;
   debounceMs?: number;
 }): Effect.Effect<void> {
   const debounceMs = args.debounceMs ?? DEFAULT_SEARCH_RERUN_DEBOUNCE_MS;
   return args.workingFilesStore.changes.pipe(
-    Stream.filter(isSearchRerunRelevant),
+    Stream.filter((event) =>
+      isSearchRerunRelevant(event, {
+        includeUserEdit: args.isSearchActive?.() ?? false,
+      }),
+    ),
     Stream.debounce(Duration.millis(debounceMs)),
     Stream.tap(() =>
       Effect.sync(() => {

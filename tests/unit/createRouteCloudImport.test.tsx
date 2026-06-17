@@ -28,9 +28,10 @@ const notifications = {
 };
 
 // The create route's job is to wire SourcePicker's callbacks to the import
-// facade and surface progress/result toasts — the picker's own catalog browse,
-// search, and paste-a-link behavior live in (and are tested with) SourcePicker.
-// Stub it to a couple of buttons that fire the props the route owns.
+// facade and surface progress/result through the import modal — the picker's
+// own catalog browse, search, and paste-a-link behavior live in (and are tested
+// with) SourcePicker. Stub it to a couple of buttons that fire the props the
+// route owns.
 const ZIP_URL = "https://gitea.example.org/alice/bho-bible/archive/master.zip";
 vi.mock("@/app/ui/components/blocks/SourcePicker/SourcePicker.tsx", () => ({
   SourcePicker: (props: {
@@ -181,11 +182,14 @@ describe("CreateProject source import", () => {
 
     expect(importRemoteZip).toHaveBeenCalledWith(
       { type: "fromGitRepo", url: ZIP_URL },
-      expect.objectContaining({ onProgress: expect.any(Function) }),
+      expect.anything(),
     );
     expect(invalidate).toHaveBeenCalled();
-    expect(notifications.showNotificationSuccess).toHaveBeenCalled();
-    expect(notifications.showErrorNotification).not.toHaveBeenCalled();
+    // Success surfaces in the import modal (portaled to the document body), not
+    // a toast.
+    expect(document.body.textContent).toContain(
+      "Resource downloaded successfully",
+    );
   });
 
   it("surfaces an error notification when the download fails", async () => {
@@ -196,7 +200,8 @@ describe("CreateProject source import", () => {
 
     await clickDownload();
 
-    expect(notifications.showErrorNotification).toHaveBeenCalled();
+    // The error surfaces in the import modal.
+    expect(document.body.textContent).toContain("Failed to download project");
     // The router only refreshes after a successful import.
     expect(invalidate).not.toHaveBeenCalled();
   });

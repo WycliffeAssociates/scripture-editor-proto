@@ -14,6 +14,7 @@ import {
   parseBookFrontmatterEntries,
   serializeBookFrontmatterEntries,
 } from "@/app/domain/editor/utils/bookFrontmatterEntries.ts";
+import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import { TextInput } from "@/app/ui/components/primitives/Input/Input.tsx";
 import { SelectPrimitive } from "@/app/ui/components/primitives/Select/Select.tsx";
 import {
@@ -242,15 +243,16 @@ function FrontmatterCard(props: {
           ) : null}
         </div>
 
-        <button
-          type="button"
-          className={styles.deleteButton}
-          onMouseDown={(event) => props.onControlPress(event, props.onDelete)}
-          aria-label={t`Delete marker`}
-          title={t`Delete marker`}
-        >
-          <Trash2 size={16} />
-        </button>
+        <IconTooltip label={t`Delete marker`}>
+          <button
+            type="button"
+            className={styles.deleteButton}
+            onMouseDown={(event) => props.onControlPress(event, props.onDelete)}
+            aria-label={t`Delete marker`}
+          >
+            <Trash2 size={16} />
+          </button>
+        </IconTooltip>
       </div>
 
       {props.entry.kind === "id" ? (

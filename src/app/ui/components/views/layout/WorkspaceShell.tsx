@@ -81,6 +81,7 @@ interface EditorsShellProps {
   isSmall: boolean;
   hasReferenceResource: boolean;
   hasSearchPaneOpen: boolean;
+  isSearchDocked?: boolean;
   activeWorkspacePane: WorkspacePane;
   closeProjectsPane: () => void;
   closeSettingsPane: () => void;
@@ -90,7 +91,27 @@ interface EditorsShellProps {
 }
 
 function EditorsShell(props: EditorsShellProps) {
-  const showRightPanel = props.hasReferenceResource;
+  // Docked search reveals the editor beside the find panel (desktop only). The
+  // editor stays mounted in place throughout — only the surrounding layout
+  // shifts — so the Lexical instance and its pipelines are never torn down.
+  const isSearchDocked =
+    props.activeWorkspacePane === "search" &&
+    Boolean(props.isSearchDocked) &&
+    !props.isSmall;
+
+  // While docked, the editor takes the whole revealed slot. The reference
+  // column is suppressed here — otherwise it shares the narrow docked track and
+  // crowds the editor down to a sliver (the reference picker is still reachable
+  // from inside the find controls).
+  const showReferencePane = props.hasReferenceResource && !isSearchDocked;
+
+  const contentGridClassName = props.isSmall
+    ? styles.mobileEditorsContainer
+    : `${
+        showReferencePane
+          ? styles.desktopContentGridWithReference
+          : styles.desktopContentGrid
+      }${isSearchDocked ? ` ${styles.desktopContentGridDocked}` : ""}`;
 
   return (
     <section
@@ -100,35 +121,36 @@ function EditorsShell(props: EditorsShellProps) {
           : styles.workspaceShellDesktop
       }
     >
-      <div className={styles.workspaceEditorsStage}>
-        {/* Full-width toolbar bar — spans the reference + editor row
-                    beneath it. Covered by the overlay pane when a non-editor
-                    pane (settings/projects/search) is active. */}
-        <div className={styles.editorToolbarRow}>
-          <EditorToolbar
-            isReferencePaneOpen={props.hasReferenceResource}
-            onToggleReferencePane={props.toggleReferencePane}
-            isSearchPaneOpen={props.hasSearchPaneOpen}
-            onToggleSearchPane={props.toggleSearchPane}
-          />
-        </div>
-        <div
-          className={
-            props.isSmall
-              ? styles.mobileEditorsContainer
-              : showRightPanel
-                ? styles.desktopContentGridWithReference
-                : styles.desktopContentGrid
-          }
-        >
-          {props.hasReferenceResource ? (
-            <ReferencePane isSmall={props.isSmall} />
-          ) : null}
+      <div
+        className={`${styles.workspaceEditorsStage}${
+          isSearchDocked ? ` ${styles.workspaceEditorsStageDocked}` : ""
+        }`}
+      >
+        {/* Full-width toolbar bar — spans the reference + editor row beneath
+                    it. Covered by the overlay pane when a non-editor pane
+                    (settings/projects/search) is active, and hidden entirely
+                    while search is docked (the editing surface stays clean). */}
+        {isSearchDocked ? null : (
+          <div className={styles.editorToolbarRow}>
+            <EditorToolbar
+              isReferencePaneOpen={props.hasReferenceResource}
+              onToggleReferencePane={props.toggleReferencePane}
+              isSearchPaneOpen={props.hasSearchPaneOpen}
+              onToggleSearchPane={props.toggleSearchPane}
+            />
+          </div>
+        )}
+        <div className={contentGridClassName}>
+          {showReferencePane ? <ReferencePane isSmall={props.isSmall} /> : null}
           <WorkspacePaneStack isSmall={props.isSmall} />
           <SaveAndReviewChangesOverlay />
         </div>
         {props.activeWorkspacePane !== "editor" ? (
-          <div className={styles.workspaceOverlayPane}>
+          <div
+            className={`${styles.workspaceOverlayPane}${
+              isSearchDocked ? ` ${styles.workspaceOverlayPaneDocked}` : ""
+            }`}
+          >
             {props.activeWorkspacePane === "settings" ? (
               <SettingsPane onClose={props.closeSettingsPane} />
             ) : props.activeWorkspacePane === "projects" ? (

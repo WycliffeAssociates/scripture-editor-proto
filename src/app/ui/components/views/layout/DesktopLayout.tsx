@@ -29,6 +29,7 @@ export function DesktopLayout(props: DesktopLayoutProps) {
         isSmall={false}
         hasReferenceResource={props.hasReferenceResource}
         hasSearchPaneOpen={search.isSearchPaneOpen}
+        isSearchDocked={search.isSearchDocked}
         activeWorkspacePane={props.activeWorkspacePane}
         closeSettingsPane={props.closeSettingsPane}
         closeProjectsPane={props.closeProjectsPane}

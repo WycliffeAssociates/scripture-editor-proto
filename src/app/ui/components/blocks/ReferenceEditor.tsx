@@ -13,6 +13,7 @@ import {
   ParagraphNode,
   TextNode,
 } from "lexical";
+import { BookOpenText } from "lucide-react";
 import { useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 
@@ -45,6 +46,33 @@ import { guidGenerator } from "@/core/data/utils/generic.ts";
  */
 function ReferenceLoadingState(props: { message: string }) {
   return <div className={shellStyles.loadingReference}>{props.message}</div>;
+}
+
+/**
+ * Shown when the reference column has nothing selected. The message depends on
+ * whether any reference texts exist on device: nudge toward downloading one
+ * when there are none, otherwise toward picking from the selector above.
+ */
+function ReferenceEmptyState(props: { hasAnyOnDevice: boolean }) {
+  return (
+    <div className={shellStyles.referenceEmptyState}>
+      <BookOpenText
+        size={28}
+        className={shellStyles.referenceEmptyIcon}
+        aria-hidden="true"
+      />
+      <p className={shellStyles.referenceEmptyText}>
+        {props.hasAnyOnDevice ? (
+          <Trans>
+            Choose a resource from the picker above to read it alongside your
+            project.
+          </Trans>
+        ) : (
+          <Trans>Download a resource to read it alongside your project.</Trans>
+        )}
+      </p>
+    </div>
+  );
 }
 
 /**
@@ -163,7 +191,7 @@ function ScriptureReferencePane() {
                       ? shellStyles.contentEditableReferenceSearchOpen
                       : ""
                   }`}
-                  aria-label={t`USFM Editor`}
+                  aria-label={t`USFM Resource Editor`}
                   data-mode={domPresentationMode(editorMode)}
                   data-form-pane="reference"
                 />
@@ -179,18 +207,21 @@ function ScriptureReferencePane() {
 }
 
 export function ReferenceEditor() {
+  const { t } = useLingui();
   const { referenceResource } = useWorkspaceContext();
   const {
     activeReferenceResource,
     activeReferenceResourcePath,
     activeReferenceResourceQuery,
+    referenceResourcesQuery,
     referenceQuery,
     supportsReferenceAnchors,
     supportsScriptureNavigation,
   } = referenceResource;
 
   if (!activeReferenceResourcePath) {
-    return null;
+    const hasAnyOnDevice = (referenceResourcesQuery.data?.length ?? 0) > 0;
+    return <ReferenceEmptyState hasAnyOnDevice={hasAnyOnDevice} />;
   }
   const isScriptureReference =
     activeReferenceResource?.type === "usfmScripture";
@@ -198,22 +229,24 @@ export function ReferenceEditor() {
   const activeDisplayName =
     activeReferenceResource?.displayName ?? activeReferenceResourcePath;
 
+  // Loading/error copy never leaks the on-disk path — fall back to the
+  // resource's display name, or a generic phrase before it has loaded.
   if (
     activeReferenceResourceQuery?.isLoading ||
     activeContentQuery?.isLoading
   ) {
     return (
       <ReferenceLoadingState
-        message={`Loading ${activeReferenceResourcePath}...`}
+        message={
+          activeReferenceResource?.displayName
+            ? t`Loading ${activeReferenceResource.displayName}…`
+            : t`Loading resource…`
+        }
       />
     );
   }
   if (activeReferenceResourceQuery?.error || activeContentQuery?.error) {
-    return (
-      <ReferenceLoadingState
-        message={`Failed to load ${activeReferenceResourcePath}`}
-      />
-    );
+    return <ReferenceLoadingState message={t`Couldn't load this resource.`} />;
   }
 
   switch (activeReferenceResource?.type) {

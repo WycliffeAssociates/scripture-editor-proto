@@ -7,6 +7,7 @@
 // switch simply re-formats on the next render — no invalidation path, no
 // staleness window.
 
+import { localizeLocalLintMessage } from "@/app/ui/i18n/localLintLocalization.ts";
 import { localizeSousFindingMessage } from "@/app/ui/i18n/sousLocalization.ts";
 import { formatLintIssueMessage } from "@/app/ui/i18n/usfmOnionLocalization.ts";
 
@@ -21,5 +22,8 @@ export function formatFindingMessage(finding: Finding): string {
     case "sous-chef":
       // Localizes by code; humanizes unmapped rule ids.
       return localizeSousFindingMessage(finding.code);
+    case "local-lint":
+      // Self-describing: localizes by code + the marching-sequence params.
+      return localizeLocalLintMessage(finding);
   }
 }

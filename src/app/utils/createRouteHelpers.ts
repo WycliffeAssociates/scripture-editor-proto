@@ -1,4 +1,3 @@
-import type { NotificationData } from "@/app/ui/components/primitives/notifications.ts";
 import { basenameStoragePath } from "@/core/persistence/pathUtils.ts";
 
 export function getProjectParamFromImportedPath(
@@ -7,23 +6,6 @@ export function getProjectParamFromImportedPath(
   if (!importedPath) return null;
   const projectParam = basenameStoragePath(importedPath);
   return projectParam || null;
-}
-
-/**
- * Build the sticky success toast shown after imports complete. Keeping this
- * outside the route folder avoids the file-based router trying to parse helper
- * modules as route definitions.
- */
-export function buildPersistentImportSuccessNotification(
-  title: string,
-  message: string,
-): NotificationData {
-  return {
-    title,
-    message,
-    autoClose: false,
-    withCloseButton: true,
-  };
 }
 
 function getImportErrorDebugDetails(error: unknown): string[] {

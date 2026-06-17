@@ -1,6 +1,6 @@
 // src/app/ui/styles/modules/Projectview.css.ts
 
-import { style } from "@vanilla-extract/css";
+import { globalStyle, style } from "@vanilla-extract/css";
 
 import { mediaQuery } from "@/app/ui/styles/breakpoints.ts";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
@@ -83,6 +83,17 @@ export const workspaceEditorsStage = style({
     [mediaQuery.up("lg")]: {
       gap: vars.spacing.md,
       padding: vars.spacing.md,
+    },
+  },
+});
+
+// Docked find: drop the canvas padding so the editor (and the find overlay)
+// run flush to the viewport edges — no light-blue canvas framing the editor.
+export const workspaceEditorsStageDocked = style({
+  "@media": {
+    [mediaQuery.up("lg")]: {
+      padding: 0,
+      gap: 0,
     },
   },
 });
@@ -234,11 +245,30 @@ export const workspaceEditorPane = style({
 
 export const workspaceOverlayPane = style({
   position: "absolute",
-  inset: 0,
+  // Logical longhands (not the `inset` shorthand) so the docked variant's
+  // `insetInlineEnd` actually overrides it — a physical `inset:0` would win the
+  // cascade and the overlay would never retreat off the editor.
+  insetBlock: 0,
+  insetInline: 0,
   minWidth: 0,
   minHeight: 0,
   height: "100%",
+  // Clip contents to the pane so a docked panel's results/scrollbar can never
+  // bleed past the seam onto the editor.
+  overflow: "hidden",
   zIndex: zLayer.editorOverlayPane,
+});
+
+// Docked search: the overlay retreats to the leading ~70%, revealing the editor
+// (constrained to the trailing ~30% by `desktopContentGridDocked`). Logical
+// inset keeps the editor on the inline-end edge in both LTR and RTL.
+export const workspaceOverlayPaneDocked = style({
+  insetInlineEnd: "35%",
+  "@media": {
+    "screen and (prefers-reduced-motion: no-preference)": {
+      transition: "inset-inline-end 220ms ease",
+    },
+  },
 });
 
 export const referenceToggleButton = style({
@@ -290,6 +320,40 @@ export const desktopContentGridWithReference = style([
     },
   },
 ]);
+
+// When search is docked, the editor flow is held to the trailing 35% — tiling
+// exactly with the docked overlay's 35% inline-end inset (no overlap, no gap).
+export const desktopContentGridDocked = style({
+  "@media": {
+    [mediaQuery.up("lg")]: {
+      maxWidth: "35%",
+      justifySelf: "end",
+    },
+    "screen and (prefers-reduced-motion: no-preference)": {
+      transition: "max-width 220ms ease",
+    },
+  },
+});
+
+// Docked beside find, the editor should read as the trailing half of a single
+// flex row — not a card floating on the canvas. Fill the slot with the editor
+// surface; the seam between find and editor is drawn by the find panel's
+// border-inline-end (see SearchPanel.css.ts).
+globalStyle(`${desktopContentGridDocked} ${editorWrapperDesktop}`, {
+  backgroundColor: vars.color.surfacePrimary,
+});
+
+// Drop the floating-card chrome so the white surface runs edge-to-edge. The
+// search-open top padding (which clears the full-overlay find pane) isn't
+// needed here — find sits beside, not over, the editor.
+globalStyle(`${desktopContentGridDocked} [data-form-pane="source"]`, {
+  maxWidth: "none",
+  marginInline: 0,
+  border: "none",
+  borderRadius: 0,
+  boxShadow: "none",
+  paddingTop: vars.spacing.sm,
+});
 
 export const editorMainSmall = style({
   minHeight: 0,

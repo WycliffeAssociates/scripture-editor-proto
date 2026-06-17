@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
+import { AnnotationPopover } from "@/app/ui/components/blocks/AnnotationPopover.tsx";
+import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import type { MatchInNode } from "@/app/ui/hooks/useSearchHighlighter.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/SearchReplaceSuggestOverlay.css.ts";
@@ -131,6 +133,17 @@ export function SearchReplaceSuggestPlugin() {
     };
   }, [recomputePositions]);
 
+  // Edits move, split, or remove the matched nodes — reposition on every editor
+  // update (overlays for nodes that no longer exist are dropped by the lookup in
+  // recomputePositions). The match SET itself is refreshed upstream by the
+  // search rerun pipeline; this keeps the overlay aligned between reruns.
+  useEffect(() => {
+    return editor.registerUpdateListener(() => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => recomputePositions());
+    });
+  }, [editor, recomputePositions]);
+
   useEffect(() => {
     const container = getContainerEl();
     if (!container) return;
@@ -170,57 +183,26 @@ export function SearchReplaceSuggestPlugin() {
 
   const rendered = useMemo(() => {
     return positioned.map((item) => (
-      <div
+      <SearchReplaceSuggestItem
         key={item.key}
-        className={styles.suggestion}
-        style={{ left: item.x, top: item.y }}
-      >
-        <button
-          type="button"
-          className={styles.underline}
-          style={{ width: item.width, height: item.height }}
-          data-testid={TESTING_IDS.searchInlineReplaceTrigger}
-          aria-label={`Open replace suggestion for ${item.labelText}`}
-          aria-expanded={activeKey === item.key}
-          onMouseEnter={() => {
-            clearCloseTimer();
-            setActiveKey(item.key);
-          }}
-          onMouseLeave={() => {
-            scheduleClose(item.key);
-          }}
-          onClick={() => {
-            clearCloseTimer();
-            setActiveKey((key) => (key === item.key ? null : item.key));
-          }}
-        />
-        {activeKey === item.key ? (
-          <div className={styles.bubble}>
-            <fieldset
-              className={styles.bubbleShell}
-              aria-label={`Replace suggestion for ${item.labelText}`}
-              onMouseEnter={() => clearCloseTimer()}
-              onMouseLeave={() => scheduleClose(item.key)}
-            >
-              <span className={styles.bubbleLabel}>
-                {`Replace "${item.labelText}" with "${replaceTerm}"?`}
-              </span>
-              <button
-                type="button"
-                className={styles.bubbleAction}
-                data-testid={TESTING_IDS.searchInlineReplaceButton}
-                aria-label={`Apply replace for ${item.labelText}`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  void replaceMatch(item);
-                }}
-              >
-                <Check size={14} />
-              </button>
-            </fieldset>
-          </div>
-        ) : null}
-      </div>
+        item={item}
+        replaceTerm={replaceTerm}
+        // Keep the popover inside the editor pane so it can't spill off a
+        // narrow docked column (mirrors the findings overlay).
+        collisionBoundary={containerRef.current}
+        isActive={activeKey === item.key}
+        onActivate={() => {
+          clearCloseTimer();
+          setActiveKey(item.key);
+        }}
+        onToggle={() => {
+          clearCloseTimer();
+          setActiveKey((key) => (key === item.key ? null : item.key));
+        }}
+        onKeepOpen={clearCloseTimer}
+        onScheduleClose={() => scheduleClose(item.key)}
+        onApply={() => void replaceMatch(item)}
+      />
     ));
   }, [
     activeKey,
@@ -233,4 +215,71 @@ export function SearchReplaceSuggestPlugin() {
 
   if (!overlayHostEl || !isEnabled) return null;
   return createPortal(rendered, overlayHostEl);
+}
+
+/**
+ * One inline replace suggestion: a dotted underline over the match that, when
+ * active, opens the shared annotation popover (so placement and styling match
+ * the rest of the editor's affordances — findings, verse-marker suggest) with
+ * the replace prompt + a confirm action. Reuses the popover UI, not the
+ * findings store.
+ */
+function SearchReplaceSuggestItem(props: {
+  item: PositionedSuggestion;
+  replaceTerm: string;
+  collisionBoundary: Element | null;
+  isActive: boolean;
+  onActivate: () => void;
+  onToggle: () => void;
+  onKeepOpen: () => void;
+  onScheduleClose: () => void;
+  onApply: () => void;
+}) {
+  const { item } = props;
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+
+  return (
+    <div className={styles.suggestion} style={{ left: item.x, top: item.y }}>
+      <button
+        type="button"
+        ref={setAnchorEl}
+        className={styles.underline}
+        style={{ width: item.width, height: item.height }}
+        data-testid={TESTING_IDS.searchInlineReplaceTrigger}
+        aria-label={`Open replace suggestion for ${item.labelText}`}
+        aria-expanded={props.isActive}
+        onMouseEnter={props.onActivate}
+        onMouseLeave={props.onScheduleClose}
+        onClick={props.onToggle}
+      />
+      <AnnotationPopover
+        anchor={anchorEl}
+        open={props.isActive}
+        side="top"
+        collisionBoundary={props.collisionBoundary}
+        onMouseEnter={props.onKeepOpen}
+        onMouseLeave={props.onScheduleClose}
+      >
+        <div className={styles.popoverBody}>
+          <span className={styles.popoverMessage}>
+            {`Replace "${item.labelText}" with "${props.replaceTerm}"?`}
+          </span>
+          <Button
+            variant="primary"
+            size="sm"
+            leftIcon={<Check size={14} />}
+            className={styles.fullButton}
+            data-testid={TESTING_IDS.searchInlineReplaceButton}
+            aria-label={`Apply replace for ${item.labelText}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              props.onApply();
+            }}
+          >
+            Replace
+          </Button>
+        </div>
+      </AnnotationPopover>
+    </div>
+  );
 }

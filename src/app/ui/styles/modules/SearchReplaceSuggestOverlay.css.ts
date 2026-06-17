@@ -3,8 +3,6 @@ import { style } from "@vanilla-extract/css";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
 import { zLayer } from "@/app/ui/styles/zLayers.ts";
 
-const darkSelector = "[data-theme='dark']";
-
 export const overlayHost = style({
   position: "absolute",
   inset: 0,
@@ -34,54 +32,22 @@ export const underline = style({
   },
 });
 
-export const bubble = style({
-  position: "absolute",
-  left: "50%",
-  transform: "translateY(-100%)",
+// Content rendered inside the shared AnnotationPopover shell (which supplies the
+// surface, border, radius, shadow, and collision handling). Mirrors the findings
+// annotation card: a stacked message above a full-width primary action.
+export const popoverBody = style({
+  display: "flex",
+  flexDirection: "column",
+  gap: vars.spacing.sm,
+  padding: vars.spacing.md,
 });
 
-export const bubbleShell = style({
-  display: "inline-flex",
-  alignItems: "center",
-  overflow: "hidden",
-  borderRadius: vars.border.radius.xl,
-  border: `1px solid ${vars.color.brandBase}`,
-  background: vars.color.surfacePrimary,
-  boxShadow: `0 10px 22px color-mix(in srgb, ${vars.color.onSurfaceInvert} 14%, transparent)`,
-  padding: 0,
-  margin: 0,
-  minWidth: 0,
-  selectors: {
-    [`${darkSelector} &`]: {
-      boxShadow: `0 10px 22px color-mix(in srgb, ${vars.color.onSurfaceInvert} 45%, transparent)`,
-    },
-  },
-});
-
-export const bubbleLabel = style({
-  fontSize: vars.typography.bodySmall.fontSize,
-  lineHeight: 1.2,
-  fontWeight: 500,
-  paddingInline: vars.spacing.xs,
+export const popoverMessage = style({
+  fontSize: vars.typography.bodySmallest.fontSize,
+  lineHeight: 1.45,
   color: vars.color.onSurfacePrimary,
-  whiteSpace: "nowrap",
 });
 
-export const bubbleAction = style({
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: 40,
-  height: "100%",
-  paddingBlock: vars.spacing.md,
-  border: "none",
-  borderLeft: `1px solid ${vars.color.brandDark}`,
-  background: vars.color.brandBase,
-  color: vars.color.onSurfaceInvert,
-  cursor: "pointer",
-  selectors: {
-    "&:hover": {
-      background: vars.color.brandDark,
-    },
-  },
+export const fullButton = style({
+  width: "100%",
 });

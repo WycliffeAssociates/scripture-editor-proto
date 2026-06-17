@@ -47,6 +47,12 @@ interface SourceSliceMap {
     /** Sidecar: the vref segment maps findings resolve against, same book grain. */
     segmentsByBook: Record<string, SegmentsBySid>;
   };
+  /**
+   * Intrinsic consistency (verse/chapter monotonicity, chapter-label
+   * agreement) — a pure main-thread reduce over working-files tokens, no
+   * mirror round-trip. Same plain `{ byBook }` shape as onion.
+   */
+  "local-lint": { byBook: FindingsByScope };
 }
 
 export type FindingsState = Partial<SourceSliceMap>;
@@ -73,10 +79,14 @@ export class FindingsStore {
   /**
    * Replace one book's findings in one producer's slice — the supersession
    * unit. Zero findings = `{}`. The caller's pipeline scope supplies
-   * `bookCode` (authoritative — never inferred from sids).
+   * `bookCode` (authoritative — never inferred from sids). Serves the two
+   * plain `{ byBook }` slices (onion, local-lint); sous commits through its
+   * own method because it carries the segment sidecar. local-lint also has a
+   * finer `commitChapterFindings` for its chapter-scope recompute; it falls
+   * back to this whole-book replace when a `\c` renumber changes chapter keys.
    */
   commitBookFindings(
-    source: "onion",
+    source: "onion" | "local-lint",
     bookCode: string,
     byChapter: FindingsByChapter,
   ): void {
@@ -87,6 +97,36 @@ export class FindingsStore {
       [source]: {
         ...slice,
         byBook: { ...slice?.byBook, [book]: byChapter },
+      },
+    };
+    this.notify();
+  }
+
+  /**
+   * Replace ONE chapter's findings in a plain `{ byBook }` slice — a finer
+   * supersession unit than `commitBookFindings`, path-copying at the chapter
+   * level so untouched chapters of the same book keep their references. Used by
+   * local-lint's chapter-scope recompute: when a verse edit can't have moved the
+   * book's `\c` sequence, only the touched chapter's cell is rewritten. An empty
+   * `findings` clears the chapter (its last finding was fixed).
+   */
+  commitChapterFindings(
+    source: "onion" | "local-lint",
+    bookCode: string,
+    chapter: number,
+    findings: Finding[],
+  ): void {
+    const book = bookCode.toUpperCase();
+    const slice = this.state[source];
+    const existingBook = slice?.byBook[book] ?? {};
+    this.state = {
+      ...this.state,
+      [source]: {
+        ...slice,
+        byBook: {
+          ...slice?.byBook,
+          [book]: { ...existingBook, [chapter]: findings },
+        },
       },
     };
     this.notify();

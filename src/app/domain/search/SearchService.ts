@@ -33,6 +33,12 @@ export type SearchResult = {
   isCaseMismatch: boolean;
   naturalIndex: number;
   source: SearchSource;
+  /**
+   * How many times the term occurs in this verse. The displayed list is one row
+   * per verse (deduped), so this lets a row show an occurrence stepper without
+   * the editor being loaded. 1 until `dedupeByVerse` tallies the real count.
+   */
+  occurrenceCount: number;
 };
 
 export type SearchContentProvider = {
@@ -124,6 +130,8 @@ function toSearchResult(hit: SearchHit, source: SearchSource): SearchResult {
     isCaseMismatch: hit.isCaseMismatch,
     naturalIndex: hit.naturalIndex,
     source,
+    // Tallied per verse in `dedupeByVerse`; the raw per-occurrence hit is 1.
+    occurrenceCount: 1,
   };
 }
 

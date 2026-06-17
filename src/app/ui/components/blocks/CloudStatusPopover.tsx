@@ -29,6 +29,7 @@ import { AttachResolveStatus } from "@/app/ui/components/blocks/SharedProjectAtt
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import type { CloudStatusButtonState } from "@/app/ui/components/primitives/CloudStatusButton/index.ts";
 import { CloudStatusButton } from "@/app/ui/components/primitives/CloudStatusButton/index.ts";
+import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import { Switch } from "@/app/ui/components/primitives/Switch/Switch.tsx";
 import {
   useCloudProjectActions,
@@ -284,16 +285,18 @@ export function CloudStatusPopover(props: CloudPopoverProps) {
 
   return (
     <BasePopover.Root open={opened} onOpenChange={setOpened}>
-      <BasePopover.Trigger
-        render={
-          <CloudStatusButton
-            state={props.buttonState}
-            tooltipLabel={props.buttonLabel}
-            tooltipDescription={props.buttonDescription}
-            ariaLabel={props.buttonAriaLabel}
-          />
-        }
-      />
+      <IconTooltip label={props.buttonAriaLabel}>
+        <BasePopover.Trigger
+          render={
+            <CloudStatusButton
+              state={props.buttonState}
+              tooltipLabel={props.buttonLabel}
+              tooltipDescription={props.buttonDescription}
+              ariaLabel={props.buttonAriaLabel}
+            />
+          }
+        />
+      </IconTooltip>
       <BasePopover.Portal>
         <BasePopover.Positioner
           side="bottom"
@@ -753,7 +756,7 @@ function AutoSyncSettingRows(props: {
   settings: Settings;
   onChange: (updates: Partial<Settings>) => void;
 }) {
-  const { t, i18n } = useLingui();
+  const { i18n } = useLingui();
 
   const rows: AutoSyncRow[] = [
     {
@@ -768,13 +771,13 @@ function AutoSyncSettingRows(props: {
     },
     {
       key: "autoAcceptOwnWorkOnSave",
-      title: t`Auto Accept My Work on Save`,
-      description: t`Skip review for your own local edits and commit them directly when you save.`,
+      title: i18n._(sharedProjectLabels.autoAcceptOwnTitle),
+      description: i18n._(sharedProjectLabels.autoAcceptOwnDescription),
     },
     {
       key: "autoAcceptIncomingWork",
-      title: t`Auto Accept Incoming Work`,
-      description: t`Accept incoming cloud changes automatically unless the same verse already has unresolved local edits.`,
+      title: i18n._(sharedProjectLabels.autoAcceptIncomingTitle),
+      description: i18n._(sharedProjectLabels.autoAcceptIncomingDescription),
     },
   ];
 

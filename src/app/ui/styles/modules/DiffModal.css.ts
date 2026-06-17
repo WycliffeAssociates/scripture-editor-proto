@@ -58,6 +58,14 @@ const vars = {
   },
 };
 
+// Shared sizing for the diff-toolbar controls. Selects, the chapter picker,
+// icon toggles, and the print button all snap to one height + border + focus
+// ring so the band reads as a single consistent row (matches the print
+// button, the tightest of the originals).
+const CONTROL_HEIGHT = "2rem";
+const controlBorder = `1px solid ${vars.colors.gray[3]}`;
+const controlFocusRing = `0 0 0 2px ${vars.colors.body}, 0 0 0 4px ${vars.colors.blue[7]}`;
+
 // --- Layout & Containers ---
 
 // Diff Item Container
@@ -101,6 +109,12 @@ export const modalScrollPaper = style({
   overflow: "hidden",
   display: "grid",
   gridTemplateRows: "auto 1fr auto",
+  // Cap the single column at the container width. Without an explicit 0 min,
+  // the implicit column's `min-width: auto` lets it grow to the toolbar band's
+  // (nowrap) min-content, overflowing the paper — which clips the right inline
+  // padding and pushes the footer/Close buttons against the edge. With this,
+  // the toolbar band's own `overflow-x: auto` scrolls instead.
+  gridTemplateColumns: "minmax(0, 1fr)",
   backgroundColor: "transparent",
   paddingTop: `max(${vars.spacing.md}, env(safe-area-inset-top))`,
   paddingBlock: vars.spacing.sm,
@@ -300,14 +314,14 @@ export const toolbarSection = style({
 export const toolbarBand = style({
   display: "flex",
   alignItems: "center",
-  gap: vars.spacing.md,
+  gap: vars.spacing.sm,
   flexWrap: "nowrap",
   padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
   borderRadius: vars.radius.md,
   border: `1px solid ${dsVars.color.surfaceBorder}`,
   backgroundColor: vars.colors.body,
   boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-  minHeight: "3rem",
+  minHeight: "2.75rem",
   overflowX: "auto",
   overflowY: "visible",
   msOverflowStyle: "none",
@@ -350,23 +364,24 @@ export const ribbonSpacer = style({
 });
 
 export const ribbonSelect = style({
-  minWidth: "12rem",
+  minWidth: "8rem",
+  maxWidth: "13rem",
   selectors: {
     "&": {
-      border: "none",
+      border: controlBorder,
       backgroundColor: "transparent",
-      minHeight: "2.5rem",
+      minHeight: CONTROL_HEIGHT,
       padding: `0 ${vars.spacing.sm}`,
       borderRadius: vars.radius.md,
       boxShadow: "none",
     },
     "&:hover": {
-      borderColor: "transparent",
       backgroundColor: vars.colors.gray[2],
+      borderColor: vars.colors.blue[7],
     },
     "&:focus-visible": {
       outline: "none",
-      boxShadow: `0 0 0 2px ${vars.colors.body}, 0 0 0 4px ${vars.colors.blue[7]}`,
+      boxShadow: controlFocusRing,
     },
   },
 });
@@ -376,25 +391,27 @@ export const ribbonPopup = style({
 });
 
 export const ribbonScopeToggle = style({
+  // The outlinePill root is `width: 100%` with `flex: 1` items, so it sizes to
+  // this box — it must carry an explicit width or it collapses to the sliding
+  // indicator. Shrunk from the old 12rem; `compact` keeps the labels dense.
   flex: "0 0 auto",
   alignItems: "center",
-  width: "12rem",
-  height: "2.5rem",
+  width: "11rem",
 });
 
 export const ribbonMeta = style({
   color: vars.colors.dimmed,
   fontWeight: 600,
   whiteSpace: "nowrap",
-  minHeight: "2.5rem",
+  minHeight: CONTROL_HEIGHT,
   display: "inline-flex",
   alignItems: "center",
 });
 
 export const toolbarIconToggle = style({
-  width: "2.5rem",
-  minWidth: "2.5rem",
-  height: "2.5rem",
+  width: CONTROL_HEIGHT,
+  minWidth: CONTROL_HEIGHT,
+  height: CONTROL_HEIGHT,
   padding: 0,
   borderRadius: vars.radius.md,
   border: "1px solid transparent",
@@ -434,16 +451,6 @@ export const toolbarIconToggle = style({
       borderColor: "transparent",
     },
   },
-});
-
-export const toolbarTooltipPopup = style({
-  backgroundColor: vars.colors.dark[8],
-  color: vars.colors.body,
-  borderRadius: vars.radius.sm,
-  padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
-  fontWeight: 600,
-  boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
-  maxWidth: "18rem",
 });
 
 export const warningStrip = style({
@@ -700,7 +707,7 @@ export const chapterComboboxTrigger = style({
   minWidth: 0,
   flex: "1 1 auto",
   alignItems: "center",
-  minHeight: "2.5rem",
+  minHeight: CONTROL_HEIGHT,
   padding: `0 ${vars.spacing.sm}`,
   border: "none",
   backgroundColor: "transparent",
@@ -723,28 +730,28 @@ export const chapterComboboxTrigger = style({
 });
 
 export const chapterComboboxControl = style({
-  minWidth: "14rem",
-  maxWidth: "18rem",
-  minHeight: "2.5rem",
+  minWidth: "10rem",
+  maxWidth: "13rem",
+  minHeight: CONTROL_HEIGHT,
   display: "inline-flex",
   alignItems: "center",
   gap: vars.spacing.xs,
   paddingInline: vars.spacing.xs,
   borderRadius: vars.radius.md,
-  border: `1px solid ${vars.colors.gray[3]}`,
+  border: controlBorder,
   backgroundColor: vars.colors.gray[0],
   selectors: {
     "&:focus-within": {
-      boxShadow: `0 0 0 2px ${vars.colors.body}, 0 0 0 4px ${vars.colors.blue[7]}`,
+      boxShadow: controlFocusRing,
       borderColor: vars.colors.blue[7],
     },
   },
 });
 
 export const chapterComboboxStepper = style({
-  width: "1.75rem",
-  height: "1.75rem",
-  minWidth: "1.75rem",
+  width: "1.5rem",
+  height: "1.5rem",
+  minWidth: "1.5rem",
   border: "none",
   borderRadius: vars.radius.sm,
   backgroundColor: "transparent",
@@ -960,8 +967,8 @@ export const diffMenuTrigger = style({
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  minWidth: "2.25rem",
-  minHeight: "2.25rem",
+  minWidth: CONTROL_HEIGHT,
+  minHeight: CONTROL_HEIGHT,
   padding: "0.25rem",
   borderRadius: vars.radius.md,
   border: "1px solid transparent",

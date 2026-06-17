@@ -1,5 +1,6 @@
 import { Popover as BasePopover } from "@base-ui/react/popover";
 import { useLingui } from "@lingui/react/macro";
+import { useRouter } from "@tanstack/react-router";
 import {
   Check,
   ChevronDown,
@@ -15,6 +16,7 @@ import { TESTING_IDS } from "@/app/data/constants.ts";
 import * as styles from "@/app/ui/components/blocks/ReferencePanel/referencePanel.css.ts";
 import { joinClassNames } from "@/app/ui/components/primitives/classNames.ts";
 import { CloudStatusButton } from "@/app/ui/components/primitives/CloudStatusButton/CloudStatusButton.tsx";
+import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import { useReferenceCatalog } from "@/app/ui/hooks/useReferenceCatalog.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { zLayer } from "@/app/ui/styles/zLayers.ts";
@@ -58,6 +60,11 @@ function catalogLabelOf(repo: ConsolidatedRepo): string {
   return repo.title || repo.repo_name;
 }
 
+// Sentinel stored in `referenceByProject` to mean "the user explicitly wants no
+// reference" — distinct from "never chose one" (absent). Suppresses auto-pick so
+// the choice to search only your own project sticks across opens.
+const NO_REFERENCE_KEY = "__no_reference__";
+
 /**
  * Reference picker surface for the reference pane.
  *
@@ -67,9 +74,12 @@ function catalogLabelOf(repo: ConsolidatedRepo): string {
  * Picking an on-device text switches the reference; picking a catalog text
  * quietly downloads it and refreshes the on-device list.
  */
-export function ReferencePanel() {
+export function ReferencePanel({
+  deviceOnly = false,
+}: { deviceOnly?: boolean } = {}) {
   const { t } = useLingui();
-  const { referenceResource } = useWorkspaceContext();
+  const { referenceResource, loadedProject } = useWorkspaceContext();
+  const { settingsManager } = useRouter().options.context;
   const {
     referenceResourcesQuery,
     activeReferenceResourcePath,
@@ -77,10 +87,67 @@ export function ReferencePanel() {
     activeReferenceResourceDisplayName,
   } = referenceResource;
 
-  const deviceResources = useMemo<ResourceLibraryItem[]>(
-    () => referenceResourcesQuery.data ?? [],
-    [referenceResourcesQuery.data],
-  );
+  const deviceResources = useMemo<ResourceLibraryItem[]>(() => {
+    const all = referenceResourcesQuery.data ?? [];
+    // deviceOnly (the search picker) lists only Bible scripture — you can't
+    // compare/replace against translation notes or other resource types.
+    return deviceOnly
+      ? all.filter((resource) => resource.type === "usfmScripture")
+      : all;
+  }, [referenceResourcesQuery.data, deviceOnly]);
+
+  // Remember the user's reference choice per target project (a UI preference,
+  // keyed by project path) so opening the pane again reopens it.
+  const projectKey = loadedProject.projectPath;
+  const rememberReference = (resourcePath: string) => {
+    const map = settingsManager.get("referenceByProject");
+    settingsManager.update({
+      referenceByProject: { ...map, [projectKey]: resourcePath },
+    });
+  };
+
+  // Sane default when the pane opens with nothing active: reopen the remembered
+  // reference if it's still on device; else, ignoring the project we're editing,
+  // auto-load the sole *other* reference (the onboarding case is one alternative
+  // text alongside your own). 0 → friendly empty state; 2+ → let the user pick.
+  // Runs once per open — this component mounts with the pane.
+  const didAutoPick = useRef(false);
+  useEffect(() => {
+    if (didAutoPick.current) return;
+    if (activeReferenceResourcePath) {
+      didAutoPick.current = true;
+      return;
+    }
+    if (referenceResourcesQuery.isLoading) return;
+    didAutoPick.current = true;
+    const remembered = settingsManager.get("referenceByProject")[projectKey];
+    // The user explicitly chose "no reference" — honor it, don't re-default.
+    if (remembered === NO_REFERENCE_KEY) return;
+    const onDevice =
+      !!remembered && deviceResources.some((r) => r.projectPath === remembered);
+    if (onDevice) {
+      setActiveReferenceResourcePath(remembered);
+      return;
+    }
+    // Only the reference pane invents a default. The search picker (deviceOnly)
+    // starts empty so you can search just your own project without a forced
+    // side-by-side comparison; pick a reference explicitly to compare.
+    if (deviceOnly) return;
+    const alternatives = deviceResources.filter(
+      (r) => r.projectPath !== projectKey,
+    );
+    if (alternatives.length === 1) {
+      setActiveReferenceResourcePath(alternatives[0].projectPath);
+    }
+  }, [
+    activeReferenceResourcePath,
+    deviceOnly,
+    deviceResources,
+    projectKey,
+    referenceResourcesQuery.isLoading,
+    setActiveReferenceResourcePath,
+    settingsManager,
+  ]);
   const deviceResourcePaths = useMemo(
     () => deviceResources.map((resource) => resource.projectPath),
     [deviceResources],
@@ -146,6 +213,15 @@ export function ReferencePanel() {
 
   function handleSelectDeviceResource(projectPath: string) {
     setActiveReferenceResourcePath(projectPath);
+    rememberReference(projectPath);
+    setOpen(false);
+  }
+
+  // Clear the reference so search runs against your project alone (single-column
+  // results, no comparison). Persisted so it sticks across opens.
+  function handleClearReference() {
+    setActiveReferenceResourcePath(undefined);
+    rememberReference(NO_REFERENCE_KEY);
     setOpen(false);
   }
 
@@ -172,7 +248,8 @@ export function ReferencePanel() {
 
   const triggerLabel = referenceResourcesQuery.isLoading
     ? t`Loading…`
-    : (activeReferenceResourceDisplayName ?? t`Select a reference`);
+    : (activeReferenceResourceDisplayName ??
+      (deviceOnly ? t`No source text` : t`Select a resource`));
 
   return (
     <div className={styles.root}>
@@ -180,7 +257,7 @@ export function ReferencePanel() {
         <BasePopover.Trigger
           ref={triggerRef}
           className={styles.trigger}
-          aria-label={t`Choose a reference text`}
+          aria-label={t`Choose a resource`}
           data-testid={TESTING_IDS.referenceProjectTrigger}
         >
           <span className={styles.triggerLabel}>
@@ -219,11 +296,28 @@ export function ReferencePanel() {
                   className={styles.searchInput}
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder={t`Search references…`}
-                  aria-label={t`Search references`}
+                  placeholder={t`Search resources…`}
+                  aria-label={t`Search resources`}
                 />
               </div>
               <div className={styles.scroll}>
+                {/* The search picker's default: search only your project, no
+                    side-by-side source. Sits above the on-device list as a
+                    standalone sentinel. */}
+                {deviceOnly ? (
+                  <button
+                    type="button"
+                    className={styles.row}
+                    onClick={handleClearReference}
+                    data-testid={TESTING_IDS.referenceProjectItem}
+                  >
+                    <span className={styles.rowIndicator}>
+                      {activeReferenceResourcePath ? null : <Check size={14} />}
+                    </span>
+                    <span className={styles.rowLabel}>{t`No source text`}</span>
+                    <span />
+                  </button>
+                ) : null}
                 <DeviceSection
                   groups={deviceGroups}
                   activePath={activeReferenceResourcePath}
@@ -232,26 +326,26 @@ export function ReferencePanel() {
                   notesLabel={t`Notes`}
                   sectionLabel={t`On this device`}
                   emptyLabel={
-                    q
-                      ? t`No matches on this device.`
-                      : t`No reference texts yet.`
+                    q ? t`No matches on this device.` : t`No resources yet.`
                   }
                 />
-                <CatalogSection
-                  groups={catalogGroups}
-                  sectionLabel={t`Available to add`}
-                  isLoading={catalog.isLoading}
-                  isError={catalog.isError}
-                  isExpanded={isLanguageExpanded}
-                  onToggleLanguage={toggleLanguage}
-                  isAlreadyImported={catalog.isAlreadyImported}
-                  isDownloading={catalog.isDownloading}
-                  onDownload={catalog.downloadReferenceText}
-                  addedLabel={t`Added`}
-                  loadingLabel={t`Loading catalog…`}
-                  errorLabel={t`Couldn't load the catalog.`}
-                  emptyLabel={t`No catalog matches.`}
-                />
+                {deviceOnly ? null : (
+                  <CatalogSection
+                    groups={catalogGroups}
+                    sectionLabel={t`Available to add`}
+                    isLoading={catalog.isLoading}
+                    isError={catalog.isError}
+                    isExpanded={isLanguageExpanded}
+                    onToggleLanguage={toggleLanguage}
+                    isAlreadyImported={catalog.isAlreadyImported}
+                    isDownloading={catalog.isDownloading}
+                    onDownload={catalog.downloadReferenceText}
+                    addedLabel={t`Added`}
+                    loadingLabel={t`Loading catalog…`}
+                    errorLabel={t`Couldn't load the catalog.`}
+                    emptyLabel={t`No catalog matches.`}
+                  />
+                )}
               </div>
             </BasePopover.Popup>
           </BasePopover.Positioner>
@@ -325,6 +419,7 @@ function CatalogSection(props: {
   errorLabel: string;
   emptyLabel: string;
 }) {
+  const { t } = useLingui();
   return (
     <section>
       <div className={styles.sectionLabel}>{props.sectionLabel}</div>
@@ -379,14 +474,17 @@ function CatalogSection(props: {
                           ) : downloading ? (
                             <Loader2 size={14} className={styles.spin} />
                           ) : (
-                            <CloudStatusButton
-                              state="connected"
-                              className={styles.downloadButton}
-                              icon={<CloudDownload size={15} />}
-                              ariaLabel={`Download ${catalogLabelOf(repo)}`}
-                              tooltipLabel={`Download ${catalogLabelOf(repo)}`}
-                              onClick={() => props.onDownload(repo)}
-                            />
+                            <IconTooltip
+                              label={t`Download ${catalogLabelOf(repo)}`}
+                            >
+                              <CloudStatusButton
+                                state="connected"
+                                className={styles.downloadButton}
+                                icon={<CloudDownload size={15} />}
+                                ariaLabel={t`Download ${catalogLabelOf(repo)}`}
+                                onClick={() => props.onDownload(repo)}
+                              />
+                            </IconTooltip>
                           )}
                         </span>
                       </div>

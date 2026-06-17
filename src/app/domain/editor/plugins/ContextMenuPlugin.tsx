@@ -20,6 +20,7 @@ import { createPortal } from "react-dom";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/useWorkspaceMediaQuery.ts";
 import { useClickOutside } from "@/app/ui/hooks/general/useClickOutside.ts";
+import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { zLayer } from "@/app/ui/styles/zLayers.ts";
 
 import type { EditorContext } from "../actions/types.ts";
@@ -80,6 +81,14 @@ export function NodeContextMenuPlugin() {
   const [context, setContext] = useState<EditorContext | null>(null);
   const { isXs, isSm } = useWorkspaceMediaQuery();
   const { getContext } = useEditorContext();
+  const { search } = useWorkspaceContext();
+  // The action palette is too wide for the narrow docked-find editor; suppress
+  // the right-click palette there for now. Tracked via a ref so the root
+  // contextmenu listener doesn't need to re-register on every dock toggle.
+  const dockedRef = useRef(search.isSearchDocked);
+  useEffect(() => {
+    dockedRef.current = search.isSearchDocked;
+  }, [search.isSearchDocked]);
   const closePalette = useCallback(() => {
     clearContextMenuSelectionHighlight();
     setOpened(false);
@@ -166,6 +175,9 @@ export function NodeContextMenuPlugin() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: `openContextMenuAt` is a useEffectEvent binding with stable identity by contract; including it in deps would defeat the point.
   useEffect(() => {
     function onContextMenu(e: MouseEvent) {
+      // Docked beside find, the editor is too narrow for the action palette —
+      // leave the right-click gesture to the browser for now.
+      if (dockedRef.current) return;
       // Form mode renders its own cursor-anchored insert-marker
       // menu via FormBlockCard. Skip the global action palette
       // when the right-click originates inside a form-block-node

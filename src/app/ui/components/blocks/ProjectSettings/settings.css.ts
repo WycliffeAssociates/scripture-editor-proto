@@ -184,14 +184,6 @@ export const footerButton = style({
   width: "100%",
 });
 
-export const placeholder = style({
-  display: "flex",
-  flexDirection: "column",
-  gap: vars.spacing.xs,
-  paddingBlock: vars.spacing.lg,
-  color: vars.color.onSurfaceSecondary,
-});
-
 export const toggleGroup = style({
   width: "24rem",
   maxWidth: "100%",

@@ -10,6 +10,7 @@ import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 import type { ProjectDiff } from "@/app/domain/project/diffTypes.ts";
 import { toRegularModeDisplayTextPreservingWhitespace } from "@/app/ui/components/blocks/DiffModal/diffDisplayUtils.ts";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon/index.ts";
+import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/useWorkspaceMediaQuery.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
@@ -213,62 +214,68 @@ function DiffItem({
     return `${styles.paperMinHeight} ${isHighlighted ? highlightClass : styles.paperBgDefault}`;
   };
 
+  const toggleUsfmLabel = effectiveShowUsfmMarkers
+    ? t`Show regular text for this verse`
+    : t`Show USFM for this verse`;
+
   const renderActions = () => (
     <div className={styles.diffToolbarGroup}>
-      <ActionIconSimple
-        data-testid={TESTING_IDS.save.toggleRowUsfmButton}
-        onClick={toggleUsfmForRow}
-        aria-label={
-          effectiveShowUsfmMarkers
-            ? t`Show regular text for this verse`
-            : t`Show USFM for this verse`
-        }
-        title={
-          effectiveShowUsfmMarkers
-            ? t`Show regular text for this verse`
-            : t`Show USFM for this verse`
-        }
-      >
-        <Code2 size={16} />
-      </ActionIconSimple>
+      <IconTooltip label={toggleUsfmLabel}>
+        <ActionIconSimple
+          data-testid={TESTING_IDS.save.toggleRowUsfmButton}
+          onClick={toggleUsfmForRow}
+          aria-label={toggleUsfmLabel}
+          title={toggleUsfmLabel}
+        >
+          <Code2 size={16} />
+        </ActionIconSimple>
+      </IconTooltip>
       {import.meta.env.DEV && (
-        <ActionIconSimple
-          data-testid={TESTING_IDS.save.copyDiffButton}
-          onClick={() => {
-            void copySingleDiffJson();
-          }}
-          aria-label={t`Copy this diff (JSON)`}
-          title={t`Copy this diff (JSON)`}
-        >
-          <Clipboard size={16} />
-        </ActionIconSimple>
+        <IconTooltip label={t`Copy this diff (JSON)`}>
+          <ActionIconSimple
+            data-testid={TESTING_IDS.save.copyDiffButton}
+            onClick={() => {
+              void copySingleDiffJson();
+            }}
+            aria-label={t`Copy this diff (JSON)`}
+            title={t`Copy this diff (JSON)`}
+          >
+            <Clipboard size={16} />
+          </ActionIconSimple>
+        </IconTooltip>
       )}
-      <ActionIconSimple
-        data-testid={TESTING_IDS.save.goToChapterButton}
-        onClick={() => scrollToClickedRef(diff)}
-        aria-label={t`Switch to this chapter`}
-        title={t`Switch to this chapter`}
-      >
-        <BookIcon size={16} />
-      </ActionIconSimple>
+      <IconTooltip label={t`Switch to this chapter`}>
+        <ActionIconSimple
+          data-testid={TESTING_IDS.save.goToChapterButton}
+          onClick={() => scrollToClickedRef(diff)}
+          aria-label={t`Switch to this chapter`}
+          title={t`Switch to this chapter`}
+        >
+          <BookIcon size={16} />
+        </ActionIconSimple>
+      </IconTooltip>
       {actionMode === "unsaved" ? (
-        <ActionIconSimple
-          data-testid={TESTING_IDS.save.revertButton}
-          onClick={() => onRevertDiff(diff)}
-          aria-label={t`Undo Change`}
-          title={t`Undo Change`}
-        >
-          <RotateCw size={16} />
-        </ActionIconSimple>
+        <IconTooltip label={t`Undo Change`}>
+          <ActionIconSimple
+            data-testid={TESTING_IDS.save.revertButton}
+            onClick={() => onRevertDiff(diff)}
+            aria-label={t`Undo Change`}
+            title={t`Undo Change`}
+          >
+            <RotateCw size={16} />
+          </ActionIconSimple>
+        </IconTooltip>
       ) : (
-        <ActionIconSimple
-          data-testid={TESTING_IDS.save.applyButton}
-          onClick={() => onApplyDiffToCurrent(diff)}
-          aria-label={t`Apply to current`}
-          title={t`Apply to current`}
-        >
-          <RotateCw size={16} />
-        </ActionIconSimple>
+        <IconTooltip label={t`Apply to current`}>
+          <ActionIconSimple
+            data-testid={TESTING_IDS.save.applyButton}
+            onClick={() => onApplyDiffToCurrent(diff)}
+            aria-label={t`Apply to current`}
+            title={t`Apply to current`}
+          >
+            <RotateCw size={16} />
+          </ActionIconSimple>
+        </IconTooltip>
       )}
     </div>
   );

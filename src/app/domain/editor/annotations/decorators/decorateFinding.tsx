@@ -36,6 +36,7 @@ import {
   computeChapterLabelTally,
   standardizeChapterLabels,
 } from "./chapterLabelStandardize.ts";
+import { collapseExcessWhitespace } from "./collapseWhitespace.ts";
 import { fixLintFinding } from "./lintFix.ts";
 
 /**
@@ -88,22 +89,22 @@ const defaultOnionDecorator: OnionDecorator = (finding, ctx) => {
 };
 
 /**
- * `inconsistent-chapter-label` carries no upstream fix (the repair is a
- * project-wide judgement call, not a canonical single-site edit). Keep the
- * default decoration + add a project-scoped action: tally the labels and open
- * the standardize picker through the workspace modal outlet. Confirm runs the
- * same domain function any other doorway would.
+ * The project-scoped chapter-label repair: tally the committed labels and open
+ * the standardize picker through the workspace modal outlet; confirm runs the
+ * same domain function any other doorway would. The tally is derived only when
+ * the user opens the picker (a click, not a hover), so the hover path stays
+ * cheap. There is no upstream single-site `fix` — the repair is a project-wide
+ * judgement call, so this is the whole action.
  */
-const chapterLabelDecorator: OnionDecorator = (finding, ctx) => {
-  const base = defaultOnionDecorator(finding, ctx);
-  const standardize: FindingAction = {
+function buildStandardizeChapterLabelAction(
+  ctx: FindingDecorationContext,
+): FindingAction {
+  return {
     id: "standardize-chapter-label",
     label: t`Standardize across project…`,
-    kind: "default",
+    kind: "primary",
+    icon: <Wand2 size={14} />,
     run: () => {
-      // The tally is derived from the committed working files only when
-      // the user opens the picker (a click, not a hover), so the hover
-      // path stays cheap.
       const tally = computeChapterLabelTally(ctx.workingFilesStore.read());
       ctx.openModal(ChapterLabelPicker, {
         isOpen: true,
@@ -115,27 +116,41 @@ const chapterLabelDecorator: OnionDecorator = (finding, ctx) => {
       });
     },
   };
-  return { ...base, actions: [...base.actions, standardize] };
-};
-
-/** Per-code onion overrides; the default decorator handles everything else. */
-const onionDecorators: Partial<Record<string, OnionDecorator>> = {
-  "inconsistent-chapter-label": chapterLabelDecorator,
-};
+}
 
 function decorationFor(
   finding: Finding,
   ctx: FindingDecorationContext,
 ): FindingDecoration {
   switch (finding.source) {
-    case "onion": {
-      const decorator = onionDecorators[finding.code] ?? defaultOnionDecorator;
-      return decorator(finding, ctx);
-    }
+    case "onion":
+      // onion's only per-code override was chapter-label, now owned by
+      // local-lint (onion stopped emitting it). Everything else is the default.
+      return defaultOnionDecorator(finding, ctx);
     case "sous-chef":
-      // sous findings are report-only today; content fixes arrive later
-      // as per-code decorators calling their own domain functions.
-      return { actions: [] };
+      // Per-code content fixes: excess whitespace collapses to one space (the
+      // common fat-finger case), distributing across tokens when the run
+      // straddles a marker. Other sous codes stay report-only.
+      return finding.code === "lex.excess-h-whitespace"
+        ? {
+            actions: [
+              {
+                id: "collapse-whitespace",
+                label: t`Collapse to one space`,
+                kind: "primary",
+                icon: <Wand2 size={14} />,
+                run: () => collapseExcessWhitespace(finding, ctx),
+              },
+            ],
+          }
+        : { actions: [] };
+    case "local-lint":
+      // Numbering codes are report-only (no canonical repair for "a verse looks
+      // missing"); `inconsistent-chapter-label` is the one local-lint fix —
+      // relighting the project-wide standardize action.
+      return finding.code === "inconsistent-chapter-label"
+        ? { actions: [buildStandardizeChapterLabelAction(ctx)] }
+        : { actions: [] };
   }
 }
 

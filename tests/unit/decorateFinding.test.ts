@@ -122,27 +122,19 @@ describe("decorateFinding (per-code override: chapter label)", () => {
   });
 
   // `inconsistent-chapter-label` is no longer an onion LintCode — the library
-  // dropped it as a consistency heuristic (usfm_onion plan-lint-scope.md §2);
-  // the editor will re-emit it from its own token-space reduce. The decorator
-  // registry keys on the string `finding.code`, decoupled from onion's union,
-  // so we build the onion Finding directly rather than route a dropped code
-  // through a LintIssue (whose `code` is the strict onion union).
+  // dropped it as a consistency heuristic (usfm_onion plan-lint-scope.md §2) and
+  // the editor now re-emits it from its own token-space reduce as a `local-lint`
+  // finding. That arm is what relights the project-wide standardize action.
   function chapterLabelFinding(): Finding {
     return {
       id: "chapter-label-1",
-      source: "onion",
+      source: "local-lint",
       code: "inconsistent-chapter-label",
       severity: "warning",
-      category: "structure",
-      anchor: { kind: "token", tokenId: "n1", sid: "GEN 1:1" },
-      issue: makeIssue({
-        fix: undefined,
-        messageParams: {
-          expected: "Wase",
-          found: "Marika",
-          marker: "cl",
-        },
-      }),
+      category: "content",
+      anchor: { kind: "token", tokenId: "n1", sid: "GEN 1" },
+      label: "Marika",
+      dominant: "Wase",
     };
   }
 
@@ -179,7 +171,23 @@ describe("decorateFinding (sous) and inert decoration", () => {
     i18n.activate("en");
   });
 
-  it("decorates sous findings as report-only with the localized message", () => {
+  it("decorates report-only sous findings with just the localized message", () => {
+    const [finding] = sousFindingsToFindings([
+      {
+        sid: "GEN 1:1",
+        code: "hyg.control-chars",
+        severity: "warning",
+        start: 7,
+        end: 9,
+      },
+    ]);
+    const decorated = decorateFinding(finding, makeCtx());
+    expect(decorated.actions).toEqual([]);
+    expect(decorated.message).not.toBe(finding.code);
+    expect(decorated.message.length).toBeGreaterThan(0);
+  });
+
+  it("offers a collapse action for sous excess-whitespace findings", () => {
     const [finding] = sousFindingsToFindings([
       {
         sid: "GEN 1:1",
@@ -190,9 +198,9 @@ describe("decorateFinding (sous) and inert decoration", () => {
       },
     ]);
     const decorated = decorateFinding(finding, makeCtx());
-    expect(decorated.actions).toEqual([]);
-    expect(decorated.message).not.toBe(finding.code);
-    expect(decorated.message.length).toBeGreaterThan(0);
+    expect(decorated.actions.map((action) => action.id)).toEqual([
+      "collapse-whitespace",
+    ]);
   });
 
   it("humanizes an unmapped sous rule code rather than showing the raw id", () => {

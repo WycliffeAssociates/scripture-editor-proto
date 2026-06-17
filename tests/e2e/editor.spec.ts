@@ -290,6 +290,8 @@ test.describe("Search Functionality", () => {
       "Reference-search behavior is currently only stable in desktop Chromium.",
     );
 
+    // Activate a scripture reference via the editor's reference picker (search
+    // reuses it). That makes the scope switch appear in the search controls.
     await selectReferenceProject(page);
 
     await openSearchPanel(page);
@@ -297,51 +299,23 @@ test.describe("Search Functionality", () => {
     await ensureSearchOptionsExpanded(page);
     await page.getByTestId(TESTING_IDS.replaceInput).fill("foo");
 
-    // Pick a reference source. With one available the "Show reference"
-    // select default already points at the imported reference project,
-    // which makes the "Search in" scope toggle appear. Flipping that
-    // toggle is what actually enters reference-search mode.
-    const referenceSelect = page
-      .getByTestId(TESTING_IDS.searchReferenceToggle)
-      .getByRole("combobox");
-    await expect(referenceSelect).toBeVisible({ timeout: 20_000 });
-    const initialSourceText = (await referenceSelect.textContent()) ?? "None";
-    if (/^\s*None\s*$/.test(initialSourceText)) {
-      await referenceSelect.click();
-      const options = page.getByRole("option");
-      const optionCount = await options.count();
-      for (let i = 0; i < optionCount; i += 1) {
-        const opt = options.nth(i);
-        const text = (await opt.textContent()) ?? "";
-        if (!/^\s*None\s*$/i.test(text)) {
-          await opt.click();
-          break;
-        }
-      }
-    }
-
-    // Flip "Search in" → reference scope.
-    await page.getByRole("switch", { name: "Search in" }).click();
+    // Flip the scope switch → reference scope (search the source text).
+    const scopeSwitch = page.getByRole("switch", { name: "Search scope" });
+    await expect(scopeSwitch).toBeVisible({ timeout: 20_000 });
+    await scopeSwitch.click();
 
     // Now replace targets read-only source: replace input is disabled.
     await expect(page.getByTestId(TESTING_IDS.replaceInput)).toBeDisabled();
 
-    // A reference result should appear; clicking it should navigate the
-    // main editor location. The visible toolbar location uses the
-    // localized book name, not the data-search-book 3-letter code, so we
-    // just assert the location *changes* rather than equal a specific
-    // book code.
+    // A reference result should appear; clicking its arrow focuses the row and
+    // opens the editor beside find (docks on desktop). The docked view hides
+    // the toolbar (and its location label), so assert the dock happened: the
+    // toolbar is gone and find stays open.
     const resultItem = page.getByTestId(TESTING_IDS.searchResultItem).first();
     await expect(resultItem).toBeVisible({ timeout: 15_000 });
-    const locationBefore =
-      (await page.getByTestId(TESTING_IDS.currentLocation).textContent()) ?? "";
-    await resultItem.click();
-    // Either the location text changes or it already matched the result;
-    // either way the user-visible state is consistent.
-    const locationAfter =
-      (await page.getByTestId(TESTING_IDS.currentLocation).textContent()) ?? "";
-    expect(locationAfter.length).toBeGreaterThan(0);
-    void locationBefore;
+    await resultItem.getByRole("button", { name: /Navigate to/ }).click();
+    await expect(page.getByTestId(TESTING_IDS.currentLocation)).toHaveCount(0);
+    await expect(page.getByTestId(TESTING_IDS.searchInput)).toBeVisible();
   });
 
   test("can search, navigate results, and replace the current match", async ({
@@ -366,7 +340,7 @@ test.describe("Search Functionality", () => {
     await ensureSearchOptionsExpanded(editorPage);
     await editorPage.getByTestId(TESTING_IDS.replaceInput).fill("foo");
     await editorPage
-      .getByRole("button", { name: "Replace next match" })
+      .getByRole("button", { name: "Replace this match" })
       .first()
       .click();
     await expect(
@@ -376,7 +350,7 @@ test.describe("Search Functionality", () => {
     ).toBeVisible();
   });
 
-  test("re-runs search on reopen and chapter navigation for highlight sync", async ({
+  test("closing search clears the term and editor highlights", async ({
     editorPage,
   }, testInfo) => {
     test.skip(
@@ -395,35 +369,23 @@ test.describe("Search Functionality", () => {
       return Boolean(highlight && highlight.size > 0);
     });
 
-    // Close search via the internal SearchPanel close button (the toolbar
-    // Close button is occluded by the panel header). Then navigate chapter
-    // and reopen.
+    // Closing the panel (the internal Close button — the toolbar one is
+    // occluded by the panel header) clears the search: the editor is visible
+    // again, so its search highlights are wiped rather than left stale.
     await editorPage
       .getByRole("button", { name: "Close search" })
       .last()
       .click();
 
-    const nextButton = editorPage.getByRole("button", {
-      name: "Next chapter",
-    });
-    await expect(nextButton).toBeVisible();
-    await nextButton.click();
-    const locationAfterNext =
-      (await editorPage
-        .getByTestId(TESTING_IDS.currentLocation)
-        .textContent()) ?? "";
-
-    await openSearchPanel(editorPage);
-    await expect(editorPage.getByTestId(TESTING_IDS.searchInput)).toHaveValue(
-      "a",
-    );
     await editorPage.waitForFunction(() => {
       const highlight = CSS.highlights.get("matched-search");
-      return Boolean(highlight && highlight.size > 0);
+      return !highlight || highlight.size === 0;
     });
-    // Re-opening search and the page state should still reflect the new chapter.
-    await expect(
-      editorPage.getByTestId(TESTING_IDS.currentLocation),
-    ).toHaveText(locationAfterNext);
+
+    // Reopening starts from a clean slate — the term is gone.
+    await openSearchPanel(editorPage);
+    await expect(editorPage.getByTestId(TESTING_IDS.searchInput)).toHaveValue(
+      "",
+    );
   });
 });

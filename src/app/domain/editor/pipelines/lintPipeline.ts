@@ -7,15 +7,47 @@ import {
 import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import type { AnalyzeScope } from "@/app/domain/mirror/mirrorProtocol.ts";
 import { mirrorTrace } from "@/app/domain/mirror/mirrorTrace.ts";
-import { lintScopeFor } from "@/app/state/commitFilters.ts";
+import {
+  type ConsumerBookScope,
+  NO_BOOKS,
+  touchedBooks,
+} from "@/app/state/commitFilters.ts";
+import type { CommitEvent } from "@/app/state/types.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 
 const DEFAULT_LINT_DEBOUNCE_MS = 100;
 
 /**
+ * Which books lint reacts to for a commit — lint's OWN policy. Floor: never less
+ * than a book (the USFM linter's structure checks span chapters within a book,
+ * so chapter scopes widen to their books). Excludes `metadataOnly` (no text),
+ * `structuralFixup` (writebacks fix structure, don't surface issues), and `load`
+ * (initial state is mirror-seeded). `undo`/`redo` are NOT excluded — replay
+ * commits carry precise scope, so the touched books re-lint.
+ */
+export function lintCommitScope(event: CommitEvent): ConsumerBookScope {
+  if (!event.meta.dirtyTextContent) return NO_BOOKS;
+  // Exhaustive over CommitKind: a new kind won't compile until it picks a side.
+  switch (event.meta.kind) {
+    case "userEdit":
+    case "programmaticFix":
+    case "import":
+    case "undo":
+    case "redo":
+      return touchedBooks(event);
+    case "load": // initial state is mirror-seeded
+    case "structuralFixup": // writebacks fix structure, don't surface issues
+    case "metadataOnly": // no text change
+      return NO_BOOKS;
+  }
+}
+
+/**
  * Stream pipeline that drives lint in response to working-files commits.
  *
- * Relevance + expansion live in `lintScopeFor` (book granularity); scopes
+ * `lintCommitScope` fuses relevance (empty set = skip) and expansion into one
+ * function — for a scoped consumer "relevant" just means "non-empty scope", so
+ * there's no separate relevance predicate (book granularity); scopes
  * accumulated across the debounce window are drained as ONE `analyzeLint`
  * command carrying the folded book set + the commit generation. The mirror
  * reads its resident tokens for those books and returns the raw issues per
@@ -48,7 +80,7 @@ export function makeLintPipeline(args: {
 
   return makeFoldedScopePipeline({
     changes: args.workingFilesStore.changes,
-    scopeFor: lintScopeFor,
+    scopeFor: lintCommitScope,
     debounceMs: args.debounceMs ?? DEFAULT_LINT_DEBOUNCE_MS,
     run: lintPass,
   });

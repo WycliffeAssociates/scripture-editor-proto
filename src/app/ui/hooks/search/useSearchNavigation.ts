@@ -13,10 +13,7 @@ import type {
   SearchMatch,
   SearchRunOptionOverrides,
 } from "@/app/ui/hooks/search/searchTypes.ts";
-import {
-  type MatchInNode,
-  scrollToActiveMatchInEditor,
-} from "@/app/ui/hooks/useSearchHighlighter.ts";
+import { scrollToActiveMatchInEditor } from "@/app/ui/hooks/useSearchHighlighter.ts";
 
 type Params = {
   editorRef: RefObject<LexicalEditor | null>;
@@ -315,72 +312,6 @@ export function useSearchNavigation({
     [preparePickedResult],
   );
 
-  const getPickedResultIdx = useCallback(
-    (results: SearchResult[]) =>
-      pickedResult ? results.indexOf(pickedResult) : -1,
-    [pickedResult],
-  );
-
-  const nextMatch = useCallback(
-    (
-      results: SearchResult[],
-      args: {
-        activeSearchTerm: string;
-        searchReference: boolean;
-        matchCase: boolean;
-        matchWholeWord: boolean;
-      },
-    ) => {
-      const pickedResultIdx = getPickedResultIdx(results);
-      if (
-        !pickedResult ||
-        pickedResultIdx === -1 ||
-        pickedResultIdx === results.length - 1
-      ) {
-        const first = results[0];
-        if (!first) return;
-        return pick(first, args);
-      }
-
-      const next = results[pickedResultIdx + 1];
-      if (!next) return;
-      return pick(next, args);
-    },
-    [getPickedResultIdx, pick, pickedResult],
-  );
-
-  const prevMatch = useCallback(
-    (
-      results: SearchResult[],
-      args: {
-        activeSearchTerm: string;
-        searchReference: boolean;
-        matchCase: boolean;
-        matchWholeWord: boolean;
-      },
-    ) => {
-      const pickedResultIdx = getPickedResultIdx(results);
-      if (!pickedResultIdx || pickedResultIdx === 0) {
-        const last = results[results.length - 1];
-        if (!last) return;
-        return pick(last, args);
-      }
-      const prev = results[pickedResultIdx - 1];
-      if (!prev) return;
-      return pick(prev, args);
-    },
-    [getPickedResultIdx, pick],
-  );
-
-  function findMatchIndex(target: MatchInNode) {
-    return currentMatches.findIndex(
-      (candidate) =>
-        candidate.node.getKey() === target.node.getKey() &&
-        candidate.start === target.start &&
-        candidate.end === target.end,
-    );
-  }
-
   return {
     currentMatches,
     setCurrentMatches,
@@ -390,10 +321,6 @@ export function useSearchNavigation({
     setPickedResult,
     collectMatchesInCurrentEditor,
     pick,
-    nextMatch,
-    prevMatch,
-    getPickedResultIdx,
-    findMatchIndex,
     preparePickedResult,
   };
 }

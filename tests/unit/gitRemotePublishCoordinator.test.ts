@@ -63,6 +63,7 @@ function createSettingsManager(autoPushOnSave: boolean): SettingsManager {
       autoAcceptOwnWorkOnSave: false,
       autoAcceptIncomingWork: false,
       diffViewModeDefault: "list",
+      referenceByProject: {},
     }),
     get: (key) => createSettingsManager(autoPushOnSave).getSettings()[key],
     set: vi.fn(),

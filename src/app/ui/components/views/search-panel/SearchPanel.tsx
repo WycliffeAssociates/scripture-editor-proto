@@ -21,6 +21,8 @@ export function SearchPanel({ onClose }: SearchPanelProps = {}) {
 
   const handleClose = () => {
     search.setIsSearchPaneOpen(false);
+    // Done searching — drop the term and clear the editor's search highlights.
+    search.clearSearch();
     onClose?.();
   };
 
@@ -35,17 +37,21 @@ export function SearchPanel({ onClose }: SearchPanelProps = {}) {
           <span className={styles.searchPanelTitle}>
             <Trans>Search</Trans>
           </span>
-          <button
-            type="button"
-            className={styles.searchPanelClose}
-            onClick={handleClose}
-            aria-label={t`Close search`}
-          >
-            <Trans>Close</Trans>
-          </button>
+          <div className={styles.searchPanelHeaderActions}>
+            {/* The Open/Close Editor control lives beside the replace field in
+                SearchControls — see EditorDockButton. */}
+            <button
+              type="button"
+              className={styles.searchPanelClose}
+              onClick={handleClose}
+              aria-label={t`Close search`}
+            >
+              <Trans>Close</Trans>
+            </button>
+          </div>
         </div>
 
-        <SearchControls portalContainer={overlayPortalRef} />
+        <SearchControls />
       </div>
 
       <SearchResults />

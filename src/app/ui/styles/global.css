@@ -1,12 +1,15 @@
 * {
   transition-behavior: allow-discrete;
 }
+/* Passive matches sit back (duller); the active match — the one Replace acts
+   on — reads loudest. */
 ::highlight(matched-search) {
-  background-color: yellow;
+  background-color: rgba(253, 224, 71, 0.45);
 }
 
 ::highlight(matched-search-current) {
-  background-color: orange;
+  background-color: rgb(249, 115, 22);
+  color: white;
 }
 
 ::highlight(context-menu-selection) {
@@ -14,11 +17,12 @@
 }
 
 [data-theme="dark"] ::highlight(matched-search) {
-  background-color: rgb(109, 109, 6);
+  background-color: rgba(133, 100, 4, 0.5);
 }
 
 [data-theme="dark"] ::highlight(matched-search-current) {
-  background-color: rgb(190, 120, 20);
+  background-color: rgb(234, 88, 12);
+  color: white;
 }
 
 [data-theme="dark"] ::highlight(context-menu-selection) {

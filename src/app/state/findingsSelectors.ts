@@ -8,8 +8,25 @@
 // (consumers go through the policy-filtered `useFindings` views).
 
 import type { Finding } from "@/app/domain/editor/annotations/finding.ts";
-import type { FindingsState } from "@/app/state/FindingsStore.ts";
+import type {
+  FindingsState,
+  FindingSource,
+} from "@/app/state/FindingsStore.ts";
 import type { SegmentsBySid } from "@/core/domain/usfm/vrefTypes.ts";
+
+/**
+ * Every producer slice, enumerated so the selectors below stay exhaustive: the
+ * `satisfies` makes adding a `FindingSource` (a new producer) a COMPILE error
+ * here until it's listed, instead of silently invisible in the overlay/panel
+ * (the bug local-lint hit). Every slice exposes `byBook`.
+ */
+const FINDING_SOURCES = {
+  onion: true,
+  "sous-chef": true,
+  "local-lint": true,
+} satisfies Record<FindingSource, true>;
+
+const ALL_FINDING_SOURCES = Object.keys(FINDING_SOURCES) as FindingSource[];
 
 /**
  * A finding plus its store address. Book/chapter come from the tree's keys —
@@ -24,7 +41,8 @@ export type FlatFinding = {
 /** Every finding from every producer slice, with its store address. */
 export function flattenFindings(state: FindingsState): FlatFinding[] {
   const out: FlatFinding[] = [];
-  for (const slice of [state.onion, state["sous-chef"]]) {
+  for (const source of ALL_FINDING_SOURCES) {
+    const slice = state[source];
     if (!slice) continue;
     for (const [bookCode, byChapter] of Object.entries(slice.byBook)) {
       for (const [chapterKey, findings] of Object.entries(byChapter)) {
@@ -38,17 +56,16 @@ export function flattenFindings(state: FindingsState): FlatFinding[] {
   return out;
 }
 
-/** One book+chapter across every producer slice (onion first, then sous). */
+/** One book+chapter across every producer slice (onion, sous, local-lint). */
 export function chapterFindingsAcrossSources(
   state: FindingsState,
   bookCode: string,
   chapter: number,
 ): Finding[] {
   const book = bookCode.toUpperCase();
-  return [
-    ...(state.onion?.byBook[book]?.[chapter] ?? []),
-    ...(state["sous-chef"]?.byBook[book]?.[chapter] ?? []),
-  ];
+  return ALL_FINDING_SOURCES.flatMap(
+    (source) => state[source]?.byBook[book]?.[chapter] ?? [],
+  );
 }
 
 const EMPTY_SEGMENTS: SegmentsBySid = {};

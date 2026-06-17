@@ -16,9 +16,10 @@
 //
 // The user-visible contract is "undo / redo / programmaticFix /
 // import → search auto-restores"; this pipeline is the *only*
-// producer of that auto-rerun (the replace path runs its own scoped
-// rerun synchronously and the bridge classifies its commit as
-// `userEdit`, which the predicate excludes).
+// producer of that auto-rerun. `userEdit` is conditional: excluded
+// while the find panel is closed (the replace path runs its own
+// scoped rerun), included while it is open so the docked editor's
+// edits keep live results fresh.
 
 import { drainYields, passTime } from "@tests/helpers/effectTestTime.ts";
 import {
@@ -105,6 +106,22 @@ describe("isSearchRerunRelevant — policy matrix", () => {
       expect(isSearchRerunRelevant(makeEvent(kind, dirty))).toBe(expected);
     },
   );
+
+  it("includes a dirty userEdit only when includeUserEdit is set", () => {
+    const dirtyUserEdit = makeEvent("userEdit", true);
+    expect(
+      isSearchRerunRelevant(dirtyUserEdit, { includeUserEdit: true }),
+    ).toBe(true);
+    expect(
+      isSearchRerunRelevant(dirtyUserEdit, { includeUserEdit: false }),
+    ).toBe(false);
+    // includeUserEdit never overrides the dirtyTextContent floor.
+    expect(
+      isSearchRerunRelevant(makeEvent("userEdit", false), {
+        includeUserEdit: true,
+      }),
+    ).toBe(false);
+  });
 });
 
 // ----- Pipeline integration ----------------------------------------------
@@ -133,11 +150,13 @@ describe("makeSearchRerunPipeline (integration)", () => {
   function setupPipeline(args: {
     wf: WorkingFilesStore;
     rerunSearch: (term: string) => void;
+    isSearchActive?: () => boolean;
   }) {
     return makeSearchRerunPipeline({
       workingFilesStore: args.wf,
       getSearchTerm: () => searchTerm,
       rerunSearch: args.rerunSearch,
+      isSearchActive: args.isSearchActive,
       debounceMs: DEBOUNCE_MS,
     });
   }
@@ -169,12 +188,13 @@ describe("makeSearchRerunPipeline (integration)", () => {
     );
   });
 
-  it("does not fire on userEdit commits (replace runs its own rerun)", async () => {
+  it("does not fire on userEdit while the pane is closed", async () => {
     const wf = new WorkingFilesStore([makeBook({ bookCode: "GEN" })]);
     const rerunSearch = vi.fn<(term: string) => void>();
 
     await runWithTestClock(
       Effect.gen(function* () {
+        // No isSearchActive ⇒ defaults to closed ⇒ userEdit excluded.
         yield* Effect.forkChild(setupPipeline({ wf, rerunSearch }));
         yield* drainYields();
 
@@ -193,6 +213,37 @@ describe("makeSearchRerunPipeline (integration)", () => {
 
         yield* passTime(DEBOUNCE_MS * 3);
         expect(rerunSearch).not.toHaveBeenCalled();
+      }),
+    );
+  });
+
+  it("fires on userEdit while the pane is open (docked editing)", async () => {
+    const wf = new WorkingFilesStore([makeBook({ bookCode: "GEN" })]);
+    const rerunSearch = vi.fn<(term: string) => void>();
+
+    await runWithTestClock(
+      Effect.gen(function* () {
+        yield* Effect.forkChild(
+          setupPipeline({ wf, rerunSearch, isSearchActive: () => true }),
+        );
+        yield* drainYields();
+
+        wf.commit({
+          patch: makeChapterPatch({
+            bookCode: "GEN",
+            chapter: 1,
+            text: "typed",
+          }),
+          meta: makeCommitMeta({
+            kind: "userEdit",
+            bookCode: "GEN",
+            chapter: 1,
+          }),
+        });
+
+        yield* passTime(DEBOUNCE_MS + 20);
+        expect(rerunSearch).toHaveBeenCalledTimes(1);
+        expect(rerunSearch).toHaveBeenCalledWith("Jisu");
       }),
     );
   });

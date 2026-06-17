@@ -52,7 +52,7 @@ export const contentEditable = style({
   outline: "none",
   width: "100%",
   minHeight: "100%",
-  padding: `${vars.spacing.sm} ${vars.spacing.sm} 20rem`,
+  padding: `${vars.spacing.sm} ${vars.spacing.md} 20rem`,
   zIndex: zLayer.editorContent,
   fontFamily: vars.typography.fontFamilySerif,
   maxWidth: "75ch",
@@ -160,6 +160,32 @@ export const gateOverlayNote = style({
 
 export const loadingReference = style({
   padding: vars.spacing.md,
+});
+
+// Friendly empty state for the reference column when nothing is selected —
+// replaces a bare blank pane.
+export const referenceEmptyState = style({
+  height: "100%",
+  minHeight: 0,
+  padding: vars.spacing.xl,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: vars.spacing.sm,
+  textAlign: "center",
+  color: vars.color.onSurfaceSecondary,
+});
+
+export const referenceEmptyIcon = style({
+  opacity: 0.6,
+});
+
+export const referenceEmptyText = style({
+  margin: 0,
+  fontSize: vars.typography.bodySmall.fontSize,
+  maxWidth: "26ch",
+  lineHeight: 1.5,
 });
 
 export const translationNotesContainer = style({

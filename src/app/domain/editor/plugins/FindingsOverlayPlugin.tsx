@@ -822,6 +822,9 @@ export function FindingsOverlayPlugin({ editor }: FindingsOverlayPluginProps) {
       onMouseLeave={onTooltipMouseLeave}
       side="top"
       popupDataJs={DATA_JS.lintTooltipOverlay}
+      // Keep the popup inside the editor surface — in the narrow docked-find
+      // column this stops it spilling out under the find panel.
+      collisionBoundary={rootEl}
     />
   );
 

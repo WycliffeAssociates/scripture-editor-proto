@@ -63,6 +63,7 @@ describe("SearchProjectionService", () => {
       isCaseMismatch: true,
       naturalIndex: 0,
       source: "reference",
+      occurrenceCount: 1,
     },
     {
       sid: "MAT 1:2",
@@ -74,6 +75,7 @@ describe("SearchProjectionService", () => {
       isCaseMismatch: false,
       naturalIndex: 1,
       source: "reference",
+      occurrenceCount: 1,
     },
   ];
 
@@ -121,6 +123,7 @@ describe("SearchProjectionService", () => {
         isCaseMismatch: false,
         naturalIndex: 0,
         source: "target",
+        occurrenceCount: 1,
       },
       {
         sid: "MAT 1:1",
@@ -132,6 +135,7 @@ describe("SearchProjectionService", () => {
         isCaseMismatch: true,
         naturalIndex: 1,
         source: "target",
+        occurrenceCount: 1,
       },
       {
         sid: "MAT 1:1",
@@ -143,6 +147,7 @@ describe("SearchProjectionService", () => {
         isCaseMismatch: false,
         naturalIndex: 2,
         source: "reference",
+        occurrenceCount: 1,
       },
       {
         sid: "MAT 2:1",
@@ -154,6 +159,7 @@ describe("SearchProjectionService", () => {
         isCaseMismatch: false,
         naturalIndex: 3,
         source: "target",
+        occurrenceCount: 1,
       },
     ];
 
@@ -165,10 +171,13 @@ describe("SearchProjectionService", () => {
       naturalIndex: 0,
       isCaseMismatch: false,
       source: "target",
+      // MAT 1:1 target had two occurrences — the tally rides the kept row.
+      occurrenceCount: 2,
     });
     expect(deduped[1]).toMatchObject({
       sid: "MAT 1:1",
       source: "reference",
+      occurrenceCount: 1,
     });
     expect(deduped[2]).toMatchObject({
       sid: "MAT 2:1",
@@ -188,6 +197,7 @@ describe("SearchProjectionService", () => {
         isCaseMismatch: false,
         naturalIndex: 0,
         source: "reference",
+        occurrenceCount: 1,
       },
       {
         sid: "MAT 1:1",
@@ -199,6 +209,7 @@ describe("SearchProjectionService", () => {
         isCaseMismatch: false,
         naturalIndex: 1,
         source: "reference",
+        occurrenceCount: 1,
       },
       {
         sid: "MAT 1:2",
@@ -210,6 +221,7 @@ describe("SearchProjectionService", () => {
         isCaseMismatch: false,
         naturalIndex: 2,
         source: "reference",
+        occurrenceCount: 1,
       },
     ];
 

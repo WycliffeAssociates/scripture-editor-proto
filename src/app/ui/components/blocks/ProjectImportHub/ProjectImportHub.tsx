@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
+import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import { ToggleGroup } from "@/app/ui/components/primitives/ToggleGroup/ToggleGroup.tsx";
 import { useGiteaApi } from "@/app/ui/hooks/useGiteaApi.ts";
 import * as styles from "@/app/ui/styles/modules/projectImportHub.css.ts";
@@ -376,15 +377,17 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
             aria-label={t`Search projects`}
           />
           {gitea.query.trim().length > 0 ? (
-            <button
-              type="button"
-              className={styles.clearButton}
-              onClick={() => gitea.setQuery("")}
-              aria-label={t`Clear search`}
-              data-testid={TESTING_IDS.language.importerClear}
-            >
-              <X size={18} />
-            </button>
+            <IconTooltip label={t`Clear search`}>
+              <button
+                type="button"
+                className={styles.clearButton}
+                onClick={() => gitea.setQuery("")}
+                aria-label={t`Clear search`}
+                data-testid={TESTING_IDS.language.importerClear}
+              >
+                <X size={18} />
+              </button>
+            </IconTooltip>
           ) : null}
         </div>
 

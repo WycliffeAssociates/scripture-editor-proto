@@ -58,6 +58,13 @@ export type Settings = {
   autoAcceptOwnWorkOnSave: boolean;
   autoAcceptIncomingWork: boolean;
   diffViewModeDefault: "list" | "chapter";
+  /**
+   * Remembered reference text per target project (key = target project path,
+   * value = reference resource path). A pure UI preference — it does not travel
+   * with the project. Drives the reference pane's "reopen what I last viewed"
+   * default; self-corrects when the user picks a different reference.
+   */
+  referenceByProject: Record<string, string>;
 };
 
 /**
@@ -82,6 +89,7 @@ export const settingsDefaults: Settings = {
   autoAcceptOwnWorkOnSave: false,
   autoAcceptIncomingWork: false,
   diffViewModeDefault: "list",
+  referenceByProject: {},
 };
 
 /**

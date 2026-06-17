@@ -1,4 +1,4 @@
-import { Trans } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Link, useRouter } from "@tanstack/react-router";
 import { Download, Eye, Plus } from "lucide-react";
 import { useMemo } from "react";
@@ -6,6 +6,7 @@ import { useMemo } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon/ActionIcon.tsx";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
+import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
 import { basenameStoragePath } from "@/core/persistence/pathUtils.ts";
@@ -21,6 +22,7 @@ import classnames from "./ProjectList.module.css.ts";
  * open it, reveal it on disk, or export its managed-storage tree.
  */
 export function ProjectList() {
+  const { t } = useLingui();
   const { allProjects, project, currentProjectRoute, settingsManager } =
     useWorkspaceContext();
   const router = useRouter();
@@ -147,31 +149,39 @@ export function ProjectList() {
                         typeof opener.open === "function" &&
                         platform !== "android" &&
                         platform !== "ios" && (
-                          <ActionIconSimple
-                            aria-label={`Open in file manager ${proj.displayName}`}
-                            onClick={(e: React.MouseEvent) => {
-                              e.stopPropagation();
-                              handleOpenProject(proj);
-                            }}
-                            className={classnames.iconButton}
-                            data-testid={TESTING_IDS.appDrawer.itemOpen}
+                          <IconTooltip
+                            label={t`Open in file manager ${proj.displayName}`}
                           >
-                            <Eye size={16} />
-                          </ActionIconSimple>
+                            <ActionIconSimple
+                              aria-label={t`Open in file manager ${proj.displayName}`}
+                              onClick={(e: React.MouseEvent) => {
+                                e.stopPropagation();
+                                handleOpenProject(proj);
+                              }}
+                              className={classnames.iconButton}
+                              data-testid={TESTING_IDS.appDrawer.itemOpen}
+                            >
+                              <Eye size={16} />
+                            </ActionIconSimple>
+                          </IconTooltip>
                         )}
 
                       {opener && typeof opener.export === "function" && (
-                        <ActionIconSimple
-                          aria-label={`Export project ${proj.displayName}`}
-                          onClick={(e: React.MouseEvent) => {
-                            e.stopPropagation();
-                            handleExportProject(proj);
-                          }}
-                          className={classnames.iconButton}
-                          data-testid={TESTING_IDS.appDrawer.itemExport}
+                        <IconTooltip
+                          label={t`Export project ${proj.displayName}`}
                         >
-                          <Download size={16} />
-                        </ActionIconSimple>
+                          <ActionIconSimple
+                            aria-label={t`Export project ${proj.displayName}`}
+                            onClick={(e: React.MouseEvent) => {
+                              e.stopPropagation();
+                              handleExportProject(proj);
+                            }}
+                            className={classnames.iconButton}
+                            data-testid={TESTING_IDS.appDrawer.itemExport}
+                          >
+                            <Download size={16} />
+                          </ActionIconSimple>
+                        </IconTooltip>
                       )}
                     </div>
                   </div>

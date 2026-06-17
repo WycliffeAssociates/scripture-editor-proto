@@ -6,7 +6,13 @@
       "ref": { "bookCode": "GEN", "chapterNum": 1 },
       "chapter": {
         "tokens": [
-          { "id": "GEN 1:1-t", "kind": "text", "span": { "start": 0, "end": 5 }, "sid": "GEN 1:1", "source": "Hello" }
+          {
+            "id": "GEN 1:1-t",
+            "kind": "text",
+            "span": { "start": 0, "end": 5 },
+            "sid": "GEN 1:1",
+            "source": "Hello"
+          }
         ],
         "eol": "\n",
         "dirty": true
@@ -31,7 +37,10 @@
           "bookCode": "EXO",
           "diskBaseline": { "kind": "absent" },
           "chapters": [
-            { "chapterNum": 1, "chapter": { "tokens": [], "eol": "\n", "dirty": false } }
+            {
+              "chapterNum": 1,
+              "chapter": { "tokens": [], "eol": "\n", "dirty": false }
+            }
           ]
         }
       ],
@@ -43,14 +52,11 @@
         {
           "bookCode": "GEN",
           "diskBaseline": { "kind": "present", "md5": "def456" },
-          "chapterDirty": [ { "chapterNum": 1, "dirty": false } ]
+          "chapterDirty": [{ "chapterNum": 1, "dirty": false }]
         }
       ],
       "generation": 9
     }
   ],
-  "scopes": [
-    { "books": ["GEN", "EXO"] },
-    "all"
-  ]
+  "scopes": [{ "books": ["GEN", "EXO"] }, "all"]
 }
