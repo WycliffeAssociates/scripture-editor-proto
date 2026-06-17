@@ -51,7 +51,7 @@ function EditorModeToggle({
     {
       value: EDITOR_MODES.form,
       label: t`Form mode`,
-      description: t`Edit your content in a structured form.`,
+      description: t`Edit your text as labeled blocks, with structured controls to adjust formatting.`,
     },
   ];
 

@@ -175,8 +175,8 @@ export function EditorToolbar(props: EditorToolbarProps) {
     if (!referenceResource.referenceChapter) {
       showNotificationInfo({
         notification: {
-          title: t`Reference is loading`,
-          message: t`Try matching formatting again once the reference chapter is visible.`,
+          title: t`Resource is loading`,
+          message: t`Try matching formatting again once the resource chapter is visible.`,
         },
       });
       return;
@@ -338,8 +338,8 @@ export function EditorToolbar(props: EditorToolbarProps) {
               <ToolbarTooltipButton
                 label={
                   props.isReferencePaneOpen
-                    ? t`Hide reference panel`
-                    : t`Open reference panel`
+                    ? t`Hide resource panel`
+                    : t`Open resource panel`
                 }
                 onClick={props.onToggleReferencePane}
                 active={props.isReferencePaneOpen}
@@ -372,9 +372,9 @@ export function EditorToolbar(props: EditorToolbarProps) {
                 >
                   <h3
                     className={dialogStyles.dialogTitle}
-                  >{t`Pick a reference text`}</h3>
+                  >{t`Pick a resource`}</h3>
                   <p className={dialogStyles.dialogBody}>
-                    {t`Choose a scripture reference before matching formatting.`}
+                    {t`Choose a resource before matching formatting.`}
                     <span className={dialogStyles.dialogHint}>
                       {t`Match formatting can replace paragraph and poetry markers in the current chapter.`}
                     </span>

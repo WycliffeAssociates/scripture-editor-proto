@@ -422,8 +422,8 @@ function AdvancedTab({
         onChange={(checked) => applyUpdates({ autoPushOnSave: checked })}
       />
       <EnabledDisabledRow
-        title={t`Auto Accept My Work on Save`}
-        description={t`Skip review for your own local edits and commit them directly when you save.`}
+        title={i18n._(sharedProjectLabels.autoAcceptOwnTitle)}
+        description={i18n._(sharedProjectLabels.autoAcceptOwnDescription)}
         checked={settings.autoAcceptOwnWorkOnSave}
         testId={TESTING_IDS.settings.autoAcceptOwnWorkOnSaveToggle}
         onChange={(checked) =>
@@ -431,8 +431,8 @@ function AdvancedTab({
         }
       />
       <EnabledDisabledRow
-        title={t`Auto Accept Incoming Work`}
-        description={t`Accept incoming shared changes automatically unless the same verse already has unresolved local edits.`}
+        title={i18n._(sharedProjectLabels.autoAcceptIncomingTitle)}
+        description={i18n._(sharedProjectLabels.autoAcceptIncomingDescription)}
         checked={settings.autoAcceptIncomingWork}
         testId={TESTING_IDS.settings.autoAcceptIncomingWorkToggle}
         onChange={(checked) =>

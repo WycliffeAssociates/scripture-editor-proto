@@ -208,7 +208,7 @@ export function CreateProject() {
           ? importedProject.requiresMetadataReview
             ? t`Project downloaded successfully. Metadata needs review before opening it.`
             : t`Project downloaded successfully!`
-          : t`Resource downloaded successfully! It is available in the reference picker.`,
+          : t`Resource downloaded successfully! It is available in the resource picker.`,
         isEditableProject: importedProject.isEditableProject,
         requiresMetadataReview: importedProject.requiresMetadataReview,
         warning: importedProject.warning,
@@ -235,7 +235,7 @@ export function CreateProject() {
       setModalState({
         phase: "done",
         tone: "success",
-        message: t`The English ULB is ready as a reference text.`,
+        message: t`The English ULB is ready as a resource.`,
         warning: imported.warning,
         openAction,
       });
@@ -259,7 +259,7 @@ export function CreateProject() {
         message: importedProject?.requiresMetadataReview
           ? t`Project imported successfully. Metadata needs review before opening it.`
           : importedProject?.isEditableProject === false
-            ? t`Resource imported successfully! It is available in the reference picker.`
+            ? t`Resource imported successfully! It is available in the resource picker.`
             : t`Directory imported successfully!`,
         isEditableProject: importedProject?.isEditableProject ?? false,
         requiresMetadataReview: importedProject?.requiresMetadataReview,
@@ -283,7 +283,7 @@ export function CreateProject() {
         message: importedProject?.requiresMetadataReview
           ? t`Project imported successfully. Metadata needs review before opening it.`
           : importedProject?.isEditableProject === false
-            ? t`Resource imported successfully! It is available in the reference picker.`
+            ? t`Resource imported successfully! It is available in the resource picker.`
             : t`File imported successfully!`,
         isEditableProject: importedProject?.isEditableProject ?? false,
         requiresMetadataReview: importedProject?.requiresMetadataReview,
@@ -312,7 +312,7 @@ export function CreateProject() {
             message: importedProject.requiresMetadataReview
               ? t`Project imported successfully. Metadata needs review before opening it.`
               : importedProject.isEditableProject === false
-                ? t`Resource imported successfully! It is available in the reference picker.`
+                ? t`Resource imported successfully! It is available in the resource picker.`
                 : t`Directory imported successfully!`,
             isEditableProject: importedProject.isEditableProject,
             requiresMetadataReview: importedProject.requiresMetadataReview,
@@ -342,7 +342,7 @@ export function CreateProject() {
             message: importedProject.requiresMetadataReview
               ? t`Project imported successfully. Metadata needs review before opening it.`
               : importedProject.isEditableProject === false
-                ? t`Resource imported successfully! It is available in the reference picker.`
+                ? t`Resource imported successfully! It is available in the resource picker.`
                 : t`File imported successfully!`,
             isEditableProject: importedProject.isEditableProject,
             requiresMetadataReview: importedProject.requiresMetadataReview,

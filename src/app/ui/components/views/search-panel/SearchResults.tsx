@@ -48,8 +48,7 @@ export function SearchResults() {
 
   const sourceProjectName = useMemo(() => {
     return (
-      referenceResource.activeReferenceResourceDisplayName ||
-      t`Reference project`
+      referenceResource.activeReferenceResourceDisplayName || t`Source text`
     );
   }, [referenceResource.activeReferenceResourceDisplayName, t]);
 

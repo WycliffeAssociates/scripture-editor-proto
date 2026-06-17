@@ -4,15 +4,15 @@ import { TESTING_IDS } from "@/app/data/constants.ts";
 
 async function ensureReferencePaneOpen(page: Page) {
   const closeButton = page.getByRole("button", {
-    name: "Hide reference panel",
+    name: "Hide resource panel",
   });
   if (await closeButton.isVisible().catch(() => false)) return;
-  await page.getByRole("button", { name: "Open reference panel" }).click();
+  await page.getByRole("button", { name: "Open resource panel" }).click();
 }
 
 export async function openReferenceProjectPicker(page: Page) {
-  // The reference resource picker only renders inside the reference pane;
-  // open the pane, then open the "Choose a reference text" popover. The picker
+  // The resource picker only renders inside the reference pane;
+  // open the pane, then open the "Choose a resource" popover. The picker
   // is a Base UI Popover (not a combobox/listbox): the trigger and popup carry
   // testids, and each on-device resource is a `referenceProjectItem` button.
   await ensureReferencePaneOpen(page);

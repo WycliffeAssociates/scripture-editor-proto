@@ -248,7 +248,7 @@ export function ReferencePanel({
   const triggerLabel = referenceResourcesQuery.isLoading
     ? t`Loading…`
     : (activeReferenceResourceDisplayName ??
-      (deviceOnly ? t`No source text` : t`Select a reference`));
+      (deviceOnly ? t`No source text` : t`Select a resource`));
 
   return (
     <div className={styles.root}>
@@ -256,7 +256,7 @@ export function ReferencePanel({
         <BasePopover.Trigger
           ref={triggerRef}
           className={styles.trigger}
-          aria-label={t`Choose a reference text`}
+          aria-label={t`Choose a resource`}
           data-testid={TESTING_IDS.referenceProjectTrigger}
         >
           <span className={styles.triggerLabel}>
@@ -295,8 +295,8 @@ export function ReferencePanel({
                   className={styles.searchInput}
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder={t`Search references…`}
-                  aria-label={t`Search references`}
+                  placeholder={t`Search resources…`}
+                  aria-label={t`Search resources`}
                 />
               </div>
               <div className={styles.scroll}>
@@ -325,9 +325,7 @@ export function ReferencePanel({
                   notesLabel={t`Notes`}
                   sectionLabel={t`On this device`}
                   emptyLabel={
-                    q
-                      ? t`No matches on this device.`
-                      : t`No reference texts yet.`
+                    q ? t`No matches on this device.` : t`No resources yet.`
                   }
                 />
                 {deviceOnly ? null : (

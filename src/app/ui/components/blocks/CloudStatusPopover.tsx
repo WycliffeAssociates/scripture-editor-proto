@@ -753,7 +753,7 @@ function AutoSyncSettingRows(props: {
   settings: Settings;
   onChange: (updates: Partial<Settings>) => void;
 }) {
-  const { t, i18n } = useLingui();
+  const { i18n } = useLingui();
 
   const rows: AutoSyncRow[] = [
     {
@@ -768,13 +768,13 @@ function AutoSyncSettingRows(props: {
     },
     {
       key: "autoAcceptOwnWorkOnSave",
-      title: t`Auto Accept My Work on Save`,
-      description: t`Skip review for your own local edits and commit them directly when you save.`,
+      title: i18n._(sharedProjectLabels.autoAcceptOwnTitle),
+      description: i18n._(sharedProjectLabels.autoAcceptOwnDescription),
     },
     {
       key: "autoAcceptIncomingWork",
-      title: t`Auto Accept Incoming Work`,
-      description: t`Accept incoming cloud changes automatically unless the same verse already has unresolved local edits.`,
+      title: i18n._(sharedProjectLabels.autoAcceptIncomingTitle),
+      description: i18n._(sharedProjectLabels.autoAcceptIncomingDescription),
     },
   ];
 

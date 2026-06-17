@@ -58,7 +58,7 @@ export function SearchControls() {
       </div>
       <div className={styles.searchReferenceRow}>
         <span className={styles.searchReferenceLabel}>
-          <Trans>Reference</Trans>
+          <Trans>Source text</Trans>
         </span>
         <div className={styles.searchReferencePicker}>
           <ReferencePanel deviceOnly />

@@ -266,17 +266,21 @@ msgstr "Aceptar todos los cambios entrantes en todos los capítulos"
 msgid "Accept change in {localizedSid} to current"
 msgstr "Aceptar el cambio en {localizedSid} al actual"
 
+#: src/app/domain/project/remoteSync/sharedProjectCopy.ts:136
+msgid "Accept changes from the shared project automatically — unless they touch "
+"content you've also edited but not yet saved."
+msgstr ""
+
 #: src/app/routes/playground.lazy.tsx:464
-#: src/app/ui/components/blocks/CloudStatusPopover.tsx:777
 msgid "Accept incoming cloud changes automatically unless the same verse "
 "already has unresolved local edits."
 msgstr "Aceptar automáticamente los cambios entrantes de la nube, a menos que "
 "el mismo versículo ya tenga ediciones locales sin resolver."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:464
-msgid "Accept incoming shared changes automatically unless the same verse "
-"already has unresolved local edits."
-msgstr ""
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:444
+#~ msgid "Accept incoming shared changes automatically unless the same verse "
+#~ "already has unresolved local edits."
+#~ msgstr ""
 
 #: src/app/ui/hooks/useGiteaLogin.ts:61
 msgid "Account connected"
@@ -307,19 +311,19 @@ msgstr "Agregar línea abajo"
 msgid "Add required space after {marker}"
 msgstr "Agregar espacio obligatorio después de {marker}"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:306
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:344
 msgid "Added"
 msgstr ""
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:354
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:342
 msgid "Adjust the overall application zoom when supported."
 msgstr "Ajustar el zoom general de la aplicación cuando sea compatible."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:342
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:330
 msgid "Adjust the reading size used for editor text."
 msgstr "Ajustar el tamaño de lectura usado para el texto del editor."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:153
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:147
 msgid "Advanced"
 msgstr "Avanzado"
 
@@ -387,14 +391,10 @@ msgstr "¿Estás seguro de que deseas eliminar el proyecto:"
 #~ msgstr "Adjuntando..."
 
 #: src/app/routes/playground.lazy.tsx:463
-#: src/app/ui/components/blocks/CloudStatusPopover.tsx:776
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:463
 msgid "Auto Accept Incoming Work"
 msgstr "Aceptar automáticamente el trabajo entrante"
 
 #: src/app/routes/playground.lazy.tsx:459
-#: src/app/ui/components/blocks/CloudStatusPopover.tsx:771
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:454
 msgid "Auto Accept My Work on Save"
 msgstr "Aceptar automáticamente mi trabajo al guardar"
 
@@ -416,7 +416,7 @@ msgstr "Aceptar automáticamente mi trabajo al guardar"
 msgid "Autofix applied for {localizedFixLabel}"
 msgstr "Corrección automática aplicada para {localizedFixLabel}"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:298
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:336
 msgid "Available to add"
 msgstr ""
 
@@ -424,7 +424,7 @@ msgstr ""
 msgid "Back to books"
 msgstr "Volver a libros"
 
-#: src/app/ui/components/views/CreateProject.tsx:386
+#: src/app/ui/components/views/CreateProject.tsx:367
 msgid "Back to projects"
 msgstr "Regresar a proyectos"
 
@@ -489,7 +489,7 @@ msgid "by {0}"
 msgstr ""
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:306
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:516
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:487
 msgid "By chapter"
 msgstr "Por capítulo"
 
@@ -499,7 +499,7 @@ msgstr ""
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:305
 #: src/app/ui/components/blocks/DiffModal/PrintChangesButton.tsx:235
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:515
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:486
 msgid "By verse"
 msgstr "Por versículo"
 
@@ -576,6 +576,10 @@ msgstr "Esquema de codificación de caracteres usado para el contenido del "
 msgid "Character marker"
 msgstr "Marcador de carácter"
 
+#: src/app/domain/project/remoteSync/sharedProjectCopy.ts:131
+msgid "Check for changes on open"
+msgstr ""
+
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:814
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:492
 #~ msgid "Check for cloud updates automatically when opening a linked project."
@@ -587,12 +591,12 @@ msgid "Check for updates"
 msgstr "Buscar actualizaciones"
 
 #: src/app/domain/project/remoteSync/sharedProjectCopy.ts:131
-msgid "Check for updates on open"
-msgstr ""
+#~ msgid "Check for updates on open"
+#~ msgstr ""
 
 #: src/app/domain/project/remoteSync/sharedProjectCopy.ts:132
-msgid "Check for updates when I open this project."
-msgstr ""
+#~ msgid "Check for updates when I open this project."
+#~ msgstr ""
 
 #: src/app/ui/components/blocks/SharedProjectAttach/AttachResolveStatus.tsx:144
 msgid "Check the link, or try another."
@@ -632,17 +636,30 @@ msgid "Choose a chapter"
 msgstr "Elegir un capítulo"
 
 #: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:238
-msgid "Choose a reference text"
+#~ msgid "Choose a reference text"
+#~ msgstr ""
+
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:66
+#~ msgid "Choose a reference text from the picker above to read it alongside your "
+#~ "project."
+#~ msgstr ""
+
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:259
+msgid "Choose a resource"
+msgstr ""
+
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:377
+msgid "Choose a resource before matching formatting."
 msgstr ""
 
 #: src/app/ui/components/blocks/ReferenceEditor.tsx:66
-msgid "Choose a reference text from the picker above to read it alongside your "
+msgid "Choose a resource from the picker above to read it alongside your "
 "project."
 msgstr ""
 
 #: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:377
-msgid "Choose a scripture reference before matching formatting."
-msgstr "Elige una referencia bíblica antes de igualar el formato."
+#~ msgid "Choose a scripture reference before matching formatting."
+#~ msgstr "Elige una referencia bíblica antes de igualar el formato."
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:265
 msgid "Choose a source"
@@ -653,15 +670,15 @@ msgstr "Elegir una fuente"
 msgid "Choose chapter"
 msgstr "Elegir capítulo"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:508
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:479
 msgid "Choose how change review opens by default."
 msgstr "Elegir cómo se abre la revisión de cambios de forma predeterminada."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:272
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:260
 msgid "Choose the display language for Zephyr."
 msgstr "Elige el idioma de visualización de Zephyr."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:300
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:288
 msgid "Choose the theme used throughout the application."
 msgstr "Elegir el tema usado en toda la aplicación."
 
@@ -687,15 +704,19 @@ msgstr ""
 #: src/app/ui/components/blocks/FindingsPopover.tsx:177
 #: src/app/ui/components/blocks/ImportProgressModal.tsx:101
 #: src/app/ui/components/blocks/ProjectSwitcher/ProjectBrowserPane.tsx:44
-#: src/app/ui/components/views/search-panel/SearchPanel.tsx:71
+#: src/app/ui/components/views/search-panel/SearchPanel.tsx:49
 msgid "Close"
 msgstr "Cerrar"
 
-#: src/app/ui/components/views/search-panel/SearchPanel.tsx:69
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:184
+msgid "Close Editor"
+msgstr ""
+
+#: src/app/ui/components/views/search-panel/SearchPanel.tsx:47
 msgid "Close search"
 msgstr "Cerrar búsqueda"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:216
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:204
 msgid "Close without Saving"
 msgstr "Cerrar sin guardar"
 
@@ -794,7 +815,7 @@ msgstr ""
 #~ msgid "Connect account"
 #~ msgstr "Conectar cuenta"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:608
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:579
 msgid "Connect this project to a shared project you can edit."
 msgstr ""
 
@@ -818,7 +839,7 @@ msgstr "Conéctate a {0}para navegar por proyectos remotos que puedes enviar y "
 #: src/app/routes/playground.lazy.tsx:332
 #: src/app/routes/playground.lazy.tsx:384
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:593
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:607
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:578
 msgid "Connect to a shared project"
 msgstr ""
 
@@ -928,16 +949,20 @@ msgstr ""
 msgid "Couldn't find a public repository at this link."
 msgstr ""
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:308
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:346
 msgid "Couldn't load the catalog."
 msgstr ""
 
 #: src/app/ui/components/blocks/ReferenceEditor.tsx:252
-msgid "Couldn't load this reference text."
+#~ msgid "Couldn't load this reference text."
+#~ msgstr ""
+
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:252
+msgid "Couldn't load this resource."
 msgstr ""
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:346
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:603
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:574
 msgid "Couldn't load your projects"
 msgstr ""
 
@@ -961,11 +986,11 @@ msgstr "No se pudo reconocer este token."
 msgid "Couldn't save your own copy online"
 msgstr ""
 
-#: src/app/domain/project/remoteSync/sharedProjectCopy.ts:133
+#: src/app/domain/project/remoteSync/sharedProjectCopy.ts:137
 msgid "Couldn't send your changes"
 msgstr ""
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:563
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:534
 msgid "Create a shared project"
 msgstr ""
 
@@ -987,7 +1012,7 @@ msgid "Create your first project"
 msgstr "Crea tu primer proyecto"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:723
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:576
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:547
 msgid "Creating..."
 msgstr "Creando..."
 
@@ -1024,15 +1049,15 @@ msgstr "Versión actual: v{currentVersion} ({currentChannel})"
 msgid "Cut"
 msgstr "Cortar"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:318
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:306
 msgid "Dark"
 msgstr "Oscuro"
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:171
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:201
 msgid "Default replace term"
 msgstr "Término de reemplazo predeterminado"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:507
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:478
 msgid "Default review view"
 msgstr "Vista de revisión predeterminada"
 
@@ -1075,24 +1100,24 @@ msgstr ""
 msgid "Diff summary"
 msgstr "Resumen de diferencias"
 
-#: src/app/ui/components/views/CreateProject.tsx:274
-#: src/app/ui/components/views/CreateProject.tsx:332
+#: src/app/ui/components/views/CreateProject.tsx:263
+#: src/app/ui/components/views/CreateProject.tsx:316
 msgid "Directory imported successfully!"
 msgstr "¡Directorio importado con éxito!"
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:135
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:139
 msgid "Disable match case"
 msgstr "Desactivar coincidencia de mayúsculas"
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:150
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:154
 msgid "Disable USFM markers"
 msgstr "Desactivar marcadores USFM"
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:142
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:146
 msgid "Disable whole word"
 msgstr "Desactivar palabra completa"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:545
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:516
 msgid "Disabled"
 msgstr "Deshabilitado"
 
@@ -1104,7 +1129,7 @@ msgstr "Descartar"
 msgid "Dismiss"
 msgstr "Descartar"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:299
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:287
 msgid "Display Mode"
 msgstr "Modo de visualización"
 
@@ -1136,10 +1161,14 @@ msgid "Download {0}"
 msgstr ""
 
 #: src/app/ui/components/blocks/ReferenceEditor.tsx:71
-msgid "Download a reference text to read it alongside your project."
+#~ msgid "Download a reference text to read it alongside your project."
+#~ msgstr ""
+
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:71
+msgid "Download a resource to read it alongside your project."
 msgstr ""
 
-#: src/app/ui/components/views/CreateProject.tsx:177
+#: src/app/ui/components/views/CreateProject.tsx:176
 msgid "Download English ULB"
 msgstr ""
 
@@ -1181,14 +1210,19 @@ msgid "Edit USFM directly with no additional functionality enabled."
 msgstr ""
 
 #: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:54
-msgid "Edit your content in a structured form."
+#~ msgid "Edit your content in a structured form."
+#~ msgstr ""
+
+#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:54
+msgid "Edit your text as labeled blocks, with structured controls to adjust "
+"formatting."
 msgstr ""
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:329
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:317
 msgid "Editor Mode"
 msgstr "Modo del editor"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:545
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:516
 msgid "Enabled"
 msgstr "Habilitado"
 
@@ -1221,11 +1255,11 @@ msgstr "Se esperaba \\{expected}* aquí, pero se encontró \\{marker}*."
 #~ msgid "Failed to create remote project"
 #~ msgstr "No se pudo crear el proyecto remoto"
 
-#: src/app/ui/components/views/CreateProject.tsx:224
+#: src/app/ui/components/views/CreateProject.tsx:217
 msgid "Failed to download project"
 msgstr "No se pudo descargar el proyecto"
 
-#: src/app/ui/components/views/CreateProject.tsx:252
+#: src/app/ui/components/views/CreateProject.tsx:243
 msgid "Failed to download source text"
 msgstr ""
 
@@ -1238,13 +1272,13 @@ msgstr "No se pudieron obtener los proyectos"
 #~ msgid "Failed to import cloud project"
 #~ msgstr "Error al importar proyecto de nube"
 
-#: src/app/ui/components/views/CreateProject.tsx:280
-#: src/app/ui/components/views/CreateProject.tsx:338
+#: src/app/ui/components/views/CreateProject.tsx:269
+#: src/app/ui/components/views/CreateProject.tsx:322
 msgid "Failed to import directory"
 msgstr "No se pudo importar el directorio"
 
-#: src/app/ui/components/views/CreateProject.tsx:306
-#: src/app/ui/components/views/CreateProject.tsx:371
+#: src/app/ui/components/views/CreateProject.tsx:293
+#: src/app/ui/components/views/CreateProject.tsx:352
 msgid "Failed to import file"
 msgstr "No se pudo importar el archivo"
 
@@ -1263,8 +1297,8 @@ msgstr "Error al cargar notas de traducción para {referenceBookCode} "
 msgid "Failed to prepare download"
 msgstr "No se pudo preparar la descarga"
 
-#: src/app/ui/components/views/CreateProject.tsx:300
-#: src/app/ui/components/views/CreateProject.tsx:365
+#: src/app/ui/components/views/CreateProject.tsx:287
+#: src/app/ui/components/views/CreateProject.tsx:346
 msgid "File imported successfully!"
 msgstr "¡Archivo importado con éxito!"
 
@@ -1342,7 +1376,7 @@ msgstr "Se encontró \\* sin ningún hito abierto que cerrar."
 msgid "From my cloud projects"
 msgstr "De mis proyectos de nube"
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:126
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:130
 msgid "Group case mismatches"
 msgstr "Agrupar desajustes de mayúsculas"
 
@@ -1355,12 +1389,16 @@ msgid "Hidden control character(s) in this text."
 msgstr "Caracteres de control ocultos en este texto."
 
 #: src/app/ui/components/views/search-panel/SearchPanel.tsx:34
-msgid "Hide editor"
-msgstr ""
+#~ msgid "Hide editor"
+#~ msgstr ""
 
 #: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:341
-msgid "Hide reference panel"
-msgstr "Ocultar panel de referencia"
+#~ msgid "Hide reference panel"
+#~ msgstr "Ocultar panel de referencia"
+
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:341
+msgid "Hide resource panel"
+msgstr ""
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:333
 msgid "Hide whitespace-only diffs"
@@ -1409,7 +1447,7 @@ msgid "In {0} {1}"
 msgstr "En {0} {1}"
 
 #: src/app/ui/components/blocks/DiffModal/PrintChangesButton.tsx:267
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:150
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:154
 msgid "Include USFM markers"
 msgstr "Incluir marcadores USFM"
 
@@ -1467,7 +1505,7 @@ msgstr "Instalando…"
 msgid "Intentional line break"
 msgstr "Salto de línea intencional"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:271
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:259
 msgid "Interface Language"
 msgstr "Idioma de la interfaz"
 
@@ -1476,7 +1514,7 @@ msgid "Intro"
 msgstr "Introducción"
 
 #: src/app/ui/components/blocks/DiffModal/chapterOptions.ts:59
-#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:59
+#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:68
 #: src/app/ui/hooks/useNavigation.tsx:115
 #: src/app/ui/hooks/useNavigation.tsx:150
 msgid "Introduction"
@@ -1519,7 +1557,7 @@ msgstr ""
 msgid "Later"
 msgstr "Más tarde"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:313
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:301
 msgid "Light"
 msgstr "Claro"
 
@@ -1554,7 +1592,7 @@ msgstr "Cargar más"
 msgid "Loading {0}…"
 msgstr ""
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:307
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:345
 msgid "Loading catalog…"
 msgstr ""
 
@@ -1571,12 +1609,16 @@ msgid "Loading projects..."
 msgstr ""
 
 #: src/app/ui/components/blocks/ReferenceEditor.tsx:245
-msgid "Loading reference…"
-msgstr ""
+#~ msgid "Loading reference…"
+#~ msgstr ""
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:602
 msgid "Loading remote projects..."
 msgstr "Cargando proyectos remotos..."
+
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:245
+msgid "Loading resource…"
+msgstr ""
 
 #: src/app/ui/components/blocks/ReferenceEditor.tsx:103
 msgid "Loading translation notes for {referenceBookCode} "
@@ -1585,7 +1627,7 @@ msgstr "Cargando notas de traducción para {referenceBookCode} "
 "{referenceChapterNumber}..."
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:661
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:731
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:702
 msgid "Loading your projects…"
 msgstr ""
 
@@ -1595,7 +1637,7 @@ msgid "Loading..."
 msgstr "Cargando..."
 
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:204
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:229
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:249
 msgid "Loading…"
 msgstr "Cargando…"
 
@@ -1656,7 +1698,7 @@ msgstr ""
 msgid "Marker"
 msgstr "Marcador"
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:135
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:139
 msgid "Match case"
 msgstr "Coincidir mayúsculas"
 
@@ -1723,7 +1765,7 @@ msgstr "La mayoría de los proyectos deben seguir en UTF-8. Cambia esto solo "
 msgid "Multiple spaces or a stray tab here — collapse to a single space."
 msgstr "Varios espacios o una tabulación aquí: contraer a un solo espacio."
 
-#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:108
+#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:118
 msgid "Navigate to {locationLabel}"
 msgstr "Navegar a {locationLabel}"
 
@@ -1752,11 +1794,11 @@ msgstr "Nuevo proyecto"
 msgid "Next chapter"
 msgstr "Capítulo siguiente"
 
-#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:112
+#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:123
 msgid "Next match in this verse"
 msgstr ""
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:309
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:347
 msgid "No catalog matches."
 msgstr ""
 
@@ -1798,7 +1840,7 @@ msgstr "Ningún problema coincide con este filtro"
 msgid "No linked cloud projects matched this search."
 msgstr "Ningún proyecto en la nube vinculado coincidió con esta búsqueda."
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:291
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:329
 msgid "No matches on this device."
 msgstr ""
 
@@ -1819,8 +1861,8 @@ msgid "No projects yet"
 msgstr "No hay proyectos aún"
 
 #: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:292
-msgid "No reference texts yet."
-msgstr ""
+#~ msgid "No reference texts yet."
+#~ msgstr ""
 
 #: src/app/ui/components/blocks/ReferencePicker.tsx:133
 #~ msgid "No references found."
@@ -1838,23 +1880,32 @@ msgstr "Todavía no hay repositorios que poseas visibles en esta lista."
 msgid "No repositories you own are visible in this list yet."
 msgstr "Aún no hay repositorios que poseas visibles en esta lista."
 
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:330
+msgid "No resources yet."
+msgstr ""
+
 #: src/app/ui/components/blocks/SourcePicker/SourcePicker.tsx:369
 msgid "No results for \"{query}\""
 msgstr ""
 
 #. placeholder {0}: search.searchTerm
-#: src/app/ui/components/views/search-panel/SearchResults.tsx:172
+#: src/app/ui/components/views/search-panel/SearchResults.tsx:182
 msgid "No results found for <0>{0}</0>"
 msgstr "No se encontraron resultados para <0>{0}</0>"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:665
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:735
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:706
 msgid "No shared projects found."
 msgstr ""
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:100
 msgid "No source selected"
 msgstr "No se seleccionó fuente"
+
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:251
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:316
+msgid "No source text"
+msgstr ""
 
 #: src/app/ui/components/blocks/ReferenceEditor.tsx:111
 msgid "No translation notes for {referenceBookCode} {referenceChapterNumber}."
@@ -1881,7 +1932,7 @@ msgstr "No conectado"
 msgid "Note"
 msgstr "Nota"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:287
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:325
 msgid "Notes"
 msgstr ""
 
@@ -1905,7 +1956,7 @@ msgstr ""
 msgid "Offline"
 msgstr "Sin conexión"
 
-#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:288
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:326
 msgid "On this device"
 msgstr ""
 
@@ -1933,13 +1984,21 @@ msgstr "Solo repositorios que poseo"
 msgid "Open an existing project, or create a new one."
 msgstr "Abre un proyecto existente o crea uno nuevo."
 
-#: src/app/ui/components/views/CreateProject.tsx:102
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:184
+msgid "Open Editor"
+msgstr ""
+
+#: src/app/ui/components/views/CreateProject.tsx:101
 msgid "Open project"
 msgstr "Abrir proyecto"
 
 #: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:342
-msgid "Open reference panel"
-msgstr "Abrir panel de referencia"
+#~ msgid "Open reference panel"
+#~ msgstr "Abrir panel de referencia"
+
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:342
+msgid "Open resource panel"
+msgstr ""
 
 #: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:381
 #~ msgid "Open search"
@@ -1985,8 +2044,12 @@ msgid "Pick a checkpoint to compare against."
 msgstr ""
 
 #: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:375
-msgid "Pick a reference text"
-msgstr "Elegir un texto de referencia"
+#~ msgid "Pick a reference text"
+#~ msgstr "Elegir un texto de referencia"
+
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:375
+msgid "Pick a resource"
+msgstr ""
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:289
 msgid "Pick a source"
@@ -2056,7 +2119,7 @@ msgstr ""
 msgid "Previous chapter"
 msgstr "Capítulo anterior"
 
-#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:111
+#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:122
 msgid "Previous match in this verse"
 msgstr ""
 
@@ -2100,11 +2163,11 @@ msgstr ""
 msgid "Project display name"
 msgstr "Nombre visible del proyecto"
 
-#: src/app/ui/components/views/CreateProject.tsx:217
+#: src/app/ui/components/views/CreateProject.tsx:210
 msgid "Project downloaded successfully!"
 msgstr "¡Proyecto descargado con éxito!"
 
-#: src/app/ui/components/views/CreateProject.tsx:216
+#: src/app/ui/components/views/CreateProject.tsx:209
 msgid "Project downloaded successfully. Metadata needs review before opening "
 "it."
 msgstr "Proyecto descargado con éxito. Los metadatos necesitan revisión antes "
@@ -2114,10 +2177,10 @@ msgstr "Proyecto descargado con éxito. Los metadatos necesitan revisión antes 
 msgid "Project Formatted"
 msgstr "Proyecto formateado"
 
-#: src/app/ui/components/views/CreateProject.tsx:271
-#: src/app/ui/components/views/CreateProject.tsx:297
-#: src/app/ui/components/views/CreateProject.tsx:329
-#: src/app/ui/components/views/CreateProject.tsx:362
+#: src/app/ui/components/views/CreateProject.tsx:260
+#: src/app/ui/components/views/CreateProject.tsx:284
+#: src/app/ui/components/views/CreateProject.tsx:313
+#: src/app/ui/components/views/CreateProject.tsx:343
 msgid "Project imported successfully. Metadata needs review before opening it."
 msgstr "Proyecto importado con éxito. Los metadatos necesitan revisión antes de "
 "abrirlo."
@@ -2131,7 +2194,7 @@ msgid "Project Sync"
 msgstr ""
 
 #: src/app/ui/components/blocks/ProjectSwitcher/ProjectBrowserPane.tsx:24
-#: src/app/ui/components/views/CreateProject.tsx:389
+#: src/app/ui/components/views/CreateProject.tsx:370
 msgid "Projects"
 msgstr "Proyectos"
 
@@ -2193,24 +2256,24 @@ msgid "Redo — {redoLabel}"
 msgstr "Rehacer — {redoLabel}"
 
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:57
-msgid "Reference"
-msgstr ""
+#~ msgid "Reference"
+#~ msgstr ""
 
 #: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:178
-msgid "Reference is loading"
-msgstr "Cargando referencia"
+#~ msgid "Reference is loading"
+#~ msgstr "Cargando referencia"
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:150
-msgid "Reference Panel"
-msgstr "Panel de referencia"
+#~ msgid "Reference Panel"
+#~ msgstr "Panel de referencia"
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:372
-msgid "Reference panel settings"
-msgstr "Ajustes del panel de referencia"
+#~ msgid "Reference panel settings"
+#~ msgstr "Ajustes del panel de referencia"
 
 #: src/app/ui/components/views/search-panel/SearchResults.tsx:52
-msgid "Reference project"
-msgstr "Proyecto de referencia"
+#~ msgid "Reference project"
+#~ msgstr "Proyecto de referencia"
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:419
 #: src/app/ui/components/import/CloudProjectImporter.tsx:89
@@ -2251,11 +2314,11 @@ msgstr ""
 msgid "Remove paragraph"
 msgstr "Eliminar párrafo"
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:125
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:129
 msgid "Remove sort"
 msgstr "Quitar orden"
 
-#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:392
+#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:413
 msgid "Replace"
 msgstr ""
 
@@ -2268,12 +2331,12 @@ msgstr ""
 #~ msgid "Replace next match"
 #~ msgstr "Reemplazar siguiente coincidencia"
 
-#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:389
-#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:390
+#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:410
+#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:411
 msgid "Replace this match"
 msgstr ""
 
-#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:382
+#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:403
 msgid "Replace with..."
 msgstr "Reemplazar con..."
 
@@ -2287,18 +2350,34 @@ msgid "Repository not found"
 msgstr ""
 
 #: src/app/ui/components/views/CreateProject.tsx:218
-msgid "Resource downloaded successfully! It is available in the reference "
+#~ msgid "Resource downloaded successfully! It is available in the reference "
+#~ "picker."
+#~ msgstr "¡Recurso descargado con éxito! Está disponible en el selector de "
+#~ "referencia."
+
+#: src/app/ui/components/views/CreateProject.tsx:211
+msgid "Resource downloaded successfully! It is available in the resource "
 "picker."
-msgstr "¡Recurso descargado con éxito! Está disponible en el selector de "
-"referencia."
+msgstr ""
 
 #: src/app/ui/components/views/CreateProject.tsx:273
 #: src/app/ui/components/views/CreateProject.tsx:299
 #: src/app/ui/components/views/CreateProject.tsx:331
 #: src/app/ui/components/views/CreateProject.tsx:364
-msgid "Resource imported successfully! It is available in the reference picker."
-msgstr "¡Recurso importado con éxito! Está disponible en el selector de "
-"referencia."
+#~ msgid "Resource imported successfully! It is available in the reference picker."
+#~ msgstr "¡Recurso importado con éxito! Está disponible en el selector de "
+#~ "referencia."
+
+#: src/app/ui/components/views/CreateProject.tsx:262
+#: src/app/ui/components/views/CreateProject.tsx:286
+#: src/app/ui/components/views/CreateProject.tsx:315
+#: src/app/ui/components/views/CreateProject.tsx:345
+msgid "Resource imported successfully! It is available in the resource picker."
+msgstr ""
+
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:178
+msgid "Resource is loading"
+msgstr ""
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:474
 msgid "Revert all local changes"
@@ -2320,7 +2399,7 @@ msgstr "Revisar cambios"
 msgid "Review changes before sending your work."
 msgstr ""
 
-#: src/app/ui/components/views/CreateProject.tsx:100
+#: src/app/ui/components/views/CreateProject.tsx:99
 msgid "Review metadata"
 msgstr "Revisar metadatos"
 
@@ -2328,8 +2407,8 @@ msgstr "Revisar metadatos"
 msgid "Revision mode"
 msgstr ""
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:100
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:101
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:104
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:105
 msgid "Run search"
 msgstr "Ejecutar búsqueda"
 
@@ -2351,14 +2430,14 @@ msgstr "Guardar"
 msgid "Save all changes"
 msgstr "Guardar todos los cambios"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:204
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:192
 msgid "Save and Close"
 msgstr "Guardar y cerrar"
 
 #: src/app/domain/project/remoteSync/sharedProjectCopy.ts:116
 #: src/app/routes/playground.lazy.tsx:371
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:725
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:577
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:548
 msgid "Save as a new shared project"
 msgstr ""
 
@@ -2372,8 +2451,12 @@ msgstr ""
 msgid "Save my own copy online"
 msgstr ""
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:564
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:535
 msgid "Save this project as a new shared project."
+msgstr ""
+
+#: src/app/domain/project/remoteSync/sharedProjectCopy.ts:134
+msgid "Save your changes to the project directly, without reviewing them first."
 msgstr ""
 
 #: src/app/ui/components/blocks/SharedProjectAttach/AttachResolveStatus.tsx:111
@@ -2392,8 +2475,8 @@ msgstr ""
 msgid "Scope"
 msgstr "Ámbito"
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:93
-#: src/app/ui/components/views/search-panel/SearchPanel.tsx:46
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:97
+#: src/app/ui/components/views/search-panel/SearchPanel.tsx:38
 msgid "Search"
 msgstr "Buscar"
 
@@ -2436,7 +2519,7 @@ msgid "Search or log in"
 msgstr "Buscar o iniciar sesión"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:624
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:690
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:661
 msgid "Search or paste a project link"
 msgstr ""
 
@@ -2446,7 +2529,7 @@ msgid "Search projects"
 msgstr "Buscar proyectos"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:623
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:689
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:660
 msgid "Search projects or paste a project link"
 msgstr ""
 
@@ -2455,14 +2538,22 @@ msgstr ""
 #~ msgstr "Buscar recursos de referencia"
 
 #: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:278
-msgid "Search references"
-msgstr "Buscar referencias"
+#~ msgid "Search references"
+#~ msgstr "Buscar referencias"
 
 #: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:277
-msgid "Search references…"
+#~ msgid "Search references…"
+#~ msgstr ""
+
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:299
+msgid "Search resources"
 msgstr ""
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:200
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:298
+msgid "Search resources…"
+msgstr ""
+
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:230
 msgid "Search scope"
 msgstr ""
 
@@ -2475,7 +2566,7 @@ msgstr ""
 #~ msgstr ""
 
 #. placeholder {0}: search.searchTerm
-#: src/app/ui/components/views/search-panel/SearchResults.tsx:162
+#: src/app/ui/components/views/search-panel/SearchResults.tsx:172
 msgid "Searching for <0>{0}</0>..."
 msgstr "Buscando <0>{0}</0>..."
 
@@ -2484,11 +2575,11 @@ msgstr "Buscando <0>{0}</0>..."
 msgid "Searching linked cloud projects..."
 msgstr "Buscando proyectos en la nube vinculados..."
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:186
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:216
 msgid "Searching source"
 msgstr ""
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:186
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:216
 msgid "Searching your project"
 msgstr ""
 
@@ -2517,14 +2608,18 @@ msgid "Select a checkpoint"
 msgstr ""
 
 #: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:230
-msgid "Select a reference"
+#~ msgid "Select a reference"
+#~ msgstr ""
+
+#: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:251
+msgid "Select a resource"
 msgstr ""
 
 #: src/app/routes/playground.lazy.tsx:340
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:606
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:611
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:669
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:674
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:640
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:645
 msgid "Select a shared project"
 msgstr ""
 
@@ -2551,12 +2646,12 @@ msgstr ""
 msgid "Select encoding"
 msgstr "Seleccionar codificación"
 
-#: src/app/ui/components/views/CreateProject.tsx:317
+#: src/app/ui/components/views/CreateProject.tsx:304
 msgid "Select folder"
 msgstr "Seleccionar carpeta"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:249
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:292
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:237
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:280
 msgid "Select language"
 msgstr "Seleccionar idioma"
 
@@ -2576,11 +2671,11 @@ msgstr "Seleccionar proyecto"
 msgid "Select version"
 msgstr "Seleccionar versión"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:330
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:318
 msgid "Select which editing mode you want to use."
 msgstr "Selecciona qué modo de edición quieres usar."
 
-#: src/app/ui/components/views/CreateProject.tsx:350
+#: src/app/ui/components/views/CreateProject.tsx:334
 msgid "Select ZIP file"
 msgstr "Seleccionar archivo ZIP"
 
@@ -2597,16 +2692,20 @@ msgid "Send & receive updates"
 msgstr ""
 
 #: src/app/domain/project/remoteSync/sharedProjectCopy.ts:129
-msgid "Send changes automatically"
-msgstr ""
+#~ msgid "Send changes automatically"
+#~ msgstr ""
 
 #: src/app/domain/project/remoteSync/sharedProjectCopy.ts:108
 msgid "Send my changes"
 msgstr ""
 
-#: src/app/domain/project/remoteSync/sharedProjectCopy.ts:130
-msgid "Send my changes to the shared project automatically when I save."
+#: src/app/domain/project/remoteSync/sharedProjectCopy.ts:129
+msgid "Send my changes on save"
 msgstr ""
+
+#: src/app/domain/project/remoteSync/sharedProjectCopy.ts:130
+#~ msgid "Send my changes to the shared project automatically when I save."
+#~ msgstr ""
 
 #: src/app/domain/project/remoteSync/sharedProjectCopy.ts:102
 #: src/app/routes/playground.lazy.tsx:271
@@ -2635,7 +2734,7 @@ msgstr "Establecer número en {number}"
 msgid "Settings"
 msgstr "Ajustes"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:780
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:751
 msgid "SHA"
 msgstr "SHA"
 
@@ -2671,8 +2770,8 @@ msgid "Short table of contents title"
 msgstr "Título corto de la tabla de contenido"
 
 #: src/app/ui/components/views/search-panel/SearchPanel.tsx:35
-msgid "Show editor beside find"
-msgstr ""
+#~ msgid "Show editor beside find"
+#~ msgstr ""
 
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:266
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:276
@@ -2749,12 +2848,18 @@ msgid "Signing in…"
 msgstr ""
 
 #: src/app/routes/playground.lazy.tsx:460
-#: src/app/ui/components/blocks/CloudStatusPopover.tsx:772
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:455
 msgid "Skip review for your own local edits and commit them directly when you "
 "save."
 msgstr "Omitir la revisión de tus propias ediciones locales y confirmarlas "
 "directamente al guardar."
+
+#: src/app/domain/project/remoteSync/sharedProjectCopy.ts:135
+msgid "Skip review of incoming changes"
+msgstr ""
+
+#: src/app/domain/project/remoteSync/sharedProjectCopy.ts:133
+msgid "Skip review of my changes"
+msgstr ""
 
 #: src/app/ui/components/blocks/DiffModal/PrintChangesButton.tsx:254
 msgid "Small"
@@ -2783,6 +2888,11 @@ msgstr "Algunos proyectos pueden aparecer en ambas listas. La nube vinculada "
 msgid "Some unsaved backups could not be restored automatically:"
 msgstr "Algunas copias de seguridad sin guardar no se pudieron restaurar "
 "automáticamente:"
+
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:61
+#: src/app/ui/components/views/search-panel/SearchResults.tsx:52
+msgid "Source text"
+msgstr ""
 
 #: src/app/routes/create.tsx:186
 #~ msgid "Source text available"
@@ -2885,7 +2995,7 @@ msgstr "Sincronizar ahora"
 msgid "Take all changes in this chapter"
 msgstr "Tomar todos los cambios en este capítulo"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:341
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:329
 msgid "Text Size"
 msgstr "Tamaño del texto"
 
@@ -2898,7 +3008,11 @@ msgstr ""
 #~ msgstr ""
 
 #: src/app/ui/components/views/CreateProject.tsx:247
-msgid "The English ULB is ready as a reference text."
+#~ msgid "The English ULB is ready as a reference text."
+#~ msgstr ""
+
+#: src/app/ui/components/views/CreateProject.tsx:238
+msgid "The English ULB is ready as a resource."
 msgstr ""
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:163
@@ -2983,7 +3097,7 @@ msgstr "Este proyecto ya está formateado"
 #~ "its owner to share it, or save your work as a new shared project."
 #~ msgstr ""
 
-#: src/app/ui/components/views/CreateProject.tsx:162
+#: src/app/ui/components/views/CreateProject.tsx:161
 msgid "This project lists the English ULB as its source."
 msgstr ""
 
@@ -2996,11 +3110,11 @@ msgid "This repository can't be imported"
 msgstr ""
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:375
-msgid "This tab shell is in place. The remaining reference-specific persisted "
-"settings still need to be defined before we wire real controls into it."
-msgstr "Esta estructura de pestaña ya está colocada. Los ajustes persistentes "
-"específicos de referencia que faltan todavía deben definirse antes de "
-"conectar controles reales."
+#~ msgid "This tab shell is in place. The remaining reference-specific persisted "
+#~ "settings still need to be defined before we wire real controls into it."
+#~ msgstr "Esta estructura de pestaña ya está colocada. Los ajustes persistentes "
+#~ "específicos de referencia que faltan todavía deben definirse antes de "
+#~ "conectar controles reales."
 
 #: src/app/ui/components/blocks/FormBlockCard.tsx:713
 msgid "This verse has no content"
@@ -3031,15 +3145,19 @@ msgid "Try again"
 msgstr "Intentar de nuevo"
 
 #: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:179
-msgid "Try matching formatting again once the reference chapter is visible."
-msgstr "Intenta igualar el formato de nuevo una vez que el capítulo de "
-"referencia sea visible."
+#~ msgid "Try matching formatting again once the reference chapter is visible."
+#~ msgstr "Intenta igualar el formato de nuevo una vez que el capítulo de "
+#~ "referencia sea visible."
+
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:179
+msgid "Try matching formatting again once the resource chapter is visible."
+msgstr ""
 
 #: src/app/ui/components/blocks/FindingsPopover.tsx:203
 msgid "Type"
 msgstr "Tipo"
 
-#: src/app/ui/components/views/search-panel/SearchResults.tsx:153
+#: src/app/ui/components/views/search-panel/SearchResults.tsx:163
 msgid "Type to start searching"
 msgstr "Escribe para empezar a buscar"
 
@@ -3148,7 +3266,11 @@ msgid "USFM mode"
 msgstr ""
 
 #: src/app/ui/components/blocks/ReferenceEditor.tsx:196
-msgid "USFM Reference Editor"
+#~ msgid "USFM Reference Editor"
+#~ msgstr ""
+
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:196
+msgid "USFM Resource Editor"
 msgstr ""
 
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:296
@@ -3185,7 +3307,7 @@ msgstr "El versículo {verse} aparece más de una vez en el capítulo {chapter}.
 msgid "Verse marker \\v appears before the first \\c."
 msgstr "El marcador de versículo \\v aparece antes del primer \\c."
 
-#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:62
+#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:71
 msgid "Verse not available in this text"
 msgstr "Verso no disponible en este texto"
 
@@ -3193,7 +3315,7 @@ msgstr "Verso no disponible en este texto"
 msgid "Verses must appear inside a paragraph, list, or table."
 msgstr "Los versículos deben aparecer dentro de un párrafo, lista o tabla."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:773
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:744
 msgid "Version"
 msgstr "Versión"
 
@@ -3216,6 +3338,14 @@ msgstr "Restauramos el trabajo sin guardar de tu última sesión. Se conservará
 "hasta que guardes el archivo y puedes revisar los cambios en el panel "
 "de revisión."
 
+#: src/app/domain/project/remoteSync/sharedProjectCopy.ts:132
+msgid "When you open this project, check the shared project for new changes."
+msgstr ""
+
+#: src/app/domain/project/remoteSync/sharedProjectCopy.ts:130
+msgid "When you save, send your changes to the shared project."
+msgstr ""
+
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:291
 msgid "Whitespace Only"
 msgstr "Solo espacios en blanco"
@@ -3224,7 +3354,7 @@ msgstr "Solo espacios en blanco"
 msgid "Whole project"
 msgstr "Proyecto completo"
 
-#: src/app/ui/components/views/search-panel/SearchControls.tsx:142
+#: src/app/ui/components/views/search-panel/SearchControls.tsx:146
 msgid "Whole word"
 msgstr "Palabra completa"
 
@@ -3376,7 +3506,7 @@ msgid "Your search returned results, but none were cloud projects for this app. 
 msgstr "Tu búsqueda devolvió resultados, pero ninguno era un proyecto en la "
 "nube para esta app. Prueba con un término de búsqueda más específico."
 
-#: src/app/domain/project/remoteSync/sharedProjectCopy.ts:134
+#: src/app/domain/project/remoteSync/sharedProjectCopy.ts:138
 msgid "Your work is saved here, but it couldn't be sent to the shared project."
 msgstr ""
 
@@ -3398,6 +3528,6 @@ msgstr "ZIP"
 msgid "ZIP file"
 msgstr "Archivo ZIP"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:353
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:341
 msgid "Zoom"
 msgstr "Zoom"

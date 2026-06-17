@@ -64,13 +64,11 @@ function ReferenceEmptyState(props: { hasAnyOnDevice: boolean }) {
       <p className={shellStyles.referenceEmptyText}>
         {props.hasAnyOnDevice ? (
           <Trans>
-            Choose a reference text from the picker above to read it alongside
-            your project.
+            Choose a resource from the picker above to read it alongside your
+            project.
           </Trans>
         ) : (
-          <Trans>
-            Download a reference text to read it alongside your project.
-          </Trans>
+          <Trans>Download a resource to read it alongside your project.</Trans>
         )}
       </p>
     </div>
@@ -193,7 +191,7 @@ function ScriptureReferencePane() {
                       ? shellStyles.contentEditableReferenceSearchOpen
                       : ""
                   }`}
-                  aria-label={t`USFM Reference Editor`}
+                  aria-label={t`USFM Resource Editor`}
                   data-mode={domPresentationMode(editorMode)}
                   data-form-pane="reference"
                 />
@@ -242,15 +240,13 @@ export function ReferenceEditor() {
         message={
           activeReferenceResource?.displayName
             ? t`Loading ${activeReferenceResource.displayName}…`
-            : t`Loading reference…`
+            : t`Loading resource…`
         }
       />
     );
   }
   if (activeReferenceResourceQuery?.error || activeContentQuery?.error) {
-    return (
-      <ReferenceLoadingState message={t`Couldn't load this reference text.`} />
-    );
+    return <ReferenceLoadingState message={t`Couldn't load this resource.`} />;
   }
 
   switch (activeReferenceResource?.type) {
