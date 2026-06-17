@@ -10,12 +10,16 @@ type LocalLintFinding = Extract<Finding, { source: "local-lint" }>;
  * {@link formatLintIssueMessage} and {@link localizeSousFindingMessage}. The
  * finding is self-describing — its `code` selects the sentence and `params`
  * ({@link found}/{@link previous}) fills the numbers — so no engine string is
- * carried. Narrowing `code` to the closed `LocalLintCode` makes the switch
- * exhaustive: a new code won't compile until it has a message. `previous` is
- * only set for gap/decrease, so it falls back defensively for the rest.
+ * carried. The numbering arm's `code` is the closed `LocalLintCode`, so its
+ * switch is exhaustive — a new code won't compile until it has a message.
+ * `previous` is only set for gap/decrease, so it falls back for the rest.
  */
 export function localizeLocalLintMessage(finding: LocalLintFinding): string {
-  const code = finding.code as LocalLintCode;
+  if (finding.code === "inconsistent-chapter-label") {
+    return t`This chapter label “${finding.label}” differs from the rest of the project (“${finding.dominant}”).`;
+  }
+  // Narrowed to the numbering arm — `code` is a `LocalLintCode`, `params` set.
+  const code: LocalLintCode = finding.code;
   const { found } = finding.params;
   const previous = finding.params.previous ?? "?";
   switch (code) {

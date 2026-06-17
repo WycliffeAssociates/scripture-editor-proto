@@ -137,9 +137,49 @@ export function localLintIssuesToFindings(issues: LocalLintIssue[]): Finding[] {
         code: issue.code,
         severity: LOCAL_LINT_SEVERITY[issue.code],
         category: "content",
-        anchor: { kind: "token", tokenId: issue.tokenId, sid: issue.sid },
+        // No sid: canonical tokens don't carry one, and the owner buckets these
+        // by chapter directly (not via `groupFindingsByChapter`).
+        anchor: { kind: "token", tokenId: issue.tokenId },
         touchedTokenIds: [issue.tokenId],
         params: { found: issue.found, previous: issue.previous },
+      }),
+    })),
+  );
+}
+
+/**
+ * One off-dominant `\cl` label, pre-normalization. `label` is the off stem and
+ * `dominant` the project's, both for the message; the owner buckets the finding
+ * by the chapter it found the label in.
+ */
+export type ChapterLabelIssue = {
+  textTokenId: string;
+  label: string;
+  dominant: string;
+};
+
+/**
+ * local-lint `\cl` issues → token-anchored `Finding`s (code
+ * `"inconsistent-chapter-label"`, `warning`). Anchored to the label's text
+ * token — the same token onion's old rule used — so the dormant chapter-label
+ * "Standardize across project…" decorator relights on it.
+ */
+export function localLintChapterLabelFindings(
+  issues: ChapterLabelIssue[],
+): Finding[] {
+  return finalizeFindings(
+    issues.map((issue) => ({
+      baseKey: `local-lint:inconsistent-chapter-label:${issue.textTokenId}:`,
+      build: (id): Finding => ({
+        id,
+        source: "local-lint",
+        code: "inconsistent-chapter-label",
+        severity: "warning",
+        category: "content",
+        anchor: { kind: "token", tokenId: issue.textTokenId },
+        touchedTokenIds: [issue.textTokenId],
+        label: issue.label,
+        dominant: issue.dominant,
       }),
     })),
   );

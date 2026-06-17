@@ -7,21 +7,23 @@
 //   - verse monotonicity  → CHAPTER scope: `analyzeChapterVerses(chapterTokens)`
 //   - chapter monotonicity → BOOK scope:   `analyzeChapterSequence(markers)`
 //
-// No IPC, no wasm, no serialization — just passes over already-parsed tokens,
-// reading the number off each `\c`/`\v` marker's sid via `parseSid` (the same
-// parser the rest of the app uses, so "what number is this" never forks).
+// Number source — the CANONICAL token stream, not the Lexical/sid path. A
+// `\c`/`\v` is two tokens: the `marker` then a following `number` token. We read
+// that number token's SOURCE (the literal text), not `token.sid` and not
+// `numberInfo`. sid and numberInfo are DERIVED — the editor stamps sids on the
+// Lexical nodes a maintenance cycle AFTER a `userEdit` (and local-lint skips the
+// `structuralFixup` that carries them), so both lag the just-typed number. The
+// number token's source is fresh on the very commit the edit lands on.
 //
 // Scope is INTERIOR consistency only — gaps, backward jumps, and a non-1 start.
-// No counting against an expected total and no trailing-absence check: the END
-// of a verse range varies by versification, so judging completeness needs an
-// external table and belongs to sous-chef, not here (see the plan §5).
+// No counting against an expected total and no trailing-absence check (those are
+// external-norm checks → sous-chef; see the plan §5).
 //
 // Disjoint from onion by construction: onion owns `Missing*` (a `\v` with no
-// number) and `Duplicate*` (uniqueness). We only ever react to a parsed number
-// moving the wrong way, so an a/b split (`5`, `5b` → both parse to 5) reads as
-// a repeat and is left to onion, never re-emitted here.
+// number) and `Duplicate*` (uniqueness). We only react to a parsed number moving
+// the wrong way, so an a/b split (`5`, `5b` → both read 5) is a repeat, left to
+// onion, never re-emitted here.
 
-import { parseSid } from "@/core/data/bible/bible.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 import type { FindingSeverity } from "../finding.ts";
@@ -49,34 +51,68 @@ export const LOCAL_LINT_SEVERITY: Record<LocalLintCode, FindingSeverity> = {
   "verse-starts-at-one": "info",
 };
 
-/** One raw monotonicity hit, pre-normalization. Anchored to its marker token. */
+/** One raw monotonicity hit, pre-normalization. */
 export type LocalLintIssue = {
   code: LocalLintCode;
-  /** The offending `\c`/`\v` marker token's id — the finding's anchor. */
+  /**
+   * The `number` token's id — the finding's anchor. NOT the `\c`/`\v` marker
+   * token: the editor renders the marker+number as one element keyed by the
+   * NUMBER token's id, so that's the id the overlay can resolve to a DOM node.
+   */
   tokenId: string;
-  /** That marker's sid: buckets the finding by chapter and feeds the message. */
-  sid: string;
   /** The number on the offending marker. */
   found: number;
   /** The prior number in the sequence, for gap/decrease (omitted for starts). */
   previous?: number;
 };
 
-/** A chapter's `\c` marker, distilled to what chapter-sequence analysis needs. */
-export type ChapterMarker = { number: number; tokenId: string; sid: string };
+/** A chapter's `\c`, distilled to what chapter-sequence analysis needs. */
+export type ChapterMarker = { number: number; tokenId: string };
+
+/** A `\c`/`\v` number parsed from its `number` token (id + bridge-aware value). */
+type ParsedNumber = { start: number; end: number; tokenId: string };
+
+// `start[-end]` off the literal source: "93" → 93, "5-6" → 5..6, "5b" → 5.
+const NUMBER_RANGE = /^(\d+)(?:-(\d+))?/;
 
 /**
- * The first `\c` marker in a chapter's token stream, or null for front matter
- * (chapter 0 — no `\c`) and any chapter whose `\c` sid won't parse.
+ * The number for the `\c`/`\v` marker at `markerIndex`: parsed from the SOURCE
+ * of the following `number` token (skipping trivia), and carrying that token's
+ * id (the anchor). `null` when no number follows (onion's `Missing*`, not ours).
+ */
+function numberAfterMarker(
+  tokens: Token[],
+  markerIndex: number,
+): ParsedNumber | null {
+  for (let i = markerIndex + 1; i < tokens.length; i++) {
+    const token = tokens[i];
+    if (token.kind === "number") {
+      const match = NUMBER_RANGE.exec(token.source.trim());
+      if (!match) return null;
+      const start = Number.parseInt(match[1], 10);
+      return {
+        start,
+        end: match[2] ? Number.parseInt(match[2], 10) : start,
+        tokenId: token.id,
+      };
+    }
+    // Another marker before any number → this marker has no number.
+    if (token.kind === "marker" || token.kind === "endMarker") return null;
+  }
+  return null;
+}
+
+/**
+ * The first `\c` in a chapter's token stream, or null for front matter
+ * (chapter 0 — no `\c`) and any `\c` with no parseable number.
  */
 export function chapterMarkerOf(chapterTokens: Token[]): ChapterMarker | null {
-  for (const token of chapterTokens) {
-    if (token.kind !== "marker" || token.marker !== "c" || token.sid == null) {
-      continue;
-    }
-    const number = parseSid(token.sid)?.chapter;
-    if (number == null) continue;
-    return { number, tokenId: token.id, sid: token.sid };
+  for (let i = 0; i < chapterTokens.length; i++) {
+    const token = chapterTokens[i];
+    if (token.kind !== "marker" || token.marker !== "c") continue;
+    const parsed = numberAfterMarker(chapterTokens, i);
+    if (parsed == null) continue;
+    return { number: parsed.start, tokenId: parsed.tokenId };
   }
   return null;
 }
@@ -99,7 +135,6 @@ export function analyzeChapterSequence(
         issues.push({
           code: "chapter-starts-at-one",
           tokenId: marker.tokenId,
-          sid: marker.sid,
           found: chapter,
         });
       }
@@ -107,7 +142,6 @@ export function analyzeChapterSequence(
       issues.push({
         code: "chapter-number-decrease",
         tokenId: marker.tokenId,
-        sid: marker.sid,
         found: chapter,
         previous: lastChapter,
       });
@@ -115,7 +149,6 @@ export function analyzeChapterSequence(
       issues.push({
         code: "chapter-number-gap",
         tokenId: marker.tokenId,
-        sid: marker.sid,
         found: chapter,
         previous: lastChapter,
       });
@@ -129,52 +162,50 @@ export function analyzeChapterSequence(
 /**
  * Verse monotonicity within ONE chapter's tokens (CHAPTER scope) — independent
  * of every other chapter, which is why a verse edit invalidates only its own
- * chapter. Bridges ride on `parseSid` for free: `\v 5-6` advances the cursor to
- * 6, so `5-6` then `7` is no gap, and the `b` in `5b` truncates to 5 (a repeat,
+ * chapter. Bridges ride on the number token's range for free: `\v 5-6` advances
+ * the cursor to 6, so `5-6` then `7` is no gap, and `5b` reads 5 (a repeat,
  * onion's concern).
  */
 export function analyzeChapterVerses(chapterTokens: Token[]): LocalLintIssue[] {
   const issues: LocalLintIssue[] = [];
-  // The highest verse covered so far (a bridge's end); null until the first `\v`.
+  // The end of the verse just seen (a bridge's end); null until the first `\v`.
   let lastVerseEnd: number | null = null;
 
-  for (const token of chapterTokens) {
-    if (token.kind !== "marker" || token.marker !== "v" || token.sid == null) {
-      continue;
-    }
-    const parsed = parseSid(token.sid);
+  for (let i = 0; i < chapterTokens.length; i++) {
+    const token = chapterTokens[i];
+    if (token.kind !== "marker" || token.marker !== "v") continue;
+    const parsed = numberAfterMarker(chapterTokens, i);
     if (parsed == null) continue;
-    const { verseStart, verseEnd } = parsed;
+    const { start: verseStart, end: verseEnd, tokenId } = parsed;
 
     if (lastVerseEnd == null) {
       if (verseStart !== 1) {
         issues.push({
           code: "verse-starts-at-one",
-          tokenId: token.id,
-          sid: token.sid,
+          tokenId,
           found: verseStart,
         });
       }
     } else if (verseStart < lastVerseEnd) {
       issues.push({
         code: "verse-number-decrease",
-        tokenId: token.id,
-        sid: token.sid,
+        tokenId,
         found: verseStart,
         previous: lastVerseEnd,
       });
     } else if (verseStart > lastVerseEnd + 1) {
       issues.push({
         code: "verse-number-gap",
-        tokenId: token.id,
-        sid: token.sid,
+        tokenId,
         found: verseStart,
         previous: lastVerseEnd,
       });
     }
-    // verseStart === lastVerseEnd is a repeat (e.g. `5`, `5b`) — onion's
-    // Duplicate, not ours; advance only forward so a repeat never rewinds.
-    lastVerseEnd = Math.max(lastVerseEnd ?? verseEnd, verseEnd);
+    // Resync to THIS verse — track the local progression, not the max — so one
+    // out-of-order number (e.g. a typo'd `\v 3333`) flags once, not a cascade of
+    // decreases on every following verse. `verseStart === lastVerseEnd + 1` and
+    // `=== lastVerseEnd` (a/b repeat) both fall through as fine.
+    lastVerseEnd = verseEnd;
   }
 
   return issues;

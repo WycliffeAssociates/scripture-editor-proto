@@ -122,27 +122,19 @@ describe("decorateFinding (per-code override: chapter label)", () => {
   });
 
   // `inconsistent-chapter-label` is no longer an onion LintCode — the library
-  // dropped it as a consistency heuristic (usfm_onion plan-lint-scope.md §2);
-  // the editor will re-emit it from its own token-space reduce. The decorator
-  // registry keys on the string `finding.code`, decoupled from onion's union,
-  // so we build the onion Finding directly rather than route a dropped code
-  // through a LintIssue (whose `code` is the strict onion union).
+  // dropped it as a consistency heuristic (usfm_onion plan-lint-scope.md §2) and
+  // the editor now re-emits it from its own token-space reduce as a `local-lint`
+  // finding. That arm is what relights the project-wide standardize action.
   function chapterLabelFinding(): Finding {
     return {
       id: "chapter-label-1",
-      source: "onion",
+      source: "local-lint",
       code: "inconsistent-chapter-label",
       severity: "warning",
-      category: "structure",
-      anchor: { kind: "token", tokenId: "n1", sid: "GEN 1:1" },
-      issue: makeIssue({
-        fix: undefined,
-        messageParams: {
-          expected: "Wase",
-          found: "Marika",
-          marker: "cl",
-        },
-      }),
+      category: "content",
+      anchor: { kind: "token", tokenId: "n1", sid: "GEN 1" },
+      label: "Marika",
+      dominant: "Wase",
     };
   }
 

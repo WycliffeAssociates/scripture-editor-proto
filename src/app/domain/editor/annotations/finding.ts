@@ -21,6 +21,8 @@ import type { ReactNode } from "react";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { Utf16Span } from "@/core/domain/usfm/vrefTypes.ts";
 
+import type { LocalLintCode } from "./localLint/numberingRules.ts";
+
 /** Where a finding lives in the editor. */
 export type Anchor =
   | {
@@ -97,7 +99,21 @@ export type Finding =
       /** sous confidence, when the rule scores; undefined for binary rules. */
       score?: number;
     })
-  | (FindingBase & { source: "local-lint"; params: LocalLintParams });
+  // local-lint splits by code family: the numbering rules carry marching
+  // params; the project-wide `\cl` rule carries the off-dominant stem + the
+  // project's dominant, for the message (and is the one local-lint code with a
+  // fix — "Standardize across project…").
+  | (FindingBase & {
+      source: "local-lint";
+      code: LocalLintCode;
+      params: LocalLintParams;
+    })
+  | (FindingBase & {
+      source: "local-lint";
+      code: "inconsistent-chapter-label";
+      label: string;
+      dominant: string;
+    });
 
 /**
  * Chapter-bucketed findings — the store's per-book node shape. Chapter 0 is
