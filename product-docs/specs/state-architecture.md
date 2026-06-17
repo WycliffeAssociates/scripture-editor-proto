@@ -182,12 +182,12 @@ other chapter stays the same reference.
 
 ### The four `WorkingFilesPatch` shapes
 
-| `patch.kind`    | Mutation                                                      | Tokens recomputed?      |
-| --------------- | ------------------------------------------------------------- | ----------------------- |
-| `chapter`       | Bridge sends shaped `lexicalState`; store flattens to tokens  | Yes (`lexicalToTokens`) |
-| `metadata`      | Flip one chapter's `dirty` flag                               | No                      |
-| `bulk`          | Replace the entire `files` array                              | No (caller's job)       |
-| `selectionOnly` | No mutation; pure signal                                      | No                      |
+| `patch.kind`    | Mutation                                                     | Tokens recomputed?      |
+| --------------- | ------------------------------------------------------------ | ----------------------- |
+| `chapter`       | Bridge sends shaped `lexicalState`; store flattens to tokens | Yes (`lexicalToTokens`) |
+| `metadata`      | Flip one chapter's `dirty` flag                              | No                      |
+| `bulk`          | Replace the entire `files` array                             | No (caller's job)       |
+| `selectionOnly` | No mutation; pure signal                                     | No                      |
 
 `bulk` is the workhorse for programmatic flows: callers build a draft with
 the chapters they touched, populate `currentTokens` themselves, and commit.
@@ -431,17 +431,17 @@ Each satellite store is single-purpose, single-writer (per writer rule
 documented inline), and exposes `subscribe` + `getSnapshot` for
 `useSyncExternalStore`.
 
-| Store                      | Writers                                                                                                                               | Readers                                                                                                 |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Store                      | Writers                                                                                                                                      | Readers                                                                                                 |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | `FindingsStore`            | `makeLintPipeline` (`"onion"` slice), `makeSousPipeline` (`"sous-chef"` slice), workspace kernel (`initialFindings` seed before first paint) | `useFindings`, `FindingsOverlayPlugin`, `FindingsPopover`                                               |
-| `SaveStatusStore`          | `makeSaveStatusPipeline`, save command                                                                                                | `useSave`, toolbar                                                                                      |
-| `LayoutTickStore`          | `makeOverlayTickPipeline`, workspace resize/scroll listeners                                                                          | `FindingsOverlayPlugin`, `HighlightSink`                                                                |
-| `SearchHighlightStore`     | Search hooks (execution / navigation / replace)                                                                                       | `HighlightSink` (paints in `useLayoutEffect`)                                                           |
-| `WorkspaceInteractionGate` | Save command (`open`↔`saving`), recovery decision (`recovery-decision-pending`↔`open`)                                                | Editor `GateEditablePlugin`, every mutation hook, button surfaces                                       |
-| `RecoveredConflictTracker` | Route loader (seed on baseline mismatch), `recoveredConflictTrackerSubscriber` (clear on observed clean), Discard banner (`clearAll`) | `useSave` (modal routing), external-compare entry control, save command (`reviewedRecoveredWork` check) |
-| `WorkspaceBaselineStore`   | Route loader (initial seed from `diskMd5ByBook`), save command (`setPresent` after each successful book write)                        | `dirtyBufferPipeline` (wrapper's `diskBaseline`), recovery classifier                                   |
-| `DirtyBufferStore`         | `dirtyBufferPipeline` (`put` / `clear`)                                                                                               | Route loader at reopen (`list` + classify against current disk)                                         |
-| `WorkspaceModalStore`      | `useDecorateFindings` context (`openModal` / `closeModal` passed to decorator context)                                                | `WorkspaceModalOutlet` (renders the active modal slot)                                                  |
+| `SaveStatusStore`          | `makeSaveStatusPipeline`, save command                                                                                                       | `useSave`, toolbar                                                                                      |
+| `LayoutTickStore`          | `makeOverlayTickPipeline`, workspace resize/scroll listeners                                                                                 | `FindingsOverlayPlugin`, `HighlightSink`                                                                |
+| `SearchHighlightStore`     | Search hooks (execution / navigation / replace)                                                                                              | `HighlightSink` (paints in `useLayoutEffect`)                                                           |
+| `WorkspaceInteractionGate` | Save command (`open`↔`saving`), recovery decision (`recovery-decision-pending`↔`open`)                                                       | Editor `GateEditablePlugin`, every mutation hook, button surfaces                                       |
+| `RecoveredConflictTracker` | Route loader (seed on baseline mismatch), `recoveredConflictTrackerSubscriber` (clear on observed clean), Discard banner (`clearAll`)        | `useSave` (modal routing), external-compare entry control, save command (`reviewedRecoveredWork` check) |
+| `WorkspaceBaselineStore`   | Route loader (initial seed from `diskMd5ByBook`), save command (`setPresent` after each successful book write)                               | `dirtyBufferPipeline` (wrapper's `diskBaseline`), recovery classifier                                   |
+| `DirtyBufferStore`         | `dirtyBufferPipeline` (`put` / `clear`)                                                                                                      | Route loader at reopen (`list` + classify against current disk)                                         |
+| `WorkspaceModalStore`      | `useDecorateFindings` context (`openModal` / `closeModal` passed to decorator context)                                                       | `WorkspaceModalOutlet` (renders the active modal slot)                                                  |
 
 Three design points worth calling out:
 

@@ -19,6 +19,11 @@ The model holds no display strings: ids derive from canonical fields only, so
 they're stable across locale and re-runs. Adding a producer or anchor kind is a
 deliberate type edit (closed unions), not an open extension point.
 
+> A third producer, main-thread `local-lint` (intrinsic consistency:
+> verse/chapter monotonicity, `\cl` agreement), is in flight. A standing
+> invariant for it and any future main-thread producer: **read tokens for
+> structure, never trust `token.sid`** — see `adr/0001-token-sid-is-a-derived-cache.md`.
+
 ## Producers (parallel pipelines)
 
 Both subscribe to `WorkingFilesStore.changes` via `makeFoldedScopePipeline` —
@@ -69,7 +74,9 @@ Content findings resolve `(sid, Utf16Span)` → DOM rects: iterate the verse's
 `Segment`s overlapping the range, locate the UTF-16 offset within each token
 element (`locateUtf16Offset` walks descendant text nodes — never assumes
 `firstChild`, since Lexical splits nodes on edits), and collect client rects.
-Per-segment ranges skip marker tokens for free.
+Per-segment ranges skip marker tokens for free. `resolveContentTokenSlices` is
+the data-only twin (no DOM): it maps the same `(sid, range)` to the ordered
+token slices it covers, which programmatic content fixes splice against.
 
 ## Rendering (`plugins/FindingsOverlayPlugin.tsx`, `useFindings.ts`)
 
@@ -80,20 +87,27 @@ Per-segment ranges skip marker tokens for free.
 - **Panel** (`FindingsPopover.tsx`): `useFindings` reads the store via
   `useSyncExternalStore`, applies `presentFinding` for the panel surface, and
   offers scope tabs (this chapter / whole project) and category/code/book
-  filters; jump-to navigates via `actions.switchBookOrChapter`.
+  filters; jump-to navigates via `actions.switchBookOrChapter`. Code-filter
+  chips are localized by `i18n/findingCodeLabels.ts` (every surfaced code has a
+  terse label; the humanizer is a last-resort guard, not the common path).
 
 ## Decoration (`annotations/decorators/`)
 
 `useDecorateFindings` assembles a stable capability context once at the React
 edge (working-files store, interaction gate, history, onion service, editor
 mode, modal openers); `decorateFinding(finding, ctx)` (pure) adds the localized
-message and action closures. Lint autofixes live in `decorators/lintFix.ts`.
-The decorator registry is closed — a new finding kind is a type edit.
+message and action closures. Onion autofixes live in `decorators/lintFix.ts`;
+the sous `lex.excess-h-whitespace` collapse (one space, distributed across
+tokens when the run straddles a marker) lives in `decorators/collapseWhitespace.ts`
+— both commit through the working-files seam. The decorator registry is closed
+— a new finding kind is a type edit.
 
 ## Key files
 
 - `src/app/domain/editor/annotations/` — `finding.ts`, `normalizeFindings.ts`,
-  `presentFinding.ts`, `resolveContentRange.ts`, `decorators/`
+  `presentFinding.ts`, `resolveContentRange.ts`, `decorators/` (incl.
+  `lintFix.ts`, `collapseWhitespace.ts`)
+- `src/app/ui/i18n/findingCodeLabels.ts` — localized filter-chip labels
 - `src/app/state/FindingsStore.ts`, `findingsSelectors.ts`
 - `src/app/domain/editor/pipelines/lintPipeline.ts`, `sousPipeline.ts`
 - `src/app/domain/editor/pipelines/mirrorResultRouter.ts` — result → store

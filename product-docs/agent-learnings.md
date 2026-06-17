@@ -193,7 +193,7 @@ time and aren't obvious from the code:
 
 - **The worker module graph must stay DOM-free and wasm-deliberate.** Anything a
   worker imports is bundled into the worker; a stray DOM/`window` import (or
-  pulling wasm into the *desktop backup* worker, which is meant to be wasm-free)
+  pulling wasm into the _desktop backup_ worker, which is meant to be wasm-free)
   breaks the bundle. The USFM serializer was split into a DOM-free
   `src/core/domain/usfm/usfmBytes.ts` precisely so workers can serialize without
   dragging in editor/DOM code. Vite needs wasm wired in `worker.plugins` for the
@@ -213,6 +213,6 @@ time and aren't obvious from the code:
   delivery. Don't "fix" an out-of-order symptom by forcing ordering — check the
   generation handling first.
 - **Tracing is gated standing infra, not scaffolding.** `localStorage.mirrorTrace
-  = "1"` turns on per-boundary tracing (zero cost off); workers relay entries to
+= "1"` turns on per-boundary tracing (zero cost off); workers relay entries to
   the main console (worker logs aren't Playwright-captured). Reach for it before
   instrumenting by hand.

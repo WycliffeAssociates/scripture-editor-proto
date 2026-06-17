@@ -33,9 +33,9 @@
   coalesced within a 2500 ms window so a continuous typing run is a single
   entry.
 - **Programmatic actions**: features opt in by bracketing the mutation with
-  `history.captureHistory()` (call it *before* the verb — it retains the
+  `history.captureHistory()` (call it _before_ the verb — it retains the
   pre-commit files array as pre-images) and `history.recordHistory(token,
-  { label, affected })` (*after* the verb commits — it diffs the `affected`
+{ label, affected })` (_after_ the verb commits — it diffs the `affected`
   chapters the commit measured against the captured pre-images and pushes one
   entry). No candidate set is declared up front; `recordHistory` records exactly
   the measured `affected` chapters.
