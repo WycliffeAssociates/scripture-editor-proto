@@ -171,7 +171,23 @@ describe("decorateFinding (sous) and inert decoration", () => {
     i18n.activate("en");
   });
 
-  it("decorates sous findings as report-only with the localized message", () => {
+  it("decorates report-only sous findings with just the localized message", () => {
+    const [finding] = sousFindingsToFindings([
+      {
+        sid: "GEN 1:1",
+        code: "hyg.control-chars",
+        severity: "warning",
+        start: 7,
+        end: 9,
+      },
+    ]);
+    const decorated = decorateFinding(finding, makeCtx());
+    expect(decorated.actions).toEqual([]);
+    expect(decorated.message).not.toBe(finding.code);
+    expect(decorated.message.length).toBeGreaterThan(0);
+  });
+
+  it("offers a collapse action for sous excess-whitespace findings", () => {
     const [finding] = sousFindingsToFindings([
       {
         sid: "GEN 1:1",
@@ -182,9 +198,9 @@ describe("decorateFinding (sous) and inert decoration", () => {
       },
     ]);
     const decorated = decorateFinding(finding, makeCtx());
-    expect(decorated.actions).toEqual([]);
-    expect(decorated.message).not.toBe(finding.code);
-    expect(decorated.message.length).toBeGreaterThan(0);
+    expect(decorated.actions.map((action) => action.id)).toEqual([
+      "collapse-whitespace",
+    ]);
   });
 
   it("humanizes an unmapped sous rule code rather than showing the raw id", () => {
