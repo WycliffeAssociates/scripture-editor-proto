@@ -12,7 +12,11 @@ import {
   useInstallUpdate,
   useRecheckForUpdate,
 } from "@/app/ui/hooks/useUpdateCheck.ts";
-import type { IUpdaterService } from "@/core/domain/updater/IUpdaterService.ts";
+import type {
+  AvailableUpdate,
+  CheckResult,
+  IUpdaterService,
+} from "@/core/domain/updater/IUpdaterService.ts";
 
 import * as styles from "./settings.css.ts";
 
@@ -253,12 +257,8 @@ function renderCheckStatus({
   update,
   isChecking,
 }: {
-  result:
-    | import("@/core/domain/updater/IUpdaterService.ts").CheckResult
-    | undefined;
-  update:
-    | import("@/core/domain/updater/IUpdaterService.ts").AvailableUpdate
-    | null;
+  result: CheckResult | undefined;
+  update: AvailableUpdate | null;
   isChecking: boolean;
 }): React.ReactNode | null {
   if (isChecking) return <Trans>Checking the update server…</Trans>;
@@ -275,7 +275,7 @@ function renderCheckStatus({
 
 /**
  * Lexicographic-with-numeric-segments comparison. Sufficient for ordering
- * release-please semver tags and the nightly date-sha pseudo-versions used
+ * Stable semver tags and the nightly date-sha pseudo-versions used
  * on the Nightly channel; not a full RFC-compliant semver comparator.
  */
 function compareSemverLoose(a: string, b: string): number {

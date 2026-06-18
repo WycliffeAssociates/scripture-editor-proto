@@ -10,7 +10,7 @@ This repo has two channels, both driven by `.github/workflows/release.yml`:
 - **Nightly** fires on every push to `master`. Version is `<base>-<run_number>`, where `<base>` is whatever `package.json` says on master. No human action needed; happens automatically with every merge.
 - **Stable** fires on push of a `v*` tag (matches `tags: ["v*"]` in release.yml). The tag is the trigger. Nothing else.
 
-There is **no release-please bot** and **no conventional-commit enforcement**. PR titles can be anything. Commit messages can be anything. The contract between development and release is the version tag.
+There is **no release bot** and **no conventional-commit enforcement**. PR titles can be anything. Commit messages can be anything. The contract between development and release is the version tag.
 
 ## When the user asks to cut a release
 

@@ -16,7 +16,7 @@
 
 Tags for Stable are cut via the **`cut-release` skill** (`.claude/skills/cut-release/SKILL.md`): branch off `origin/master`, run `scripts/patchAppVersion.mjs ${NEW_VERSION}` to patch the three in-tree manifests, open a release-prep PR, merge it, and tag the merge commit. The tag push fires `release.yml`. Tags for Nightly are derived inside `release.yml`'s `compute-channel` job and pushed by `tauri-action`.
 
-Release-please was set up early and then removed (`1a5c5a21`) once the cost of maintaining its config + Release PRs outweighed its benefit for a small repo where the human-readable release notes were getting hand-edited anyway. The repo deliberately **does not** enforce Conventional Commits or PR-title formats — both are fine in practice but not required.
+Versioning is driven entirely by the version tag — there is no release bot and no bot-managed release PR. The repo deliberately **does not** enforce Conventional Commits or PR-title formats — both are fine in practice but not required.
 
 ## Workflows
 
@@ -78,7 +78,7 @@ Date + commit SHA are NOT in the version string. They're available via:
 - The GH Release publish date
 - `VITE_VERSION_TAG` / `VITE_GITHUB_SHA` baked into the binary for Settings → About
 
-`scripts/patchAppVersion.mjs` rewrites `package.json`, `Cargo.toml` (preserving the `# x-release-please-version` marker comment), and `tauri.conf.json` to that value before each build job's frontend/Tauri compile. Without this, every Nightly between two Stable releases would carry the same Cargo.toml version and the updater plugin's `gt` check would never offer an update.
+`scripts/patchAppVersion.mjs` rewrites `package.json`, `Cargo.toml` (preserving any trailing comment on the version line), and `tauri.conf.json` to that value before each build job's frontend/Tauri compile. Without this, every Nightly between two Stable releases would carry the same Cargo.toml version and the updater plugin's `gt` check would never offer an update.
 
 ## Cloudflare topology
 

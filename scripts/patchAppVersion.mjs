@@ -4,7 +4,7 @@
  * Patch the in-tree app version across package.json, Cargo.toml, and
  * tauri.conf.json in one pass.
  *
- * Used by release.yml's nightly path: the standard release-please version
+ * Used by release.yml's nightly path: the in-tree base version
  * (e.g. "0.1.4") is rewritten to a semver-with-prerelease form
  * (e.g. "0.1.4-20260521-abc1234") so the binary reports the nightly identity
  * to the Tauri updater plugin. Without this, all nightlies between two
@@ -12,7 +12,7 @@
  * semver comparison would never offer an update on the Nightly channel.
  *
  * The Cargo.toml replacement preserves any trailing comment on the version
- * line (e.g. the `# x-release-please-version` marker added in Stage 1).
+ * line.
  *
  * usage: node scripts/patchAppVersion.mjs <semver-string>
  */

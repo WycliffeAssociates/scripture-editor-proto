@@ -2,7 +2,7 @@ name: release
 
 # Channel-aware release workflow. Triggers:
 #   push to master           -> Nightly (prerelease, tagged nightly-YYYYMMDD-<sha>)
-#   push to a v* tag         -> Stable (release-please cuts these)
+#   push to a v* tag         -> Stable (cut manually via the cut-release skill)
 #   workflow_dispatch        -> manual rerun
 #
 # Quality gates live in verify.yml and are enforced via branch protection.
