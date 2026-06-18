@@ -218,11 +218,18 @@ async function fetchSignatureText(url: string): Promise<string | null> {
 
 /**
  * Match a release asset by target. Tauri's updater plugin sends bare-OS
- * targets by default (`darwin`, `linux`, `windows`), and the updater
- * download path expects the archive-wrapped formats that Tauri itself
- * produces (.app.tar.gz, .AppImage.tar.gz, .msi.zip / .nsis.zip) — the
- * raw .dmg / .exe installers require user interaction and aren't valid
- * updater payloads.
+ * targets by default (`darwin`, `linux`, `windows`).
+ *
+ * The patterns below track what Tauri v2 emits with
+ * `createUpdaterArtifacts: true` (our `tauri.conf.json`): macOS still wraps
+ * the bundle as `.app.tar.gz`, but Windows and Linux now publish the *raw*
+ * installer as the updater payload — `-setup.exe` (NSIS) / `.msi` on Windows,
+ * `.AppImage` on Linux — each paired with a sibling `.sig`. (Tauri v1 wrapped
+ * these as `.nsis.zip` / `.msi.zip` / `.AppImage.tar.gz`; matching only those
+ * was why Windows + Linux auto-update 404'd while macOS kept working.)
+ *
+ * Windows prefers the NSIS `-setup.exe` (the plugin's default install target)
+ * and falls back to `.msi`.
  *
  * Arch-suffixed targets (`darwin-aarch64`, etc.) are kept as aliases so
  * the manual-switch flow in Settings, which constructs the URL itself,
@@ -233,8 +240,8 @@ function findPlatformAsset(
   assets: GhAsset[],
 ): GhAsset | undefined {
   const darwinPatterns = [/\.app\.tar\.gz$/];
-  const linuxPatterns = [/\.AppImage\.tar\.gz$/];
-  const windowsPatterns = [/\.msi\.zip$/, /\.nsis\.zip$/];
+  const linuxPatterns = [/\.AppImage$/];
+  const windowsPatterns = [/-setup\.exe$/, /\.msi$/];
   const patterns: Record<string, RegExp[]> = {
     darwin: darwinPatterns,
     "darwin-aarch64": darwinPatterns,
