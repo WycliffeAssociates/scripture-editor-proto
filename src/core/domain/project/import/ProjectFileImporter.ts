@@ -25,18 +25,24 @@ export class ProjectFileImporter {
   public async importFile(
     zipFilePath: string,
     onProgress?: ImportProgressReporter,
+    archiveName?: string,
   ): Promise<string> {
     // The unzip pipeline works from bytes. This small adapter exists so the
     // rest of the import stack can stay storage-path based.
+    //
+    // `archiveName` is the real upload filename when the caller staged the zip
+    // under a throwaway temp name; otherwise the staged path's basename is the
+    // real name already (native imports).
+    const resolvedArchiveName = archiveName ?? basenameStoragePath(zipFilePath);
     await emitImportProgress(
       onProgress,
       ImportProgressPhase.READ_SOURCE,
-      `Reading staged archive ${basenameStoragePath(zipFilePath)}...`,
+      `Reading staged archive ${resolvedArchiveName}...`,
     );
     const data = await this.zipPipeline.fileSystem.readBytes(zipFilePath);
 
     return this.zipPipeline.importFromZipData({
-      archiveName: basenameStoragePath(zipFilePath),
+      archiveName: resolvedArchiveName,
       data,
       stagedZipPath: zipFilePath,
       onProgress,

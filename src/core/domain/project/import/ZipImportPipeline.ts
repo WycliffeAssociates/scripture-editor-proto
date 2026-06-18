@@ -29,11 +29,24 @@ type ExtractionResult = {
  * archives.
  *
  * This is still import-phase code: it extracts bytes into temporary storage,
- * chooses the real top-level directory, and copies that directory into managed
- * app storage. Type-specific reshaping happens later once the item has been
+ * locates the container root (the directory holding the manifest) regardless of
+ * how deeply the archive nests it, and copies that directory into managed app
+ * storage. Type-specific reshaping happens later once the item has been
  * classified.
  */
 export class ZipImportPipeline {
+  // Defining files we treat as a container root, in detectContainerFormat's
+  // Scripture-Burrito-first order.
+  private static readonly CONTAINER_MARKER_FILENAMES = [
+    SCRIPTURE_BURRITO_METADATA_FILENAME,
+    "manifest.yaml",
+  ];
+
+  // How far below the archive root we'll look for a container marker. Covers
+  // loose-at-root (0), a single wrapping folder (1), and one extra nesting
+  // level (2) while bounding the scan.
+  private static readonly MAX_CONTAINER_SEARCH_DEPTH = 3;
+
   constructor(
     public readonly fileSystem: FileSystem,
     private readonly roots: StorageRoots,
@@ -192,7 +205,15 @@ export class ZipImportPipeline {
       throw new Error("No content extracted from zip.");
     }
 
-    const selectedTopLevel = await this.selectTopLevelEntry(topLevelEntries);
+    const containerRoot = await this.findContainerRoot(
+      tempExtractionDirPath,
+      topLevelEntries,
+      stripFileExtension(args.archiveName),
+    );
+    // No container marker anywhere within the search depth: fall back to the
+    // first top-level entry. This preserves how lone-file / unrecognized
+    // archives flow on to the resource loaders downstream.
+    const selectedTopLevel = containerRoot ?? topLevelEntries[0];
 
     return {
       tempDirPath: tempExtractionDirPath,
@@ -202,30 +223,73 @@ export class ZipImportPipeline {
     };
   }
 
-  private async selectTopLevelEntry(
-    entries: FileSystemEntry[],
-  ): Promise<FileSystemEntry> {
-    if (entries.length === 1) {
-      return entries[0];
-    }
+  /**
+   * Locate the directory that should become the managed project root by
+   * finding where a container's defining file lives.
+   *
+   * Both container formats key their internal paths to the directory that
+   * holds the manifest — Scripture Burrito `metadata.json` ingredients and
+   * resource-container `manifest.yaml` entries are relative to it — so the
+   * only root that keeps those paths resolving is the manifest's own
+   * directory. We breadth-first search from the extraction dir so the
+   * *shallowest* marker wins: a manifest sitting beside loose files at the
+   * archive root (the common "no enclosing folder" zip) takes precedence over
+   * one nested deeper, and a stray manifest buried in a sample folder can't
+   * hijack the root. The depth cap bounds the scan on pathological archives.
+   *
+   * Returns `null` when no marker is found within the depth cap; the caller
+   * keeps the legacy first-entry fallback for those.
+   */
+  private async findContainerRoot(
+    tempExtractionDirPath: string,
+    topLevelEntries: FileSystemEntry[],
+    archiveRootName: string,
+  ): Promise<FileSystemEntry | null> {
+    type Candidate = {
+      dirPath: string;
+      entry: FileSystemEntry;
+      depth: number;
+    };
+    const queue: Candidate[] = [
+      {
+        dirPath: tempExtractionDirPath,
+        // Loose-files-at-root: the extraction dir itself is the project root.
+        // Name it from the archive, since the temp dir only carries a
+        // throwaway "<archive>-extract-<ts>" name.
+        entry: {
+          name: archiveRootName,
+          path: tempExtractionDirPath,
+          kind: "directory",
+        },
+        depth: 0,
+      },
+    ];
 
-    // Some archives contain multiple top-level folders. Prefer the one that
-    // actually looks like a recognized container so later loaders see the
-    // intended root.
-    for (const entry of entries) {
-      if (entry.kind !== "directory") continue;
-      const hasMetadata = await this.fileSystem.exists(
-        joinStoragePath(entry.path, SCRIPTURE_BURRITO_METADATA_FILENAME),
-      );
-      const hasManifest = await this.fileSystem.exists(
-        joinStoragePath(entry.path, "manifest.yaml"),
-      );
-      if (hasMetadata || hasManifest) {
-        return entry;
+    while (queue.length > 0) {
+      const candidate = queue.shift();
+      if (!candidate) break;
+      const { dirPath, entry, depth } = candidate;
+
+      // metadata.json before manifest.yaml mirrors detectContainerFormat's
+      // Scripture-Burrito-first precedence when a dir carries both.
+      for (const marker of ZipImportPipeline.CONTAINER_MARKER_FILENAMES) {
+        if (await this.fileSystem.exists(joinStoragePath(dirPath, marker))) {
+          return entry;
+        }
+      }
+
+      if (depth >= ZipImportPipeline.MAX_CONTAINER_SEARCH_DEPTH) continue;
+
+      const children =
+        depth === 0 ? topLevelEntries : await this.fileSystem.list(dirPath);
+      for (const child of children) {
+        if (child.kind === "directory") {
+          queue.push({ dirPath: child.path, entry: child, depth: depth + 1 });
+        }
       }
     }
 
-    return entries[0];
+    return null;
   }
 
   private async resolveProjectDirectory(initialName: string): Promise<string> {

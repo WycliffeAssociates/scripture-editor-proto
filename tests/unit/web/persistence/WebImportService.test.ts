@@ -140,6 +140,9 @@ describe("WebImportService", () => {
       {
         type: "fromZipFile",
         filePath: expect.stringContaining("/temp/import-"),
+        // The real upload name is threaded through so the project isn't named
+        // after the `import-<ts>-` staging file.
+        archiveName: "folder.zip",
       },
       { onProgress: expect.any(Function) },
     );

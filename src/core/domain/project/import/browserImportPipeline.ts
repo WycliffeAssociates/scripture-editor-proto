@@ -427,6 +427,9 @@ async function importBrowserZip(
       {
         type: "fromZipFile",
         filePath: tempFilePath,
+        // The staged path is `import-<ts>-<original>`; pass the real upload
+        // name so the project isn't named after the temp staging file.
+        archiveName: source.file.name,
       },
       { onProgress: args.onProgress },
     );

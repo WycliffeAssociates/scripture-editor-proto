@@ -10,7 +10,12 @@ import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
  * how to materialize into managed app storage.
  */
 export type ImportSource =
-  | { type: "fromZipFile"; filePath: string }
+  // `archiveName` lets callers that stage the upload under a throwaway temp
+  // name (e.g. the web `import-<ts>-<original>` staging path) pass the real
+  // archive filename, so the derived project name isn't the temp name. When
+  // omitted, the staged path's basename is used (correct for native imports,
+  // where the path already carries the real filename).
+  | { type: "fromZipFile"; filePath: string; archiveName?: string }
   | { type: "fromDir"; directoryPath: string }
   | { type: "fromPreparedDir"; directoryPath: string }
   | { type: "fromGitRepo"; url: string };
@@ -43,7 +48,11 @@ export class ProjectImporter {
         return this.wacsImporter.import(source.url, onProgress);
 
       case "fromZipFile":
-        return this.fileImporter.importFile(source.filePath, onProgress);
+        return this.fileImporter.importFile(
+          source.filePath,
+          onProgress,
+          source.archiveName,
+        );
 
       case "fromDir":
         return this.directoryImporter.importDirectory(
