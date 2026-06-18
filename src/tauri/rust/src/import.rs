@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::collections::VecDeque;
 use std::fs;
 use std::io::{BufReader, Read, Seek, Write};
 use std::path::{Path, PathBuf};
@@ -741,9 +742,29 @@ where
     if top_level_entries.is_empty() {
         return Err("No content extracted from zip.".to_string());
     }
-    let selected_top_level = select_top_level_entry(&top_level_entries)?;
+
+    let (selected_top_level, top_level_name) =
+        match find_container_root(temp_extraction_dir, CONTAINER_SEARCH_MAX_DEPTH)? {
+            Some(root_dir) => {
+                // When the container marker sits at the extraction root, the
+                // archive had no enclosing folder (loose files); name the
+                // project from the archive rather than the throwaway
+                // "<archive>-extract-<nonce>" temp dir. A nested marker keeps
+                // its own folder name.
+                let name = if root_dir == temp_extraction_dir {
+                    archive_root_name(archive_path)
+                } else {
+                    top_level_name(&ExtractedTopLevel::Directory(root_dir.clone()))?
+                };
+                (ExtractedTopLevel::Directory(root_dir), name)
+            }
+            None => {
+                let selected = select_top_level_entry(&top_level_entries)?;
+                let name = top_level_name(&selected)?;
+                (selected, name)
+            }
+        };
     let extracted_file_count = count_files_in_top_level(&selected_top_level)?;
-    let top_level_name = top_level_name(&selected_top_level)?;
 
     Ok(ExtractionResult {
         top_level_entry: selected_top_level,
@@ -806,6 +827,62 @@ fn list_top_level_entries(path: &Path) -> Result<Vec<PathBuf>, String> {
         entries.push(entry.path());
     }
     Ok(entries)
+}
+
+/// Files that mark a directory as a container root, checked in the same
+/// Scripture-Burrito-first order the loaders use.
+const CONTAINER_MARKER_FILENAMES: [&str; 2] = ["metadata.json", "manifest.yaml"];
+
+/// How far below the extraction root to look for a container marker. Covers
+/// loose-at-root (0), a single wrapping folder (1), and one extra nesting
+/// level (2) while bounding the scan.
+const CONTAINER_SEARCH_MAX_DEPTH: usize = 3;
+
+fn dir_has_container_marker(dir: &Path) -> bool {
+    CONTAINER_MARKER_FILENAMES
+        .iter()
+        .any(|marker| dir.join(marker).exists())
+}
+
+fn archive_root_name(archive_path: &Path) -> String {
+    archive_path
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty())
+        .unwrap_or("imported-project")
+        .to_string()
+}
+
+/// Find the directory that should become the project root by locating where a
+/// container's defining file lives. Both container formats key their internal
+/// paths to the directory holding the manifest, so that directory is the only
+/// root that keeps those paths resolving. Breadth-first so the *shallowest*
+/// marker wins (a manifest beside loose files at the archive root beats one
+/// nested deeper), with a depth cap to bound the scan. Mirrors the web
+/// `ZipImportPipeline`. Returns `None` when no marker is found within the cap;
+/// callers keep the legacy first-entry fallback for those.
+fn find_container_root(root: &Path, max_depth: usize) -> Result<Option<PathBuf>, String> {
+    let mut queue: VecDeque<(PathBuf, usize)> = VecDeque::new();
+    queue.push_back((root.to_path_buf(), 0));
+
+    while let Some((dir, depth)) = queue.pop_front() {
+        if dir_has_container_marker(&dir) {
+            return Ok(Some(dir));
+        }
+        if depth >= max_depth {
+            continue;
+        }
+        let mut children = list_top_level_entries(&dir)?;
+        // Deterministic order so a fixed archive always picks the same root.
+        children.sort();
+        for child in children {
+            if child.is_dir() {
+                queue.push_back((child, depth + 1));
+            }
+        }
+    }
+
+    Ok(None)
 }
 
 fn select_top_level_entry(entries: &[PathBuf]) -> Result<ExtractedTopLevel, String> {
@@ -1483,6 +1560,46 @@ mod tests {
             .expect("read temp root")
             .next()
             .is_none());
+
+        fs::remove_dir_all(sandbox).ok();
+    }
+
+    #[test]
+    fn roots_loose_files_at_archive_root_and_names_from_archive() {
+        // Archive with no enclosing folder: container markers + book files sit
+        // loose at the root. Must root at the extraction dir (not pick one
+        // arbitrary file) and name the project from the archive.
+        let sandbox = make_temp_dir("zip-loose-root");
+        let archive_path = sandbox.join("bem-x-unga.zip");
+        let projects_root = sandbox.join("managed-projects");
+        let temp_root = sandbox.join("temp");
+        create_test_zip(
+            &archive_path,
+            &[
+                ("metadata.json", Some("{}")),
+                ("manifest.yaml", Some("projects: []")),
+                ("61-1PE.usfm", Some("\\id 1PE")),
+                ("62-2PE.usfm", Some("\\id 2PE")),
+            ],
+        );
+
+        let mut progress_events = Vec::<ImportProgressPayload>::new();
+        let destination = extract_zip_into_managed_storage(
+            &archive_path,
+            &projects_root,
+            &temp_root,
+            &mut |payload| {
+                progress_events.push(payload);
+                Ok(())
+            },
+            &|from, to| fs::copy(from, to).map(|_| ()),
+        )
+        .expect("loose-root zip import should succeed");
+
+        assert_eq!(destination, projects_root.join("bem-x-unga"));
+        assert!(destination.join("metadata.json").exists());
+        assert!(destination.join("manifest.yaml").exists());
+        assert!(destination.join("62-2PE.usfm").exists());
 
         fs::remove_dir_all(sandbox).ok();
     }
