@@ -647,7 +647,7 @@ function sortFindingsForDisplay(entries: FlatFinding[]): FlatFinding[] {
     order.set(code, idx);
   });
 
-  return entries.toSorted((a, b) => {
+  return entries.slice().sort((a, b) => {
     const aBook = order.get(a.bookCode) ?? 9999;
     const bBook = order.get(b.bookCode) ?? 9999;
     if (aBook !== bBook) return aBook - bBook;

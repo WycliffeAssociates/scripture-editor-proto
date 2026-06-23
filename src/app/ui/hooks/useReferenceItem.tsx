@@ -402,9 +402,9 @@ export const useReferenceItem = ({
       return null;
     }
 
-    const sortedChapters = referenceFile.chapters.toSorted(
-      (a, b) => a.chapterNumber - b.chapterNumber,
-    );
+    const sortedChapters = referenceFile.chapters
+      .slice()
+      .sort((a, b) => a.chapterNumber - b.chapterNumber);
     const currentIndex = sortedChapters.findIndex(
       (chapter) => chapter.chapterNumber === effectiveReferenceChapterNumber,
     );
@@ -441,9 +441,9 @@ export const useReferenceItem = ({
       return null;
     }
 
-    const sortedChapters = referenceFile.chapters.toSorted(
-      (a, b) => a.chapterNumber - b.chapterNumber,
-    );
+    const sortedChapters = referenceFile.chapters
+      .slice()
+      .sort((a, b) => a.chapterNumber - b.chapterNumber);
     const currentIndex = sortedChapters.findIndex(
       (chapter) => chapter.chapterNumber === effectiveReferenceChapterNumber,
     );

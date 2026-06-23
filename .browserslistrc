@@ -1,0 +1,12 @@
+# Runtime support floor for Zephyr's WebView targets (NOT open-web population —
+# a Tauri app inherits its engine from the host OS, so popularity queries like
+# `>0.5%` are meaningless here).
+#
+#   Windows  -> WebView2 (Chromium)    -> Chrome 110 (toSorted, Feb 2023)
+#   Linux    -> WebKitGTK (~Safari)    -> webkit2gtk 4.1 era / Safari 15.4
+#   macOS    -> WKWebView (Safari)     -> Safari 15.4 (Monterey)
+#
+# Nothing in the toolchain consumes this yet (oxlint has no compat rule); it is
+# the written-down floor that tsconfig `lib` and the Vite `build.target` mirror.
+chrome >= 110
+safari >= 15.4

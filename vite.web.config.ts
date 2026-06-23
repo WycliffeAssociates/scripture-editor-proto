@@ -20,6 +20,9 @@ export default defineConfig({
   },
   build: {
     outDir: "./dist-web",
+    // Keep the web build's syntax floor aligned with the Tauri target. esbuild
+    // downlevels *syntax* only; above-floor methods are guarded by tsconfig `lib`.
+    target: ["chrome110", "safari15.4"],
   },
   plugins: [
     vanillaExtractPlugin(),

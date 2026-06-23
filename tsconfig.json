@@ -2,14 +2,13 @@
   "compilerOptions": {
     "target": "ES2020",
     "useDefineForClassFields": true,
-    "lib": [
-      "es2022",
-      "es2023.array",
-      "esnext.disposable",
-      "DOM",
-      "DOM.Iterable",
-      "DOM.AsyncIterable"
-    ],
+    // Floor = Chrome 110 / Safari 15.4 (oldest WebView2 / WebKitGTK we support
+    // in the field). The lib set must not exceed what that floor ships, so tsc
+    // surfaces above-floor API use (e.g. Array.prototype.toSorted, Safari 16)
+    // as a compile error rather than letting it crash on an old WebView.
+    // es2022 is fully covered by the floor; es2023.array + esnext.disposable
+    // are NOT, so they are deliberately omitted.
+    "lib": ["es2022", "DOM", "DOM.Iterable", "DOM.AsyncIterable"],
     "module": "ESNext",
     "skipLibCheck": true,
     // TS 6 no longer auto-discovers all @types/* packages; list the ones

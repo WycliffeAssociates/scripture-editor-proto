@@ -19,6 +19,13 @@ export default defineConfig({
     format: "es",
     plugins: () => [wasm()],
   },
+  // Syntax downlevel floor = oldest WebView2 (Windows) / WebKitGTK (Linux) /
+  // WKWebView (macOS) we ship to. NOTE: esbuild only downlevels *syntax* here;
+  // it does NOT polyfill or rewrite above-floor *methods* (toSorted etc.) —
+  // tsconfig `lib` is what guards those.
+  build: {
+    target: ["chrome110", "safari15.4"],
+  },
   plugins: [
     vanillaExtractPlugin(),
     tanstackRouter({
