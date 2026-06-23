@@ -93,9 +93,9 @@ export const useWorkspaceState = (
        * book, snap back to the nearest sensible chapter and persist that
        * correction so downstream UI state stays aligned.
        */
-      const sortedChaps = pickedFile.chapters.toSorted(
-        (a, b) => a.chapterNumber - b.chapterNumber,
-      );
+      const sortedChaps = pickedFile.chapters
+        .slice()
+        .sort((a, b) => a.chapterNumber - b.chapterNumber);
       const lastChap = sortedChaps[sortedChaps.length - 1];
       const firstChap = sortedChaps[0];
 

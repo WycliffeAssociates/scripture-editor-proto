@@ -46,7 +46,7 @@ function groupByLanguage<T>(
       ([language, bucket]) =>
         [
           language,
-          bucket.toSorted((a, b) => labelOf(a).localeCompare(labelOf(b))),
+          bucket.slice().sort((a, b) => labelOf(a).localeCompare(labelOf(b))),
         ] as [string, T[]],
     )
     .sort(([a], [b]) => a.localeCompare(b));

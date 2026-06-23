@@ -43,9 +43,9 @@ export function BookChapterPickerSidebar() {
       }),
       bookCode: file.bookCode,
       chapters: file.chapters,
-      sortedChapters: file.chapters.toSorted(
-        (a, b) => a.chapterNumber - b.chapterNumber,
-      ),
+      sortedChapters: file.chapters
+        .slice()
+        .sort((a, b) => a.chapterNumber - b.chapterNumber),
     }));
   }, [bookCodeToProjectLocalizedTitle, project.workingFiles]);
 
