@@ -10,7 +10,6 @@ import {
   DELETE_CHARACTER_COMMAND,
   type EditorConfig,
   KEY_DOWN_COMMAND,
-  KEY_SPACE_COMMAND,
   type LexicalEditor,
   type TextNode,
 } from "lexical";
@@ -20,6 +19,7 @@ import {
   type SerializedUSFMTextNode,
   USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { registerNumberProseDrafting } from "@/app/domain/editor/selection/numberProseDrafting.ts";
 import { registerSeamSelection } from "@/app/domain/editor/selection/seamSelection.ts";
 import {
   idState,
@@ -482,42 +482,20 @@ export function registerNumberedMarkerBehaviors(editor: LexicalEditor) {
     COMMAND_PRIORITY_LOW,
   );
 
-  // Space at the number's end: the terminator already exists, so another
-  // space would be superfluous bytes — jump the caret to the prose instead.
-  const $spaceJump = (event: KeyboardEvent): boolean => {
-    if (event.shiftKey || event.altKey || event.metaKey || event.ctrlKey) {
-      return false;
-    }
-    if (editor.isComposing()) return false;
-    const sel = $getSelection();
-    if (!$isRangeSelection(sel) || !sel.isCollapsed()) return false;
-    const node = sel.anchor.getNode();
-    if (!$isUSFMNumberedMarkerNode(node)) return false;
-    const text = node.getTextContent();
-    const rest = text.slice(sel.anchor.offset);
-    const terminatorPresent =
-      rest.length > 0 ? /^\s+$/u.test(rest) : /\s$/u.test(text);
-    const next = node.getNextSibling();
-    if (terminatorPresent && $isTextNode(next)) {
-      event.preventDefault();
-      // Hold the prose edge so the jump STAYS at text@0 (otherwise the
-      // model bounces text@0 ↔ num@end and the caret cycles custom/native).
-      seam.hold(next.getKey());
-      next.select(0, 0);
-      return true;
-    }
-    return false;
-  };
-  const space = editor.registerCommand<KeyboardEvent>(
-    KEY_SPACE_COMMAND,
-    $spaceJump,
-    COMMAND_PRIORITY_LOW,
+  // Number→prose drafting (space-jump + skeleton prose creation) is the
+  // shared multi-modal mechanism; the regular shape supplies its number-node
+  // predicate and seam hold. (The flat shape wires the same mechanism with
+  // its own predicate/seam in useEditorInput.)
+  const drafting = registerNumberProseDrafting(
+    editor,
+    (node): node is USFMTextNode => $isUSFMNumberedMarkerNode(node),
+    seam.hold,
   );
 
   return () => {
     seam.unregister();
     del();
     typeEmpty();
-    space();
+    drafting();
   };
 }
