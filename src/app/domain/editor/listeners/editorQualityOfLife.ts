@@ -76,29 +76,9 @@ export function moveToAdjacentNodesWhenSeemsAppropriate(
       });
     }
   }
-  // --- Scenario 2: Inside a 'numberRange' node ---
-  else if (anchorNode.getTokenType() === UsfmTokenTypes.numberRange) {
-    const nextSibling = anchorNode.getNextSibling();
-
-    // Check if the next sibling is the specific type we want to jump to.
-    if (
-      $isUSFMTextNode(nextSibling) &&
-      nextSibling.getTokenType() === UsfmTokenTypes.text
-    ) {
-      // Move the caret to the beginning of that text node.
-      isHandled = true;
-      event.preventDefault();
-      event.stopPropagation();
-      editor.update(() => {
-        // if for some reason next text node doens't start with space, make sure if does.
-        const nextTextContent = nextSibling.getTextContent();
-        if (!nextTextContent.startsWith(" ")) {
-          nextSibling.setTextContent(` ${nextTextContent}`);
-        }
-        nextSibling.select(1, 1);
-      });
-    }
-  }
+  // The numberRange → prose boundary (space-jump + skeleton prose creation) is
+  // owned by the shared registerNumberProseDrafting mechanism, wired for the
+  // flat shape in useEditorInput.
 
   return isHandled;
 }

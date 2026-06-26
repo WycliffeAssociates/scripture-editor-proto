@@ -41,6 +41,7 @@ import {
   $isUSFMTextNode,
   USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { registerNumberProseDrafting } from "@/app/domain/editor/selection/numberProseDrafting.ts";
 import { registerSeamSelection } from "@/app/domain/editor/selection/seamSelection.ts";
 import { isFlatNumberSeam } from "@/app/domain/editor/selection/usfmSeams.ts";
 import { calculateIsStartOfLine } from "@/app/domain/editor/utils/nodePositionUtils.ts";
@@ -112,6 +113,20 @@ export function useEditorInput(editor: LexicalEditor) {
       editorModeToShape(editorModeSetting) === "flat"
         ? registerSeamSelection(editor, isFlatNumberSeam)
         : null;
+
+    // Flat-shape number→prose drafting (space-jump + skeleton prose creation),
+    // the shared mechanism wired with the flat number-node predicate and this
+    // shape's seam hold. (Regular shape wires the same mechanism inside its
+    // numbered-marker behaviors.)
+    const numberProseDraftingUnregister = seamSelection
+      ? registerNumberProseDrafting(
+          editor,
+          (node): node is USFMTextNode =>
+            $isUSFMTextNode(node) &&
+            node.getTokenType() === UsfmTokenTypes.numberRange,
+          seamSelection.hold,
+        )
+      : null;
 
     // Regular-mode copy/cut: text/plain = USFM bytes via the token
     // waist (flat modes' default copy is already the bytes).
@@ -342,6 +357,7 @@ export function useEditorInput(editor: LexicalEditor) {
       unregisterTransformWhileTyping();
       redirectParaInsertionToLineBreakUnregister();
       numberedMarkerBehaviorsUnregister();
+      numberProseDraftingUnregister?.();
       seamSelection?.unregister();
       normalizeSelectionAtHiddenMarkerBoundaryUnregister();
       moveToAdjacentNodesUnregister();
