@@ -335,21 +335,18 @@ describe("G3 gap rule", () => {
         kind: "text",
         source: "one",
         sid: "GEN 1:1",
-        span: { start: 0, end: 3 },
       },
       {
         id: "b",
         kind: "newline",
         source: "\n",
         sid: "GEN 1:1",
-        span: { start: 3, end: 4 },
       },
       {
         id: "c",
         kind: "text",
         source: "two",
         sid: "GEN 1:1",
-        span: { start: 4, end: 7 },
       },
     ];
     const anchors: MatchAnchors = {
@@ -371,7 +368,6 @@ describe("G3 gap rule", () => {
         source: "\\nd ",
         marker: "nd",
         sid: "GEN 1:1",
-        span: { start: 3, end: 7 },
       },
       tokens[2],
     ];

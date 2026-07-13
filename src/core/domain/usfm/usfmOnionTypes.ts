@@ -24,7 +24,16 @@ import type {
  * Keeping these aliases here prevents the rest of the codebase from depending
  * directly on package-specific names at every call site.
  */
-export type Token = OnionToken;
+/**
+ * `span` is omitted from the app's Token. Onion emits it in book-relative
+ * coordinates that don't line up with the app's chapter-scoped token streams,
+ * nothing in the app needs it, and onion's own diff/revert functions ignore
+ * incoming span — so tokens round-trip without it. Omitting it (rather than
+ * leaving it unread) makes a stray `.span` read a compile error; `span` is
+ * optional on the onion type, so tokens stay assignable back into onion APIs
+ * that still produce it.
+ */
+export type Token = Omit<OnionToken, "span">;
 /** USFM 3.1 character-marker attribute (`|key="value"` after `\w` etc.). */
 export type AttributeItem = OnionAttributeItem;
 export type BuildSidBlocksOptions = OnionBuildSidBlocksOptions;

@@ -257,7 +257,6 @@ export function lexicalToTokens(
 
   let lastSid = "";
   let linebreakId = 0;
-  let cursor = 0;
   const tokens: Token[] = [];
 
   for (const node of nodes) {
@@ -265,14 +264,9 @@ export function lexicalToTokens(
       tokens.push({
         id: `linebreak-${linebreakId++}`,
         kind: "newline",
-        span: {
-          start: cursor,
-          end: cursor + 1,
-        },
         sid: lastSid,
         source: "\n",
       });
-      cursor += 1;
       continue;
     }
 
@@ -284,10 +278,6 @@ export function lexicalToTokens(
     tokens.push({
       id: node.id,
       kind: lexicalTokenTypeToOnionKind(node.tokenType),
-      span: {
-        start: cursor,
-        end: cursor + text.length,
-      },
       sid,
       marker,
       // USFM 3.1 marks nested character markers with a "+" prefix;
@@ -301,7 +291,6 @@ export function lexicalToTokens(
       // the attribute slice silently drops on save.
       attributes: node.attributes,
     });
-    cursor += text.length;
     if (sid) lastSid = sid;
   }
 

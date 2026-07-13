@@ -39,7 +39,6 @@ function makeChapter(markerText: string): ScriptureChapterState {
       {
         id: "tok-1",
         kind: "text",
-        span: { start: 0, end: markerText.length },
         sid: "GEN 1:1",
         source: markerText,
       },
@@ -48,7 +47,6 @@ function makeChapter(markerText: string): ScriptureChapterState {
       {
         id: "tok-1",
         kind: "text",
-        span: { start: 0, end: markerText.length },
         sid: "GEN 1:1",
         source: markerText,
       },

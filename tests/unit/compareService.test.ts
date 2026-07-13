@@ -20,7 +20,6 @@ function makeTokens(text: string, sid: string, id: string): Token[] {
     {
       id,
       kind: "text",
-      span: { start: 0, end: text.length },
       sid,
       source: text,
     },
@@ -130,14 +129,12 @@ describe("compareService.buildCompareResultAsync", () => {
           sid: "",
           marker: "id",
           source: "\\id",
-          span: { start: 0, end: 3 },
         },
         {
           id: "GEN-1",
           kind: "bookCode",
           sid: "GEN 0:0",
           source: " GEN",
-          span: { start: 3, end: 7 },
         },
       ],
       "GEN",

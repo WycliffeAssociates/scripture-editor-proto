@@ -14,7 +14,6 @@ function makeTokens(text: string, sid: string, id: string): Token[] {
     {
       id,
       kind: "text",
-      span: { start: 0, end: text.length },
       sid,
       source: text,
     },

@@ -27,14 +27,13 @@ export function groupFlatTokensByChapter(
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
     if (token.marker === "c" && token.kind === "marker") {
-      const markerEnd = token.span?.end ?? Number.MAX_SAFE_INTEGER;
+      // The chapter number is the next "number"-kind token in the stream —
+      // tokens are already in source order, so array position after this
+      // marker is the signal.
       let nextChapter = Number.NaN;
       for (let j = i + 1; j < tokens.length; j++) {
         const candidate = tokens[j];
-        if (
-          candidate.kind === "number" &&
-          (candidate.span?.start ?? -1) >= markerEnd
-        ) {
+        if (candidate.kind === "number") {
           nextChapter = Number.parseInt(candidate.source ?? "", 10);
           break;
         }

@@ -156,19 +156,6 @@ export function classifyTier(args: {
   return "tier2";
 }
 
-/** Recompute cumulative source spans so the stream matches `lexicalToTokens`. */
-function restampSpans(tokens: Token[]): Token[] {
-  let cursor = 0;
-  return tokens.map((token) => {
-    const start = cursor;
-    cursor += token.source.length;
-    if (token.span && token.span.start === start && token.span.end === cursor) {
-      return token;
-    }
-    return { ...token, span: { start, end: cursor } };
-  });
-}
-
 /**
  * Tier 1: splice one plain-text token's source in place. Synchronous; every
  * other token keeps its id/sid/NodeState anchor.
@@ -187,7 +174,7 @@ export function applyTier1(args: {
     token.source.slice(anchors.endOffset);
   const out = tokens.slice();
   out[i] = { ...token, source };
-  return restampSpans(out);
+  return out;
 }
 
 /**
@@ -268,5 +255,5 @@ export async function applyTier2(args: {
     ...tokens.slice(w1 + 1),
   ];
 
-  return restampSpans(normalizeTokenSids(stitched, bookCode));
+  return normalizeTokenSids(stitched, bookCode);
 }

@@ -77,12 +77,6 @@ function tokensEqual(left: Token[], right: Token[]): boolean {
     if (a.source !== b.source) return false;
     if ((a.sid ?? null) !== (b.sid ?? null)) return false;
     if ((a.marker ?? null) !== (b.marker ?? null)) return false;
-    if (
-      (a.span?.start ?? null) !== (b.span?.start ?? null) ||
-      (a.span?.end ?? null) !== (b.span?.end ?? null)
-    ) {
-      return false;
-    }
   }
   return true;
 }
