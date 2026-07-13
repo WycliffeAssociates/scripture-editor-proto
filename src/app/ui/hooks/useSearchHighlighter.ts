@@ -1,16 +1,37 @@
-import type { LexicalEditor, LexicalNode } from "lexical";
+import type { LexicalEditor } from "lexical";
 
-export type MatchInNode = {
-  node: LexicalNode;
-  start: number;
-  end: number;
-};
+import {
+  locateUtf16Offset,
+  tokenElement,
+} from "@/app/domain/editor/annotations/resolveContentRange.ts";
+import type { SearchMatch } from "@/app/ui/hooks/search/searchTypes.ts";
 
 type EditorHighlightInput = {
   editor: LexicalEditor;
-  matches: MatchInNode[];
-  activeMatch?: MatchInNode;
+  matches: SearchMatch[];
+  activeMatch?: SearchMatch;
 };
+
+/**
+ * Build DOM Ranges for a match's text-like sub-ranges. One match may span
+ * several tokens (a multi-token USFM-mode match) → several Ranges. Tokens whose
+ * element is missing (offscreen/virtualized) are skipped.
+ */
+function rangesForMatch(root: HTMLElement, match: SearchMatch): Range[] {
+  const ranges: Range[] = [];
+  for (const paintRange of match.ranges) {
+    const el = tokenElement(root, paintRange.tokenId);
+    if (!el) continue;
+    const start = locateUtf16Offset(el, paintRange.start);
+    const end = locateUtf16Offset(el, paintRange.end);
+    if (!start || !end) continue;
+    const range = el.ownerDocument.createRange();
+    range.setStart(start.node, start.offset);
+    range.setEnd(end.node, end.offset);
+    ranges.push(range);
+  }
+  return ranges;
+}
 
 /**
  * Remove all search highlight state from the shared CSS Highlight registry.
@@ -37,40 +58,21 @@ export function highlightMatchesAcrossEditors(
   let hasActiveMatchRange = false;
 
   for (const { editor, matches, activeMatch } of inputs) {
+    const root = editor.getRootElement();
+    if (!root) continue;
+
     for (const match of matches) {
-      const domEl = editor.getElementByKey(match.node.getKey());
-      if (!domEl) continue;
-
-      const firstChild = domEl.firstChild;
-      if (!firstChild || firstChild.nodeType !== Node.TEXT_NODE) {
-        continue;
+      for (const range of rangesForMatch(root, match)) {
+        allMatchesHighlight.add(range);
+        hasAllMatchRanges = true;
       }
-
-      const textContent = firstChild.textContent ?? "";
-      if (match.start < 0 || match.end > textContent.length) continue;
-
-      const range = new Range();
-      range.setStart(firstChild, match.start);
-      range.setEnd(firstChild, match.end);
-      allMatchesHighlight.add(range);
-      hasAllMatchRanges = true;
     }
 
     if (activeMatch) {
-      const activeDomEl = editor.getElementByKey(activeMatch.node.getKey());
-      if (activeDomEl) {
-        const activeFirstChild = activeDomEl.firstChild;
-        if (activeFirstChild && activeFirstChild.nodeType === Node.TEXT_NODE) {
-          const textContent = activeFirstChild.textContent ?? "";
-          if (activeMatch.start >= 0 && activeMatch.end <= textContent.length) {
-            // Keep a distinct highlight for the currently selected result.
-            const activeRange = new Range();
-            activeRange.setStart(activeFirstChild, activeMatch.start);
-            activeRange.setEnd(activeFirstChild, activeMatch.end);
-            activeMatchHighlight.add(activeRange);
-            hasActiveMatchRange = true;
-          }
-        }
+      for (const range of rangesForMatch(root, activeMatch)) {
+        // Keep a distinct highlight for the currently selected result.
+        activeMatchHighlight.add(range);
+        hasActiveMatchRange = true;
       }
     }
   }
@@ -95,9 +97,28 @@ export function highlightMatchesAcrossEditors(
  */
 export function scrollToActiveMatchInEditor(
   editor: LexicalEditor,
-  activeMatch: MatchInNode,
+  activeMatch: SearchMatch,
 ): void {
-  const activeDomEl = editor.getElementByKey(activeMatch.node.getKey());
-  if (!activeDomEl) return;
-  activeDomEl.scrollIntoView({ block: "center", behavior: "smooth" });
+  const root = editor.getRootElement();
+  const firstRange = activeMatch.ranges[0];
+  if (!root || !firstRange) return;
+  const el = tokenElement(root, firstRange.tokenId);
+  el?.scrollIntoView({ block: "center", behavior: "smooth" });
+}
+
+/**
+ * Scroll to a verse by sid, via the `data-sid` attribute every rendered token
+ * carries. For navigation that has no match to anchor on — e.g. landing on a
+ * verse after a mode toggle re-runs search and the original term no longer
+ * matches the new projection.
+ */
+export function scrollToSidInEditor(editor: LexicalEditor, sid: string): void {
+  const root = editor.getRootElement();
+  if (!root) return;
+  const escaped =
+    typeof CSS !== "undefined" && typeof CSS.escape === "function"
+      ? CSS.escape(sid)
+      : sid.replace(/["\\]/gu, "\\$&");
+  const el = root.querySelector(`[data-sid="${escaped}"]`);
+  el?.scrollIntoView({ block: "center", behavior: "smooth" });
 }

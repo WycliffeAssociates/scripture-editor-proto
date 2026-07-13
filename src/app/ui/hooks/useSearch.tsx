@@ -1,6 +1,6 @@
 import { Effect, Fiber } from "effect";
 import type { LexicalEditor } from "lexical";
-import { type RefObject, useEffect, useMemo, useRef } from "react";
+import { type RefObject, useCallback, useEffect, useMemo, useRef } from "react";
 
 import { makeSearchRerunPipeline } from "@/app/domain/editor/pipelines/searchRerunPipeline.ts";
 import { escapeRegex } from "@/app/domain/search/search.utils.ts";
@@ -14,15 +14,22 @@ import type {
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { SearchHighlightStore } from "@/app/state/SearchHighlightStore.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
+import type { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
 import { useSearchExecution } from "@/app/ui/hooks/search/useSearchExecution.ts";
-import { useSearchNavigation } from "@/app/ui/hooks/search/useSearchNavigation.ts";
+import {
+  type ResolveChapterTokens,
+  useSearchNavigation,
+} from "@/app/ui/hooks/search/useSearchNavigation.ts";
 import { useSearchReplace } from "@/app/ui/hooks/search/useSearchReplace.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import { makeSid } from "@/core/data/bible/bible.ts";
+import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 
 type Props = {
   workingFilesStore: WorkingFilesStore;
   searchHighlightStore: SearchHighlightStore;
+  interactionGate: WorkspaceGateStore;
+  usfmOnionService: IUsfmOnionService;
   referenceFiles?: ScriptureBookState[];
   contentProvider?: SearchContentProvider;
   switchBookOrChapter: (
@@ -57,6 +64,8 @@ export type UseSearchReturn = ReturnType<typeof useProjectSearch> & {
 export function useProjectSearch({
   workingFilesStore,
   searchHighlightStore,
+  interactionGate,
+  usfmOnionService,
   referenceFiles,
   contentProvider,
   switchBookOrChapter,
@@ -84,11 +93,35 @@ export function useProjectSearch({
     chapter: pickedChapter?.chapterNumber || 1,
   });
 
+  // Matches resolve against the canonical token store, so the collector reaches
+  // a chapter's `currentTokens` directly (target = working files, reference =
+  // the loaded reference files) rather than walking the live editor tree.
+  const resolveChapterTokens: ResolveChapterTokens = useMemo(
+    () => (source, bookCode, chapterNum) => {
+      const files =
+        source === "reference"
+          ? (referenceFiles ?? [])
+          : workingFilesStore.read();
+      const book = files.find((b) => b.bookCode === bookCode);
+      return book?.chapters.find((c) => c.chapterNumber === chapterNum)
+        ?.currentTokens;
+    },
+    [referenceFiles, workingFilesStore],
+  );
+
+  const pickedChapterNumber = pickedChapter?.chapterNumber ?? 1;
+  const getVisibleTarget = useCallback(
+    () => ({ bookCode: pickedFile.bookCode, chapterNum: pickedChapterNumber }),
+    [pickedChapterNumber, pickedFile.bookCode],
+  );
+
   const navigation = useSearchNavigation({
     editorRef,
     referenceEditorRef,
     switchBookOrChapter,
     searchHighlightStore,
+    resolveChapterTokens,
+    getVisibleTarget,
   });
 
   const execution = useSearchExecution({
@@ -111,20 +144,19 @@ export function useProjectSearch({
 
   const replace = useSearchReplace({
     history,
+    workingFilesStore,
+    interactionGate,
+    usfmOnionService,
     editorRef,
-    searchHighlightStore,
     searchReference: execution.searchReference,
+    searchUSFM: execution.searchUSFM,
+    setSearchUSFM: execution.setSearchUSFM,
     pickedResult: navigation.pickedResult,
-    currentMatches: navigation.currentMatches,
-    currentMatchIndex: navigation.currentMatchIndex,
-    setCurrentMatchIndex: navigation.setCurrentMatchIndex,
     setPickedResult: navigation.setPickedResult,
     searchTerm: execution.searchTerm,
     runSearchLogic: execution.runSearchLogic,
     matchCase: execution.matchCase,
     matchWholeWord: execution.matchWholeWord,
-    pickedFile,
-    pickedChapter,
     preparePickedResult: navigation.preparePickedResult,
   });
 
@@ -172,10 +204,13 @@ export function useProjectSearch({
         searchReference: execution.searchReference,
         matchCase: execution.matchCase,
         matchWholeWord: execution.matchWholeWord,
+        searchUSFM: execution.searchUSFM,
       }),
     replaceCurrentMatch: replace.replaceCurrentMatch,
     replaceSearchResult: replace.replaceSearchResult,
     replaceMatch: replace.replaceMatch,
+    isReplaceGap: replace.isReplaceGap,
+    editMatchInUsfmMode: replace.editMatchInUsfmMode,
     currentMatches: navigation.currentMatches,
     isSearchPaneOpen: execution.isSearchPaneOpen,
     setIsSearchPaneOpen: execution.setSearchPaneOpen,

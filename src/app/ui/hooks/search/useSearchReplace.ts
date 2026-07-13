@@ -1,33 +1,41 @@
 import type { LexicalEditor } from "lexical";
-import { type RefObject, useCallback, useState } from "react";
+import { type RefObject, useCallback, useMemo, useState } from "react";
 
-import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import {
+  probeReplaceGap,
+  type ReplaceOnStoreDeps,
+  replaceMatchOnStore,
+  type ReplaceTarget,
+} from "@/app/domain/search/replaceOnStore.ts";
 import type { SearchResult } from "@/app/domain/search/SearchService.ts";
-import type {
-  ScriptureBookState,
-  ScriptureChapterState,
-} from "@/app/scripture/ScriptureWorkspaceState.ts";
-import type { SearchHighlightStore } from "@/app/state/SearchHighlightStore.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
+import type { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
 import type {
   SearchMatch,
   SearchRunResult,
 } from "@/app/ui/hooks/search/searchTypes.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
-import {
-  type MatchInNode,
-  scrollToActiveMatchInEditor,
-} from "@/app/ui/hooks/useSearchHighlighter.ts";
-import { replaceInNodeText } from "@/core/domain/search/replaceEngine.ts";
+import { scrollToSidInEditor } from "@/app/ui/hooks/useSearchHighlighter.ts";
+import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
+
+type PickArgs = {
+  activeSearchTerm: string;
+  searchReference: boolean;
+  matchCase: boolean;
+  matchWholeWord: boolean;
+  searchUSFM: boolean;
+};
 
 type Params = {
   history: CustomHistoryHook;
+  workingFilesStore: WorkingFilesStore;
+  interactionGate: WorkspaceGateStore;
+  usfmOnionService: IUsfmOnionService;
   editorRef: RefObject<LexicalEditor | null>;
-  searchHighlightStore: SearchHighlightStore;
   searchReference: boolean;
+  searchUSFM: boolean;
+  setSearchUSFM: (value: boolean) => void;
   pickedResult: SearchResult | null;
-  currentMatches: SearchMatch[];
-  currentMatchIndex: number;
-  setCurrentMatchIndex: (value: number) => void;
   setPickedResult: (value: SearchResult | null) => void;
   searchTerm: string;
   runSearchLogic: (
@@ -45,16 +53,9 @@ type Params = {
   ) => Promise<SearchRunResult | null>;
   matchCase: boolean;
   matchWholeWord: boolean;
-  pickedFile: ScriptureBookState;
-  pickedChapter?: ScriptureChapterState;
   preparePickedResult: (
     result: SearchResult,
-    args: {
-      activeSearchTerm: string;
-      searchReference: boolean;
-      matchCase: boolean;
-      matchWholeWord: boolean;
-    },
+    args: PickArgs,
   ) => Promise<{
     matches: SearchMatch[];
     activeMatch?: SearchMatch;
@@ -64,271 +65,99 @@ type Params = {
 /**
  * Hook that owns inline replace operations for the current scripture editor.
  *
- * Replace always acts on the live editable scripture workspace, never on the
- * reference pane. After mutating the current editor tree it re-runs scoped search
- * so result selection and highlights stay accurate.
+ * Replace mutates the canonical token store (never the live Lexical node tree)
+ * and commits through the working-files seam as a `programmaticFix`; the
+ * visible editor re-renders via `makeEditorSyncPipeline`. A gap match (see
+ * `matchHasGap`) is find-only: its affordance toggles to USFM mode and
+ * navigates to the verse instead of replacing.
  */
 export function useSearchReplace({
   history,
+  workingFilesStore,
+  interactionGate,
+  usfmOnionService,
   editorRef,
-  searchHighlightStore,
   searchReference,
+  searchUSFM,
+  setSearchUSFM,
   pickedResult,
-  currentMatches,
-  currentMatchIndex,
-  setCurrentMatchIndex,
   setPickedResult,
   searchTerm,
   runSearchLogic,
   matchCase,
   matchWholeWord,
-  pickedFile,
-  pickedChapter,
   preparePickedResult,
 }: Params) {
   const [replaceTerm, setReplaceTerm] = useState<string>("");
 
-  const findMatchIndex = useCallback(
-    (target: MatchInNode) =>
-      currentMatches.findIndex(
-        (candidate) =>
-          candidate.node.getKey() === target.node.getKey() &&
-          candidate.start === target.start &&
-          candidate.end === target.end,
-      ),
-    [currentMatches],
+  const deps: ReplaceOnStoreDeps = useMemo(
+    () => ({ workingFilesStore, interactionGate, history, usfmOnionService }),
+    [workingFilesStore, interactionGate, history, usfmOnionService],
   );
 
-  const replaceMatch = useCallback(
-    async (targetMatch: MatchInNode) => {
-      if (searchReference) return;
-      if (pickedResult?.source === "reference") return;
-      if (!replaceTerm || !searchTerm.trim()) return;
-      const editor = editorRef.current;
-      if (!editor) return;
-
-      const matchedIndex = findMatchIndex(targetMatch);
-      if (matchedIndex === -1) return;
-
-      const match = currentMatches[matchedIndex];
-      if (!match) return;
-
-      history.setNextTypingLabel("Replace (Inline Match)", {
-        forceNewEntry: true,
-      });
-      editor.update(
-        () => {
-          const node = match.node;
-          if (!$isUSFMTextNode(node)) return;
-
-          const text = node.getTextContent();
-          const newText = replaceInNodeText({
-            text,
-            start: match.start,
-            end: match.end,
-            replacement: replaceTerm,
-          });
-
-          node.setTextContent(newText);
-        },
-        { discrete: true },
-      );
-
-      const rerunResult = await runSearchLogic(searchTerm, {
-        autoPick: false,
-        scope: "currentChapter",
-      });
-      if (!rerunResult) return;
-
-      const { searchMatches, sortedResults } = rerunResult;
-      if (searchMatches.length === 0) {
-        setPickedResult(null);
-        return;
-      }
-
-      const nextIndex = Math.min(matchedIndex, searchMatches.length - 1);
-      const nextActiveMatch = searchMatches[nextIndex];
-      if (!nextActiveMatch) return;
-
-      setCurrentMatchIndex(nextIndex);
-
-      if (editorRef.current) {
-        searchHighlightStore.set([
-          {
-            editor: editorRef.current,
-            matches: searchMatches,
-            activeMatch: nextActiveMatch,
-          },
-        ]);
-        scrollToActiveMatchInEditor(editorRef.current, nextActiveMatch);
-      }
-
-      const nextResult = sortedResults.find(
-        (r) =>
-          r.source === "target" &&
-          r.sid === nextActiveMatch.sid &&
-          r.sidOccurrenceIndex === nextActiveMatch.sidOccurrenceIndex &&
-          r.bibleIdentifier === pickedFile.bookCode &&
-          r.chapNum === pickedChapter?.chapterNumber,
-      );
-      setPickedResult(nextResult ?? null);
-    },
-    [
-      currentMatches,
-      editorRef,
-      findMatchIndex,
-      history,
-      pickedChapter?.chapterNumber,
-      pickedFile.bookCode,
-      pickedResult?.source,
-      replaceTerm,
-      runSearchLogic,
-      searchHighlightStore,
+  const pickArgs = useCallback(
+    (activeSearchTerm: string): PickArgs => ({
+      activeSearchTerm,
       searchReference,
-      searchTerm,
-      setCurrentMatchIndex,
-      setPickedResult,
-    ],
+      matchCase,
+      matchWholeWord,
+      searchUSFM,
+    }),
+    [matchCase, matchWholeWord, searchReference, searchUSFM],
   );
 
-  const replaceCurrentMatch = useCallback(
-    async (replacementOverride?: string) => {
-      if (searchReference) return;
-      // Per-result rows pass their own input; the standalone control falls back
-      // to the shared replace term.
-      const replacement = (replacementOverride ?? replaceTerm).trim();
-      if (currentMatches.length === 0 || !pickedResult || !replacement) return;
-      if (pickedResult.source === "reference") return;
-      const editor = editorRef.current;
-      if (!editor) return;
-
-      const currentMatch = currentMatches[currentMatchIndex];
-      if (!currentMatch) return;
-
-      history.setNextTypingLabel("Replace (Current Match)");
-      editor.update(
-        () => {
-          const node = currentMatch.node;
-          if (!$isUSFMTextNode(node)) return;
-
-          const text = node.getTextContent();
-          const newText = replaceInNodeText({
-            text,
-            start: currentMatch.start,
-            end: currentMatch.end,
-            replacement,
-          });
-
-          node.setTextContent(newText);
-        },
-        { discrete: true },
-      );
-
-      if (!searchTerm.trim()) return;
-
-      const previousIndex = currentMatchIndex;
-      const rerunResult = await runSearchLogic(searchTerm, {
-        autoPick: false,
-        scope: "currentChapter",
+  /**
+   * Toggle to USFM mode and land on the verse. Used for gap matches whose
+   * replace is refused in regular mode. In the typical case the original term
+   * no longer matches the USFM projection (the hidden bytes are now in it), so
+   * there is no active match to scroll to — fall back to scrolling the verse
+   * itself into view by sid, via the `data-sid` the editor renders.
+   */
+  const editMatchInUsfmMode = useCallback(
+    (result: SearchResult) => {
+      setSearchUSFM(true);
+      void preparePickedResult(result, {
+        ...pickArgs(searchTerm),
+        searchUSFM: true,
+      }).then((prepared) => {
+        if (prepared?.activeMatch) return;
+        const editor = editorRef.current;
+        if (editor) scrollToSidInEditor(editor, result.sid);
       });
-      if (!rerunResult) return;
-
-      const { searchMatches, sortedResults } = rerunResult;
-      if (searchMatches.length === 0) {
-        setPickedResult(null);
-        return;
-      }
-
-      const nextIndex = Math.min(previousIndex, searchMatches.length - 1);
-      const nextActiveMatch = searchMatches[nextIndex];
-      if (!nextActiveMatch) return;
-
-      setCurrentMatchIndex(nextIndex);
-
-      if (editorRef.current) {
-        searchHighlightStore.set([
-          {
-            editor: editorRef.current,
-            matches: searchMatches,
-            activeMatch: nextActiveMatch,
-          },
-        ]);
-        scrollToActiveMatchInEditor(editorRef.current, nextActiveMatch);
-      }
-
-      const nextResult = sortedResults.find(
-        (r) =>
-          r.source === "target" &&
-          r.sid === nextActiveMatch.sid &&
-          r.sidOccurrenceIndex === nextActiveMatch.sidOccurrenceIndex &&
-          r.bibleIdentifier === pickedFile.bookCode &&
-          r.chapNum === pickedChapter?.chapterNumber,
-      );
-      setPickedResult(nextResult ?? null);
     },
-    [
-      currentMatchIndex,
-      currentMatches,
-      editorRef,
-      history,
-      pickedChapter?.chapterNumber,
-      pickedFile.bookCode,
-      pickedResult,
-      replaceTerm,
-      runSearchLogic,
-      searchHighlightStore,
-      searchReference,
-      searchTerm,
-      setCurrentMatchIndex,
-      setPickedResult,
-    ],
+    [editorRef, pickArgs, preparePickedResult, searchTerm, setSearchUSFM],
   );
 
-  const replaceSearchResult = useCallback(
-    async (result: SearchResult, replacement: string) => {
-      if (searchReference) return;
-      if (result.source === "reference") return;
-      if (!replacement.trim() || !searchTerm.trim()) return;
-      const editor = editorRef.current;
-      if (!editor) return;
-
-      const prepared = await preparePickedResult(result, {
-        activeSearchTerm: searchTerm,
-        searchReference,
+  const isReplaceGap = useCallback(
+    (result: SearchResult): boolean => {
+      if (result.source === "reference") return false;
+      return probeReplaceGap({
+        workingFilesStore,
+        target: {
+          bookCode: result.bibleIdentifier,
+          chapterNum: result.chapNum,
+          sid: result.sid,
+          sidOccurrenceIndex: result.sidOccurrenceIndex,
+        },
+        searchTerm,
         matchCase,
         matchWholeWord,
+        searchUSFM,
       });
-      const activeMatch = prepared?.activeMatch;
-      if (!activeMatch || activeMatch.source !== "target") return;
+    },
+    [matchCase, matchWholeWord, searchTerm, searchUSFM, workingFilesStore],
+  );
 
-      history.setNextTypingLabel("Replace (Search Result)", {
-        forceNewEntry: true,
-      });
-      editor.update(
-        () => {
-          const node = activeMatch.node;
-          if (!$isUSFMTextNode(node)) return;
-
-          const text = node.getTextContent();
-          const newText = replaceInNodeText({
-            text,
-            start: activeMatch.start,
-            end: activeMatch.end,
-            replacement: replacement.trim(),
-          });
-
-          node.setTextContent(newText);
-        },
-        { discrete: true },
-      );
-
-      const rerunResult = await runSearchLogic(searchTerm, {
+  // After a committed replace, refresh the current chapter's results and
+  // re-pick the same verse so the active highlight + scroll follow the edit.
+  const refreshAndRepick = useCallback(
+    async (result: SearchResult) => {
+      const rerun = await runSearchLogic(searchTerm, {
         autoPick: false,
         scope: "currentChapter",
       });
-      if (!rerunResult) return;
-
-      const refreshedResult = rerunResult.sortedResults.find(
+      if (!rerun) return;
+      const refreshed = rerun.sortedResults.find(
         (candidate) =>
           candidate.source === "target" &&
           candidate.sid === result.sid &&
@@ -336,30 +165,102 @@ export function useSearchReplace({
           candidate.bibleIdentifier === result.bibleIdentifier &&
           candidate.chapNum === result.chapNum,
       );
-
-      if (!refreshedResult) {
+      if (!refreshed) {
         setPickedResult(null);
         return;
       }
-
-      await preparePickedResult(refreshedResult, {
-        activeSearchTerm: searchTerm,
-        searchReference,
-        matchCase,
-        matchWholeWord,
-      });
+      await preparePickedResult(refreshed, pickArgs(searchTerm));
     },
     [
-      editorRef,
-      history,
-      matchCase,
-      matchWholeWord,
+      pickArgs,
       preparePickedResult,
       runSearchLogic,
-      searchReference,
       searchTerm,
       setPickedResult,
     ],
+  );
+
+  const replaceTargetResult = useCallback(
+    async (result: SearchResult, replacement: string) => {
+      if (searchReference || result.source === "reference") return;
+      // The replacement passes through VERBATIM — leading/trailing/interior
+      // whitespace is meaningful bytes. Only a fully empty replacement
+      // (deletion) is refused.
+      if (replacement.length === 0 || !searchTerm.trim()) return;
+
+      const target: ReplaceTarget = {
+        bookCode: result.bibleIdentifier,
+        chapterNum: result.chapNum,
+        sid: result.sid,
+        sidOccurrenceIndex: result.sidOccurrenceIndex,
+      };
+      const outcome = await replaceMatchOnStore({
+        target,
+        replacement,
+        searchTerm,
+        matchCase,
+        matchWholeWord,
+        searchUSFM,
+        deps,
+      });
+
+      if (outcome.kind === "gap") {
+        editMatchInUsfmMode(result);
+        return;
+      }
+      if (outcome.kind === "committed") await refreshAndRepick(result);
+    },
+    [
+      deps,
+      editMatchInUsfmMode,
+      matchCase,
+      matchWholeWord,
+      refreshAndRepick,
+      searchReference,
+      searchTerm,
+      searchUSFM,
+    ],
+  );
+
+  const replaceCurrentMatch = useCallback(
+    async (replacementOverride?: string) => {
+      if (!pickedResult) return;
+      const replacement = replacementOverride ?? replaceTerm;
+      await replaceTargetResult(pickedResult, replacement);
+    },
+    [pickedResult, replaceTargetResult, replaceTerm],
+  );
+
+  const replaceSearchResult = useCallback(
+    (result: SearchResult, replacement: string) =>
+      replaceTargetResult(result, replacement),
+    [replaceTargetResult],
+  );
+
+  // The inline in-editor affordance replaces one specific match. A gap match
+  // routes to the USFM-mode toggle instead of a silent no-op.
+  const replaceMatch = useCallback(
+    async (match: SearchMatch) => {
+      if (match.source === "reference") return;
+      const asResult: SearchResult = {
+        sid: match.sid,
+        sidOccurrenceIndex: match.sidOccurrenceIndex,
+        bibleIdentifier: match.bookCode,
+        chapNum: match.chapterNum,
+        source: "target",
+        text: "",
+        parsedSid: null,
+        isCaseMismatch: false,
+        naturalIndex: 0,
+        occurrenceCount: 1,
+      };
+      if (match.hasGap && !searchUSFM) {
+        editMatchInUsfmMode(asResult);
+        return;
+      }
+      await replaceTargetResult(asResult, replaceTerm);
+    },
+    [editMatchInUsfmMode, replaceTargetResult, replaceTerm, searchUSFM],
   );
 
   return {
@@ -368,5 +269,7 @@ export function useSearchReplace({
     replaceMatch,
     replaceCurrentMatch,
     replaceSearchResult,
+    isReplaceGap,
+    editMatchInUsfmMode,
   };
 }

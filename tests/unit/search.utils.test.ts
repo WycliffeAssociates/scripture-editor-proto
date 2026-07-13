@@ -10,7 +10,6 @@ import {
   findAllMatches,
   findMatch,
   reduceSerializedNodesToText,
-  replaceMatchesInText,
 } from "@/app/domain/search/search.utils.ts";
 
 describe("escapeRegex", () => {
@@ -560,40 +559,5 @@ describe("reduceSerializedNodesToText", () => {
 
     const result = reduceSerializedNodesToText(nodes);
     expect(result["verse-1"]).toBe("ABCDEF");
-  });
-});
-
-describe("replaceMatchesInText", () => {
-  it("replaces all matches case-insensitively when matchCase is false", () => {
-    const result = replaceMatchesInText({
-      text: "Of of oF OFF",
-      searchTerm: "of",
-      replaceTerm: "REPLACE",
-      matchCase: false,
-      matchWholeWord: false,
-    });
-    expect(result).toBe("REPLACE REPLACE REPLACE REPLACEF");
-  });
-
-  it("replaces only exact-case matches when matchCase is true", () => {
-    const result = replaceMatchesInText({
-      text: "Of of oF",
-      searchTerm: "of",
-      replaceTerm: "REPLACE",
-      matchCase: true,
-      matchWholeWord: false,
-    });
-    expect(result).toBe("Of REPLACE oF");
-  });
-
-  it("respects whole-word matching", () => {
-    const result = replaceMatchesInText({
-      text: "fox foxhole FOX",
-      searchTerm: "fox",
-      replaceTerm: "cat",
-      matchCase: false,
-      matchWholeWord: true,
-    });
-    expect(result).toBe("cat foxhole cat");
   });
 });

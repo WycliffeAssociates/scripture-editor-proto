@@ -27,6 +27,7 @@ import type {
 import type { SearchHighlightStore } from "@/app/state/SearchHighlightStore.ts";
 import { useDebouncedCallback } from "@/app/ui/hooks/general/useDebouncedCallback.ts";
 import type {
+  CollectMatchOptions,
   SearchMatch,
   SearchRunOptionOverrides,
   SearchRunResult,
@@ -43,10 +44,7 @@ type Params = {
   searchHighlightStore: SearchHighlightStore;
   collectMatchesInCurrentEditor: (
     activeSearchTerm: string,
-    options: SearchRunOptionOverrides & {
-      baseMatchCase: boolean;
-      baseMatchWholeWord: boolean;
-    },
+    options: CollectMatchOptions,
   ) => SearchMatch[];
   pick: (
     result: SearchResult,
@@ -55,6 +53,7 @@ type Params = {
       searchReference: boolean;
       matchCase: boolean;
       matchWholeWord: boolean;
+      searchUSFM: boolean;
     },
   ) => void;
   currentMatchesControls: {
@@ -359,6 +358,7 @@ export function useSearchExecution({
               ...overrides,
               baseMatchCase: effectiveMatchCase,
               baseMatchWholeWord: effectiveMatchWholeWord,
+              searchUSFM: effectiveSearchUSFM,
             });
         currentMatchesControls.setCurrentMatches(searchMatches);
         currentMatchesControls.setCurrentMatchIndex(0);
@@ -384,6 +384,7 @@ export function useSearchExecution({
           searchReference: effectiveSearchReference,
           matchCase: effectiveMatchCase,
           matchWholeWord: effectiveMatchWholeWord,
+          searchUSFM: effectiveSearchUSFM,
         });
       } else {
         currentMatchesControls.setCurrentMatchIndex(0);

@@ -5,7 +5,6 @@ import {
   isSerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
-import { replaceMatchesInText } from "@/core/domain/search/replaceEngine.ts";
 import {
   escapeRegex,
   findAllMatches,
@@ -38,4 +37,4 @@ export function reduceSerializedNodesToText(
   return result;
 }
 
-export { escapeRegex, findAllMatches, findMatch, replaceMatchesInText };
+export { escapeRegex, findAllMatches, findMatch };

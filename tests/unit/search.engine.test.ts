@@ -7,7 +7,6 @@ import {
   pairReferenceResultsToTarget,
 } from "@/app/domain/search/SearchProjectionService.ts";
 import type { SearchResult } from "@/app/domain/search/SearchService.ts";
-import { replaceInNodeText } from "@/core/domain/search/replaceEngine.ts";
 import { searchChapters } from "@/core/domain/search/searchEngine.ts";
 
 describe("searchChapters", () => {
@@ -36,18 +35,6 @@ describe("searchChapters", () => {
       wholeWord: true,
     });
     expect(relaxed).toHaveLength(3);
-  });
-});
-
-describe("replaceInNodeText", () => {
-  it("replaces by explicit range", () => {
-    const next = replaceInNodeText({
-      text: "In the beginning",
-      start: 3,
-      end: 6,
-      replacement: "X",
-    });
-    expect(next).toBe("In X beginning");
   });
 });
 

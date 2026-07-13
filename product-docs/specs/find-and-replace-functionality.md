@@ -44,7 +44,17 @@
   layer; intentionally removed to avoid being mis-wired into the UI
   later without a UX review.)
 - Search runs against working in-memory content; changes are not written to disk until save.
-- Replacement is literal text replacement in matched text nodes (no regex replace workflow).
+- Replacement is verbatim: the replacement text is committed byte-for-byte
+  against the canonical token store (leading/trailing/interior whitespace is
+  preserved, never auto-trimmed). No regex replace workflow. An empty
+  replacement is refused rather than treated as a delete.
+- A regular-mode match that would cross hidden inline markup (e.g.
+  `\nd LORD\nd*`) is **find-only**: markers excluded from the regular-mode
+  projection can't be safely spliced without risking a dangling open/close
+  marker. Its replace affordance becomes "Edit in USFM mode" — a direct
+  toggle (no confirmation dialog) that switches to USFM mode and navigates to
+  the match's verse. In USFM mode nothing is hidden, so every match there is
+  replaceable.
 - This is not a linguistic concordance or morphology search tool.
 
 ## Highlight architecture (drift-free)
@@ -72,13 +82,39 @@ Search reads `currentTokens` directly from each `ScriptureChapterState` via
 `tokensToLexical` in flat mode (`chapterFlatChildren` in `SearchService.ts`).
 This is mode-independent: the flat token projection carries every token's
 `sid` and text regardless of whether the editor is in regular, form, or flat
-shape. A separate Lexical in-editor scan (`collectMatchesInCurrentEditor`)
-handles the active-chapter highlight matches — it runs against the live editor
-tree so caret positions are exact.
+shape. `collectMatchesInCurrentEditor` (`useSearchNavigation.ts`) resolves the
+active chapter's matches the same way — off `chapter.currentTokens` via
+`searchProjection.ts`'s per-sid inversion map — rather than walking the live
+Lexical tree, so a USFM-mode marker match resolves like any other.
 
-Replace operations mutate Lexical directly in `editor.update()`, then
-re-run `runSearchLogic()` so the result list and highlights stay
-consistent with the new content.
+**Matches are token-anchored, not Lexical-node-anchored.** Each `SearchMatch`
+carries one or more `{ tokenId, start, end }` paint ranges (`TokenPaintRange`
+in `tokenReplace.ts`) instead of a Lexical node key. `useSearchHighlighter.ts`
+resolves each anchor to its rendered DOM element via the `data-id` attribute
+(the same resolution pattern `FindingsOverlayPlugin` uses) and builds one DOM
+`Range` per covered token, so a single match spanning several tokens (e.g.
+`\nd LORD\nd*`) paints as multiple `CSS.highlights` ranges. Painting is
+text-like only — no chip fills, no badges — because only clean, visible
+grapheme runs are ever replaceable (see the gap rule below).
+
+**Replace mutates the canonical token store, never the live Lexical tree.**
+`useSearchReplace` resolves a match to token anchors, decides a tier
+(`classifyTier` in `tokenReplace.ts`: a single-token, non-control-char edit is
+an in-place Tier-1 splice; anything spanning tokens, touching a marker, or
+containing USFM control characters is a windowed Tier-2 re-lex through
+`IUsfmOnionService.parseUsfm`), and commits the new `currentTokens` through
+`replaceOnStore.ts` as a `programmaticFix` commit — the same seam
+`lintFix.ts`/`chapterLabelStandardize.ts` use for autofix. If the edited
+chapter is on screen, `makeEditorSyncPipeline` re-renders it from the store;
+there is no separate editor-splice path, and the commit is wrapped in
+`captureHistory`/`recordHistory` so undo/redo cover it. After a committed
+replace, the hook re-runs `runSearchLogic()` so the result list and
+highlights stay consistent with the new content.
+
+A regular-mode match is refused before any commit if it has a **gap** — an
+interior token excluded from the projection (hidden markup), other than
+benign whitespace/newline tokens. The refusal surfaces as the "Edit in USFM
+mode" affordance described above instead of a silent no-op.
 
 For changes that don't go through the search hooks' own replace path
 (`undo` / `redo`, `programmaticFix`, `import`), `makeSearchRerunPipeline`
@@ -117,3 +153,11 @@ tests.
 - `src/app/domain/editor/plugins/HighlightSink.tsx`
 - `src/app/domain/editor/pipelines/searchRerunPipeline.ts`
 - `src/app/domain/search/search.utils.ts`
+- `src/app/domain/search/searchProjection.ts` — per-sid projection + token
+  inversion map (the `Token[]` → search-text seam).
+- `src/app/domain/search/tokenReplace.ts` — anchor resolution, gap detection,
+  tier classification, Tier-1/Tier-2 apply (pure token transforms).
+- `src/app/domain/search/replaceOnStore.ts` — the store-committing verb
+  (`withWorkingFilesDraft` + history), sibling of `lintFix.ts`.
+- `src/app/domain/search/collectMatches.ts` — chapter-level match collection
+  off the token store, shared by search execution and navigation.

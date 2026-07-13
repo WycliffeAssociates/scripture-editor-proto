@@ -64,6 +64,7 @@ export type CommitScope = { chapters: CommitChapterRef[] } | { project: true };
 export type CommitAction =
   | "chapterLabelStandardize"
   | "lintFix"
+  | "searchReplace"
   | "collapseWhitespace"
   | "prettify"
   | "formatMatch"

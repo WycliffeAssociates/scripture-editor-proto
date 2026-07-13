@@ -21,6 +21,12 @@ interface SearchResultItemProps {
   currentProjectName?: string;
   targetResult?: SearchResult;
   canReplace?: boolean;
+  /**
+   * The match crosses hidden inline markup in regular mode (see `matchHasGap`)
+   * — replace is refused; the row offers a direct toggle to USFM mode instead.
+   */
+  isGap?: boolean;
+  onEditInUsfm?: () => void;
   defaultReplaceTerm?: string;
   onReplace?: (
     replacement: string,
@@ -41,6 +47,8 @@ export function SearchResultItem(props: SearchResultItemProps) {
     currentProjectName,
     targetResult,
     canReplace = false,
+    isGap = false,
+    onEditInUsfm,
     defaultReplaceTerm = "",
     onReplace,
   } = props;
@@ -83,7 +91,9 @@ export function SearchResultItem(props: SearchResultItemProps) {
   const handleReplaceSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    if (!replacement.trim() || !onReplace) return;
+    // Whitespace-only replacements are legitimate edits (spaces are meaningful
+    // bytes); only a fully empty replacement is refused.
+    if (replacement.length === 0 || !onReplace) return;
     setIsReplacing(true);
     try {
       await onReplace(replacement, safeOccurrence);
@@ -93,7 +103,9 @@ export function SearchResultItem(props: SearchResultItemProps) {
     }
   };
 
-  const replaceControls = canReplace ? (
+  const replaceControls = !canReplace ? null : isGap ? (
+    <UsfmModeAffordance onEditInUsfm={() => onEditInUsfm?.()} />
+  ) : (
     <ReplaceControls
       replacement={replacement}
       isReplacing={isReplacing}
@@ -103,7 +115,7 @@ export function SearchResultItem(props: SearchResultItemProps) {
       }}
       onSubmit={handleReplaceSubmit}
     />
-  ) : null;
+  );
 
   return (
     <div
@@ -410,7 +422,7 @@ function ReplaceControls(props: {
         <button
           type="submit"
           className={styles.searchResultReplaceButton}
-          disabled={props.isReplacing || !props.replacement.trim()}
+          disabled={props.isReplacing || props.replacement.length === 0}
           aria-label={t`Replace this match`}
           title={t`Replace this match`}
         >
@@ -418,6 +430,36 @@ function ReplaceControls(props: {
         </button>
       </div>
     </form>
+  );
+}
+
+/**
+ * Replaces the replace input for a gap match. Rather than silently refuse, it
+ * offers a direct toggle to USFM mode (no confirm dialog) that lands the user
+ * on the verse.
+ */
+function UsfmModeAffordance(props: { onEditInUsfm: () => void }) {
+  const { t } = useLingui();
+  return (
+    <div
+      className={styles.searchResultReplace}
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
+      <div className={styles.searchResultReplaceControls}>
+        <button
+          type="button"
+          className={styles.searchResultReplaceButton}
+          onClick={(event) => {
+            event.stopPropagation();
+            props.onEditInUsfm();
+          }}
+          title={t`This match crosses hidden formatting — edit it in USFM mode`}
+        >
+          <Trans>Edit in USFM mode</Trans>
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -471,7 +513,7 @@ function renderSearchPreview(
 
     if (isMatch) {
       matchOrdinal += 1;
-      if (replacement.trim() && matchOrdinal === previewOccurrenceIndex) {
+      if (replacement.length > 0 && matchOrdinal === previewOccurrenceIndex) {
         return (
           <span
             key={`${index}-${part}`}

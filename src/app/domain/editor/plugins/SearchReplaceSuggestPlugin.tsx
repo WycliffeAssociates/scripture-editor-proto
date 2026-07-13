@@ -4,13 +4,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
+import {
+  locateUtf16Offset,
+  tokenElement,
+} from "@/app/domain/editor/annotations/resolveContentRange.ts";
 import { AnnotationPopover } from "@/app/ui/components/blocks/AnnotationPopover.tsx";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
-import type { MatchInNode } from "@/app/ui/hooks/useSearchHighlighter.ts";
+import type { SearchMatch } from "@/app/ui/hooks/search/searchTypes.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/SearchReplaceSuggestOverlay.css.ts";
 
-type SearchSuggestion = MatchInNode & {
+type SearchSuggestion = SearchMatch & {
   key: string;
   labelText: string;
 };
@@ -23,17 +27,46 @@ type PositionedSuggestion = SearchSuggestion & {
 };
 
 /**
- * Search matches are keyed by node + offsets so the overlay can survive editor
- * rerenders without inventing a second identity model.
+ * Matches are keyed by verse + occurrence + first token so the overlay can
+ * survive editor rerenders without inventing a second identity model.
  */
-function suggestionKey(match: MatchInNode) {
-  return `${match.node.getKey()}:${match.start}:${match.end}`;
+function suggestionKey(match: SearchMatch) {
+  return `${match.sid}:${match.sidOccurrenceIndex}:${match.ranges[0]?.tokenId ?? ""}`;
 }
 
-function getLabelText(match: MatchInNode, textNode: Text) {
-  const text = textNode.textContent ?? "";
-  if (match.start < 0 || match.end > text.length) return "";
-  return text.slice(match.start, match.end);
+/**
+ * The match's bounding client rect, resolved via `data-id` on the rendered
+ * tokens (the findings resolution path). Unions the per-token paint ranges so a
+ * multi-token USFM-mode match gets one underline spanning them. Null when none
+ * of the tokens are currently rendered.
+ */
+function matchClientRect(
+  root: HTMLElement,
+  match: SearchMatch,
+): DOMRect | null {
+  let union: DOMRect | null = null;
+  for (const paintRange of match.ranges) {
+    const el = tokenElement(root, paintRange.tokenId);
+    if (!el) continue;
+    const start = locateUtf16Offset(el, paintRange.start);
+    const end = locateUtf16Offset(el, paintRange.end);
+    if (!start || !end) continue;
+    const domRange = el.ownerDocument.createRange();
+    domRange.setStart(start.node, start.offset);
+    domRange.setEnd(end.node, end.offset);
+    const rect = domRange.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) continue;
+    union = union ? unionRect(union, rect) : rect;
+  }
+  return union;
+}
+
+function unionRect(a: DOMRect, b: DOMRect): DOMRect {
+  const left = Math.min(a.left, b.left);
+  const top = Math.min(a.top, b.top);
+  const right = Math.max(a.right, b.right);
+  const bottom = Math.max(a.bottom, b.bottom);
+  return new DOMRect(left, top, right - left, bottom - top);
 }
 
 /**
@@ -55,7 +88,9 @@ export function SearchReplaceSuggestPlugin() {
   const isEnabled =
     isSearchPaneOpen &&
     search.searchTerm.trim().length > 0 &&
-    replaceTerm.trim().length > 0 &&
+    // Whitespace-only replacements are legitimate edits, so gate on presence
+    // of any replacement bytes, not trimmed content.
+    replaceTerm.length > 0 &&
     currentMatches.length > 0;
 
   const getContainerEl = useCallback((): HTMLElement | null => {
@@ -92,27 +127,23 @@ export function SearchReplaceSuggestPlugin() {
     containerRef.current = container;
     const containerRect = container.getBoundingClientRect();
 
+    const root = editor.getRootElement();
+    if (!root) return;
+
     const next: PositionedSuggestion[] = [];
     for (const match of currentMatches) {
-      const domEl = editor.getElementByKey(match.node.getKey());
-      if (!domEl) continue;
+      // Gap matches (regular-mode hidden markup) are find-only — the panel row
+      // offers the USFM-mode toggle, not an inline replace.
+      if (match.source !== "target" || match.hasGap) continue;
+      if (!match.matchedText) continue;
 
-      const firstChild = domEl.firstChild;
-      if (!firstChild || firstChild.nodeType !== Node.TEXT_NODE) continue;
-      const textNode = firstChild as Text;
-      const labelText = getLabelText(match, textNode);
-      if (!labelText) continue;
-
-      const range = document.createRange();
-      range.setStart(textNode, match.start);
-      range.setEnd(textNode, match.end);
-      const rect = range.getBoundingClientRect();
-      if (!rect || rect.width === 0 || rect.height === 0) continue;
+      const rect = matchClientRect(root, match);
+      if (!rect) continue;
 
       next.push({
         ...match,
         key: suggestionKey(match),
-        labelText,
+        labelText: match.matchedText,
         x: rect.left - containerRect.left,
         y: rect.top - containerRect.top,
         width: rect.width,

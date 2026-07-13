@@ -683,6 +683,8 @@ export const ProjectProvider = ({
   const search = useProjectSearch({
     workingFilesStore,
     searchHighlightStore,
+    interactionGate,
+    usfmOnionService,
     referenceFiles: referenceResource.referenceScriptureQuery.data?.parsedFiles,
     switchBookOrChapter: actions.switchBookOrChapter,
     editorRef,

@@ -13,12 +13,12 @@
  */
 import type { LexicalEditor } from "lexical";
 
-import type { MatchInNode } from "@/app/ui/hooks/useSearchHighlighter.ts";
+import type { SearchMatch } from "@/app/ui/hooks/search/searchTypes.ts";
 
 export type SearchHighlightInput = {
   editor: LexicalEditor;
-  matches: MatchInNode[];
-  activeMatch?: MatchInNode;
+  matches: SearchMatch[];
+  activeMatch?: SearchMatch;
 };
 
 type Listener = () => void;

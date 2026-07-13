@@ -121,7 +121,10 @@ function makeIntraTokenRange(
   return range;
 }
 
-function tokenElement(root: HTMLElement, tokenId: string): HTMLElement | null {
+export function tokenElement(
+  root: HTMLElement,
+  tokenId: string,
+): HTMLElement | null {
   const escaped =
     typeof CSS !== "undefined" && typeof CSS.escape === "function"
       ? CSS.escape(tokenId)

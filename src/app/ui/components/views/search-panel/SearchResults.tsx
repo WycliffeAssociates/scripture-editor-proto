@@ -233,6 +233,8 @@ export function SearchResults() {
               matchCase={search.matchCase}
               matchWholeWord={search.matchWholeWord}
               canReplace={!search.searchReference}
+              isReplaceGap={search.isReplaceGap}
+              onEditInUsfm={search.editMatchInUsfmMode}
               defaultReplaceTerm={search.replaceTerm}
               localizedBookName={bookCodeToProjectLocalizedTitle({
                 bookCode: result.bibleIdentifier,
@@ -312,6 +314,8 @@ function SearchResultRow(props: {
   matchCase: boolean;
   matchWholeWord: boolean;
   canReplace: boolean;
+  isReplaceGap: (result: SearchResult) => boolean;
+  onEditInUsfm: (result: SearchResult) => void;
   defaultReplaceTerm: string;
   localizedBookName: string;
   sourceProjectName: string;
@@ -325,6 +329,7 @@ function SearchResultRow(props: {
   ) => Promise<void>;
 }) {
   const { groupedItem, result } = props;
+  const replaceTarget = groupedItem?.targetResult ?? result;
   return (
     <div
       data-index={props.virtualRow.index}
@@ -346,6 +351,8 @@ function SearchResultRow(props: {
         currentProjectName={groupedItem ? props.currentProjectName : undefined}
         targetResult={groupedItem?.targetResult}
         canReplace={props.canReplace}
+        isGap={props.canReplace && props.isReplaceGap(replaceTarget)}
+        onEditInUsfm={() => props.onEditInUsfm(replaceTarget)}
         defaultReplaceTerm={props.defaultReplaceTerm}
         onReplace={(replacement, occurrenceIndex) =>
           props.onReplace(
