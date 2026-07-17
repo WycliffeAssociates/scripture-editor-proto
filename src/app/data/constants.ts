@@ -65,6 +65,18 @@ export const TESTING_IDS = {
   searchResetPositionButton: "search-reset-position-button",
   searchPopoverHeader: "search-popover-header",
   searchResizeHandle: "search-resize-handle",
+  stet: {
+    panel: "stet-panel",
+    filterInput: "stet-filter-input",
+    termItem: "stet-term-item",
+    resultItem: "stet-result-item",
+    exhaustiveToggle: "stet-exhaustive-toggle",
+    retryButton: "stet-retry-button",
+    coverage: "stet-coverage",
+    toolbarTrigger: "stet-toolbar-trigger",
+    dockToggle: "stet-dock-toggle",
+    emptyState: "stet-empty-state",
+  },
   appDrawer: {
     projectsList: "app-drawer-projects-list",
     itemExport: "project-list-item-export",

@@ -1,17 +1,20 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo } from "react";
 
-import { DATA_JS } from "@/app/data/constants.ts";
+import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
 import {
   buildTargetSidTextLookup,
   type SearchResult,
 } from "@/app/domain/search/SearchService.ts";
+import { ResultBrowser } from "@/app/ui/components/views/result-browser/ResultBrowser.tsx";
+import type {
+  ResultColumn,
+  ResultHighlight,
+  ResultRow,
+} from "@/app/ui/components/views/result-browser/resultRow.ts";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/useWorkspaceMediaQuery.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/SearchPanel.css.ts";
-
-import { SearchResultItem } from "./SearchResultItem.tsx";
 
 type GroupedItem = {
   key: string;
@@ -19,6 +22,12 @@ type GroupedItem = {
   targetResult: SearchResult | undefined;
 };
 
+/**
+ * Find's adapter onto the neutral `ResultBrowser`. It owns everything
+ * search-specific — source/target pairing, active-row resolution, occurrence
+ * counts, and the replace verbs — and projects each hit into a neutral
+ * `ResultRow`. The browser itself never sees a `SearchResult`.
+ */
 export function SearchResults() {
   const { t } = useLingui();
   const { isSm } = useWorkspaceMediaQuery();
@@ -29,7 +38,6 @@ export function SearchResults() {
     referenceResource,
     bookCodeToProjectLocalizedTitle,
   } = useWorkspaceContext();
-  const parentRef = useRef<HTMLDivElement>(null);
   const referenceParsedFiles = useMemo(
     () => referenceResource.referenceScriptureQuery.data?.parsedFiles ?? [],
     [referenceResource.referenceScriptureQuery.data],
@@ -60,48 +68,21 @@ export function SearchResults() {
     });
   }, [hasDisplayReference, referenceParsedFiles, search.searchUSFM]);
 
-  const groupedItems = useMemo(() => {
+  const groupedItems = useMemo<GroupedItem[]>(() => {
     if (search.searchReference) {
       const targetByKey = new Map(
-        search.targetResults.map((result) => [
-          [
-            result.sid,
-            result.sidOccurrenceIndex,
-            result.bibleIdentifier,
-            result.chapNum,
-            result.naturalIndex,
-          ].join("|"),
-          result,
-        ]),
+        search.targetResults.map((result) => [groupKey(result), result]),
       );
-
-      return search.referenceResults.map((sourceResult) => {
-        const key = [
-          sourceResult.sid,
-          sourceResult.sidOccurrenceIndex,
-          sourceResult.bibleIdentifier,
-          sourceResult.chapNum,
-          sourceResult.naturalIndex,
-        ].join("|");
-
-        return {
-          key,
-          sourceResult,
-          targetResult: targetByKey.get(key),
-        };
-      });
+      return search.referenceResults.map((sourceResult) => ({
+        key: groupKey(sourceResult),
+        sourceResult,
+        targetResult: targetByKey.get(groupKey(sourceResult)),
+      }));
     }
 
     if (!hasDisplayReference) return [];
 
     return search.targetResults.map((targetResult) => {
-      const key = [
-        targetResult.sid,
-        targetResult.sidOccurrenceIndex,
-        targetResult.bibleIdentifier,
-        targetResult.chapNum,
-        targetResult.naturalIndex,
-      ].join("|");
       const referenceText = referenceSidTextLookup.get(targetResult.sid) ?? "";
       const sourceResult: SearchResult = {
         ...targetResult,
@@ -109,7 +90,7 @@ export function SearchResults() {
         source: "reference",
       };
       return {
-        key,
+        key: groupKey(targetResult),
         sourceResult,
         targetResult,
       };
@@ -147,12 +128,133 @@ export function SearchResults() {
     [search],
   );
 
-  const virtualizer = useVirtualizer({
-    count: isGroupedMode ? groupedItems.length : search.results.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 120,
-    overscan: 5,
-  });
+  const missingVerseFallback = t`Verse not available in this text`;
+
+  const rows = useMemo<ResultRow[]>(() => {
+    const canReplace = !search.searchReference;
+    const highlight: ResultHighlight = {
+      mode: "match",
+      term: search.searchTerm,
+      matchCase: search.matchCase,
+      matchWholeWord: search.matchWholeWord,
+    };
+
+    const build = (
+      result: SearchResult,
+      groupedItem: GroupedItem | null,
+      index: number,
+    ): ResultRow => {
+      const isActive = resolveIsActive(
+        search.pickedResult,
+        result,
+        groupedItem,
+      );
+      const pickResult = resolvePickResult(
+        result,
+        groupedItem,
+        search.searchReference,
+      );
+      const replaceTarget = groupedItem?.targetResult ?? result;
+      const localizedBookName = bookCodeToProjectLocalizedTitle({
+        bookCode: result.bibleIdentifier,
+      });
+      const locationLabel =
+        result.chapNum === 0
+          ? t`Introduction`
+          : formatResultLocationLabel(result, localizedBookName);
+
+      const columns: ResultColumn[] = groupedItem
+        ? [
+            {
+              kind: "source",
+              label: sourceProjectName,
+              text: result.text,
+              missingText: missingVerseFallback,
+              highlight,
+            },
+            {
+              kind: "target",
+              label: currentProjectName,
+              text: groupedItem.targetResult?.text ?? "",
+              missingText: missingVerseFallback,
+              highlight,
+            },
+          ]
+        : [
+            {
+              kind: "target",
+              label: "",
+              text: result.text,
+              missingText: missingVerseFallback,
+              highlight,
+            },
+          ];
+
+      return {
+        key:
+          groupedItem?.key ||
+          `${result.source}-${result.sid}-${result.sidOccurrenceIndex}-${index}`,
+        sid: result.sid,
+        locationLabel,
+        columns,
+        active: isActive,
+        onNavigate: () => {
+          // The navigate arrow focuses the row AND opens the editor: dock it
+          // beside find on desktop (no-op if already docked), or reveal it on
+          // small screens. Occurrence cycling stays row-local and independent.
+          search.pickSearchResult(pickResult);
+          if (isSm) {
+            search.setIsSearchPaneOpen(false);
+          } else {
+            search.dockSearchPane();
+          }
+        },
+        find: {
+          occurrenceCount: result.occurrenceCount,
+          replacement: canReplace
+            ? {
+                defaultValue: search.replaceTerm,
+                disabledReason: search.isReplaceGap(replaceTarget)
+                  ? "hidden-markup-gap"
+                  : undefined,
+                onCommit: (value, occurrenceIndex) =>
+                  handleReplace(
+                    replaceTarget,
+                    value,
+                    occurrenceIndex,
+                    isActive,
+                  ),
+                onEditInUsfm: () => search.editMatchInUsfmMode(replaceTarget),
+              }
+            : undefined,
+        },
+        testId: TESTING_IDS.searchResultItem,
+        dataAttributes: {
+          "data-search-sid": result.sid,
+          "data-search-book": result.bibleIdentifier,
+          "data-search-chapter": String(result.chapNum),
+        },
+      };
+    };
+
+    if (isGroupedMode) {
+      return groupedItems.map((groupedItem, index) =>
+        build(groupedItem.sourceResult, groupedItem, index),
+      );
+    }
+    return search.results.map((result, index) => build(result, null, index));
+  }, [
+    bookCodeToProjectLocalizedTitle,
+    currentProjectName,
+    groupedItems,
+    handleReplace,
+    isGroupedMode,
+    isSm,
+    missingVerseFallback,
+    search,
+    sourceProjectName,
+    t,
+  ]);
 
   if (!search.searchTerm && !search.isSearching) {
     return (
@@ -186,80 +288,24 @@ export function SearchResults() {
   }
 
   return (
-    <div
-      ref={parentRef}
-      className={styles.searchResultsContainer}
-      data-js={DATA_JS.searchResultsScrollContainer}
-      data-num-search-results={search.results.length}
-    >
-      <div
-        className={styles.searchResultsInner}
-        style={{
-          height: `${virtualizer.getTotalSize()}px`,
-          width: "100%",
-          position: "relative",
-        }}
-      >
-        {virtualizer.getVirtualItems().map((virtualRow) => {
-          const groupedItem = isGroupedMode
-            ? groupedItems[virtualRow.index]
-            : null;
-          const result = groupedItem
-            ? groupedItem.sourceResult
-            : search.results[virtualRow.index];
-          if (!result) return null;
-          const isActiveRow = resolveIsActive(
-            search.pickedResult,
-            result,
-            groupedItem,
-          );
-          return (
-            <SearchResultRow
-              key={
-                groupedItem?.key ||
-                `${result.source}-${result.sid}-${result.sidOccurrenceIndex}-${virtualRow.index}`
-              }
-              virtualRow={virtualRow}
-              measureRef={virtualizer.measureElement}
-              result={result}
-              groupedItem={groupedItem}
-              isActive={isActiveRow}
-              pickResult={resolvePickResult(
-                result,
-                groupedItem,
-                search.searchReference,
-              )}
-              searchTerm={search.searchTerm}
-              matchCase={search.matchCase}
-              matchWholeWord={search.matchWholeWord}
-              canReplace={!search.searchReference}
-              isReplaceGap={search.isReplaceGap}
-              onEditInUsfm={search.editMatchInUsfmMode}
-              defaultReplaceTerm={search.replaceTerm}
-              localizedBookName={bookCodeToProjectLocalizedTitle({
-                bookCode: result.bibleIdentifier,
-              })}
-              sourceProjectName={sourceProjectName}
-              currentProjectName={currentProjectName}
-              onPick={(pick) => {
-                // The navigate arrow focuses the row AND opens the editor: dock
-                // it beside find on desktop (no-op if already docked), or reveal
-                // it on small screens. Occurrence cycling stays independent of
-                // this — it's row-local and never needs the editor.
-                search.pickSearchResult(pick);
-                if (isSm) {
-                  search.setIsSearchPaneOpen(false);
-                } else {
-                  search.dockSearchPane();
-                }
-              }}
-              onReplace={handleReplace}
-            />
-          );
-        })}
-      </div>
-    </div>
+    <ResultBrowser
+      rows={rows}
+      containerData={{
+        "data-js": DATA_JS.searchResultsScrollContainer,
+        "data-num-search-results": search.results.length,
+      }}
+    />
   );
+}
+
+function groupKey(result: SearchResult): string {
+  return [
+    result.sid,
+    result.sidOccurrenceIndex,
+    result.bibleIdentifier,
+    result.chapNum,
+    result.naturalIndex,
+  ].join("|");
 }
 
 // Compare by verse identity, not object reference: the stepper picks an
@@ -303,66 +349,23 @@ function resolvePickResult(
   return groupedItem.targetResult ?? groupedItem.sourceResult;
 }
 
-function SearchResultRow(props: {
-  virtualRow: VirtualItem;
-  measureRef: (node: Element | null) => void;
-  result: SearchResult;
-  groupedItem: GroupedItem | null;
-  isActive: boolean;
-  pickResult: SearchResult;
-  searchTerm: string;
-  matchCase: boolean;
-  matchWholeWord: boolean;
-  canReplace: boolean;
-  isReplaceGap: (result: SearchResult) => boolean;
-  onEditInUsfm: (result: SearchResult) => void;
-  defaultReplaceTerm: string;
-  localizedBookName: string;
-  sourceProjectName: string;
-  currentProjectName: string;
-  onPick: (pick: SearchResult) => void;
-  onReplace: (
-    target: SearchResult,
-    replacement: string,
-    occurrenceIndex: number,
-    isActive: boolean,
-  ) => Promise<void>;
-}) {
-  const { groupedItem, result } = props;
-  const replaceTarget = groupedItem?.targetResult ?? result;
-  return (
-    <div
-      data-index={props.virtualRow.index}
-      ref={props.measureRef}
-      className={styles.searchResultRow}
-      style={{
-        transform: `translateY(${props.virtualRow.start}px)`,
-      }}
-    >
-      <SearchResultItem
-        result={result}
-        isActive={props.isActive}
-        searchTerm={props.searchTerm}
-        matchCase={props.matchCase}
-        matchWholeWord={props.matchWholeWord}
-        localizedBookName={props.localizedBookName}
-        onPick={() => props.onPick(props.pickResult)}
-        sourceProjectName={groupedItem ? props.sourceProjectName : undefined}
-        currentProjectName={groupedItem ? props.currentProjectName : undefined}
-        targetResult={groupedItem?.targetResult}
-        canReplace={props.canReplace}
-        isGap={props.canReplace && props.isReplaceGap(replaceTarget)}
-        onEditInUsfm={() => props.onEditInUsfm(replaceTarget)}
-        defaultReplaceTerm={props.defaultReplaceTerm}
-        onReplace={(replacement, occurrenceIndex) =>
-          props.onReplace(
-            groupedItem?.targetResult ?? result,
-            replacement,
-            occurrenceIndex,
-            props.isActive,
-          )
-        }
-      />
-    </div>
-  );
+function formatResultLocationLabel(
+  result: SearchResult,
+  localizedBookName?: string,
+) {
+  const parsed = result.parsedSid;
+  if (!parsed) {
+    return result.sid;
+  }
+  const bookLabel = localizedBookName || parsed.book;
+
+  if (parsed.isBookChapOnly) {
+    return `${bookLabel} ${parsed.chapter}`;
+  }
+
+  if (parsed.verseStart !== parsed.verseEnd) {
+    return `${bookLabel} ${parsed.chapter}:${parsed.verseStart}-${parsed.verseEnd}`;
+  }
+
+  return `${bookLabel} ${parsed.chapter}:${parsed.verseStart}`;
 }

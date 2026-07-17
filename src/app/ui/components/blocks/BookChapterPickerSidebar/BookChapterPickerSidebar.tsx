@@ -5,11 +5,12 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   SearchIcon,
+  SparklesIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 
-import { DATA_JS } from "@/app/data/constants.ts";
+import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
 import { joinClassNames } from "@/app/ui/components/primitives/classNames.ts";
 import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
@@ -27,7 +28,9 @@ type SidebarChapter = {
   chapterNumber: number;
 };
 
-export function BookChapterPickerSidebar() {
+export function BookChapterPickerSidebar({
+  onOpenStet,
+}: { onOpenStet?: () => void } = {}) {
   const { t } = useLingui();
   const { actions, bookCodeToProjectLocalizedTitle, project, search } =
     useWorkspaceContext();
@@ -93,6 +96,19 @@ export function BookChapterPickerSidebar() {
         <SearchIcon size={16} className={styles.findButtonIcon} />
         <span>{t`Find`}</span>
       </button>
+      {onOpenStet ? (
+        <button
+          type="button"
+          className={styles.findButton}
+          data-testid={TESTING_IDS.stet.toolbarTrigger}
+          onClick={onOpenStet}
+          // "STET" stays tooltip-only; the button shows the full name.
+          title={t`Spiritual Terms Evaluation (STET)`}
+        >
+          <SparklesIcon size={16} className={styles.findButtonIcon} />
+          <span>{t`Spiritual Terms Evaluation`}</span>
+        </button>
+      ) : null}
       <div className={styles.viewport}>
         <BooksPanel
           books={books}

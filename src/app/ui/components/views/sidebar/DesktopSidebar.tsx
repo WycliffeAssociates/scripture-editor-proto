@@ -8,6 +8,7 @@ import * as styles from "@/app/ui/styles/modules/Projectview.css.ts";
 interface DesktopSidebarProps {
   openProjectsPane: () => void;
   openSettingsPane: () => void;
+  openStetPane: () => void;
 }
 
 export function DesktopSidebar(props: DesktopSidebarProps) {
@@ -18,7 +19,7 @@ export function DesktopSidebar(props: DesktopSidebarProps) {
       </div>
 
       <div className={styles.sidebarBooks}>
-        <BookChapterPickerSidebar />
+        <BookChapterPickerSidebar onOpenStet={props.openStetPane} />
       </div>
 
       <div className={styles.sidebarBottom}>

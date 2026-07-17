@@ -14,6 +14,8 @@ import {
   Quote,
   Redo2,
   Save,
+  Search,
+  Sparkles,
   Undo2,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
@@ -48,6 +50,8 @@ type EditorToolbarProps = {
   onToggleReferencePane: () => void;
   isSearchPaneOpen?: boolean;
   onToggleSearchPane?: () => void;
+  isStetPaneOpen?: boolean;
+  onToggleStetPane?: () => void;
 };
 
 //todo: This is probably rye for decomposition. There's a mixture of state, a good number of dependent and dependency injection of the workspace context. especially the stuff like handle cut, handle copy, handle paste. Just kind of distracts from seeing the return body and feels like a lot of logic before and most of these functions feel like we could probably, you know, extract some of this out, move some of it to some other spots potentially. I'm open to your suggestions on it ON HOW YOU'D DEOMCPOSE HERE.
@@ -345,6 +349,24 @@ export function EditorToolbar(props: EditorToolbarProps) {
                 active={props.isReferencePaneOpen}
                 icon={<BookCopy size={16} />}
               />
+              {props.onToggleSearchPane ? (
+                <ToolbarTooltipButton
+                  label={t`Find`}
+                  onClick={props.onToggleSearchPane}
+                  active={props.isSearchPaneOpen}
+                  icon={<Search size={16} />}
+                />
+              ) : null}
+              {props.onToggleStetPane ? (
+                <ToolbarTooltipButton
+                  // Full name is the primary copy; "STET" stays in the tooltip.
+                  label={t`Spiritual Terms Evaluation`}
+                  onClick={props.onToggleStetPane}
+                  active={props.isStetPaneOpen}
+                  icon={<Sparkles size={16} />}
+                  testId={TESTING_IDS.stet.toolbarTrigger}
+                />
+              ) : null}
             </div>
 
             <button
@@ -427,6 +449,7 @@ function ToolbarTooltipButton(props: {
   onClick: () => void;
   disabled?: boolean;
   active?: boolean;
+  testId?: string;
 }) {
   return (
     <Tooltip.Root>
@@ -439,6 +462,7 @@ function ToolbarTooltipButton(props: {
               props.active ? styles.iconButtonActive : undefined,
             )}
             aria-label={props.label}
+            data-testid={props.testId}
             onClick={props.onClick}
             disabled={props.disabled}
           >

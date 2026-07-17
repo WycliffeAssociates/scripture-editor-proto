@@ -10,6 +10,7 @@ import { FormFocusProvider } from "@/app/ui/contexts/FormFocusContext.tsx";
 import * as styles from "@/app/ui/styles/modules/Projectview.css.ts";
 
 import { SearchPanel } from "../search-panel/SearchPanel.tsx";
+import { StetPanel } from "../stet-panel/StetPanel.tsx";
 
 interface EditorPaneProps {
   isSmall: boolean;
@@ -61,7 +62,12 @@ function ProjectsPane(props: ProjectsPaneProps) {
   return <ProjectBrowserPane onClose={props.onClose} />;
 }
 
-export type WorkspacePane = "editor" | "settings" | "projects" | "search";
+export type WorkspacePane =
+  | "editor"
+  | "settings"
+  | "projects"
+  | "search"
+  | "stet";
 
 interface WorkspacePaneStackProps {
   isSmall: boolean;
@@ -82,28 +88,35 @@ interface EditorsShellProps {
   hasReferenceResource: boolean;
   hasSearchPaneOpen: boolean;
   isSearchDocked?: boolean;
+  isStetDocked?: boolean;
   activeWorkspacePane: WorkspacePane;
   closeProjectsPane: () => void;
   closeSettingsPane: () => void;
   closeSearchPane: () => void;
+  closeStetPane: () => void;
+  toggleStetDock: () => void;
+  toggleStetPane: () => void;
+  stetRevealEditor: () => void;
   toggleReferencePane: () => void;
   toggleSearchPane: () => void;
 }
 
 function EditorsShell(props: EditorsShellProps) {
-  // Docked search reveals the editor beside the find panel (desktop only). The
-  // editor stays mounted in place throughout — only the surrounding layout
-  // shifts — so the Lexical instance and its pipelines are never torn down.
-  const isSearchDocked =
-    props.activeWorkspacePane === "search" &&
-    Boolean(props.isSearchDocked) &&
-    !props.isSmall;
+  // A docked overlay tool (Find or STET) reveals the editor beside the tool
+  // panel (desktop only). The editor stays mounted in place throughout — only
+  // the surrounding layout shifts — so the Lexical instance and its pipelines
+  // are never torn down.
+  const isToolDocked =
+    !props.isSmall &&
+    ((props.activeWorkspacePane === "search" &&
+      Boolean(props.isSearchDocked)) ||
+      (props.activeWorkspacePane === "stet" && Boolean(props.isStetDocked)));
 
   // While docked, the editor takes the whole revealed slot. The reference
   // column is suppressed here — otherwise it shares the narrow docked track and
   // crowds the editor down to a sliver (the reference picker is still reachable
   // from inside the find controls).
-  const showReferencePane = props.hasReferenceResource && !isSearchDocked;
+  const showReferencePane = props.hasReferenceResource && !isToolDocked;
 
   const contentGridClassName = props.isSmall
     ? styles.mobileEditorsContainer
@@ -111,7 +124,7 @@ function EditorsShell(props: EditorsShellProps) {
         showReferencePane
           ? styles.desktopContentGridWithReference
           : styles.desktopContentGrid
-      }${isSearchDocked ? ` ${styles.desktopContentGridDocked}` : ""}`;
+      }${isToolDocked ? ` ${styles.desktopContentGridDocked}` : ""}`;
 
   return (
     <section
@@ -123,20 +136,30 @@ function EditorsShell(props: EditorsShellProps) {
     >
       <div
         className={`${styles.workspaceEditorsStage}${
-          isSearchDocked ? ` ${styles.workspaceEditorsStageDocked}` : ""
+          isToolDocked ? ` ${styles.workspaceEditorsStageDocked}` : ""
         }`}
       >
         {/* Full-width toolbar bar — spans the reference + editor row beneath
                     it. Covered by the overlay pane when a non-editor pane
-                    (settings/projects/search) is active, and hidden entirely
-                    while search is docked (the editing surface stays clean). */}
-        {isSearchDocked ? null : (
+                    (settings/projects/search/stet) is active, and hidden
+                    entirely while a tool is docked (editing surface stays
+                    clean). */}
+        {isToolDocked ? null : (
           <div className={styles.editorToolbarRow}>
             <EditorToolbar
               isReferencePaneOpen={props.hasReferenceResource}
               onToggleReferencePane={props.toggleReferencePane}
               isSearchPaneOpen={props.hasSearchPaneOpen}
-              onToggleSearchPane={props.toggleSearchPane}
+              // Desktop reaches Find and STET from the always-visible sidebar
+              // (the overlay covers the toolbar); the toolbar entries are the
+              // small-screen route, where there is no sidebar.
+              onToggleSearchPane={
+                props.isSmall ? props.toggleSearchPane : undefined
+              }
+              isStetPaneOpen={props.activeWorkspacePane === "stet"}
+              onToggleStetPane={
+                props.isSmall ? props.toggleStetPane : undefined
+              }
             />
           </div>
         )}
@@ -148,13 +171,21 @@ function EditorsShell(props: EditorsShellProps) {
         {props.activeWorkspacePane !== "editor" ? (
           <div
             className={`${styles.workspaceOverlayPane}${
-              isSearchDocked ? ` ${styles.workspaceOverlayPaneDocked}` : ""
+              isToolDocked ? ` ${styles.workspaceOverlayPaneDocked}` : ""
             }`}
           >
             {props.activeWorkspacePane === "settings" ? (
               <SettingsPane onClose={props.closeSettingsPane} />
             ) : props.activeWorkspacePane === "projects" ? (
               <ProjectsPane onClose={props.closeProjectsPane} />
+            ) : props.activeWorkspacePane === "stet" ? (
+              <StetPanel
+                onClose={props.closeStetPane}
+                isDocked={isToolDocked}
+                onToggleDock={props.isSmall ? undefined : props.toggleStetDock}
+                onRevealEditor={props.stetRevealEditor}
+                compact={props.isSmall || isToolDocked}
+              />
             ) : (
               <SearchPanel onClose={props.closeSearchPane} />
             )}
