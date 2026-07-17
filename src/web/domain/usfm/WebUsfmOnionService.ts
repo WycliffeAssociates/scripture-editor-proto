@@ -3,17 +3,15 @@ import * as onion from "usfm-onion-web";
 import { devTimer } from "@/app/ui/hooks/utils/domUtils.ts";
 import { webMd5Service } from "@/core/domain/md5/webMd5.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
-import { defaultBuildSidBlocksOptions } from "@/core/domain/usfm/usfmOnionAdapters.ts";
 import type {
-  BuildSidBlocksOptions,
-  Diff,
+  DiffSkeleton,
   DiffScopeItem,
-  DiffScopeOptions,
   FormatScopeOptions,
   LintIssue,
   LintOptions,
   LintScopeOptions,
   MarkerInfo,
+  MergeRequest,
   ParsedUsfm,
   ProjectedUsfmDocument,
   ProjectUsfmOptions,
@@ -181,27 +179,6 @@ function formatTokensToTransformResult(
   };
 }
 
-function fromRawDiff(diff: onion.ChapterTokenDiff): Diff {
-  return {
-    blockId: diff.blockId,
-    semanticSid: diff.semanticSid,
-    status: diff.status,
-    original: diff.original,
-    current: diff.current,
-    originalText: diff.originalText,
-    currentText: diff.currentText,
-    originalTextOnly: diff.originalTextOnly,
-    currentTextOnly: diff.currentTextOnly,
-    isWhitespaceChange: diff.isWhitespaceChange,
-    isUsfmStructureChange: diff.isUsfmStructureChange,
-    originalTokens: diff.originalTokens,
-    currentTokens: diff.currentTokens,
-    originalAlignment: diff.originalAlignment ?? [],
-    currentAlignment: diff.currentAlignment ?? [],
-    undoSide: diff.undoSide,
-  };
-}
-
 export class WebUsfmOnionService implements IUsfmOnionService {
   readonly supportsPathIo = false;
 
@@ -351,52 +328,35 @@ export class WebUsfmOnionService implements IUsfmOnionService {
     };
   }
 
-  async diffScope(
-    scope: DiffScopeItem[],
-    options: DiffScopeOptions = {},
-  ): Promise<Diff[][]> {
+  async diffScope(scope: DiffScopeItem[]): Promise<DiffSkeleton[]> {
     if (!scope.length) return [];
-    if (scope.some((item) => !item.baselineTokens || !item.currentTokens)) {
-      return throwPathIoUnsupported();
-    }
     return Promise.all(
       scope.map((item) =>
-        this.diffTokens(
-          item.baselineTokens ?? [],
-          item.currentTokens ?? [],
-          options.buildOptions ?? defaultBuildSidBlocksOptions(),
-        ),
+        this.diffTokens(item.baselineTokens, item.currentTokens),
       ),
     );
   }
 
   async diffTokens(
-    baselineTokens: Token[],
-    currentTokens: Token[],
-    buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
-  ): Promise<Diff[]> {
+    baselineTokens: readonly Token[],
+    currentTokens: readonly Token[],
+  ): Promise<DiffSkeleton> {
     const end = devTimer(`web:diffTokens ${bookOf(currentTokens)}`);
-    const result = onion
-      .diffTokens(baselineTokens, currentTokens, buildOptions)
-      .map(fromRawDiff);
+    const result = onion.diffTokens([...baselineTokens], [...currentTokens]);
     end();
     return result;
   }
 
-  async revertDiffBlock(
-    baselineTokens: Token[],
-    currentTokens: Token[],
-    blockId: string,
-    buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
+  async mergeDiffBlocks(
+    baselineTokens: readonly Token[],
+    currentTokens: readonly Token[],
+    request: MergeRequest,
   ): Promise<Token[]> {
-    const end = devTimer(
-      `web:revertDiffBlock ${bookOf(currentTokens)} ${blockId}`,
-    );
-    const result = onion.revertDiffBlock(
-      baselineTokens,
-      currentTokens,
-      blockId,
-      buildOptions,
+    const end = devTimer(`web:mergeDiffBlocks ${bookOf(currentTokens)}`);
+    const result = onion.mergeDiffBlocks(
+      [...baselineTokens],
+      [...currentTokens],
+      request,
     );
     end();
     return result;

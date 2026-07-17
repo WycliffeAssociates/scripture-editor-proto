@@ -16,7 +16,7 @@ import { ToggleGroup } from "@/app/ui/components/primitives/ToggleGroup/ToggleGr
 import type {
   BuildPrintChangesFn,
   PrintCheckpoint,
-} from "@/app/ui/hooks/save/useExternalCompare.ts";
+} from "@/app/ui/hooks/useSave.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/printChangesButton.css.ts";
 

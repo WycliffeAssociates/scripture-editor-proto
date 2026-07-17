@@ -13,6 +13,7 @@ import {
   vi,
 } from "vitest";
 
+import { runSavePipeline } from "@/app/domain/project/savePipeline.ts";
 import type {
   ScriptureBookState,
   ScriptureChapterState,
@@ -68,6 +69,7 @@ function makeWorkingFile(): ScriptureBookState {
 function createProject(spies: {
   saveBook: Project["saveBook"];
   addBook: Project["addBook"];
+  removeBook?: Project["removeBook"];
 }): Project {
   return {
     folderName: "foo",
@@ -95,6 +97,7 @@ function createProject(spies: {
     },
     saveBook: spies.saveBook,
     addBook: spies.addBook,
+    removeBook: spies.removeBook ?? vi.fn(),
     listVersions: async () => [],
     restoreVersion: async () => {},
     stageAndCommit: async () => ({ hash: "not-used" }),
@@ -206,6 +209,197 @@ describe("useSaveAndRevert", () => {
     vi.clearAllMocks();
   });
 
+  it("checkpoints an explicitly deleted book without inferring other missing books", async () => {
+    const removeBook = vi.fn<Project["removeBook"]>();
+    const commitAll = vi
+      .fn<GitProvider["commitAll"]>()
+      .mockResolvedValue({ hash: "delete-hash" });
+    const fileSystem = new InMemoryFileSystem();
+    const project = createProject({
+      saveBook: vi.fn(),
+      addBook: vi.fn(),
+      removeBook,
+    });
+    const baseline = new WorkspaceBaselineStore({
+      calculateMd5: async (text: string) => text,
+    });
+    baseline.setPresent("MAT", "old-md5");
+
+    const result = await runSavePipeline(
+      {
+        workingFilesStore: new WorkingFilesStore([]),
+        workspaceBaselineStore: baseline,
+        recoveredConflictTracker: new RecoveredConflictTracker(),
+        interactionGate: new WorkspaceGateStore(),
+        saveStatusStore: new SaveStatusStore(),
+        loadedProject: project,
+        gitProvider: createGitProvider({
+          commitAll,
+          pushCurrentBranch: vi.fn(),
+        }),
+        settingsManager: {
+          getSettings: vi.fn() as never,
+          get: vi.fn().mockReturnValue(false),
+          set: vi.fn(),
+          update: vi.fn(),
+          applySettings: vi.fn(),
+        },
+        authSessionProvider: createAuthSessionProvider(),
+        fileSystem,
+        storageRoots,
+        isViewingOlderVersion: false,
+        selectedVersionHash: null,
+        refreshVersions: vi.fn(),
+        onSavedVersion: vi.fn(),
+        bumpDirtyVersion: vi.fn(),
+      },
+      { deletedBookCodes: ["MAT"] },
+    );
+
+    expect(removeBook).toHaveBeenCalledWith("41-MAT.usfm");
+    expect(baseline.getBaseline("MAT")).toEqual({ kind: "absent" });
+    expect(commitAll).toHaveBeenCalledWith(
+      project.projectPath,
+      expect.objectContaining({ changedChapters: ["MAT *"] }),
+      expect.any(Object),
+    );
+    expect(result).toMatchObject({
+      kind: "saved",
+      persistedBookCodes: ["MAT"],
+      checkpoint: { kind: "created", hash: "delete-hash" },
+    });
+  });
+
+  it("retains failed structural deletion intent and retries it on ordinary Save", async () => {
+    const removeBook = vi
+      .fn<Project["removeBook"]>()
+      .mockRejectedValueOnce(new Error("disk busy"))
+      .mockResolvedValueOnce(undefined);
+    const store = new WorkingFilesStore([]);
+    store.commit({
+      patch: { kind: "bulk", files: [] },
+      meta: {
+        kind: "import",
+        action: "applyIncoming",
+        scope: { project: true },
+        dirtyTextContent: true,
+        structuralChanges: { deletedBookCodes: ["MAT"] },
+      },
+    });
+    const deps: Parameters<typeof runSavePipeline>[0] = {
+      workingFilesStore: store,
+      workspaceBaselineStore: new WorkspaceBaselineStore({
+        calculateMd5: async (text: string) => text,
+      }),
+      recoveredConflictTracker: new RecoveredConflictTracker(),
+      interactionGate: new WorkspaceGateStore(),
+      saveStatusStore: new SaveStatusStore(),
+      loadedProject: createProject({
+        saveBook: vi.fn(),
+        addBook: vi.fn(),
+        removeBook,
+      }),
+      gitProvider: createGitProvider({
+        commitAll: vi.fn().mockResolvedValue({ hash: "retry-hash" }),
+        pushCurrentBranch: vi.fn(),
+      }),
+      settingsManager: {
+        getSettings: vi.fn() as never,
+        get: vi.fn().mockReturnValue(false),
+        set: vi.fn(),
+        update: vi.fn(),
+        applySettings: vi.fn(),
+      },
+      authSessionProvider: createAuthSessionProvider(),
+      fileSystem: new InMemoryFileSystem(),
+      storageRoots,
+      isViewingOlderVersion: false,
+      selectedVersionHash: null,
+      refreshVersions: vi.fn(),
+      onSavedVersion: vi.fn(),
+      bumpDirtyVersion: vi.fn(),
+    };
+
+    await expect(runSavePipeline(deps)).resolves.toMatchObject({
+      kind: "partial",
+    });
+    expect(store.hasPendingStructuralChanges()).toBe(true);
+    await expect(runSavePipeline(deps)).resolves.toMatchObject({
+      kind: "saved",
+      persistedBookCodes: ["MAT"],
+    });
+    expect(removeBook).toHaveBeenCalledTimes(2);
+    expect(store.hasPendingStructuralChanges()).toBe(false);
+  });
+
+  it("persists a chapter removal without falsely dirtying the remaining chapter", async () => {
+    const saveBook = vi.fn<Project["saveBook"]>();
+    const commitAll = vi
+      .fn<GitProvider["commitAll"]>()
+      .mockResolvedValue({ hash: "structure-hash" });
+    const remainingChapter = makeChapter({
+      bookCode: "MAT",
+      text: "\\c 1\n\\v 1 Remaining.\n",
+    });
+    remainingChapter.dirty = false;
+    const store = new WorkingFilesStore([
+      makeBook({
+        bookCode: "MAT",
+        title: "Matthew",
+        path: "/userData/projects/foo/41-MAT.usfm",
+        chapters: [remainingChapter],
+      }),
+    ]);
+
+    const result = await runSavePipeline(
+      {
+        workingFilesStore: store,
+        workspaceBaselineStore: new WorkspaceBaselineStore({
+          calculateMd5: async (text: string) => text,
+        }),
+        recoveredConflictTracker: new RecoveredConflictTracker(),
+        interactionGate: new WorkspaceGateStore(),
+        saveStatusStore: new SaveStatusStore(),
+        loadedProject: createProject({ saveBook, addBook: vi.fn() }),
+        gitProvider: createGitProvider({
+          commitAll,
+          pushCurrentBranch: vi.fn(),
+        }),
+        settingsManager: {
+          getSettings: vi.fn() as never,
+          get: vi.fn().mockReturnValue(false),
+          set: vi.fn(),
+          update: vi.fn(),
+          applySettings: vi.fn(),
+        },
+        authSessionProvider: createAuthSessionProvider(),
+        fileSystem: new InMemoryFileSystem(),
+        storageRoots,
+        isViewingOlderVersion: false,
+        selectedVersionHash: null,
+        refreshVersions: vi.fn(),
+        onSavedVersion: vi.fn(),
+        bumpDirtyVersion: vi.fn(),
+      },
+      { structurallyChangedBookCodes: ["MAT"] },
+    );
+
+    expect(saveBook).toHaveBeenCalledWith(
+      "41-MAT.usfm",
+      "\\c 1\n\\v 1 Remaining.\n",
+    );
+    expect(commitAll).toHaveBeenCalledWith(
+      "/userData/projects/foo",
+      expect.objectContaining({ changedChapters: ["MAT *"] }),
+      expect.any(Object),
+    );
+    expect(store.read()[0].chapters[0].dirty).toBe(false);
+    expect(result).toMatchObject({
+      kind: "saved",
+      persistedBookCodes: ["MAT"],
+    });
+  });
+
   it("preserves the local save and shows a warning when cloud publish throws", async () => {
     const fileSystem = new InMemoryFileSystem();
     await writeGitRemoteProjectInfo({
@@ -273,15 +467,11 @@ describe("useSaveAndRevert", () => {
       authSessionProvider: createAuthSessionProvider(),
       fileSystem,
       storageRoots,
-      usfmOnionService: {} as never,
       isViewingOlderVersion: false,
       selectedVersionHash: null,
       refreshVersions: vi.fn().mockResolvedValue(undefined),
       onSavedVersion: vi.fn(),
-      clearUnsavedDiffs: vi.fn(),
-      setUnsavedDiffsByChapter: vi.fn(),
       bumpDirtyVersion: vi.fn(),
-      rerunCompareForChapters: vi.fn().mockResolvedValue(undefined),
     });
 
     await act(async () => {
@@ -375,15 +565,11 @@ describe("useSaveAndRevert", () => {
       authSessionProvider: createAuthSessionProvider(),
       fileSystem,
       storageRoots,
-      usfmOnionService: {} as never,
       isViewingOlderVersion: false,
       selectedVersionHash: null,
       refreshVersions: vi.fn().mockResolvedValue(undefined),
       onSavedVersion: vi.fn(),
-      clearUnsavedDiffs: vi.fn(),
-      setUnsavedDiffsByChapter: vi.fn(),
       bumpDirtyVersion: vi.fn(),
-      rerunCompareForChapters: vi.fn().mockResolvedValue(undefined),
     });
 
     let result: Awaited<ReturnType<typeof save.actions.saveProjectToDisk>>;
@@ -438,15 +624,11 @@ describe("useSaveAndRevert", () => {
       authSessionProvider: createAuthSessionProvider(),
       fileSystem,
       storageRoots,
-      usfmOnionService: {} as never,
       isViewingOlderVersion: false,
       selectedVersionHash: null,
       refreshVersions: vi.fn().mockResolvedValue(undefined),
       onSavedVersion: vi.fn(),
-      clearUnsavedDiffs: vi.fn(),
-      setUnsavedDiffsByChapter: vi.fn(),
       bumpDirtyVersion: vi.fn(),
-      rerunCompareForChapters: vi.fn().mockResolvedValue(undefined),
     });
 
     let result: Awaited<ReturnType<typeof save.actions.saveProjectToDisk>>;
@@ -543,15 +725,11 @@ describe("useSaveAndRevert", () => {
       authSessionProvider: createAuthSessionProvider(),
       fileSystem,
       storageRoots,
-      usfmOnionService: {} as never,
       isViewingOlderVersion: false,
       selectedVersionHash: null,
       refreshVersions: vi.fn().mockResolvedValue(undefined),
       onSavedVersion: vi.fn(),
-      clearUnsavedDiffs: vi.fn(),
-      setUnsavedDiffsByChapter: vi.fn(),
       bumpDirtyVersion: vi.fn(),
-      rerunCompareForChapters: vi.fn().mockResolvedValue(undefined),
       prepareRemoteBaseForSave,
     });
 
@@ -636,15 +814,11 @@ describe("useSaveAndRevert", () => {
       authSessionProvider: createAuthSessionProvider(),
       fileSystem,
       storageRoots,
-      usfmOnionService: {} as never,
       isViewingOlderVersion: false,
       selectedVersionHash: null,
       refreshVersions: vi.fn().mockResolvedValue(undefined),
       onSavedVersion: vi.fn(),
-      clearUnsavedDiffs: vi.fn(),
-      setUnsavedDiffsByChapter: vi.fn(),
       bumpDirtyVersion: vi.fn(),
-      rerunCompareForChapters: vi.fn().mockResolvedValue(undefined),
     });
 
     let result: Awaited<ReturnType<typeof save.actions.saveProjectToDisk>>;
@@ -701,15 +875,11 @@ describe("useSaveAndRevert", () => {
       authSessionProvider: createAuthSessionProvider(),
       fileSystem,
       storageRoots,
-      usfmOnionService: {} as never,
       isViewingOlderVersion: false,
       selectedVersionHash: null,
       refreshVersions: vi.fn().mockResolvedValue(undefined),
       onSavedVersion: vi.fn(),
-      clearUnsavedDiffs: vi.fn(),
-      setUnsavedDiffsByChapter: vi.fn(),
       bumpDirtyVersion: vi.fn(),
-      rerunCompareForChapters: vi.fn().mockResolvedValue(undefined),
       prepareRemoteBaseForSave,
     });
 
@@ -765,15 +935,11 @@ describe("useSaveAndRevert", () => {
       authSessionProvider: createAuthSessionProvider(),
       fileSystem: new InMemoryFileSystem(),
       storageRoots,
-      usfmOnionService: {} as never,
       isViewingOlderVersion: false,
       selectedVersionHash: null,
       refreshVersions: vi.fn().mockResolvedValue(undefined),
       onSavedVersion: vi.fn(),
-      clearUnsavedDiffs: vi.fn(),
-      setUnsavedDiffsByChapter: vi.fn(),
       bumpDirtyVersion: vi.fn(),
-      rerunCompareForChapters: vi.fn().mockResolvedValue(undefined),
     });
 
     let result: Awaited<ReturnType<typeof save.actions.saveProjectToDisk>>;

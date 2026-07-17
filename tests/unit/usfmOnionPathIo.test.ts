@@ -22,21 +22,13 @@ describe("TauriUsfmOnionService path I/O", () => {
     invokeMock
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([[]])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([[]]);
+      .mockResolvedValueOnce([]);
 
     await service.parseUsfmBatchFromPaths(["/tmp/a.usfm", "/tmp/b.usfm"], {});
     await service.lintScope([{ path: "/tmp/a.usfm" }], {
       lintOptions: {},
     });
     await service.formatScope([{ path: "/tmp/a.usfm" }]);
-    await service.diffScope(
-      [{ baselinePath: "/tmp/a.usfm", currentPath: "/tmp/b.usfm" }],
-      {
-        tokenOptions: {},
-        buildOptions: {},
-      },
-    );
 
     expect(invokeMock).toHaveBeenNthCalledWith(1, "usfm_onion_project_paths", {
       paths: ["/tmp/a.usfm", "/tmp/b.usfm"],
@@ -60,17 +52,6 @@ describe("TauriUsfmOnionService path I/O", () => {
       paths: ["/tmp/a.usfm"],
       tokenOptions: { mergeHorizontalWhitespace: false },
     });
-    expect(invokeMock).toHaveBeenNthCalledWith(
-      4,
-      "usfm_onion_diff_path_pairs",
-      {
-        pathPairs: [
-          { baselinePath: "/tmp/a.usfm", currentPath: "/tmp/b.usfm" },
-        ],
-        tokenOptions: { mergeHorizontalWhitespace: false },
-        buildOptions: {},
-      },
-    );
   });
 });
 
@@ -90,11 +71,6 @@ describe("WebUsfmOnionService path I/O", () => {
     );
     await expect(
       service.formatScope([{ path: "/tmp/a.usfm" }]),
-    ).rejects.toThrow("Path I/O is desktop-only");
-    await expect(
-      service.diffScope([
-        { baselinePath: "/tmp/a.usfm", currentPath: "/tmp/b.usfm" },
-      ]),
     ).rejects.toThrow("Path I/O is desktop-only");
   });
 });

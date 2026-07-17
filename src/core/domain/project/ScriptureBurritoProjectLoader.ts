@@ -560,6 +560,33 @@ export class ScriptureBurritoProjectLoader {
           }
           return nextBook;
         },
+        removeBook: async (storageKey) => {
+          const relativePath = resolveIngredientPath(storageKey);
+          if (!relativePath) {
+            throw new Error(
+              `No ingredient found for storage key ${storageKey}`,
+            );
+          }
+          const nextIngredients = { ...(metadata.ingredients ?? {}) };
+          delete nextIngredients[relativePath];
+          delete nextIngredients[storageKey];
+          await args.fs.atomicWriteText(
+            metadataPath,
+            JSON.stringify(
+              { ...metadata, ingredients: nextIngredients },
+              null,
+              2,
+            ),
+          );
+          await args.fs.remove(`${args.projectRootPath}/${relativePath}`);
+          if (metadata.ingredients) {
+            metadata.ingredients = nextIngredients;
+          }
+          const bookIndex = books.findIndex(
+            (candidate) => candidate.storageKey === storageKey,
+          );
+          if (bookIndex >= 0) books.splice(bookIndex, 1);
+        },
         listVersions: async () => {
           throw new Error(
             "Version operations are not available on loader-opened projects.",

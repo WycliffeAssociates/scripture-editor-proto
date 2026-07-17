@@ -57,6 +57,7 @@ function makeScriptureItem(
     readWorkspace: async () => ({ bookCode: "MAT", usfmContents: "" }),
     readBook: async () => null,
     ...overrides,
+    removeBook: overrides.removeBook ?? (async () => {}),
   };
 }
 

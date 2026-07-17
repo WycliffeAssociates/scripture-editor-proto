@@ -77,6 +77,7 @@ const mockProject: Project = {
   getBook: vi.fn(),
   saveBook: vi.fn(),
   addBook: vi.fn(),
+  removeBook: vi.fn(),
   listVersions: vi.fn(async () => []),
   restoreVersion: vi.fn(),
   stageAndCommit: vi.fn(),

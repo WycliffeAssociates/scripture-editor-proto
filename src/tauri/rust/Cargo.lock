@@ -5121,12 +5121,12 @@ dependencies = [
 
 [[package]]
 name = "usfm_onion"
-version = "0.1.1"
-source = "git+https://github.com/WycliffeAssociates/usfm-onion.git?tag=v0.0.8#4e9de553285cac5c4301daab3dcfabf88c77cbd6"
+version = "0.2.0"
 dependencies = [
  "logos",
  "quick-xml 0.37.5",
  "regex",
+ "rustc-hash",
  "serde",
  "serde_json",
  "similar",
@@ -5134,8 +5134,7 @@ dependencies = [
 
 [[package]]
 name = "usfm_onion_dto"
-version = "0.1.1"
-source = "git+https://github.com/WycliffeAssociates/usfm-onion.git?tag=v0.0.8#4e9de553285cac5c4301daab3dcfabf88c77cbd6"
+version = "0.2.0"
 dependencies = [
  "serde",
  "usfm_onion",

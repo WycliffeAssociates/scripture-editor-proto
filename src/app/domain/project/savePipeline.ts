@@ -27,6 +27,7 @@ import {
 } from "@/app/domain/project/gitRemotePublishCoordinator.ts";
 import type { WorkspaceCommandBlockReason } from "@/app/domain/project/remoteSync/commandResults.ts";
 import {
+  BOOK_PERSISTENCE_ACTION_DELETE_EXISTING,
   BOOK_PERSISTENCE_ACTION_SAVE_EXISTING,
   buildBookPersistencePlan,
   buildBooksSavePayload,
@@ -108,7 +109,6 @@ export type SavePipelineDeps = {
   selectedVersionHash: string | null;
   refreshVersions: () => Promise<void>;
   onSavedVersion: (hash: string) => void;
-  clearUnsavedDiffs: () => void;
   bumpDirtyVersion: () => void;
   onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
   prepareRemoteBaseForSave?: () => Promise<void>;
@@ -116,6 +116,10 @@ export type SavePipelineDeps = {
 
 export type SaveOptions = {
   prepareRemoteBaseForSave?: () => Promise<void>;
+  /** Book codes the caller explicitly chose to remove from the project. */
+  deletedBookCodes?: readonly string[];
+  /** Existing books whose chapter membership changed even if remaining chapters are clean. */
+  structurallyChangedBookCodes?: readonly string[];
   /**
    * Attestation that the user reviewed (or reverted) their recovered
    * conflicts. Issued ONLY from the local-unsaved-review modal path. When
@@ -175,11 +179,47 @@ export async function runSavePipeline(
     const dirtyChapterRefs = listDirtyChapterRefs(currentFiles).map(
       ({ bookCode, chapterNum }) => `${bookCode} ${chapterNum}`,
     );
-    const filesToSave = getDirtyFiles(currentFiles);
-    const toSave = buildBooksSavePayload(filesToSave);
+    const pendingStructural = args.workingFilesStore.pendingStructuralChanges();
+    const deletedBookCodes = [
+      ...new Set([
+        ...pendingStructural.deletedBookCodes,
+        ...(options?.deletedBookCodes ?? []),
+      ]),
+    ];
+    const structurallyChangedBookCodes = new Set(
+      [
+        ...pendingStructural.structurallyChangedBookCodes,
+        ...(options?.structurallyChangedBookCodes ?? []),
+      ].filter((bookCode) => !deletedBookCodes.includes(bookCode)),
+    );
+    for (const bookCode of structurallyChangedBookCodes) {
+      if (!currentFiles.some((file) => file.bookCode === bookCode)) {
+        throw new Error(
+          `Cannot persist structurally changed missing book ${bookCode}`,
+        );
+      }
+    }
+    const changedScopes = [
+      ...new Set([
+        ...dirtyChapterRefs,
+        ...deletedBookCodes.map((bookCode) => `${bookCode} *`),
+        ...[...structurallyChangedBookCodes].map((bookCode) => `${bookCode} *`),
+      ]),
+    ];
+    const dirtyFiles = getDirtyFiles(currentFiles);
+    const filesToSave = currentFiles.filter(
+      (file) =>
+        structurallyChangedBookCodes.has(file.bookCode) ||
+        dirtyFiles.includes(file),
+    );
+    const toSave = buildBooksSavePayload(
+      filesToSave,
+      structurallyChangedBookCodes,
+    );
     const persistencePlan = buildBookPersistencePlan({
       existingBooks: args.loadedProject.books,
       payload: toSave,
+      deletedBookCodes,
     });
 
     // Freeze per-chapter tokens at the SAME synchronous instant the save
@@ -249,18 +289,22 @@ export async function runSavePipeline(
     let saveError: unknown = null;
     const persistedBooks = new Set<string>();
     for (const action of persistencePlan) {
-      let preComputedMd5: string;
-      try {
-        preComputedMd5 = await args.workspaceBaselineStore.computeMd5(
-          action.contents,
-        );
-      } catch (md5Error) {
-        saveError = md5Error;
-        break;
+      let preComputedMd5: string | null = null;
+      if (action.kind !== BOOK_PERSISTENCE_ACTION_DELETE_EXISTING) {
+        try {
+          preComputedMd5 = await args.workspaceBaselineStore.computeMd5(
+            action.contents,
+          );
+        } catch (md5Error) {
+          saveError = md5Error;
+          break;
+        }
       }
       try {
         if (action.kind === BOOK_PERSISTENCE_ACTION_SAVE_EXISTING) {
           await args.loadedProject.saveBook(action.storageKey, action.contents);
+        } else if (action.kind === BOOK_PERSISTENCE_ACTION_DELETE_EXISTING) {
+          await args.loadedProject.removeBook(action.storageKey);
         } else {
           await args.loadedProject.addBook(action.bookCode, {
             contents: action.contents,
@@ -271,13 +315,20 @@ export async function runSavePipeline(
         break;
       }
       persistedBooks.add(action.bookCode);
-      args.workspaceBaselineStore.setPresent(action.bookCode, preComputedMd5);
+      if (action.kind === BOOK_PERSISTENCE_ACTION_DELETE_EXISTING) {
+        args.workspaceBaselineStore.setAbsent(action.bookCode);
+      } else {
+        args.workspaceBaselineStore.setPresent(
+          action.bookCode,
+          preComputedMd5 as string,
+        );
+      }
     }
 
     if (saveError) {
       console.error(saveError);
       args.saveStatusStore.setFailed(saveError);
-    } else if (Object.keys(toSave).length > 0) {
+    } else if (persistencePlan.length > 0) {
       // Books are on disk. The caller renders the success toast from
       // `persistedBookCodes`.
       // Phase: create version checkpoint. Failure is a WARNING, not a save
@@ -295,7 +346,7 @@ export async function runSavePipeline(
           {
             op: "save",
             timestampIso: new Date().toISOString(),
-            changedChapters: dirtyChapterRefs,
+            changedChapters: changedScopes,
           },
           commitAuthor,
         );
@@ -379,7 +430,33 @@ export async function runSavePipeline(
         }
       },
     });
-    args.clearUnsavedDiffs();
+    const resolvedDeletedBookCodes = deletedBookCodes.filter((bookCode) =>
+      persistedBooks.has(bookCode),
+    );
+    const resolvedStructurallyChangedBookCodes = [
+      ...structurallyChangedBookCodes,
+    ].filter((bookCode) => persistedBooks.has(bookCode));
+    if (
+      resolvedDeletedBookCodes.length > 0 ||
+      resolvedStructurallyChangedBookCodes.length > 0
+    ) {
+      // Deletion-only saves have no surviving chapter to rebase, so resolve
+      // their durable intent with an explicit metadata commit. Failed book
+      // actions are deliberately absent and remain retryable.
+      args.workingFilesStore.commit({
+        patch: { kind: "bulk", files: args.workingFilesStore.read() },
+        meta: {
+          kind: "metadataOnly",
+          action: "saveCleanMark",
+          scope: { project: true },
+          dirtyTextContent: false,
+          resolvedStructuralChanges: {
+            deletedBookCodes: resolvedDeletedBookCodes,
+            structurallyChangedBookCodes: resolvedStructurallyChangedBookCodes,
+          },
+        },
+      });
+    }
     args.bumpDirtyVersion();
     if (!saveError) {
       args.saveStatusStore.setSaved();

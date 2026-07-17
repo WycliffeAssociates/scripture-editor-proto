@@ -213,6 +213,33 @@ describe("ResourceContainerProjectLoader path-based loading", () => {
     });
   });
 
+  test("removeBook deletes the file, manifest entry, and loaded book", async () => {
+    await fileSystem.writeText(
+      `${projectRootPath}/manifest.yaml`,
+      stringify(sampleManifestYaml),
+    );
+    await fileSystem.writeText(`${projectRootPath}/64-2JN.usfm`, "contents");
+
+    const project = await loader.openProject({
+      fs: fileSystem,
+      projectRootPath,
+      folderName,
+      displayName: "Adhola Bible",
+    });
+
+    await project?.removeBook("64-2JN.usfm");
+
+    await expect(
+      fileSystem.readText(`${projectRootPath}/64-2JN.usfm`),
+    ).rejects.toThrow();
+    const updatedManifest = parse(
+      await fileSystem.readText(`${projectRootPath}/manifest.yaml`),
+    );
+    expect(updatedManifest.projects).toEqual([]);
+    expect(project?.books).toEqual([]);
+    await expect(project?.listBooks()).resolves.toEqual([]);
+  });
+
   test("opens the shared en_tn_condensed fixture with representative note files", async () => {
     await seedEnTnCondensedFixture(fileSystem, projectRootPath);
 

@@ -79,6 +79,7 @@ function makeProject(
       usfmContents: "\\id 1JN",
     }),
     ...overrides,
+    removeBook: overrides.removeBook ?? (async () => {}),
   };
 }
 

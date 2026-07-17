@@ -1,163 +1,259 @@
 import { describe, expect, it } from "vitest";
 
+import { buildCompareSourcePair } from "@/app/domain/project/compare/sourceDescriptors.ts";
 import type {
-  DiffsByChapter,
-  ProjectDiff,
-} from "@/app/domain/project/diffTypes.ts";
+  CompareResult,
+  CompareSourceDescriptor,
+} from "@/app/domain/project/compare/types.ts";
 import {
-  buildAutoAcceptIncomingPlan,
+  buildAutoAcceptIncomingDecisionPlan,
   buildBookTextByCodeFromSnapshot,
-  collectChangedBookCodes,
+  buildDivergedAutoAcceptScopePlan,
+  collectChangedSkeletonSemanticAddresses,
+  collectUnitSemanticAddresses,
   extractBookCodeFromStorageKey,
-  hasDiffsByChapter,
+  hasCompareChanges,
+  hasWholeBookOrChapterDeletion,
   listChangedChapterRefs,
-  splitRemoteDiffsByDirtySemanticSid,
 } from "@/app/domain/project/remoteSync/incomingReconciliationPlan.ts";
+import type {
+  DecisionUnit,
+  DiffSkeleton,
+  Token,
+} from "@/core/domain/usfm/usfmOnionTypes.ts";
 
-// Minimal ProjectDiff factory — the planner only reads
-// semanticSid / uniqueKey / bookCode / chapterNum.
-function diff(overrides: Partial<ProjectDiff>): ProjectDiff {
+function source(kind: "working" | "remoteLatest", writable = false) {
   return {
-    uniqueKey: overrides.uniqueKey ?? `${overrides.semanticSid ?? "s"}-key`,
-    semanticSid: overrides.semanticSid ?? "sid",
-    status: overrides.status ?? "modified",
-    originalDisplayText: "",
-    currentDisplayText: "",
-    bookCode: overrides.bookCode ?? "GEN",
-    chapterNum: overrides.chapterNum ?? 1,
+    id: kind,
+    label: kind,
+    locator: { kind, projectId: "p" },
+    writable,
+    reload: async () => ({ files: [] }),
+  } as CompareSourceDescriptor;
+}
+
+function unit(overrides: Partial<DecisionUnit> = {}): DecisionUnit {
+  const left: Token = {
+    id: "l",
+    kind: "text",
+    sid: "GEN 1:1",
+    source: "local",
+  };
+  const right: Token = {
+    id: "r",
+    kind: "text",
+    sid: "GEN 1:1",
+    source: "remote",
+  };
+  return {
+    id: "u1",
+    kind: "coalesced",
+    status: "modified",
+    baselineSid: "GEN 1:1",
+    currentSid: "GEN 1:1",
+    baselineTokens: [left],
+    currentTokens: [right],
+    displaced: false,
+    relabeled: false,
+    dupContext: { baselineCount: 1, currentCount: 1 },
+    isWhitespaceChange: false,
+    isUsfmStructureChange: false,
     ...overrides,
   };
 }
 
-describe("hasDiffsByChapter", () => {
-  it("is false for null / empty / all-empty-chapters", () => {
-    expect(hasDiffsByChapter(null)).toBe(false);
-    expect(hasDiffsByChapter({})).toBe(false);
-    expect(hasDiffsByChapter({ GEN: { 1: [] } })).toBe(false);
+function snapshot(
+  args: {
+    units?: DecisionUnit[];
+    leftPresent?: boolean;
+    rightPresent?: boolean;
+  } = {},
+): CompareResult {
+  const units = args.units ?? [unit()];
+  const skeleton: DiffSkeleton = {
+    slots: units.map((entry) => ({
+      unitId: entry.id,
+      role: "pairBaseline",
+    })),
+    units,
+  };
+  return {
+    sources: buildCompareSourcePair({
+      left: source("working", true),
+      right: source("remoteLatest"),
+    }),
+    chapters: {
+      GEN: {
+        1: {
+          address: { bookCode: "GEN", chapterNum: 1 },
+          left: {
+            present: args.leftPresent ?? true,
+            dirty: true,
+            eol: "\n",
+            direction: "ltr",
+            book: {
+              path: "/GEN.usfm",
+              title: "Genesis",
+              bookCode: "GEN",
+              nextBookId: null,
+              prevBookId: null,
+            },
+            tokens: units.flatMap((entry) => entry.baselineTokens),
+          },
+          right: {
+            present: args.rightPresent ?? true,
+            dirty: false,
+            eol: "\n",
+            direction: "ltr",
+            book: {
+              path: "/GEN.usfm",
+              title: "Genesis",
+              bookCode: "GEN",
+              nextBookId: null,
+              prevBookId: null,
+            },
+            tokens: units.flatMap((entry) => entry.currentTokens),
+          },
+          skeleton,
+        },
+      },
+    },
+    warnings: [],
+    coverage: { leftOnly: [], rightOnly: [], overlapping: [] },
+    changedUnitCount:
+      units.filter((entry) => entry.status !== "unchanged").length ||
+      ((args.leftPresent ?? true) !== (args.rightPresent ?? true) ? 1 : 0),
+  };
+}
+
+describe("skeleton-native incoming planning", () => {
+  it("collects baseline/current, coveredBy, and token SIDs conservatively", () => {
+    const moved = unit({
+      baselineSid: "GEN 1:1",
+      currentSid: "GEN 1:2",
+      coveredBy: { unitId: "cover", sid: "GEN 1:3", side: "baseline" },
+      baselineTokens: [{ id: "a", kind: "text", sid: "GEN 1:4", source: "a" }],
+      currentTokens: [{ id: "b", kind: "text", sid: "GEN 1:5", source: "b" }],
+    });
+    expect(collectUnitSemanticAddresses(moved)).toEqual(
+      new Set(["GEN 1:1", "GEN 1:2", "GEN 1:3", "GEN 1:4", "GEN 1:5"]),
+    );
+    expect(
+      collectChangedSkeletonSemanticAddresses({ slots: [], units: [moved] }),
+    ).toEqual(collectUnitSemanticAddresses(moved));
   });
 
-  it("is true when any chapter has a diff", () => {
+  it("takes safe remote units and keeps dirty-overlapping units on Working", () => {
+    const first = unit({ id: "safe", baselineSid: "GEN 1:1" });
+    const second = unit({
+      id: "blocked",
+      baselineSid: "GEN 1:2",
+      currentSid: "GEN 1:2",
+      baselineTokens: [
+        { id: "l2", kind: "text", sid: "GEN 1:2", source: "l2" },
+      ],
+      currentTokens: [{ id: "r2", kind: "text", sid: "GEN 1:2", source: "r2" }],
+    });
+    const plan = buildAutoAcceptIncomingDecisionPlan({
+      snapshot: snapshot({ units: [first, second] }),
+      dirtySemanticSidsByChapter: new Map([["GEN:1", new Set(["GEN 1:2"])]]),
+    });
+    expect(plan.decisions.GEN?.[1]?.units).toEqual({
+      safe: "right",
+      blocked: "left",
+    });
+    expect(plan.autoAcceptedUnitCount).toBe(1);
+    expect(plan.blockedUnitCount).toBe(1);
+  });
+
+  it("never auto-accepts a whole-chapter deletion", () => {
+    const plan = buildAutoAcceptIncomingDecisionPlan({
+      snapshot: snapshot({ rightPresent: false }),
+      dirtySemanticSidsByChapter: new Map(),
+    });
+    expect(plan.decisions.GEN?.[1]?.units.u1).toBe("left");
+    expect(plan.autoAcceptedUnitCount).toBe(0);
+    expect(plan.blockedUnitCount).toBe(1);
+  });
+
+  it("lists changed chapters and derives change presence from the snapshot", () => {
+    const result = snapshot();
+    expect(hasCompareChanges(result)).toBe(true);
+    expect(listChangedChapterRefs(result)).toEqual([
+      { bookCode: "GEN", chapterNum: 1 },
+    ]);
+  });
+});
+
+describe("diverged committed-history auto-accept scope", () => {
+  const base = new Map([
+    ["GEN", "\\id GEN\n\\c 1\n\\v 1 one\n\\v 2 two\n\\c 2\n\\v 1 three\n"],
+    ["EXO", "\\id EXO\n\\c 1\n\\v 1 exodus\n"],
+  ]);
+
+  it.each([
+    ["project", true],
+    ["book", true],
+    ["chapter", false],
+    ["verse", false],
+  ] as const)("classifies disjoint changes at %s scope", (scope, overlap) => {
+    const local = new Map(base);
+    local.set(
+      "GEN",
+      "\\id GEN\n\\c 1\n\\v 1 local\n\\v 2 two\n\\c 2\n\\v 1 three\n",
+    );
+    const remote = new Map(base);
+    remote.set(
+      "GEN",
+      "\\id GEN\n\\c 1\n\\v 1 one\n\\v 2 two\n\\c 2\n\\v 1 remote\n",
+    );
     expect(
-      hasDiffsByChapter({ GEN: { 1: [], 2: [diff({ chapterNum: 2 })] } }),
+      buildDivergedAutoAcceptScopePlan({
+        baseByBook: base,
+        localByBook: local,
+        remoteByBook: remote,
+        scope,
+      }).hasOverlap,
+    ).toBe(overlap);
+  });
+
+  it("forces review for whole-book and whole-chapter deletion", () => {
+    const withoutBook = new Map(base);
+    withoutBook.delete("EXO");
+    expect(
+      hasWholeBookOrChapterDeletion({
+        baseByBook: base,
+        remoteByBook: withoutBook,
+      }),
+    ).toBe(true);
+    const withoutChapter = new Map(base);
+    withoutChapter.set("GEN", "\\id GEN\n\\c 1\n\\v 1 one\n\\v 2 two\n");
+    expect(
+      hasWholeBookOrChapterDeletion({
+        baseByBook: base,
+        remoteByBook: withoutChapter,
+      }),
     ).toBe(true);
   });
 });
 
-describe("listChangedChapterRefs", () => {
-  it("returns one ref per non-empty chapter, skipping empties", () => {
-    const refs = listChangedChapterRefs({
-      GEN: { 1: [diff({})], 2: [] },
-      EXO: { 3: [diff({ bookCode: "EXO", chapterNum: 3 })] },
-    });
-    expect(refs).toEqual([
-      { bookCode: "GEN", chapterNum: 1 },
-      { bookCode: "EXO", chapterNum: 3 },
-    ]);
-  });
-});
-
-describe("splitRemoteDiffsByDirtySemanticSid", () => {
-  it("routes dirty-overlapping diffs to blocked, the rest to auto-accept", () => {
-    const diffsByChapter: DiffsByChapter = {
-      GEN: {
-        1: [
-          diff({ semanticSid: "a", uniqueKey: "a1" }),
-          diff({ semanticSid: "b", uniqueKey: "b1" }),
-        ],
-      },
-    };
-    const dirty = new Map([["GEN:1", new Set(["a"])]]);
-
-    const { blockedDiffsByChapter, autoAcceptedDiffs } =
-      splitRemoteDiffsByDirtySemanticSid({
-        diffsByChapter,
-        dirtySemanticSidsByChapter: dirty,
-      });
-
-    expect(blockedDiffsByChapter.GEN[1].map((d) => d.semanticSid)).toEqual([
-      "a",
-    ]);
-    expect(autoAcceptedDiffs.map((d) => d.semanticSid)).toEqual(["b"]);
-  });
-
-  it("auto-accepts everything when no chapter is dirty", () => {
-    const { blockedDiffsByChapter, autoAcceptedDiffs } =
-      splitRemoteDiffsByDirtySemanticSid({
-        diffsByChapter: { GEN: { 1: [diff({ semanticSid: "a" })] } },
-        dirtySemanticSidsByChapter: new Map(),
-      });
-    expect(blockedDiffsByChapter).toEqual({});
-    expect(autoAcceptedDiffs).toHaveLength(1);
-  });
-});
-
-describe("buildAutoAcceptIncomingPlan", () => {
-  it("applies whole chapters with no blocked keys, hunks otherwise", () => {
-    const initialDiffsByChapter: DiffsByChapter = {
-      GEN: {
-        1: [
-          diff({ semanticSid: "a", uniqueKey: "a1" }),
-          diff({ semanticSid: "b", uniqueKey: "b1" }),
-        ],
-        2: [diff({ semanticSid: "c", uniqueKey: "c1", chapterNum: 2 })],
-      },
-    };
-    // GEN:1 has a blocked key (a1) → hunk-apply only the unblocked (b1);
-    // GEN:2 has no blocked keys → full-chapter apply.
-    const blockedDiffsByChapter: DiffsByChapter = {
-      GEN: { 1: [diff({ semanticSid: "a", uniqueKey: "a1" })] },
-    };
-
-    const { fullChapterApplies, hunkApplies } = buildAutoAcceptIncomingPlan({
-      initialDiffsByChapter,
-      blockedDiffsByChapter,
-    });
-
-    expect(fullChapterApplies).toEqual([{ bookCode: "GEN", chapterNum: 2 }]);
-    expect(hunkApplies.map((d) => d.uniqueKey)).toEqual(["b1"]);
-  });
-});
-
-describe("collectChangedBookCodes", () => {
-  it("flags books whose text differs (including added/removed)", () => {
-    const changed = collectChangedBookCodes({
-      baseByBook: new Map([
-        ["GEN", "x"],
-        ["EXO", "same"],
-        ["LEV", "old"],
-      ]),
-      targetByBook: new Map([
-        ["GEN", "x"],
-        ["EXO", "same"],
-        ["LEV", "new"],
-        ["NUM", "added"],
-      ]),
-    });
-    expect(changed).toEqual(new Set(["LEV", "NUM"]));
-  });
-});
-
-describe("extractBookCodeFromStorageKey", () => {
+describe("snapshot path helpers", () => {
   it.each([
     ["ingredients/01-GEN.usfm", "GEN"],
     ["GEN.usfm", "GEN"],
-    ["path/to/42-mat.usfm", "MAT"],
     ["notes.txt", null],
-    ["weird.usfm", null],
-  ])("%s -> %s", (key, expected) => {
-    expect(extractBookCodeFromStorageKey(key)).toBe(expected);
+  ])("%s -> %s", (path, expected) => {
+    expect(extractBookCodeFromStorageKey(path)).toBe(expected);
   });
-});
 
-describe("buildBookTextByCodeFromSnapshot", () => {
-  it("keys snapshot text by extracted book code, skipping non-usfm", () => {
-    const byBook = buildBookTextByCodeFromSnapshot(
-      new Map([
-        ["ingredients/01-GEN.usfm", "gen-text"],
-        ["metadata.json", "{}"],
-      ]),
-    );
-    expect(byBook.get("GEN")).toBe("gen-text");
-    expect(byBook.size).toBe(1);
+  it("keys snapshot text by book code", () => {
+    expect(
+      buildBookTextByCodeFromSnapshot(
+        new Map([
+          ["ingredients/01-GEN.usfm", "text"],
+          ["metadata.json", "{}"],
+        ]),
+      ),
+    ).toEqual(new Map([["GEN", "text"]]));
   });
 });

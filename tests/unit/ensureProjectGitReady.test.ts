@@ -26,6 +26,7 @@ function createProjectMock(): Project {
     addBook: async () => {
       throw new Error("not used in test");
     },
+    removeBook: async () => {},
     listVersions: async () => [],
     restoreVersion: async () => {},
     stageAndCommit: async () => ({ hash: "abc" }),

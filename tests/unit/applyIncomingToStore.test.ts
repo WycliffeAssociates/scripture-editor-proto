@@ -1,85 +1,90 @@
-// applyIncomingToStore.test.ts
-//
-// Concurrency contract for committing incoming-source changes. Real
-// WorkingFilesStore + WorkspaceGateStore; only the USFM service's
-// revertDiffBlock is stubbed (deferred, so a concurrent edit can be injected
-// while a hunk is "computing").
-
 import { describe, expect, it, vi } from "vitest";
 
 import {
   applyIncomingToStore,
   runIncomingMutation,
 } from "@/app/domain/project/compare/applyIncomingToStore.ts";
-import type { ProjectDiff } from "@/app/domain/project/diffTypes.ts";
-import type {
-  ScriptureBookState,
-  ScriptureChapterState,
-} from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { CompareProjectionArtifact } from "@/app/domain/project/compare/projection.ts";
+import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import {
   findChapterInDraft,
   WorkingFilesStore,
 } from "@/app/state/WorkingFilesStore.ts";
 import { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
-import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 
-function chapter(
-  chapterNumber: number,
-  current: string,
-  source = current,
-): ScriptureChapterState {
+function book(bookCode: string, current: string): ScriptureBookState {
   return {
-    chapterNumber,
-    dirty: current !== source,
-    sourceTokens: [{ kind: "text", source, id: `s-${chapterNumber}` }],
-    currentTokens: [
-      { kind: "text", source: current, id: `c-${chapterNumber}` },
-    ],
-    lexicalState: { root: { children: [], direction: "ltr" } },
-    loadedLexicalState: { root: { children: [], direction: "ltr" } },
-  } as unknown as ScriptureChapterState;
-}
-
-function book(
-  bookCode: string,
-  current: string,
-  source = current,
-): ScriptureBookState {
-  return {
-    path: `/userData/projects/demo/${bookCode}.usfm`,
+    path: `/${bookCode}.usfm`,
     title: bookCode,
     bookCode,
     nextBookId: null,
     prevBookId: null,
-    chapters: [chapter(1, current, source)],
-  } as ScriptureBookState;
+    chapters: [
+      {
+        chapterNumber: 1,
+        dirty: false,
+        direction: "ltr",
+        eol: "\n",
+        sourceTokens: [{ id: `${bookCode}-s`, kind: "text", source: current }],
+        currentTokens: [{ id: `${bookCode}-c`, kind: "text", source: current }],
+      },
+    ],
+  };
 }
 
-const genHunk = {
-  bookCode: "GEN",
-  chapterNum: 1,
-  uniqueKey: "diff-1",
-  semanticSid: "GEN 1:1",
-  status: "modified",
-} as unknown as ProjectDiff;
-
-function contentOf(store: WorkingFilesStore, bookCode: string): string {
-  const chapter = store.read().find((b) => b.bookCode === bookCode)
-    ?.chapters[0];
-  return chapter?.currentTokens.map((t) => t.source).join("") ?? "";
+function artifact(
+  chapters: CompareProjectionArtifact["chapters"],
+): CompareProjectionArtifact {
+  return { revision: 3, chapters, unresolved: [], complete: true };
 }
 
-function editChapterConcurrently(
-  store: WorkingFilesStore,
-  bookCode: string,
-  next: string,
-) {
+function projected(args: {
+  bookCode: string;
+  source?: string;
+  action?: "add" | "update" | "delete" | "unchanged";
+  present?: boolean;
+}) {
+  return {
+    address: { bookCode: args.bookCode, chapterNum: 1 },
+    tokens:
+      args.present === false
+        ? []
+        : [
+            {
+              id: "projected",
+              kind: "text" as const,
+              source: args.source ?? "incoming",
+            },
+          ],
+    present: args.present ?? true,
+    eol: args.present === false ? null : ("\n" as const),
+    direction: args.present === false ? null : ("ltr" as const),
+    book: {
+      path: `/${args.bookCode}.usfm`,
+      title: args.bookCode,
+      bookCode: args.bookCode,
+      nextBookId: null,
+      prevBookId: null,
+    },
+    structuralAction: args.action ?? "update",
+  };
+}
+
+function content(store: WorkingFilesStore, bookCode: string) {
+  return (
+    store
+      .read()
+      .find((book) => book.bookCode === bookCode)
+      ?.chapters[0]?.currentTokens.map((token) => token.source)
+      .join("") ?? ""
+  );
+}
+
+function edit(store: WorkingFilesStore, bookCode: string, value: string) {
   const draft = store.draftWithChapters([{ bookCode, chapterNum: 1 }]);
-  const target = findChapterInDraft(draft, bookCode, 1);
-  if (target) {
-    target.currentTokens = [
-      { kind: "text", source: next, id: `edit-${bookCode}` },
-    ] as never;
+  const chapter = findChapterInDraft(draft, bookCode, 1);
+  if (chapter) {
+    chapter.currentTokens = [{ id: "edit", kind: "text", source: value }];
   }
   store.commit({
     patch: { kind: "bulk", files: draft },
@@ -91,344 +96,117 @@ function editChapterConcurrently(
   });
 }
 
-describe("applyIncomingToStore concurrency", () => {
-  it("aborts a mixed full-chapter + hunk batch when the FULL-CHAPTER target is edited during the hunk await", async () => {
-    // The batch awaits the GEN hunk; MAT is a full-chapter take. While the
-    // GEN hunk is computing the user edits MAT. The overlay would otherwise
-    // commit the pre-await MAT — discarding the edit — so the apply aborts.
+describe("projection apply boundary", () => {
+  it("applies the exact artifact tokens without invoking Onion", async () => {
     const store = new WorkingFilesStore([
-      book("GEN", "gen-local"),
-      book("MAT", "mat-local"),
+      book("GEN", "local"),
+      book("EXO", "untouched"),
     ]);
-    const gate = new WorkspaceGateStore();
-    let releaseRevert!: () => void;
-    const usfmOnionService = {
-      revertDiffBlock: () =>
-        new Promise((resolve) => {
-          releaseRevert = () =>
-            resolve([{ kind: "text", source: "gen-incoming", id: "gi" }]);
-        }),
-    } as unknown as IUsfmOnionService;
-
-    const promise = applyIncomingToStore({
-      workingFilesStore: store,
-      interactionGate: gate,
-      usfmOnionService,
-      fullChapterApplies: [{ bookCode: "MAT", chapterNum: 1 }],
-      hunkApplies: [genHunk],
-      sourceFiles: [book("GEN", "gen-incoming"), book("MAT", "mat-incoming")],
-    });
-
-    // Concurrent edit to the full-chapter target while the hunk is pending.
-    editChapterConcurrently(store, "MAT", "mat-edited");
-    releaseRevert();
-    const committed = await promise;
-
-    expect(committed).toMatchObject({ kind: "aborted" });
-    // Neither chapter committed; the concurrent MAT edit survives.
-    expect(contentOf(store, "MAT")).toBe("mat-edited");
-    expect(contentOf(store, "GEN")).toBe("gen-local");
-  });
-
-  it("commits a mixed batch when nothing changes concurrently", async () => {
-    const store = new WorkingFilesStore([
-      book("GEN", "gen-local"),
-      book("MAT", "mat-local"),
+    const projection = artifact([
+      projected({ bookCode: "GEN", source: "merged" }),
+      projected({
+        bookCode: "EXO",
+        source: "must-not-write",
+        action: "unchanged",
+      }),
     ]);
-    const usfmOnionService = {
-      revertDiffBlock: async () => [
-        { kind: "text", source: "gen-incoming", id: "gi" },
-      ],
-    } as unknown as IUsfmOnionService;
-
-    const committed = await applyIncomingToStore({
+    const outcome = await applyIncomingToStore({
       workingFilesStore: store,
       interactionGate: new WorkspaceGateStore(),
-      usfmOnionService,
-      fullChapterApplies: [{ bookCode: "MAT", chapterNum: 1 }],
-      hunkApplies: [genHunk],
-      sourceFiles: [book("GEN", "gen-incoming"), book("MAT", "mat-incoming")],
+      artifact: projection,
     });
-
-    expect(committed).toMatchObject({ kind: "committed" });
-    expect(contentOf(store, "GEN")).toBe("gen-incoming");
-    expect(contentOf(store, "MAT")).toBe("mat-incoming");
+    expect(outcome).toMatchObject({ kind: "committed", computed: projection });
+    expect(content(store, "GEN")).toBe("merged");
+    expect(content(store, "EXO")).toBe("untouched");
   });
 
-  it("preserves a concurrent edit to an UNAFFECTED book and still applies the hunk", async () => {
-    const store = new WorkingFilesStore([
-      book("GEN", "gen-local"),
-      book("EXO", "exo-local"),
-    ]);
-    let releaseRevert!: () => void;
-    const usfmOnionService = {
-      revertDiffBlock: () =>
-        new Promise((resolve) => {
-          releaseRevert = () =>
-            resolve([{ kind: "text", source: "gen-incoming", id: "gi" }]);
-        }),
-    } as unknown as IUsfmOnionService;
+  it("adds a missing book and removes the last chapter as a real book deletion", async () => {
+    const store = new WorkingFilesStore([book("GEN", "local")]);
+    const outcome = await applyIncomingToStore({
+      workingFilesStore: store,
+      interactionGate: new WorkspaceGateStore(),
+      artifact: artifact([
+        projected({ bookCode: "GEN", action: "delete", present: false }),
+        projected({ bookCode: "MAT", action: "add", source: "new" }),
+      ]),
+    });
+    expect(outcome.kind).toBe("committed");
+    expect(store.read().map((entry) => entry.bookCode)).toEqual(["MAT"]);
+    expect(content(store, "MAT")).toBe("new");
+  });
 
+  it("preserves a concurrent edit to an unaffected chapter", async () => {
+    const store = new WorkingFilesStore([
+      book("GEN", "local"),
+      book("EXO", "other"),
+    ]);
     const promise = applyIncomingToStore({
       workingFilesStore: store,
       interactionGate: new WorkspaceGateStore(),
-      usfmOnionService,
-      fullChapterApplies: [],
-      hunkApplies: [genHunk],
-      sourceFiles: [book("GEN", "gen-incoming")],
+      artifact: artifact([projected({ bookCode: "GEN" })]),
     });
-
-    editChapterConcurrently(store, "EXO", "exo-edited");
-    releaseRevert();
-    const committed = await promise;
-
-    expect(committed).toMatchObject({ kind: "committed" });
-    expect(contentOf(store, "EXO")).toBe("exo-edited"); // preserved
-    expect(contentOf(store, "GEN")).toBe("gen-incoming"); // hunk applied
+    edit(store, "EXO", "edited");
+    expect((await promise).kind).toBe("committed");
+    expect(content(store, "GEN")).toBe("incoming");
+    expect(content(store, "EXO")).toBe("edited");
   });
 
-  it("aborts when a SAME-TEXT save-rebase replaces the hunk target during the await (doesn't revert the saved baseline)", async () => {
-    // GEN 1 is dirty (current "gen-edited" vs source "gen-original"). While
-    // the incoming hunk computes, a save completes: it rebases the baseline
-    // to the current text and marks the chapter clean — sourceTokens/dirty
-    // change but currentTokens TEXT does not. A text fingerprint would miss
-    // this and overlay the pre-save (dirty) chapter, reverting the saved
-    // baseline. Identity-based staleness must catch the replacement and abort.
-    const store = new WorkingFilesStore([
-      book("GEN", "gen-edited", "gen-original"),
-    ]);
-    let releaseRevert!: () => void;
-    const usfmOnionService = {
-      revertDiffBlock: () =>
-        new Promise((resolve) => {
-          releaseRevert = () =>
-            resolve([{ kind: "text", source: "gen-incoming", id: "gi" }]);
-        }),
-    } as unknown as IUsfmOnionService;
-
+  it("aborts if an affected chapter changes before the commit tail", async () => {
+    const store = new WorkingFilesStore([book("GEN", "local")]);
     const promise = applyIncomingToStore({
       workingFilesStore: store,
       interactionGate: new WorkspaceGateStore(),
-      usfmOnionService,
-      fullChapterApplies: [],
-      hunkApplies: [genHunk],
-      sourceFiles: [book("GEN", "gen-incoming")],
+      artifact: artifact([projected({ bookCode: "GEN" })]),
     });
-
-    // Same-text save-rebase on GEN 1: baseline → current text, dirty → false,
-    // currentTokens text UNCHANGED. Produces a NEW chapter object.
-    const draft = store.draftWithChapters([{ bookCode: "GEN", chapterNum: 1 }]);
-    const target = findChapterInDraft(draft, "GEN", 1);
-    if (target) {
-      target.sourceTokens = [
-        { kind: "text", source: "gen-edited", id: "saved" },
-      ] as never;
-      target.dirty = false;
-    }
-    store.commit({
-      patch: { kind: "bulk", files: draft },
-      meta: {
-        kind: "metadataOnly",
-        scope: { project: true },
-        dirtyTextContent: false,
-      },
-    });
-
-    releaseRevert();
-    const committed = await promise;
-
-    expect(committed).toMatchObject({ kind: "aborted" });
-    const gen = store.read()[0]?.chapters[0];
-    // Saved baseline intact (clean), NOT reverted to the stale dirty scratch;
-    // incoming text not applied.
-    expect(gen?.dirty).toBe(false);
-    expect(gen?.currentTokens[0]?.source).toBe("gen-edited");
+    edit(store, "GEN", "user typed");
+    expect((await promise).kind).toBe("aborted");
+    expect(content(store, "GEN")).toBe("user typed");
   });
 
-  it("does not commit while the gate is saving", async () => {
-    const store = new WorkingFilesStore([book("GEN", "gen-local")]);
-    const gate = new WorkspaceGateStore({ kind: "saving" });
-    const usfmOnionService = {
-      revertDiffBlock: async () => [
-        { kind: "text", source: "gen-incoming", id: "gi" },
-      ],
-    } as unknown as IUsfmOnionService;
-
-    const committed = await applyIncomingToStore({
+  it("refuses an incomplete artifact", async () => {
+    const store = new WorkingFilesStore([book("GEN", "local")]);
+    const outcome = await applyIncomingToStore({
       workingFilesStore: store,
-      interactionGate: gate,
-      usfmOnionService,
-      fullChapterApplies: [],
-      hunkApplies: [genHunk],
-      sourceFiles: [book("GEN", "gen-incoming")],
+      interactionGate: new WorkspaceGateStore(),
+      artifact: { ...artifact([]), complete: false },
     });
-
-    expect(committed).toMatchObject({ kind: "aborted" });
-    expect(contentOf(store, "GEN")).toBe("gen-local");
+    expect(outcome.kind).toBe("aborted");
   });
 });
 
-// The boundary every incoming write routes through (apply, behind-only
-// normalization, and the post-apply refreshed-diff normalization). These cover
-// the "edit-during-refreshed-comparison" contract directly: on abort the commit
-// callback never runs (no edit loss / no snapshot write) and `committed` is
-// false (so the caller skips remote acceptance).
 describe("runIncomingMutation", () => {
-  it("aborts without calling commit when an affected chapter is replaced during compute (edit during refreshed comparison)", async () => {
-    const store = new WorkingFilesStore([book("GEN", "gen-edited")]);
-    let releaseCompute!: () => void;
-    const compute = () =>
-      new Promise<string>((resolve) => {
-        releaseCompute = () => resolve("refreshed-diff");
-      });
+  it("aborts a stale workspace computation and never calls commit", async () => {
+    const store = new WorkingFilesStore([book("GEN", "local")]);
+    let release!: () => void;
     const commit = vi.fn();
-
-    const promise = runIncomingMutation({
-      workingFilesStore: store,
-      interactionGate: new WorkspaceGateStore(),
-      scope: {
-        kind: "chapters",
-        candidates: [{ bookCode: "GEN", chapterNum: 1 }],
-      },
-      compute,
-      commit,
-    });
-
-    // User edits GEN 1 while the refreshed comparison is still computing.
-    editChapterConcurrently(store, "GEN", "user-typed");
-    releaseCompute();
-    const result = await promise;
-
-    expect(result).toMatchObject({ kind: "aborted" });
-    expect(commit).not.toHaveBeenCalled(); // no snapshot write
-    expect(result.computed).toBe("refreshed-diff"); // still returned for display
-    expect(contentOf(store, "GEN")).toBe("user-typed"); // edit preserved
-  });
-
-  it("commits from the latest state and returns the computed value when nothing changes", async () => {
-    const store = new WorkingFilesStore([book("GEN", "gen-local")]);
-    const commit = vi.fn();
-
-    const result = await runIncomingMutation({
-      workingFilesStore: store,
-      interactionGate: new WorkspaceGateStore(),
-      scope: {
-        kind: "chapters",
-        candidates: [{ bookCode: "GEN", chapterNum: 1 }],
-      },
-      compute: async () => "refreshed-diff",
-      commit,
-    });
-
-    expect(result).toMatchObject({ kind: "committed" });
-    expect(result.computed).toBe("refreshed-diff");
-    expect(commit).toHaveBeenCalledTimes(1);
-  });
-
-  it("workspace scope aborts when a NEW chapter/book is committed during compute, and the new work survives", async () => {
-    // The snapshot paths mutate the whole workspace, including chapters
-    // created during the await. A fixed-ref check would miss a new book; the
-    // workspace scope catches it via the read() array identity.
-    const store = new WorkingFilesStore([book("GEN", "gen-local")]);
-    let releaseCompute!: () => void;
-    const compute = () =>
-      new Promise<string>((resolve) => {
-        releaseCompute = () => resolve("refreshed-diff");
-      });
-    const commit = vi.fn();
-
-    const promise = runIncomingMutation({
+    const pending = runIncomingMutation({
       workingFilesStore: store,
       interactionGate: new WorkspaceGateStore(),
       scope: { kind: "workspace" },
-      compute,
+      compute: () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
       commit,
     });
-
-    // A permitted local op adds a NEW book while the compute is pending.
-    store.commit({
-      patch: {
-        kind: "bulk",
-        files: [...store.read(), book("MAT", "new-book")],
-      },
-      meta: {
-        kind: "import",
-        scope: { project: true },
-        dirtyTextContent: true,
-      },
-    });
-    releaseCompute();
-    const result = await promise;
-
-    expect(result).toMatchObject({ kind: "aborted" }); // → caller skips remote acceptance
-    expect(commit).not.toHaveBeenCalled(); // no snapshot write
-    expect(contentOf(store, "MAT")).toBe("new-book"); // new work survives
+    edit(store, "GEN", "newer");
+    release();
+    expect((await pending).kind).toBe("aborted");
+    expect(commit).not.toHaveBeenCalled();
   });
 
-  it("workspace scope tolerates a selection-only commit during compute (cursor move is not a state change)", async () => {
-    const store = new WorkingFilesStore([book("GEN", "gen-local")]);
-    let releaseCompute!: () => void;
-    const compute = () =>
-      new Promise<string>((resolve) => {
-        releaseCompute = () => resolve("refreshed-diff");
-      });
+  it("rechecks the interaction gate at commit", async () => {
+    const store = new WorkingFilesStore([book("GEN", "local")]);
+    const gate = new WorkspaceGateStore({ kind: "saving" });
     const commit = vi.fn();
-
-    const promise = runIncomingMutation({
-      workingFilesStore: store,
-      interactionGate: new WorkspaceGateStore(),
-      scope: { kind: "workspace" },
-      compute,
-      commit,
-    });
-
-    // selectionOnly preserves the state array → not a state change.
-    store.commit({
-      patch: {
-        kind: "selectionOnly",
-        bookCode: "GEN",
-        chapter: 1,
-        selection: null,
-      },
-      meta: {
-        kind: "metadataOnly",
-        scope: { chapters: [{ bookCode: "GEN", chapterNum: 1 }] },
-        dirtyTextContent: false,
-      },
-    });
-    releaseCompute();
-    const result = await promise;
-
-    expect(result).toMatchObject({ kind: "committed" });
-    expect(commit).toHaveBeenCalledTimes(1);
-  });
-
-  it("aborts without committing when a save begins during compute", async () => {
-    const store = new WorkingFilesStore([book("GEN", "gen-local")]);
-    const gate = new WorkspaceGateStore();
-    let releaseCompute!: () => void;
-    const compute = () =>
-      new Promise<string>((resolve) => {
-        releaseCompute = () => resolve("refreshed-diff");
-      });
-    const commit = vi.fn();
-
-    const promise = runIncomingMutation({
+    const outcome = await runIncomingMutation({
       workingFilesStore: store,
       interactionGate: gate,
-      scope: {
-        kind: "chapters",
-        candidates: [{ bookCode: "GEN", chapterNum: 1 }],
-      },
-      compute,
+      scope: { kind: "workspace" },
+      compute: async () => "done",
       commit,
     });
-
-    gate.set({ kind: "saving" });
-    releaseCompute();
-    const result = await promise;
-
-    expect(result).toMatchObject({ kind: "aborted" });
+    expect(outcome.kind).toBe("aborted");
     expect(commit).not.toHaveBeenCalled();
   });
 });

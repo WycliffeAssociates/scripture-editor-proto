@@ -1,240 +1,182 @@
-# Save, Diff, and Revert
+# Save and symmetric change review
 
 ## What this feature does
 
-- Tracks unsaved chapter edits in working state.
-- Generates reviewable diffs before saving.
-- Diffs are computed by SID block runs over flattened token streams (not raw paragraph containers).
-- Stores diff state in two forms:
-  - Flat list for list rendering (`diffs`)
-  - Chapter-indexed map for chapter rendering (`diffsByChapter`)
-- Classifies diff entries as:
-  - Added
-  - Deleted
-  - Modified
-  - Whitespace-only modified
-- Supports selective and scoped revert:
-  - Revert one diff block
-  - Revert one chapter
-  - Revert all unsaved changes
-- Supports two review modes:
-  - List view (SID-block entries)
-  - Chapter view (full chapter original/current panes with changed hunk overlays)
-- Saves changed content back to project files on disk.
-- Reuses the same review surface for incoming cloud changes when a linked project needs explicit reconciliation.
-- Keeps local save authoritative: linked projects save locally first, then optionally publish to cloud as follow-on behavior.
+Zephyr reviews any two addressable scripture sources through one symmetric
+surface. Sources may be the current Working copy, its Saved copy, another
+project, a ZIP, a folder, a Git checkpoint, or remote latest.
 
-## How to access it in the app
+The review model is Onion's frozen `DiffSkeleton`, not a flat list of patches:
 
-- In a project toolbar, click `Review & Save` (or save icon on smaller screens).
-- Diff modal actions:
-  - `Save all changes`
-  - `Revert all changes`
-  - `View options`:
-    - `List view` / `Chapter view`
-    - `Select chapter` (visible in chapter view)
-    - `Show USFM markers`
-    - `Hide whitespace-only diffs`
-  - List view:
-    - Per-entry `Switch to this chapter`
-    - Per-entry `Undo Change`
-  - Chapter view:
-    - `Revert chapter changes`
-    - Per-hunk `Undo` overlays in the Current pane
+- one decision unit may occupy one or two interleave slots;
+- a moved unit appears at both positions but has one Left/Right decision;
+- choosing a side only updates an in-memory decision map;
+- nothing changes in `WorkingFilesStore` until the final Apply;
+- Preview and Apply consume the same revision-tagged merge artifact;
+- unknown or stale unit IDs fail rather than being fuzzily reapplied.
 
-## Typical user flow
+Exactly one source may be writable, and it must be Working. Two non-Working
+sources form a read-only comparison with the same list/chapter projections,
+navigation, and filters but no decisions, result preview, or Apply action.
 
-1. Make edits.
-2. Open `Review & Save`.
-3. Choose `List view` for SID-level entries or `Chapter view` for side-by-side chapter context.
-4. In chapter view, pick a chapter and inspect highlighted changes.
-5. Optionally hide whitespace-only diffs or show USFM markers.
-6. Revert specific blocks, revert the selected chapter, or revert all changes.
-7. Save all changes to persist to disk.
+## Opening review
 
-## Linked cloud project behavior
+`Review & Save` opens Saved on the left and Working on the right. Every changed
+unit initially selects Working, so Apply is immediately available. Choosing
+Saved for a unit is the new revert gesture; it remains reversible by changing
+that decision before Apply.
 
-- `Review & Save` still means local save first.
-- If the project is cloud-linked and auto-publish is enabled, publish happens after the local save completes.
-- Advanced save policy settings can relax how much review is shown:
-  - `Auto Accept My Work on Save`
-    - plain `Save` skips the unsaved diff modal and commits local edits directly
-    - this changes local save behavior only; remote publish can still be blocked by cloud state
-  - `Auto Accept Incoming Work`
-    - incoming cloud changes are applied automatically when they do not overlap a verse that already has local dirty edits in the current workspace
-    - remote review only remains open for verse-level overlaps that still need human resolution
-    - safe incoming changes can therefore be accepted without interrupting the user, while true overlap still uses the same reconciliation modal
-- If publish cannot complete:
-  - offline or transient failure -> project status becomes `Changes not yet published`
-  - remote advanced or diverged -> project status becomes `Needs review`
-- Explicit `Sync` from `Changes not yet published` is an explicit publish action.
-  - when the project is only ahead locally, `Sync` tries to push the current local head immediately
-  - on success, project cloud status returns to `Connected`
-  - if the remote has advanced in the meantime, the project transitions into the normal review flow instead
-- Explicit `Sync` or banner/status entry can reopen the same review modal with:
-  - current local working state on the left
-  - incoming cloud changes on the right
-- In remote review, `Apply all` is explicit approval to accept the fetched cloud latest.
-  - when the local branch is only behind, the app fast-forwards local git state to the fetched remote head
-  - this does not create a new save commit
-  - project cloud status returns to `Connected`
-- In remote review, if the local branch is only behind and the user accepts only some incoming changes:
-  - the reviewed working USFM result remains the source of truth in memory
-  - on the next `Review & Save`, the app first adopts the fetched remote latest as the local git base
-  - then it writes the reviewed working USFM result and creates one new save commit on top
-  - publish then proceeds normally from that new head
-- In remote review, if local and cloud history have diverged and the user accepts only some incoming changes:
-  - the user still reviews only latest local working state vs latest cloud state
-  - on the next `Review & Save`, the app treats the reviewed working USFM result as the single squashed local outcome
-  - it adopts the fetched remote latest as base, then writes that reviewed working result as one new save commit on top
-  - the app does not replay diverged local-only commits one by one during this reconciliation path
-- The app does not force a modal immediately when background cloud checks finish. Remote-open notifications surface through status UI first.
+External comparisons start unresolved. Apply remains disabled until every
+actionable unit and any required chapter-presence decision explicitly selects
+Left or Right. Users can:
 
-## The save command (`runSavePipeline`)
+- review each decision unit once in list/current-read order;
+- review one skeleton slot per row in the interleaved chapter view;
+- select Left or Right per unit;
+- clear a unit back to unresolved;
+- stamp Left, Right, or Clear across a chapter or the whole comparison;
+- hide whitespace-only, USFM-structure-only, or decided rows;
+- reveal unresolved rows hidden by filters;
+- show USFM markers;
+- navigate to the relevant editor location;
+- expand a quiet reading preview for the selected chapter.
 
-Save is a UI-free, ordered command — `runSavePipeline` in
-`src/app/domain/project/savePipeline.ts` — that the UI calls and turns into
-toasts. It does not import any notification API; `useSaveAndRevert`
-(`saveProjectToDisk` is now a thin wrapper over `runSavePipeline`) renders the
-success toast and the checkpoint/publish warnings from the typed result.
+Filters affect rendering only. Chapter/global actions always address every
+underlying decision unit in their scope, including hidden rows.
 
-It returns one `SaveResult`:
+## Frozen sessions and staleness
 
-- **`saved`** — `{ persistedBookCodes, checkpoint, publish }`. The
-  `checkpoint` substate is `created{hash}` / `failed` / `null` (nothing to
-  version), and `publish` is the push outcome / `failed` / `skipped` / `null`.
-- **`partial`** — some books persisted, then a mid-loop write threw; the books
-  that landed are clean, the rest stay dirty.
-- **`failed`** — a pre-write failure (base restore / remote-base prep threw);
-  nothing on disk.
-- **`blocked`** — `{ reason }`. The command refused before any disk I/O:
-  `gate-closed` (a save is already in flight) or `recovered-review-required`
-  (unreviewed recovered conflicts without attestation).
+At session creation Zephyr reads each full chapter on both sides, explicitly
+normalizes both arrays through `usfm-onion-web/token-sids` with the book code,
+freezes those exact arrays, and passes them unchanged to diff and merge.
+Granular Onion APIs continue to trust caller-supplied SIDs; adapters do not
+normalize implicitly.
 
-**Invariant — "saved to disk" ≠ "versioned" ≠ "published."** A git-checkpoint
-or publish failure is a _warning_, not a save failure: the bytes are on disk
-and the persisted books are marked clean regardless. That's why checkpoint and
-publish are independent substates inside the `saved` result rather than things
-that can fail the save.
+A writable session watches content commits to `WorkingFilesStore`. If Working
+changes while the modal is open, the session becomes stale. The frozen diff,
+decisions, filters, preview, and navigation remain visible, but Apply is
+disabled. Refresh discards the old decisions and creates a new snapshot. Zephyr
+never automatically re-diffs or remaps decisions, and the final write still
+uses `commitIfNotStale` as a race guard.
 
-## Crash-recovery integration
+## Apply, structural changes, and receipt
 
-The save command cooperates with the crash-recovery autosave feature
-(`crash-recovery-autosave.md`) in three places:
+Apply is all-or-nothing. A complete decision map is projected once through
+Onion's merge-as-projection API, then that exact artifact is committed to
+Working and persisted. Selecting an absent side can really remove a chapter;
+removing the final chapter removes the book and its container metadata.
+Selecting a present external side can add a chapter or book.
 
-- **Forced review by attestation.** `runSavePipeline` takes a
-  `reviewedRecoveredWork?: boolean` option. If `RecoveredConflictTracker` is
-  non-empty and the option isn't `true`, the precondition check returns
-  `{ kind: "blocked", reason: "recovered-review-required" }` without touching
-  disk. `useSave.saveReview.open` forces the diff modal (bypassing `Auto
-Accept My Work on Save`) while the tracker holds entries; the modal's
-  local-review Save action passes the attestation. The attestation is **only**
-  issued from the local-unsaved-review modal path — never from
-  external-compare-review — which is enforced by blocking external-compare
-  entry while the tracker is non-empty.
-- **Per-book persistence honesty.** The persist phase tracks a
-  `Set<bookCode> persistedBooks`, so a failure in book 2 of 3 leaves books 2
-  and 3 honestly dirty (returned as `partial`).
-- **Captured-content rebase per chapter.** The pipeline freezes
-  `{ tokens }` per chapter at the save snapshot (the same synchronous instant
-  the payload is built) and, after successful per-book persistence,
-  `rebaseChapterToCapturedSave` advances `sourceTokens` to the captured tokens
-  and re-derives `dirty` — so a keystroke mid-save stays dirty rather than
-  being silently swallowed. This is what makes the per-chapter `dirty` flag
-  honest under concurrent mutation during a save, and what lets the
-  `recoveredConflictTrackerSubscriber` clear tracker entries by observing the
-  chapter clean.
+The save pipeline receives explicit deleted-book and structurally-changed-book
+lists from the committed artifact. It does not infer deletion from empty token
+arrays. Container metadata is updated before a file is removed so failures do
+not leave metadata pointing at a missing file.
 
-`WorkspaceBaselineStore.setPresent(bookCode, newMd5)` runs alongside each
-successful book write so the dirty-buffer pipeline's next backup wrapper
-records the freshly-saved disk content as the new baseline.
+On success, the modal replaces the old diff rows with a localized receipt and
+chapter add/update/remove counts. The receipt remains until Close, Refresh, or
+new source selection. It is not persisted across modal sessions.
 
-## Current limits and non-goals
+## Save lifecycle
 
-- Saving writes changed books as full USFM book content assembled from chapter state. `serializeChaptersToUsfm` emits chapters in their stored order (no sorting) and re-applies each chapter's original `eol` (`\n` or `\r\n`) so CRLF files round-trip as CRLF rather than producing phantom whitespace-only diffs.
-- The project file itself is never autosaved; explicit save is the only thing that changes disk. Background dirty-buffer backups are a separate safety-net file (`crash-recovery-autosave.md`).
-- Diff UI only shows chapters currently marked dirty.
-- Chapter view is read-only review UI; edits still happen in the editor surface.
-- `Hide whitespace-only diffs` only filters what is shown in the modal.
-- Revert operations are token-stream based by block/chapter, not character-level patching.
-- Diff granularity is SID block based (not character-level persistence units).
-- For v1 cloud reconciliation, USFM content is the primary explicit review target. Derived metadata is regenerated later rather than reviewed as a primary user-edit surface.
+`runSavePipeline` is a UI-free ordered command. Its outcomes keep durable
+events separate:
 
-## How edits flow through the store
+- `saved`: disk persistence succeeded; `checkpoint` and `publish` report their
+  own independent outcomes;
+- `partial`: some books persisted before a later write failed;
+- `failed`: a pre-write preparation failed and nothing was persisted;
+- `blocked`: the workspace gate was closed or recovered work lacked review
+  attestation.
 
-Save / diff / revert all operate over `WorkingFilesStore` (see
-`state-architecture.md` and `editor-data-flow.md`) rather than pulling a
-fresh snapshot from the editor each time. The relevant paths:
+"Saved to disk", "checkpoint created", and "published" are not synonyms. A
+checkpoint or publish failure is surfaced as a warning after the bytes are safe
+on disk. Auto-publish remains a post-local-save policy.
 
-- **Dirty tracking is reactive.** `useSave`'s `hasUnsavedChanges` subscribes
-  to `SaveStatusStore` via `useSyncExternalStore`. The `saveStatusPipeline`
-  drives `clean` ↔ `dirty` transitions from `WorkingFilesStore` commits;
-  the save command drives `saving` → `saved` | `failed` around the actual
-  disk write. The legacy bug where `hasUnsavedChanges` could go stale after
-  a revert is gone — the pipeline observes the post-commit snapshot's
-  per-chapter `dirty` flags and reports authoritatively.
-- **Mark-saved happens inside the save command.** `runSavePipeline`'s rebase
-  phase collects the refs for the books that persisted, drafts those chapters
-  via `draftWithChapters`, rebases each to its captured-save tokens (which
-  flips `dirty` to `false`), and bulk-commits. Books that failed to persist
-  keep their dirty state.
-- **Per-diff-block revert goes through the validated async seam.**
-  `revertDiff` awaits the onion service to compute the reverted tokens, so it
-  rides `withWorkingFilesDraft` (`workingFileCommand.ts`): the draft is
-  checked out before the await, the mutation runs inside `mutate`, and
-  `commitIfNotStale` aborts on a stale chapter or a closed gate rather than
-  clobbering a concurrent commit.
-- **External-compare apply goes through the validated incoming boundary.**
-  A hunk apply (`applyIncomingHunkToCurrent`) has to await a token compute, so
-  it commits through `applyIncomingToStore` / `runIncomingMutation`
-  (`applyIncomingToStore.ts`): capture chapter identities before the await,
-  compute on a private scratch, re-read latest, abort on a stale chapter or a
-  closed gate, then overlay only the affected chapters onto the latest read.
-  The synchronous full-chapter / all-chapter applies build a
-  `draftWithChapters` and bulk-commit in one stack frame with a gate recheck
-  at the commit boundary.
-- **Revert all** and **revert chapter** use `withWorkingFilesDraftSync` —
-  the synchronous sibling in `workingFileCommand.ts` — since no await
-  intervenes between reading `sourceTokens` and writing `currentTokens`.
+LF/CRLF policy remains chapter metadata. Serialization reapplies each chapter's
+stored EOL, preventing comparison-only whitespace noise and preserving project
+bytes across Apply.
 
-## Print changes (WIP)
+## Incoming cloud reconciliation
 
-A `PrintChangesButton` lives in the diff modal toolbar (`DiffViewerToolbar.tsx`).
-It calls `buildPrintChanges` (wired through `useExternalCompare`) which delegates
-to `buildPrintChangeSet` (`src/app/domain/project/print/buildPrintChangeSet.ts`)
-and `renderPrintDocument.ts`. The feature diffs a saved checkpoint against the
-current working state and renders a printable HTML document scoped by book/chapter
-and granularity. As of this writing it is merged but marked WIP and has not been
-formally reviewed.
+Remote latest uses the same Working-vs-external session. External decisions
+start unresolved unless the existing safe auto-accept policy succeeds.
 
-## Key modules (for agents)
+Dirty Working overlap is conservatively detected from skeleton semantic
+addresses, including baseline/current SIDs, covered-by addresses, and token
+SIDs. Safe incoming units are projected together with protected Working units
+in one complete decision map; auto-accept never sequentially applies hunks.
+Whole-chapter or whole-book removal always requires explicit review.
 
-- `src/app/domain/project/savePipeline.ts` (`runSavePipeline`, `SaveResult`)
-- `src/app/domain/project/workingFileCommand.ts` (`withWorkingFilesDraft`,
-  `withWorkingFilesDraftSync`, `commitIfNotStale`)
+Diverged committed-history disjointness is modeled by
+`AutoAcceptScope = project | book | chapter | verse`. All scopes are tested,
+while runtime composition remains hardcoded to `book`. This enum governs Git
+history disjointness only; it does not change the verse/SID-grained dirty-buffer
+comparison.
+
+When all incoming content is safe and the project is behind-only, Zephyr may
+fast-forward. If any local content is retained, Working is dirty, or history
+diverged, Zephyr adopts remote latest as the save base and creates one new local
+checkpoint for the reviewed result. Publish remains a later outcome.
+
+## Crash recovery and history
+
+Recovered conflicts force Saved-vs-Working review even when
+`Auto Accept My Work on Save` is enabled. Only that review path issues the
+`reviewedRecoveredWork` attestation; external source entry remains blocked
+while recovered conflicts are unresolved.
+
+Decision changes themselves do not enter document history because they do not
+mutate Working. The final artifact commit records one programmatic history
+transaction for chapters present before and after Apply. Choosing Saved for a
+dirty chapter is therefore undoable as part of the final Apply transaction.
+
+## Print changes
+
+Print comparison is a separate read-only skeleton consumer. It constructs an
+explicit pair of non-writable checkpoint/current descriptors, deduplicates moved
+units, and retains verse/chunk grouping and word-level markings. It never reads
+or adapts the review decision map.
+
+## Deferred projected findings
+
+The projection artifact is the seam for future validation of "what the final
+product would be". The intended first surface is chapter preview, using the
+existing asynchronous lint service boundary. UI attribution must distinguish
+introduced, already-present, and resolved findings and must not claim one row
+caused an interacting final-result error without proof. Sous-chef and
+cross-book/project presentation remain a separate spike; this migration does
+not ship projected-finding badges.
+
+## Key modules
+
+- `src/app/domain/project/compare/CompareSessionController.ts`
+- `src/app/domain/project/compare/compareService.ts`
+- `src/app/domain/project/compare/decisionState.ts`
+- `src/app/domain/project/compare/projection.ts`
+- `src/app/domain/project/compare/applyProjection.ts`
+- `src/app/domain/project/compare/sourceMaterials.ts`
+- `src/app/domain/project/remoteSync/incomingReconciliationPlan.ts`
+- `src/app/domain/project/remoteSync/runIncomingReconciliation.ts`
+- `src/app/domain/project/savePipeline.ts`
 - `src/app/ui/hooks/useSave.tsx`
-- `src/app/ui/hooks/save/useSaveAndRevert.ts`
-- `src/app/ui/hooks/save/useExternalCompare.ts`
-- `src/app/state/SaveStatusStore.ts`
-- `src/app/domain/editor/pipelines/saveStatusPipeline.ts`
 - `src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx`
 - `src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx`
 - `src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx`
-- `src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts`
-- `src/app/domain/project/saveAndRevertService.ts`
-- `src/app/domain/project/gitRemotePublishCoordinator.ts`
-- `src/app/domain/project/compare/compareSourceLoader.ts`
-- `src/core/domain/usfm/chapterDiffOperation.ts`
-- `src/core/domain/usfm/sidBlockDiff.ts`
-- `src/core/domain/usfm/sidBlockRevert.ts`
-- `src/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts`
-- `src/app/domain/project/print/buildPrintChangeSet.ts`,
-  `renderPrintDocument.ts` (WIP print-changes feature)
-- `src/app/ui/components/blocks/DiffModal/PrintChangesButton.tsx`
+- `src/core/domain/usfm/IUsfmOnionService.ts`
+- `src/web/domain/usfm/WebUsfmOnionService.ts`
+- `src/tauri/domain/usfm/TauriUsfmOnionService.ts`
+- `src/tauri/rust/src/usfm_onion.rs`
 
-## Validation references
+## Verification references
 
+- `tests/unit/usfmOnionDiffProjection.test.ts`
+- `tests/unit/compareService.test.ts`
+- `tests/unit/compareDecisionProjection.test.ts`
+- `tests/unit/compareSessionController.test.ts`
+- `tests/unit/applyProjection.test.ts`
+- `tests/unit/useSaveOrchestration.test.ts`
+- `tests/unit/incomingReconciliationPlan.test.ts`
+- `tests/unit/runIncomingReconciliation.test.ts`
+- `tests/unit/incomingReconciliation.integration.test.ts`
+- `tests/unit/app/ui/components/blocks/DiffModal/optionCReviewViews.test.tsx`
 - `tests/e2e/save.spec.ts`
-  - List view review + chapter navigation + single-diff revert
-  - Save persistence after reload
-  - Chapter view rendering and hunk action visibility

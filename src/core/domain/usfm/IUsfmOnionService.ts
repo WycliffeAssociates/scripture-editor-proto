@@ -1,11 +1,10 @@
 import type {
-  BuildSidBlocksOptions,
-  Diff,
+  DiffSkeleton,
   DiffScopeItem,
-  DiffScopeOptions,
   FormatScopeOptions,
   LintIssue,
   LintScopeOptions,
+  MergeRequest,
   ProjectedUsfmDocument,
   ProjectUsfmOptions,
   Token,
@@ -61,19 +60,15 @@ export interface IUsfmOnionService {
   ): Promise<TokenTransformResult>;
 
   diffTokens(
-    baselineTokens: Token[],
-    currentTokens: Token[],
-    buildOptions?: BuildSidBlocksOptions,
-  ): Promise<Diff[]>;
+    baselineTokens: readonly Token[],
+    currentTokens: readonly Token[],
+  ): Promise<DiffSkeleton>;
 
-  revertDiffBlock(
-    baselineTokens: Token[],
-    currentTokens: Token[],
-    blockId: string,
-    buildOptions?: BuildSidBlocksOptions,
+  mergeDiffBlocks(
+    baselineTokens: readonly Token[],
+    currentTokens: readonly Token[],
+    request: MergeRequest,
   ): Promise<Token[]>;
-  diffScope(
-    scope: DiffScopeItem[],
-    options?: DiffScopeOptions,
-  ): Promise<Diff[][]>;
+
+  diffScope(scope: DiffScopeItem[]): Promise<DiffSkeleton[]>;
 }

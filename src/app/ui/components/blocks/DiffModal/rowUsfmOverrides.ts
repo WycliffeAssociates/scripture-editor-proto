@@ -1,4 +1,4 @@
-import type { ProjectDiff } from "@/app/domain/project/diffTypes.ts";
+import type { DecisionUnit } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 /**
  * Per-row USFM visibility overrides for the diff list.
@@ -9,8 +9,8 @@ import type { ProjectDiff } from "@/app/domain/project/diffTypes.ts";
  */
 export type RowUsfmOverrides = Record<string, boolean>;
 
-export function getRowUsfmOverrideKey(diff: ProjectDiff): string {
-  return diff.uniqueKey || diff.semanticSid;
+export function getRowUsfmOverrideKey(unit: Pick<DecisionUnit, "id">): string {
+  return unit.id;
 }
 
 export function resolveRowUsfmMode(args: {

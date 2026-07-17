@@ -349,4 +349,31 @@ describe("ScriptureBurritoProjectLoader path-based loading", () => {
       path: `${projectRootPath}/42-MRK.usfm`,
     });
   });
+
+  test("removeBook deletes the file, ingredient, and loaded book", async () => {
+    await fileSystem.writeText(
+      `${projectRootPath}/metadata.json`,
+      JSON.stringify(sampleMetadataJson),
+    );
+    await fileSystem.writeText(`${projectRootPath}/41-MAT.usfm`, "contents");
+
+    const project = await loader.openProject({
+      fs: fileSystem,
+      projectRootPath,
+      folderName,
+      displayName: "My Test Burrito Project",
+    });
+
+    await project?.removeBook("41-MAT.usfm");
+
+    await expect(
+      fileSystem.readText(`${projectRootPath}/41-MAT.usfm`),
+    ).rejects.toThrow();
+    const metadata = JSON.parse(
+      await fileSystem.readText(`${projectRootPath}/metadata.json`),
+    );
+    expect(metadata.ingredients["41-MAT.usfm"]).toBeUndefined();
+    expect(project?.books).toEqual([]);
+    await expect(project?.listBooks()).resolves.toEqual([]);
+  });
 });

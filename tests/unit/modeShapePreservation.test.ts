@@ -5,7 +5,7 @@
 // These tests pin the contract: rebuilds take an explicit `EditorShape` and the
 // rebuilt tree honors it.
 
-import { makeBook, makeChapter } from "@tests/helpers/workspaceFixtures.ts";
+import { makeChapter } from "@tests/helpers/workspaceFixtures.ts";
 import type { SerializedEditorState } from "lexical";
 import { describe, expect, it } from "vitest";
 
@@ -18,13 +18,7 @@ import {
   transformToShape,
   wrapFlatTokensInLexicalParagraph,
 } from "@/app/domain/editor/utils/modeTransforms.ts";
-import { applyIncomingChapter } from "@/app/domain/project/compare/compareMutations.ts";
-import {
-  revertChapterDiffByBlockId,
-  revertChapterToLoadedState,
-} from "@/app/domain/project/saveAndRevertService.ts";
-import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
-import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import { revertChapterToLoadedState } from "@/app/domain/project/saveAndRevertService.ts";
 
 describe("shapeForSurface", () => {
   it("follows the user's mode on mode-dependent surfaces", () => {
@@ -73,41 +67,6 @@ describe("workingRebuild content preservation", () => {
     expect(chapter.dirty).toBe(false);
     expect(chapter.currentTokens.map((t) => t.source).join("")).toBe(
       "\\p in the beginning",
-    );
-  });
-
-  it("revertChapterDiffByBlockId restores the baseline block, clean", async () => {
-    const chapter = makeChapter({
-      sourceText: "in the beginning",
-      text: "edited",
-      shape: "form",
-    });
-    const usfmOnionService = {
-      revertDiffBlock: async (baseline: Token[]) => structuredClone(baseline),
-    } as unknown as IUsfmOnionService;
-
-    await revertChapterDiffByBlockId({
-      chapter,
-      diffBlockId: "any",
-      usfmOnionService,
-    });
-
-    expect(chapter.dirty).toBe(false);
-  });
-
-  it("applyIncomingChapter writes the incoming tokens onto the working chapter", () => {
-    const workingChapter = makeChapter({ text: "local", shape: "form" });
-    const sourceChapter = makeChapter({ text: "incoming", shape: "flat" });
-
-    applyIncomingChapter({
-      workingFiles: [makeBook({ chapters: [workingChapter] })],
-      sourceFiles: [makeBook({ chapters: [sourceChapter] })],
-      bookCode: "GEN",
-      chapterNum: 1,
-    });
-
-    expect(workingChapter.currentTokens.map((t) => t.source).join("")).toBe(
-      "\\p incoming",
     );
   });
 });

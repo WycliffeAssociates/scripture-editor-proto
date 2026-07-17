@@ -1,87 +1,53 @@
-import { tokensToRenderTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { normalizeTokenSids } from "usfm-onion-web/token-sids";
+
 import type {
   ScriptureBookState,
   ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
-import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
-import {
-  flattenDiffMap,
-  replaceChapterDiffsInMap,
-} from "@/core/domain/usfm/usfmOnionDiffMap.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
-import type { CompareDiff, CompareResult, CompareWarning } from "./types.ts";
+import type {
+  ChapterAddress,
+  CompareChaptersByBook,
+  CompareMetadataSummary,
+  CompareResult,
+  CompareSourcePair,
+  CompareWarning,
+  FrozenChapterComparison,
+} from "./types.ts";
 
-export type CompareMetadataSummary = {
-  projectId?: string;
-  languageId?: string;
-  languageDirection?: LanguageDirection;
-};
-
-type ChapterCoverage = {
-  overlap: Array<{ bookCode: string; chapterNum: number }>;
-  baselineOnly: Array<{ bookCode: string; chapterNum: number }>;
-  sourceOnly: Array<{ bookCode: string; chapterNum: number }>;
-};
-
-type CompareDiffMapBuildArgs = {
-  baselineMap: Map<
-    string,
-    { bookCode: string; chapterNum: number; side: ChapterSide }
-  >;
-  sourceMap: Map<
-    string,
-    { bookCode: string; chapterNum: number; side: ChapterSide }
-  >;
-};
-
-type BuildCompareResultArgs = {
-  currentFiles: ScriptureBookState[];
-  sourceFiles: ScriptureBookState[];
-  currentMetadata?: CompareMetadataSummary;
-  sourceMetadata?: CompareMetadataSummary;
-  usfmOnionService: IUsfmOnionService;
-  batchSize?: number;
-  onBatchComplete?: () => Promise<void>;
-};
+export type { CompareMetadataSummary } from "./types.ts";
 
 type ChapterSide = {
   file: ScriptureBookState;
   chapter: ScriptureChapterState;
 };
 
-/**
- * Compares the current scripture workspace against an external or historical
- * scripture source.
- *
- * By the time code reaches this module, both sides have already been loaded into
- * `ScriptureBookState` nouns. This service stays at that workspace layer: it
- * computes metadata warnings, chapter coverage, and diff hunks. Mutation/apply
- * flows live in `compareMutations.ts` so callers can depend on either the pure
- * result builder or the workspace mutation layer independently.
- */
-function getBaselineTokens(chapter: ScriptureChapterState): Token[] {
-  return chapter.currentTokens;
-}
+type ChapterMapEntry = ChapterAddress & { side: ChapterSide };
+
+type BuildCompareResultArgs = {
+  leftFiles: ScriptureBookState[];
+  rightFiles: ScriptureBookState[];
+  sources: CompareSourcePair;
+  leftMetadata?: CompareMetadataSummary;
+  rightMetadata?: CompareMetadataSummary;
+  usfmOnionService: IUsfmOnionService;
+  batchSize?: number;
+  onBatchComplete?: () => Promise<void>;
+};
 
 function buildChapterMap(
   files: ScriptureBookState[],
-): Map<string, { bookCode: string; chapterNum: number; side: ChapterSide }> {
-  const out = new Map<
-    string,
-    { bookCode: string; chapterNum: number; side: ChapterSide }
-  >();
+): Map<string, ChapterMapEntry> {
+  const out = new Map<string, ChapterMapEntry>();
   for (const file of files) {
     for (const chapter of file.chapters) {
       const chapterNum = chapter.chapterNumber;
-      out.set(`${file.bookCode}:${chapterNum}`, {
+      out.set(chapterKey(file.bookCode, chapterNum), {
         bookCode: file.bookCode,
         chapterNum,
-        side: {
-          file,
-          chapter,
-        },
+        side: { file, chapter },
       });
     }
   }
@@ -89,198 +55,239 @@ function buildChapterMap(
 }
 
 function compareMetadata(args: {
-  currentMetadata?: CompareMetadataSummary;
-  sourceMetadata?: CompareMetadataSummary;
+  leftMetadata?: CompareMetadataSummary;
+  rightMetadata?: CompareMetadataSummary;
 }): CompareWarning[] {
   const out: CompareWarning[] = [];
-  const { currentMetadata, sourceMetadata } = args;
-  if (!currentMetadata || !sourceMetadata) return out;
+  const { leftMetadata: left, rightMetadata: right } = args;
+  if (!left || !right) return out;
 
-  if (
-    currentMetadata.projectId &&
-    sourceMetadata.projectId &&
-    currentMetadata.projectId !== sourceMetadata.projectId
-  ) {
+  if (left.projectId && right.projectId && left.projectId !== right.projectId) {
     out.push({
       code: "project_id_mismatch",
-      message: "Project identifiers differ between current and source.",
+      message: "Project identifiers differ between the selected sources.",
     });
   }
-
   if (
-    currentMetadata.languageId &&
-    sourceMetadata.languageId &&
-    currentMetadata.languageId !== sourceMetadata.languageId
+    left.languageId &&
+    right.languageId &&
+    left.languageId !== right.languageId
   ) {
     out.push({
       code: "language_id_mismatch",
-      message: "Language identifiers differ between current and source.",
+      message: "Language identifiers differ between the selected sources.",
     });
   }
-
   if (
-    currentMetadata.languageDirection &&
-    sourceMetadata.languageDirection &&
-    currentMetadata.languageDirection !== sourceMetadata.languageDirection
+    left.languageDirection &&
+    right.languageDirection &&
+    left.languageDirection !== right.languageDirection
   ) {
     out.push({
       code: "direction_mismatch",
-      message: "Language direction differs between current and source.",
+      message: "Language direction differs between the selected sources.",
     });
   }
-
   return out;
 }
 
-async function buildChapterDiffMapAsync(
-  args: CompareDiffMapBuildArgs & {
-    usfmOnionService: IUsfmOnionService;
-    batchSize: number;
-    onBatchComplete?: () => Promise<void>;
-  },
-): Promise<{
-  diffsByChapter: CompareResult["diffsByChapter"];
-  coverage: ChapterCoverage;
-}> {
-  const allChapterKeys = Array.from(
-    new Set([...args.baselineMap.keys(), ...args.sourceMap.keys()]),
-  );
-  const overlap: Array<{ bookCode: string; chapterNum: number }> = [];
-  const baselineOnly: Array<{ bookCode: string; chapterNum: number }> = [];
-  const sourceOnly: Array<{ bookCode: string; chapterNum: number }> = [];
-  let diffsByChapter: CompareResult["diffsByChapter"] = {};
+/**
+ * Creates the frozen comparison boundary. Both complete chapter arrays are
+ * canonically SID-normalized and frozen before Onion sees them; those same
+ * array identities are retained for all later merge projections.
+ */
+export async function buildCompareResultAsync(
+  args: BuildCompareResultArgs,
+): Promise<CompareResult> {
+  const leftMap = buildChapterMap(args.leftFiles);
+  const rightMap = buildChapterMap(args.rightFiles);
+  const allKeys = Array.from(
+    new Set([...leftMap.keys(), ...rightMap.keys()]),
+  ).sort(compareChapterKeys);
+  const leftOnly: ChapterAddress[] = [];
+  const rightOnly: ChapterAddress[] = [];
+  const overlapping: ChapterAddress[] = [];
+  const chapters: Record<string, Record<number, FrozenChapterComparison>> = {};
+  let changedUnitCount = 0;
+  const batchSize = Math.max(1, args.batchSize ?? 8);
 
-  for (let i = 0; i < allChapterKeys.length; i += args.batchSize) {
-    const batch = allChapterKeys.slice(i, i + args.batchSize);
-    const batchEntries: Array<{
-      bookCode: string;
-      chapterNum: number;
-      baselineTokens: Token[];
-      sourceTokens: Token[];
-    }> = [];
-
-    for (const key of batch) {
-      const baselineEntry = args.baselineMap.get(key);
-      const sourceEntry = args.sourceMap.get(key);
-      const bookCode = baselineEntry?.bookCode ?? sourceEntry?.bookCode ?? "";
-      const chapterNum =
-        baselineEntry?.chapterNum ?? sourceEntry?.chapterNum ?? Number.NaN;
-      if (!bookCode || Number.isNaN(chapterNum)) continue;
-
-      const baselineTokens = baselineEntry
-        ? getBaselineTokens(baselineEntry.side.chapter)
-        : [];
-      const sourceTokens = sourceEntry
-        ? sourceEntry.side.chapter.currentTokens
-        : [];
-
-      if (baselineEntry && sourceEntry) {
-        overlap.push({ bookCode, chapterNum });
-      } else if (baselineEntry && !sourceEntry) {
-        baselineOnly.push({ bookCode, chapterNum });
-      } else if (!baselineEntry && sourceEntry) {
-        sourceOnly.push({ bookCode, chapterNum });
+  for (let offset = 0; offset < allKeys.length; offset += batchSize) {
+    const batch = allKeys.slice(offset, offset + batchSize).map((key) => {
+      const left = leftMap.get(key);
+      const right = rightMap.get(key);
+      const address = Object.freeze({
+        bookCode: left?.bookCode ?? right?.bookCode ?? "",
+        chapterNum: left?.chapterNum ?? right?.chapterNum ?? Number.NaN,
+      });
+      if (!address.bookCode || Number.isNaN(address.chapterNum)) {
+        throw new Error(`Invalid comparison chapter key: ${key}`);
       }
 
-      batchEntries.push({
-        bookCode,
-        chapterNum,
-        baselineTokens,
-        sourceTokens,
-      });
-    }
+      const leftTokens = freezeNormalizedTokens(
+        left?.side.chapter.currentTokens ?? [],
+        address.bookCode,
+      );
+      const rightTokens = freezeNormalizedTokens(
+        right?.side.chapter.currentTokens ?? [],
+        address.bookCode,
+      );
+      if (left && right) overlapping.push(address);
+      else if (left) leftOnly.push(address);
+      else rightOnly.push(address);
+      return { address, leftTokens, rightTokens };
+    });
 
-    const batchDiffs = await args.usfmOnionService.diffScope(
-      batchEntries.map((entry) => ({
-        baselineTokens: entry.baselineTokens,
-        currentTokens: entry.sourceTokens,
+    const skeletons = await args.usfmOnionService.diffScope(
+      batch.map((entry) => ({
+        baselineTokens: entry.leftTokens,
+        currentTokens: entry.rightTokens,
       })),
     );
-
-    for (let entryIdx = 0; entryIdx < batchEntries.length; entryIdx++) {
-      const entry = batchEntries[entryIdx];
-      const chapterDiffs = (batchDiffs[entryIdx] ?? []).map<CompareDiff>(
-        (diff) => ({
-          uniqueKey: diff.blockId,
-          semanticSid: diff.semanticSid,
-          status: diff.status as CompareDiff["status"],
-          originalDisplayText: diff.originalText,
-          currentDisplayText: diff.currentText,
-          originalTextOnly: diff.originalTextOnly,
-          currentTextOnly: diff.currentTextOnly,
-          bookCode: entry.bookCode,
-          chapterNum: entry.chapterNum,
-          isWhitespaceChange: diff.isWhitespaceChange,
-          isUsfmStructureChange: diff.isUsfmStructureChange,
-          originalRenderTokens: tokensToRenderTokens(diff.originalTokens),
-          currentRenderTokens: tokensToRenderTokens(diff.currentTokens),
-          originalAlignment: diff.originalAlignment,
-          currentAlignment: diff.currentAlignment,
-          undoSide: diff.undoSide,
-        }),
+    if (skeletons.length !== batch.length) {
+      throw new Error(
+        `Onion returned ${skeletons.length} chapter skeletons for ${batch.length} inputs.`,
       );
-
-      diffsByChapter = replaceChapterDiffsInMap({
-        previousMap: diffsByChapter,
-        bookCode: entry.bookCode,
-        chapterNum: entry.chapterNum,
-        chapterDiffs,
-      });
     }
 
-    if (args.onBatchComplete && i + args.batchSize < allChapterKeys.length) {
+    batch.forEach((entry, index) => {
+      const skeleton = skeletons[index];
+      if (!skeleton)
+        throw new Error(
+          `Missing diff skeleton for ${chapterKey(entry.address.bookCode, entry.address.chapterNum)}`,
+        );
+      const frozenSkeleton = deepFreeze(skeleton);
+      const actionableUnitCount = frozenSkeleton.units.filter(
+        (unit) => unit.status !== "unchanged",
+      ).length;
+      const key = chapterKey(entry.address.bookCode, entry.address.chapterNum);
+      const leftPresent = leftMap.has(key);
+      const rightPresent = rightMap.has(key);
+      changedUnitCount +=
+        actionableUnitCount +
+        (actionableUnitCount === 0 && leftPresent !== rightPresent ? 1 : 0);
+      (chapters[entry.address.bookCode] ??= {})[entry.address.chapterNum] =
+        Object.freeze({
+          address: entry.address,
+          left: Object.freeze({
+            present: leftPresent,
+            dirty:
+              leftMap.get(
+                chapterKey(entry.address.bookCode, entry.address.chapterNum),
+              )?.side.chapter.dirty ?? false,
+            eol:
+              leftMap.get(
+                chapterKey(entry.address.bookCode, entry.address.chapterNum),
+              )?.side.chapter.eol ?? null,
+            direction:
+              leftMap.get(
+                chapterKey(entry.address.bookCode, entry.address.chapterNum),
+              )?.side.chapter.direction ?? null,
+            book: toBookMetadata(
+              leftMap.get(
+                chapterKey(entry.address.bookCode, entry.address.chapterNum),
+              )?.side.file,
+            ),
+            tokens: entry.leftTokens,
+          }),
+          right: Object.freeze({
+            present: rightPresent,
+            dirty:
+              rightMap.get(
+                chapterKey(entry.address.bookCode, entry.address.chapterNum),
+              )?.side.chapter.dirty ?? false,
+            eol:
+              rightMap.get(
+                chapterKey(entry.address.bookCode, entry.address.chapterNum),
+              )?.side.chapter.eol ?? null,
+            direction:
+              rightMap.get(
+                chapterKey(entry.address.bookCode, entry.address.chapterNum),
+              )?.side.chapter.direction ?? null,
+            book: toBookMetadata(
+              rightMap.get(
+                chapterKey(entry.address.bookCode, entry.address.chapterNum),
+              )?.side.file,
+            ),
+            tokens: entry.rightTokens,
+          }),
+          skeleton: frozenSkeleton,
+        });
+    });
+
+    if (args.onBatchComplete && offset + batchSize < allKeys.length) {
       await args.onBatchComplete();
     }
   }
 
-  return {
-    diffsByChapter,
-    coverage: {
-      overlap,
-      baselineOnly,
-      sourceOnly,
-    },
-  };
-}
-
-export async function buildCompareResultAsync(
-  args: BuildCompareResultArgs,
-): Promise<CompareResult> {
-  const baselineMap = buildChapterMap(args.currentFiles);
-  const sourceMap = buildChapterMap(args.sourceFiles);
-  const { diffsByChapter, coverage } = await buildChapterDiffMapAsync({
-    baselineMap,
-    sourceMap,
-    usfmOnionService: args.usfmOnionService,
-    batchSize: args.batchSize ?? 8,
-    onBatchComplete: args.onBatchComplete,
-  });
-
   const warnings = compareMetadata({
-    currentMetadata: args.currentMetadata,
-    sourceMetadata: args.sourceMetadata,
+    leftMetadata: args.leftMetadata,
+    rightMetadata: args.rightMetadata,
   });
-  if (coverage.baselineOnly.length > 0 || coverage.sourceOnly.length > 0) {
+  if (leftOnly.length > 0 || rightOnly.length > 0) {
     warnings.push({
       code: "book_coverage_diff",
-      message:
-        "Book/chapter coverage differs between current project and source.",
+      message: "Book/chapter coverage differs between the selected sources.",
     });
   }
 
-  const diffs = flattenDiffMap({
-    diffsByChapter,
-    include: (diff) => diff.status !== "unchanged",
+  return Object.freeze({
+    sources: args.sources,
+    chapters: freezeChapterTree(chapters),
+    warnings: Object.freeze(warnings),
+    coverage: Object.freeze({
+      leftOnly: Object.freeze(leftOnly),
+      rightOnly: Object.freeze(rightOnly),
+      overlapping: Object.freeze(overlapping),
+    }),
+    changedUnitCount,
   });
+}
 
-  return {
-    diffsByChapter,
-    diffs,
-    warnings,
-    coverage: {
-      baselineOnly: coverage.baselineOnly,
-      sourceOnly: coverage.sourceOnly,
-      overlapping: coverage.overlap,
-    },
-  };
+function toBookMetadata(file: ScriptureBookState | undefined) {
+  if (!file) return null;
+  return Object.freeze({
+    path: file.path,
+    title: file.title,
+    bookCode: file.bookCode,
+    nextBookId: file.nextBookId,
+    prevBookId: file.prevBookId,
+    ...(file.sort === undefined ? {} : { sort: file.sort }),
+  });
+}
+
+function freezeNormalizedTokens(
+  tokens: readonly Token[],
+  bookCode: string,
+): readonly Token[] {
+  return deepFreeze(normalizeTokenSids(tokens, bookCode) as Token[]);
+}
+
+function freezeChapterTree(
+  chapters: Record<string, Record<number, FrozenChapterComparison>>,
+): CompareChaptersByBook {
+  for (const byChapter of Object.values(chapters)) Object.freeze(byChapter);
+  return Object.freeze(chapters);
+}
+
+function deepFreeze<T>(value: T): T {
+  if (value && typeof value === "object" && !Object.isFrozen(value)) {
+    for (const nested of Object.values(value as Record<string, unknown>)) {
+      deepFreeze(nested);
+    }
+    Object.freeze(value);
+  }
+  return value;
+}
+
+function chapterKey(bookCode: string, chapterNum: number): string {
+  return `${bookCode}:${chapterNum}`;
+}
+
+function compareChapterKeys(left: string, right: string): number {
+  const [leftBook, leftChapter = "0"] = left.split(":");
+  const [rightBook, rightChapter = "0"] = right.split(":");
+  return (
+    leftBook.localeCompare(rightBook) ||
+    Number(leftChapter) - Number(rightChapter)
+  );
 }

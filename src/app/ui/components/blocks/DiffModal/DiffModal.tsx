@@ -1,54 +1,54 @@
 import { DiffViewerModal } from "@/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx";
+import { navigateEditorToSid } from "@/app/ui/hooks/navigateEditorToSid.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
-import { sortListBySidCanonical } from "@/core/data/bible/bible.ts";
+import { parseSid } from "@/core/data/bible/bible.ts";
 
+/** Bind the workspace's symmetric comparison session to the Option C shell. */
 export function SaveAndReviewChangesOverlay() {
-  const { save } = useWorkspaceContext();
-
-  const sorted = sortListBySidCanonical(
-    save.diff.diffs.map((diff) => ({ sid: diff.semanticSid, ...diff })),
-  );
-  const isExternalCompare = save.compare.mode === "external";
+  const { save, actions, editorRef } = useWorkspaceContext();
 
   return (
     <DiffViewerModal
-      isOpen={save.diff.isOpen}
+      state={save.diff.state}
       onClose={save.diff.close}
-      diffs={sorted}
-      diffsByChapter={save.diff.diffsByChapter}
-      isCalculating={save.diff.isCalculating}
-      actionMode={isExternalCompare ? "external" : "unsaved"}
-      onRevertDiff={save.revert.diff}
-      onRevertChapter={save.revert.chapter}
-      onApplyDiffToCurrent={save.compare.applyIncomingHunk}
-      onApplyChapterToCurrent={save.compare.applyIncomingChapter}
-      saveAllChanges={
-        isExternalCompare
-          ? save.save.saveProjectToDisk
-          : save.save.saveReviewedWork
-      }
-      revertAllChanges={save.revert.all}
-      compareMode={save.compare.mode}
-      setCompareMode={save.compare.setMode}
-      compareSourceKind={save.compare.sourceKind}
-      setCompareSourceKind={save.compare.setSourceKind}
-      compareSourceProjectId={save.compare.sourceProjectId}
-      setCompareSourceProjectId={save.compare.setSourceProjectId}
-      compareSourceVersionHash={save.compare.sourceVersionHash}
-      setCompareSourceVersionHash={save.compare.setSourceVersionHash}
-      compareProjects={save.compare.availableProjects}
-      compareVersionOptions={save.compare.versionOptions}
-      loadCompareProject={save.compare.loadFromProject}
-      loadCompareZip={save.compare.loadFromZip}
-      loadCompareDirectory={save.compare.loadFromDirectory}
-      loadCompareVersion={save.compare.loadFromVersion}
+      onRefresh={save.diff.refresh}
+      onApply={save.diff.apply}
+      onUnitDecision={save.diff.setUnitDecision}
+      onPresenceDecision={save.diff.setPresenceDecision}
+      onChapterDecision={save.diff.stampChapter}
+      onGlobalDecision={save.diff.stampAll}
+      onNavigate={({ address, sid }) => {
+        void save.diff.close();
+        const parsed = parseSid(sid);
+        const isOwnedSingleVerse =
+          parsed !== null &&
+          !parsed.isBookChapOnly &&
+          parsed.book === address.bookCode &&
+          parsed.chapter === address.chapterNum &&
+          parsed.verseStart === parsed.verseEnd &&
+          parsed.verseStart > 0;
+
+        if (isOwnedSingleVerse) {
+          navigateEditorToSid({
+            editorRef,
+            switchBookOrChapter: actions.switchBookOrChapter,
+            sid,
+          });
+        } else {
+          actions.switchBookOrChapter(address.bookCode, address.chapterNum);
+        }
+      }}
+      availableProjects={save.compare.availableProjects}
+      versionOptions={save.compare.versionOptions}
+      onSelectWorking={save.compare.selectWorking}
+      onSelectSaved={save.compare.selectSaved}
+      onSelectProject={save.compare.selectProject}
+      onSelectVersion={save.compare.selectVersion}
+      onSelectRemote={save.compare.selectRemote}
+      onSelectZip={save.compare.selectZip}
+      onSelectDirectory={save.compare.selectDirectory}
       buildPrintChanges={save.compare.buildPrintChanges}
       printCheckpoints={save.compare.printCheckpoints}
-      loadCompareRemoteLatest={save.compare.loadFromRemoteLatest}
-      compareWarnings={save.compare.warnings}
-      takeIncomingAll={save.compare.applyIncomingAll}
-      hasComputedCompare={save.compare.hasComputed}
-      resetExternalCompare={save.compare.reset}
     />
   );
 }

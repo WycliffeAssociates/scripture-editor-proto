@@ -100,6 +100,7 @@ describe("path-based persistence contracts", () => {
         storageKey: `00-${bookCode}.usfm`,
         path: `/userData/projects/reg/00-${bookCode}.usfm`,
       }),
+      removeBook: async () => {},
       listVersions: async () => [],
       restoreVersion: async () => {},
       stageAndCommit: async () => ({ hash: "abc123" }),
@@ -148,6 +149,7 @@ describe("path-based persistence contracts", () => {
       addBook: async () => {
         throw new Error("not implemented in contract test");
       },
+      removeBook: async () => {},
       listVersions: async () => [],
       restoreVersion: async () => {},
       stageAndCommit: async () => ({ hash: "abc123" }),

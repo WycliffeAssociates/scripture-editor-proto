@@ -54,6 +54,7 @@ function makeProject(): Project {
     addBook: async () => {
       throw new Error("not needed");
     },
+    removeBook: async () => {},
     listVersions: async () => [],
     restoreVersion: async () => {},
     stageAndCommit: async () => ({ hash: "head" }),

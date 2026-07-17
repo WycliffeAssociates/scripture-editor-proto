@@ -1,201 +1,111 @@
 import { isChapterDirtyUsfm } from "@/app/domain/project/saveAndRevertService.ts";
-import type {
-  ScriptureBookState,
-  ScriptureChapterState,
-} from "@/app/scripture/ScriptureWorkspaceState.ts";
-import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
+import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
-import type { CompareDiff } from "./types.ts";
+import type {
+  CompareProjectionArtifact,
+  ProjectedChapter,
+} from "./projection.ts";
 
-function findWorkingChapter(
-  workingFiles: ScriptureBookState[],
-  bookCode: string,
-  chapterNum: number,
-) {
-  const file = workingFiles.find(
-    (candidate) => candidate.bookCode === bookCode,
-  );
-  const chapter = file?.chapters.find((c) => c.chapterNumber === chapterNum);
-  return { file, chapter };
-}
-
-function ensureWorkingChapterFromSource(args: {
-  workingFiles: ScriptureBookState[];
-  sourceFiles: ScriptureBookState[];
-  bookCode: string;
-  chapterNum: number;
-}) {
-  const existing = findWorkingChapter(
-    args.workingFiles,
-    args.bookCode,
-    args.chapterNum,
-  );
-  if (existing.file && existing.chapter) return existing;
-
-  const sourceFile = args.sourceFiles.find((f) => f.bookCode === args.bookCode);
-  const sourceChapter = sourceFile?.chapters.find(
-    (c) => c.chapterNumber === args.chapterNum,
-  );
-  if (!sourceFile || !sourceChapter) return existing;
-
-  if (!existing.file) {
-    const newFile: ScriptureBookState = {
-      path: sourceFile.path,
-      title: sourceFile.title,
-      bookCode: sourceFile.bookCode,
-      nextBookId: sourceFile.nextBookId,
-      prevBookId: sourceFile.prevBookId,
-      sort: sourceFile.sort,
-      chapters: [],
-    };
-    args.workingFiles.push(newFile);
-    existing.file = newFile;
+function cloneBookShell(chapter: ProjectedChapter): ScriptureBookState {
+  const book = chapter.book;
+  if (!book) {
+    throw new Error(
+      `Cannot add ${chapter.address.bookCode} without frozen book metadata.`,
+    );
   }
-
-  if (!existing.chapter) {
-    // Clone from source: this seeds an editable working chapter. Aliasing
-    // the source's state would let edits mutate the read-only baseline the
-    // compare is measured against.
-    const newChapter: ScriptureChapterState = {
-      chapterNumber: args.chapterNum,
-      sourceTokens: structuredClone(sourceChapter.sourceTokens),
-      currentTokens: structuredClone(sourceChapter.currentTokens),
-      direction: sourceChapter.direction,
-      dirty: false,
-      eol: sourceChapter.eol,
-    };
-    existing.file.chapters.push(newChapter);
-    existing.chapter = newChapter;
-  }
-
-  return existing;
-}
-
-function applyTokensToWorkingChapter(args: {
-  chapter: ScriptureChapterState;
-  nextTokens: Token[];
-}) {
-  args.chapter.currentTokens = args.nextTokens;
-  args.chapter.dirty = isChapterDirtyUsfm(args.chapter);
+  return {
+    path: book.path,
+    title: book.title,
+    bookCode: book.bookCode,
+    nextBookId: book.nextBookId,
+    prevBookId: book.prevBookId,
+    ...(book.sort === undefined ? {} : { sort: book.sort }),
+    chapters: [],
+  };
 }
 
 /**
- * Apply one incoming diff hunk from the compare source onto the working scripture
- * workspace.
- *
- * This mutation layer assumes compare result building has already located the
- * source material and diff block. Its job is to update the live workspace nouns,
- * not to compute compare coverage or warnings.
+ * Materialize one already-projected compare artifact into a private working
+ * draft. No Onion operation happens here: Preview and Apply consume the exact
+ * same token artifact.
  */
-export async function applyIncomingHunk(args: {
+export function applyCompareProjectionToWorkingFiles(args: {
   workingFiles: ScriptureBookState[];
-  sourceFiles: ScriptureBookState[];
-  diff: CompareDiff;
-  usfmOnionService: IUsfmOnionService;
-}): Promise<void> {
-  const sourceChapter = findWorkingChapter(
-    args.sourceFiles,
-    args.diff.bookCode,
-    args.diff.chapterNum,
-  ).chapter;
-  if (!sourceChapter) return;
-
-  const ensured = ensureWorkingChapterFromSource({
-    workingFiles: args.workingFiles,
-    sourceFiles: args.sourceFiles,
-    bookCode: args.diff.bookCode,
-    chapterNum: args.diff.chapterNum,
-  });
-  const workingChapter = ensured.chapter;
-  if (!workingChapter) return;
-
-  const sourceTokens = sourceChapter.currentTokens;
-  const workingTokens = workingChapter.currentTokens;
-
-  const nextTokens = await args.usfmOnionService.revertDiffBlock(
-    sourceTokens,
-    workingTokens,
-    args.diff.uniqueKey,
-  );
-
-  applyTokensToWorkingChapter({
-    chapter: workingChapter,
-    nextTokens,
-  });
-}
-
-/**
- * Replace one chapter in the working scripture workspace with the incoming
- * chapter from the compare source.
- */
-export function applyIncomingChapter(args: {
-  workingFiles: ScriptureBookState[];
-  sourceFiles: ScriptureBookState[];
-  bookCode: string;
-  chapterNum: number;
+  artifact: CompareProjectionArtifact;
 }) {
-  const sourceChapter = findWorkingChapter(
-    args.sourceFiles,
-    args.bookCode,
-    args.chapterNum,
-  ).chapter;
-  const ensured = ensureWorkingChapterFromSource({
-    workingFiles: args.workingFiles,
-    sourceFiles: args.sourceFiles,
-    bookCode: args.bookCode,
-    chapterNum: args.chapterNum,
-  });
-  const workingChapter = ensured.chapter;
-  if (!workingChapter) return;
-
-  if (!sourceChapter) {
-    applyTokensToWorkingChapter({
-      chapter: workingChapter,
-      nextTokens: [],
-    });
-    return;
+  if (!args.artifact.complete) {
+    throw new Error("Cannot apply an incomplete compare projection.");
   }
 
-  applyTokensToWorkingChapter({
-    chapter: workingChapter,
-    nextTokens: sourceChapter.currentTokens,
-  });
+  for (const projected of args.artifact.chapters) {
+    if (projected.structuralAction === "unchanged") continue;
+    const { bookCode, chapterNum } = projected.address;
+    let book = args.workingFiles.find((file) => file.bookCode === bookCode);
+    const chapterIndex =
+      book?.chapters.findIndex(
+        (chapter) => chapter.chapterNumber === chapterNum,
+      ) ?? -1;
+
+    if (!projected.present) {
+      if (!book || chapterIndex < 0) continue;
+      book.chapters.splice(chapterIndex, 1);
+      if (book.chapters.length === 0) {
+        args.workingFiles.splice(args.workingFiles.indexOf(book), 1);
+      }
+      continue;
+    }
+
+    if (!book) {
+      book = cloneBookShell(projected);
+      args.workingFiles.push(book);
+    }
+    const currentChapter = book.chapters.find(
+      (chapter) => chapter.chapterNumber === chapterNum,
+    );
+    if (!currentChapter) {
+      book.chapters.push({
+        chapterNumber: chapterNum,
+        sourceTokens: [],
+        currentTokens: structuredClone(projected.tokens) as Token[],
+        direction: projected.direction ?? "ltr",
+        dirty: true,
+        eol: projected.eol ?? "\n",
+      });
+      book.chapters.sort(
+        (left, right) => left.chapterNumber - right.chapterNumber,
+      );
+      continue;
+    }
+
+    currentChapter.currentTokens = structuredClone(projected.tokens) as Token[];
+    currentChapter.direction = projected.direction ?? currentChapter.direction;
+    currentChapter.eol = projected.eol ?? currentChapter.eol;
+    currentChapter.dirty = isChapterDirtyUsfm(currentChapter);
+  }
 }
 
 /**
- * Replace the full current working workspace with the incoming compare source
- * chapter-by-chapter.
+ * Replace the non-excluded portion of the workspace with a saved snapshot.
+ * This path is used by version navigation and clean behind-only fast-forward;
+ * unlike a decision projection, the incoming bytes become the clean baseline.
  */
 export function applyIncomingChapterAll(args: {
   workingFiles: ScriptureBookState[];
   sourceFiles: ScriptureBookState[];
-  /** Books to leave untouched (e.g. locally-protected during reconciliation). */
   excludeBookCodes?: ReadonlySet<string>;
 }) {
-  const chapterKeys = new Set<string>();
-  for (const file of args.workingFiles) {
-    if (args.excludeBookCodes?.has(file.bookCode)) continue;
-    for (const chapter of file.chapters) {
-      chapterKeys.add(`${file.bookCode}:${chapter.chapterNumber}`);
-    }
-  }
-  for (const file of args.sourceFiles) {
-    if (args.excludeBookCodes?.has(file.bookCode)) continue;
-    for (const chapter of file.chapters) {
-      chapterKeys.add(`${file.bookCode}:${chapter.chapterNumber}`);
-    }
-  }
-
-  for (const key of chapterKeys) {
-    const [bookCode, chapterPart] = key.split(":");
-    const chapterNum = Number(chapterPart);
-    if (!bookCode || Number.isNaN(chapterNum)) continue;
-    applyIncomingChapter({
-      workingFiles: args.workingFiles,
-      sourceFiles: args.sourceFiles,
-      bookCode,
-      chapterNum,
-    });
-  }
+  const excluded = args.excludeBookCodes ?? new Set<string>();
+  const retained = args.workingFiles.filter((file) =>
+    excluded.has(file.bookCode),
+  );
+  const replacements = args.sourceFiles
+    .filter((file) => !excluded.has(file.bookCode))
+    .map((file) => structuredClone(file));
+  args.workingFiles.splice(
+    0,
+    args.workingFiles.length,
+    ...retained,
+    ...replacements,
+  );
 }

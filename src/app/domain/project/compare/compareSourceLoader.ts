@@ -3,31 +3,35 @@ import { type Unzipped, unzip } from "fflate";
 import { shapeForSurface } from "@/app/data/editor.ts";
 import { scriptureProjectToParsedFiles } from "@/app/domain/api/scriptureProjectToParsedFiles.ts";
 import { buildRemoteLatestCompareSource } from "@/app/domain/project/compare/remoteCompareSource.ts";
+import { snapshotToScriptureBookStates } from "@/app/domain/project/versionSnapshotAdapter.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
-import type { GitRemoteRelationshipKind } from "@/core/persistence/gitRemoteRelationship.ts";
 import { readGitRemoteProjectInfo } from "@/core/persistence/gitRemoteStore.ts";
 import { joinStoragePath } from "@/core/persistence/pathUtils.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 import type { ReadOnlyOpenProjectService } from "@/core/persistence/WorkspaceService.ts";
 
-import type { CompareMetadataSummary } from "./compareService.ts";
+import {
+  compareMetadataForProject,
+  createCompareSourceDescriptor,
+} from "./sourceMaterials.ts";
+import {
+  COMPARE_SOURCE_KIND,
+  type CompareMetadataSummary,
+  type CompareRemoteSync,
+  type CompareSourceDescriptor,
+  type CompareSourceMaterial,
+} from "./types.ts";
 
 export type CompareSourceLoadResult = {
   parsedFiles: ScriptureBookState[];
   metadataSummary: CompareMetadataSummary;
   cleanup?: () => Promise<void>;
-  remoteSync?: {
-    remoteHead: string;
-    localHead: string | null;
-    mergeBase: string | null;
-    trackedBranch: string;
-    relationship: GitRemoteRelationshipKind;
-  };
+  remoteSync?: CompareRemoteSync;
 };
 
 type CompareSourceLoaderArgs = {
@@ -82,57 +86,157 @@ export class CompareSourceLoader {
     };
   }
 
+  createExistingProjectDescriptor(args: {
+    projectId: string;
+    label: string;
+  }): CompareSourceDescriptor {
+    return createCompareSourceDescriptor({
+      id: `${COMPARE_SOURCE_KIND.EXISTING_PROJECT}:${args.projectId}`,
+      label: args.label,
+      locator: {
+        kind: COMPARE_SOURCE_KIND.EXISTING_PROJECT,
+        projectId: args.projectId,
+      },
+      reload: async () =>
+        toSourceMaterial(await this.loadExistingProject(args.projectId)),
+    });
+  }
+
   async loadFromZipFile(file: File): Promise<CompareSourceLoadResult> {
     const tempRoot = joinStoragePath(
       this.storageRoots.tempRoot,
-      `compare-zip-${Date.now()}`,
+      `compare-zip-${makeLoadId()}`,
     );
-    await this.fileSystem.mkdir(tempRoot, { recursive: true });
-    await extractZipToDirectory(file, tempRoot, this.fileSystem);
-    const projectRoot = await resolveProjectRoot(tempRoot, this.fileSystem);
-    const loaded = await this.loadProjectFromDirectory(projectRoot);
-    const parsed = await scriptureProjectToParsedFiles({
-      loadedProject: loaded,
-      shape: shapeForSurface("compareSource"),
-      usfmOnionService: this.usfmOnionService,
-    });
+    try {
+      await this.fileSystem.mkdir(tempRoot, { recursive: true });
+      await extractZipToDirectory(file, tempRoot, this.fileSystem);
+      const projectRoot = await resolveProjectRoot(tempRoot, this.fileSystem);
+      const loaded = await this.loadProjectFromDirectory(projectRoot);
+      const parsed = await scriptureProjectToParsedFiles({
+        loadedProject: loaded,
+        shape: shapeForSurface("compareSource"),
+        usfmOnionService: this.usfmOnionService,
+      });
 
-    return {
-      parsedFiles: parsed.parsedFiles,
-      metadataSummary: toMetadataSummary(loaded),
-      cleanup: async () => {
-        await this.fileSystem.remove(tempRoot, {
-          recursive: true,
-        });
+      return {
+        parsedFiles: parsed.parsedFiles,
+        metadataSummary: toMetadataSummary(loaded),
+        cleanup: idempotentTempCleanup(this.fileSystem, tempRoot),
+      };
+    } catch (error) {
+      await removeTempRoot(this.fileSystem, tempRoot);
+      throw error;
+    }
+  }
+
+  createZipFileDescriptor(args: {
+    file: File;
+    loadId?: string;
+    label?: string;
+  }): CompareSourceDescriptor {
+    const loadId = args.loadId ?? makeLoadId();
+    const file = args.file;
+    return createCompareSourceDescriptor({
+      id: `${COMPARE_SOURCE_KIND.ZIP_FILE}:${loadId}`,
+      label: args.label ?? file.name,
+      locator: {
+        kind: COMPARE_SOURCE_KIND.ZIP_FILE,
+        loadId,
+        fileName: file.name,
       },
-    };
+      reload: async () => toSourceMaterial(await this.loadFromZipFile(file)),
+    });
   }
 
   async loadFromDirectoryFiles(
-    files: FileList,
+    files: ArrayLike<File>,
   ): Promise<CompareSourceLoadResult> {
     const tempRoot = joinStoragePath(
       this.storageRoots.tempRoot,
-      `compare-dir-${Date.now()}`,
+      `compare-dir-${makeLoadId()}`,
     );
-    await this.fileSystem.mkdir(tempRoot, { recursive: true });
-    await copyDirectorySelectionToTemp(files, tempRoot, this.fileSystem);
-    const projectRoot = await resolveProjectRoot(tempRoot, this.fileSystem);
-    const loaded = await this.loadProjectFromDirectory(projectRoot);
-    const parsed = await scriptureProjectToParsedFiles({
-      loadedProject: loaded,
-      shape: shapeForSurface("compareSource"),
-      usfmOnionService: this.usfmOnionService,
-    });
-    return {
-      parsedFiles: parsed.parsedFiles,
-      metadataSummary: toMetadataSummary(loaded),
-      cleanup: async () => {
-        await this.fileSystem.remove(tempRoot, {
-          recursive: true,
-        });
+    try {
+      await this.fileSystem.mkdir(tempRoot, { recursive: true });
+      await copyDirectorySelectionToTemp(files, tempRoot, this.fileSystem);
+      const projectRoot = await resolveProjectRoot(tempRoot, this.fileSystem);
+      const loaded = await this.loadProjectFromDirectory(projectRoot);
+      const parsed = await scriptureProjectToParsedFiles({
+        loadedProject: loaded,
+        shape: shapeForSurface("compareSource"),
+        usfmOnionService: this.usfmOnionService,
+      });
+      return {
+        parsedFiles: parsed.parsedFiles,
+        metadataSummary: toMetadataSummary(loaded),
+        cleanup: idempotentTempCleanup(this.fileSystem, tempRoot),
+      };
+    } catch (error) {
+      await removeTempRoot(this.fileSystem, tempRoot);
+      throw error;
+    }
+  }
+
+  createDirectoryDescriptor(args: {
+    files: FileList | readonly File[];
+    loadId?: string;
+    label?: string;
+    displayPath?: string;
+  }): CompareSourceDescriptor {
+    // Retain the File objects themselves: a FileList belongs to the picker and
+    // cannot be reacquired when an explicit Refresh reloads the descriptor.
+    const files = Array.from(args.files);
+    const loadId = args.loadId ?? makeLoadId();
+    const displayPath =
+      args.displayPath ?? directoryDisplayPath(files) ?? "Selected folder";
+    return createCompareSourceDescriptor({
+      id: `${COMPARE_SOURCE_KIND.DIRECTORY}:${loadId}`,
+      label: args.label ?? displayPath,
+      locator: {
+        kind: COMPARE_SOURCE_KIND.DIRECTORY,
+        loadId,
+        displayPath,
       },
+      reload: async () =>
+        toSourceMaterial(await this.loadFromDirectoryFiles(files)),
+    });
+  }
+
+  async loadPreviousVersion(args: {
+    loadedProject: Project;
+    oid: string;
+  }): Promise<CompareSourceLoadResult> {
+    const snapshot = await this.gitProvider.readProjectSnapshotAtCommit(
+      args.loadedProject.projectPath,
+      args.oid,
+    );
+    return {
+      parsedFiles: await snapshotToScriptureBookStates({
+        loadedProject: args.loadedProject,
+        snapshot,
+        usfmOnionService: this.usfmOnionService,
+      }),
+      metadataSummary: compareMetadataForProject(args.loadedProject),
     };
+  }
+
+  createPreviousVersionDescriptor(args: {
+    loadedProject: Project;
+    oid: string;
+    label: string;
+  }): CompareSourceDescriptor {
+    const projectId =
+      args.loadedProject.projectId ?? args.loadedProject.folderName;
+    return createCompareSourceDescriptor({
+      id: `${COMPARE_SOURCE_KIND.PREVIOUS_VERSION}:${projectId}:${args.oid}`,
+      label: args.label,
+      locator: {
+        kind: COMPARE_SOURCE_KIND.PREVIOUS_VERSION,
+        projectId,
+        oid: args.oid,
+      },
+      reload: async () =>
+        toSourceMaterial(await this.loadPreviousVersion(args)),
+    });
   }
 
   async loadRemoteLatest(
@@ -172,6 +276,21 @@ export class CompareSourceLoader {
     };
   }
 
+  createRemoteLatestDescriptor(args: {
+    loadedProject: Project;
+    label?: string;
+  }): CompareSourceDescriptor {
+    const projectId =
+      args.loadedProject.projectId ?? args.loadedProject.folderName;
+    return createCompareSourceDescriptor({
+      id: `${COMPARE_SOURCE_KIND.REMOTE_LATEST}:${projectId}`,
+      label: args.label ?? "Remote latest",
+      locator: { kind: COMPARE_SOURCE_KIND.REMOTE_LATEST, projectId },
+      reload: async () =>
+        toSourceMaterial(await this.loadRemoteLatest(args.loadedProject)),
+    });
+  }
+
   private async loadProjectFromDirectory(
     directoryPath: string,
   ): Promise<Project> {
@@ -192,8 +311,47 @@ function toMetadataSummary(project: Project): CompareMetadataSummary {
   };
 }
 
+function toSourceMaterial(
+  result: CompareSourceLoadResult,
+): CompareSourceMaterial {
+  return {
+    files: result.parsedFiles,
+    metadata: result.metadataSummary,
+    cleanup: result.cleanup,
+    remoteSync: result.remoteSync,
+  };
+}
+
+function makeLoadId(): string {
+  return crypto.randomUUID();
+}
+
+function directoryDisplayPath(files: readonly File[]): string | null {
+  for (const file of files) {
+    const root = file.webkitRelativePath.split("/").filter(Boolean)[0];
+    if (root) return root;
+  }
+  return null;
+}
+
+function idempotentTempCleanup(
+  fileSystem: FileSystem,
+  tempRoot: string,
+): () => Promise<void> {
+  let cleanup: Promise<void> | null = null;
+  return () => {
+    cleanup ??= removeTempRoot(fileSystem, tempRoot);
+    return cleanup;
+  };
+}
+
+async function removeTempRoot(fileSystem: FileSystem, tempRoot: string) {
+  if (!(await fileSystem.exists(tempRoot))) return;
+  await fileSystem.remove(tempRoot, { recursive: true });
+}
+
 async function copyDirectorySelectionToTemp(
-  files: FileList,
+  files: ArrayLike<File>,
   tempRoot: string,
   fileSystem: FileSystem,
 ) {

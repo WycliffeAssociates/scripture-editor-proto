@@ -137,6 +137,7 @@ function makeScriptureItem(): UsfmScriptureItem {
       storageKey: "41-MAT.usfm",
       path: `${SCRIPTURE_PATH}/41-MAT.usfm`,
     }),
+    removeBook: async () => {},
     listVersions: async () => [],
     restoreVersion: async () => {},
     stageAndCommit: async () => ({ hash: "abc123" }),

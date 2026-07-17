@@ -3,7 +3,38 @@ import type { LexicalEditor } from "lexical";
 import { useEffect, useMemo, useState } from "react";
 
 import type { EditorModeSetting } from "@/app/data/editor.ts";
+import { acceptRemoteLatestReview } from "@/app/domain/project/acceptRemoteLatestReview.ts";
+import { applyCompareProjectionToStore } from "@/app/domain/project/compare/applyProjection.ts";
+import { CompareSourceLoader } from "@/app/domain/project/compare/compareSourceLoader.ts";
+import {
+  buildApplySaveOptions,
+  replaceCompareSource,
+  requiresIncomingFlowGuard,
+} from "@/app/domain/project/compare/reviewOrchestration.ts";
+import { buildCompareSourcePair } from "@/app/domain/project/compare/sourceDescriptors.ts";
+import {
+  createCompareSourceDescriptor,
+  createSavedCompareSourceDescriptor,
+  createWorkingCompareSourceDescriptor,
+} from "@/app/domain/project/compare/sourceMaterials.ts";
+import {
+  COMPARE_SOURCE_KIND,
+  type CompareSide,
+  type CompareSourceDescriptor,
+} from "@/app/domain/project/compare/types.ts";
 import { prepareRemoteBaseForReconciliation } from "@/app/domain/project/prepareRemoteBaseForReconciliation.ts";
+import {
+  buildPrintChangeSet,
+  type PrintChangeSet,
+  type PrintGranularity,
+  type PrintScope,
+} from "@/app/domain/project/print/buildPrintChangeSet.ts";
+import {
+  hasCompareChanges,
+  listChangedChapterRefs,
+} from "@/app/domain/project/remoteSync/incomingReconciliationPlan.ts";
+import { runIncomingReconciliation } from "@/app/domain/project/remoteSync/runIncomingReconciliation.ts";
+import { snapshotToScriptureBookStates } from "@/app/domain/project/versionSnapshotAdapter.ts";
 import type {
   ScriptureBookState,
   ScriptureChapterState,
@@ -12,15 +43,19 @@ import type { RecoveredConflictTracker } from "@/app/state/RecoveredConflictTrac
 import type { SaveStatusStore } from "@/app/state/SaveStatusStore.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import type { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
-import type { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
-import { useDiffModalState } from "@/app/ui/hooks/save/useDiffModalState.ts";
-import { useExternalCompare } from "@/app/ui/hooks/save/useExternalCompare.ts";
+import {
+  requireGateOpen,
+  type WorkspaceGateStore,
+} from "@/app/state/WorkspaceInteractionGate.ts";
+import { useCompareSession } from "@/app/ui/hooks/save/useCompareSession.ts";
 import { useSaveAndRevert } from "@/app/ui/hooks/save/useSaveAndRevert.ts";
 import { useVersionHistory } from "@/app/ui/hooks/save/useVersionHistory.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
-import { flattenDiffMap } from "@/core/domain/usfm/usfmOnionDiffMap.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
-import type { GitProvider } from "@/core/persistence/GitProvider.ts";
+import type {
+  GitProvider,
+  VersionEntry,
+} from "@/core/persistence/GitProvider.ts";
 import type { GitRemoteProjectStatus } from "@/core/persistence/gitRemoteModels.ts";
 import type {
   Project,
@@ -32,7 +67,6 @@ import type {
   ReadOnlyOpenProjectService,
 } from "@/core/persistence/WorkspaceService.ts";
 
-// todo: a lot of props. Wonder if fine or opportunities to either encapsulate or compose or break apart one? That said, there is already a a comment how we've extract quite a bit of the lower level logic into smaller hooks, so idk.
 type UseSaveProps = {
   workingFilesStore: WorkingFilesStore;
   workspaceBaselineStore: WorkspaceBaselineStore;
@@ -54,110 +88,51 @@ type UseSaveProps = {
   onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
 };
 
+export type PrintChangesResult =
+  | { ok: true; changeSet: PrintChangeSet; baseline: VersionEntry }
+  | { ok: false; reason: "no-baseline" }
+  | { ok: false; reason: "empty"; baseline: VersionEntry };
+
+export type BuildPrintChangesFn = (opts: {
+  baselineHash: string;
+  scope: PrintScope;
+  granularity: PrintGranularity;
+  includeUsfm: boolean;
+}) => Promise<PrintChangesResult>;
+
+export type PrintCheckpoint = { hash: string; label: string };
 export type UseSaveReturn = ReturnType<typeof useSave>;
 
-/**
- * Compose the save/revert/version/compare flows for the current scripture
- * workspace.
- *
- * This hook is the save-domain orchestrator for the editor screen. It does not
- * perform the low-level work itself; instead it coordinates the narrower hooks
- * that own diff calculation, version history, compare baselines, and save /
- * revert execution.
- */
-export function useSave({
-  workingFilesStore,
-  workspaceBaselineStore,
-  recoveredConflictTracker,
-  interactionGate,
-  saveStatusStore,
-  editorRef,
-  pickedFile,
-  pickedChapter,
-  loadedProject,
-  history,
-  projectsService,
-  fileSystem,
-  storageRoots,
-  gitProvider,
-  editorMode,
-  allProjects,
-  currentProjectRoute,
-  onGitRemoteStatusChanged,
-}: UseSaveProps) {
+const VERSION_LABEL_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
+/** Compose save, frozen compare, projection Apply, version, and remote flows. */
+export function useSave(args: UseSaveProps) {
   const { usfmOnionService, settingsManager, authSessionProvider } =
     useRouter().options.context;
   const [, setDirtyVersion] = useState(0);
-
-  /**
-   * Lightweight invalidation knob for memoized derived save/diff state.
-   */
   const bumpDirtyVersion = () => setDirtyVersion((value) => value + 1);
 
   const versions = useVersionHistory({
-    loadedProject,
-    gitProvider,
-    workingFilesStore,
-    interactionGate,
-    pickedFile,
-    pickedChapter,
-    editorRef,
-    history,
-    editorMode,
+    loadedProject: args.loadedProject,
+    gitProvider: args.gitProvider,
+    workingFilesStore: args.workingFilesStore,
+    interactionGate: args.interactionGate,
+    pickedFile: args.pickedFile,
+    pickedChapter: args.pickedChapter,
+    editorRef: args.editorRef,
+    history: args.history,
+    editorMode: args.editorMode,
     usfmOnionService,
     bumpDirtyVersion,
-  });
-
-  const compare = useExternalCompare({
-    workingFilesStore,
-    recoveredConflictTracker,
-    interactionGate,
-    loadedProject,
-    projectsService,
-    fileSystem,
-    storageRoots,
-    editorMode,
-    usfmOnionService,
-    allProjects,
-    currentProjectRoute,
-    pickedFile,
-    pickedChapter,
-    editorRef,
-    history,
-    gitProvider,
-    versions: versions.state.entries,
-    authSessionProvider,
-    autoAcceptIncomingWork: settingsManager.get("autoAcceptIncomingWork"),
-    bumpDirtyVersion,
-    onGitRemoteStatusChanged,
-  });
-
-  const diff = useDiffModalState({
-    workingFilesStore,
-    usfmOnionService,
-    ensureVersionsLoaded: versions.actions.ensureLoaded,
-    closeVersions: versions.actions.close,
-    closeCompare: compare.actions.reset,
   });
 
   const saveAndRevert = useSaveAndRevert({
-    workingFilesStore,
-    workspaceBaselineStore,
-    recoveredConflictTracker,
-    interactionGate,
-    saveStatusStore,
-    editorRef,
-    pickedFile,
-    pickedChapter,
-    loadedProject,
-    history,
-    gitProvider,
+    ...args,
     settingsManager,
     authSessionProvider,
-    fileSystem,
-    storageRoots,
-    usfmOnionService,
-    editorMode,
     isViewingOlderVersion: versions.state.isViewingOlderVersion,
     selectedVersionHash: versions.state.selectedHash,
     refreshVersions: versions.actions.refresh,
@@ -165,54 +140,309 @@ export function useSave({
       versions.actions.setLatestHash(hash);
       versions.actions.setSelectedHash(hash);
     },
-    clearUnsavedDiffs: diff.actions.resetUnsavedDiffs,
-    setUnsavedDiffsByChapter: diff.actions.setUnsavedDiffsByChapter,
     bumpDirtyVersion,
-    rerunCompareForChapters: compare.actions.rerunForChapters,
-    onGitRemoteStatusChanged,
-    prepareRemoteBaseForSave: (() => {
-      const pendingRemotePartialReconciliation =
-        compare.state.pendingRemotePartialReconciliation;
-      if (!pendingRemotePartialReconciliation) {
-        return undefined;
-      }
-      return async () => {
-        await prepareRemoteBaseForReconciliation({
-          projectPath: loadedProject.projectPath,
-          trackedBranch: pendingRemotePartialReconciliation.trackedBranch,
-          remoteHead: pendingRemotePartialReconciliation.remoteHead,
-          relationship: pendingRemotePartialReconciliation.relationship,
-          gitProvider,
-        });
-      };
-    })(),
   });
 
-  const activeDiffsByChapter = useMemo(() => {
-    if (compare.state.mode === "external" && compare.state.diffsByChapter) {
-      return compare.state.diffsByChapter;
-    }
-    return diff.state.diffsByChapter;
-  }, [
-    compare.state.diffsByChapter,
-    compare.state.mode,
-    diff.state.diffsByChapter,
-  ]);
+  const compareSession = useCompareSession({
+    workingFilesStore: args.workingFilesStore,
+    usfmOnionService,
+  });
+  const sourceLoader = useMemo(
+    () =>
+      new CompareSourceLoader({
+        projectsService: args.projectsService,
+        fileSystem: args.fileSystem,
+        storageRoots: args.storageRoots,
+        usfmOnionService,
+        authSessionProvider,
+        gitProvider: args.gitProvider,
+      }),
+    [
+      args.fileSystem,
+      args.gitProvider,
+      args.projectsService,
+      args.storageRoots,
+      authSessionProvider,
+      usfmOnionService,
+    ],
+  );
 
-  const diffs = useMemo(() => {
-    if (compare.state.mode !== "external") {
-      return diff.state.diffs;
+  const workingSource = useMemo(
+    () =>
+      createWorkingCompareSourceDescriptor({
+        workingFilesStore: args.workingFilesStore,
+        project: args.loadedProject,
+      }),
+    [args.loadedProject, args.workingFilesStore],
+  );
+  const savedSource = useMemo(
+    () =>
+      createSavedCompareSourceDescriptor({
+        workingFilesStore: args.workingFilesStore,
+        project: args.loadedProject,
+      }),
+    [args.loadedProject, args.workingFilesStore],
+  );
+
+  function incomingFlowsBlocked() {
+    return (
+      !requireGateOpen(args.interactionGate.get()) ||
+      !args.recoveredConflictTracker.isEmpty()
+    );
+  }
+
+  async function openSources(
+    left: CompareSourceDescriptor,
+    right: CompareSourceDescriptor,
+  ) {
+    const sources = buildCompareSourcePair({ left, right });
+    if (requiresIncomingFlowGuard(sources) && incomingFlowsBlocked()) {
+      return;
     }
-    return flattenDiffMap({
-      diffsByChapter: activeDiffsByChapter,
-      include: (currentDiff) => currentDiff.status !== "unchanged",
+    versions.actions.close();
+    await compareSession.actions.open({ left, right });
+  }
+
+  async function openSavedWorkingReview() {
+    await versions.actions.ensureLoaded();
+    await openSources(savedSource, workingSource);
+  }
+
+  async function replaceSource(
+    side: CompareSide,
+    descriptor: CompareSourceDescriptor,
+  ) {
+    const active = compareSession.state;
+    const sources = replaceCompareSource({
+      activeSources:
+        active.status === "active" ? active.session.snapshot.sources : null,
+      side,
+      descriptor,
+      defaultLeft: savedSource,
+      defaultRight: workingSource,
+      savedFallback: savedSource,
     });
-  }, [activeDiffsByChapter, compare.state.mode, diff.state.diffs]);
+    await openSources(sources.left, sources.right);
+  }
+
+  async function applyReview() {
+    const activeBeforeApply = compareSession.state;
+    if (activeBeforeApply.status !== "active") {
+      throw new Error("No comparison session is open.");
+    }
+    if (
+      requiresIncomingFlowGuard(activeBeforeApply.session.snapshot.sources) &&
+      incomingFlowsBlocked()
+    ) {
+      throw new Error(
+        "Apply refused because incoming reconciliation is currently blocked.",
+      );
+    }
+    const context = compareSession.actions.beginApply();
+    try {
+      const historyToken = args.history.captureHistory();
+      const committed = applyCompareProjectionToStore({
+        workingFilesStore: args.workingFilesStore,
+        interactionGate: args.interactionGate,
+        snapshotFiles: context.workingFilesSnapshot,
+        artifact: context.artifact,
+        currentRevision: context.revision,
+      });
+      if (committed.kind !== "committed") {
+        throw new Error(`Apply refused because ${committed.reason}.`);
+      }
+      args.history.recordHistory(historyToken, {
+        label: "Apply reviewed changes",
+        affected: [...committed.applied.changedChapters],
+      });
+      bumpDirtyVersion();
+
+      const active = compareSession.state;
+      if (active.status !== "active") {
+        throw new Error("The active comparison closed during Apply.");
+      }
+      const sources = active.session.snapshot.sources;
+      const persistenceOptions = buildApplySaveOptions({
+        sources,
+        applied: committed.applied,
+      });
+      const remoteMaterial = [
+        active.resources.left,
+        active.resources.right,
+      ].find((material) => material.remoteSync);
+      const remoteSync = remoteMaterial?.remoteSync;
+      const saveResult = await saveAndRevert.actions.saveProjectToDisk({
+        ...persistenceOptions,
+        prepareRemoteBaseForSave: remoteSync
+          ? async () => {
+              await prepareRemoteBaseForReconciliation({
+                projectPath: args.loadedProject.projectPath,
+                trackedBranch: remoteSync.trackedBranch,
+                remoteHead: remoteSync.remoteHead,
+                relationship: remoteSync.relationship,
+                gitProvider: args.gitProvider,
+              });
+            }
+          : undefined,
+      });
+      if (saveResult.kind !== "saved") {
+        throw new Error(`Apply persisted with result ${saveResult.kind}.`);
+      }
+      compareSession.actions.completeApply(context);
+    } catch (error) {
+      compareSession.actions.failApply(context, error);
+      throw error;
+    }
+  }
+
+  async function openRemoteLatestReview(options?: {
+    openModalOnRequiresReview?: boolean;
+  }) {
+    if (incomingFlowsBlocked()) return undefined;
+    const remote = sourceLoader.createRemoteLatestDescriptor({
+      loadedProject: args.loadedProject,
+    });
+    await openSources(workingSource, remote);
+    const active = compareSession.state;
+    if (active.status !== "active") return undefined;
+    const requiresReview = hasCompareChanges(active.session.snapshot);
+    if (!settingsManager.get("autoAcceptIncomingWork") || !requiresReview) {
+      if (!requiresReview && options?.openModalOnRequiresReview === false) {
+        await compareSession.actions.close();
+      }
+      return { requiresReview };
+    }
+
+    const remoteMaterial = active.resources.right;
+    if (!remoteMaterial.remoteSync) return { requiresReview };
+    const outcome = await runIncomingReconciliation(
+      {
+        args: {
+          workingFilesStore: args.workingFilesStore,
+          interactionGate: args.interactionGate,
+          loadedProject: args.loadedProject,
+          fileSystem: args.fileSystem,
+          storageRoots: args.storageRoots,
+          usfmOnionService,
+          gitProvider: args.gitProvider,
+          history: args.history,
+          editorRef: args.editorRef,
+          pickedFile: args.pickedFile,
+          pickedChapter: args.pickedChapter,
+          editorMode: args.editorMode,
+          bumpDirtyVersion,
+          onGitRemoteStatusChanged: args.onGitRemoteStatusChanged,
+        },
+        commitIncoming: (input) => {
+          if (!requireGateOpen(args.interactionGate.get())) return false;
+          args.workingFilesStore.commit(input);
+          return true;
+        },
+        incomingFlowsBlocked,
+        listCompareChapterRefs: () =>
+          listChangedChapterRefs(active.session.snapshot),
+      },
+      {
+        sourceFiles: remoteMaterial.files,
+        metadata: remoteMaterial.metadata ?? {},
+        cleanup: remoteMaterial.cleanup,
+        remoteSync: remoteMaterial.remoteSync,
+        initialSnapshot: active.session.snapshot,
+      },
+    );
+    if (outcome.remoteAccept) {
+      const status = await acceptRemoteLatestReview({
+        projectPath: args.loadedProject.projectPath,
+        trackedBranch: outcome.remoteAccept.trackedBranch,
+        remoteHead: outcome.remoteAccept.remoteHead,
+        fileSystem: args.fileSystem,
+        storageRoots: args.storageRoots,
+        gitProvider: args.gitProvider,
+      });
+      args.onGitRemoteStatusChanged?.(status);
+    }
+    await compareSession.actions.close();
+    if (
+      outcome.requiresReview &&
+      (options?.openModalOnRequiresReview ?? true)
+    ) {
+      await openSources(workingSource, remote);
+    }
+    return {
+      requiresReview: outcome.requiresReview,
+      requiresReconciliationSave: outcome.requiresReconciliationSave,
+    };
+  }
+
+  const availableProjects = useMemo(
+    () =>
+      args.allProjects.filter(
+        (project) => project.folderName !== args.currentProjectRoute,
+      ),
+    [args.allProjects, args.currentProjectRoute],
+  );
+  const versionOptions = versions.state.entries.map((entry) => ({
+    value: entry.hash,
+    label: `${entry.subject || "Saved version"} · ${VERSION_LABEL_FORMATTER.format(new Date(entry.authoredAtIso))}`,
+  }));
+
+  const buildPrintChanges: BuildPrintChangesFn = async (options) => {
+    const baseline =
+      versions.state.entries.find(
+        (entry) => entry.hash === options.baselineHash,
+      ) ?? null;
+    if (!baseline) return { ok: false, reason: "no-baseline" };
+    const snapshot = await args.gitProvider.readProjectSnapshotAtCommit(
+      args.loadedProject.projectPath,
+      baseline.hash,
+    );
+    const oldFiles = await snapshotToScriptureBookStates({
+      loadedProject: args.loadedProject,
+      snapshot,
+      usfmOnionService,
+    });
+    const currentFiles = args.workingFilesStore.read();
+    const oldSource = createCompareSourceDescriptor({
+      id: `print:${baseline.hash}`,
+      label: baseline.subject || "Saved version",
+      locator: {
+        kind: COMPARE_SOURCE_KIND.PREVIOUS_VERSION,
+        projectId:
+          args.loadedProject.projectId ?? args.loadedProject.folderName,
+        oid: baseline.hash,
+      },
+      reload: async () => ({ files: oldFiles }),
+    });
+    const currentSource = createCompareSourceDescriptor({
+      id: "print:current",
+      label: "Current",
+      locator: {
+        kind: COMPARE_SOURCE_KIND.SAVED,
+        projectId:
+          args.loadedProject.projectId ?? args.loadedProject.folderName,
+      },
+      reload: async () => ({ files: currentFiles }),
+    });
+    const changeSet = await buildPrintChangeSet({
+      oldFiles,
+      newFiles: currentFiles,
+      sources: buildCompareSourcePair({
+        left: oldSource,
+        right: currentSource,
+      }),
+      usfmOnionService,
+      scope: options.scope,
+      granularity: options.granularity,
+      includeUsfm: options.includeUsfm,
+    });
+    return changeSet.totalChanges === 0
+      ? { ok: false, reason: "empty", baseline }
+      : { ok: true, changeSet, baseline };
+  };
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!saveAndRevert.state.hasUnsavedChanges) return;
-
+    if (typeof window === "undefined" || !saveAndRevert.state.hasUnsavedChanges)
+      return;
     const handler = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = "";
@@ -221,139 +451,120 @@ export function useSave({
     return () => window.removeEventListener("beforeunload", handler);
   }, [saveAndRevert.state.hasUnsavedChanges]);
 
-  /**
-   * Open the save-review modal after first snapshotting the live editor into
-   * workspace state.
-   */
-  const saveReview = {
-    open: async () => {
-      // Force the review modal when recovered conflicts are unresolved,
-      // even with auto-accept on — the user must review their recovered
-      // work before it persists. Otherwise auto-accept saves directly.
-      if (
-        settingsManager.get("autoAcceptOwnWorkOnSave") &&
-        recoveredConflictTracker.isEmpty()
-      ) {
-        await saveAndRevert.actions.saveProjectToDisk({
-          reviewedRecoveredWork: true,
-        });
-        return;
-      }
-      await diff.actions.open();
-    },
+  const saveReview = async () => {
+    if (
+      settingsManager.get("autoAcceptOwnWorkOnSave") &&
+      args.recoveredConflictTracker.isEmpty()
+    ) {
+      await saveAndRevert.actions.saveProjectToDisk({
+        reviewedRecoveredWork: true,
+      });
+      return;
+    }
+    await openSavedWorkingReview();
   };
-
-  // The local-unsaved-review modal's Save action. This — and only this — path
-  // attests that the user reviewed their recovered work. External-compare's
-  // save (reachable only when the tracker is empty) uses the un-attested
-  // `saveProjectToDisk` so a generic attestation can't leak through the shared
-  // modal.
-
-  const saveReviewedWork = () =>
-    saveAndRevert.actions.saveProjectToDisk({
-      reviewedRecoveredWork: true,
-    });
-
-  const versionHistory = {
-    isOpen: versions.state.isOpen,
-    entries: versions.state.entries,
-    isLoading: versions.state.isLoading,
-    isSwitching: versions.state.isSwitchingVersion,
-    selectedHash: versions.state.selectedHash,
-    latestHash: versions.state.latestHash,
-    isViewingOlderVersion: versions.state.isViewingOlderVersion,
-    open: async () => {
-      await versions.actions.open({
-        hasUnsavedChanges: saveAndRevert.state.hasUnsavedChanges,
-      });
-    },
-    close: versions.actions.close,
-    ensureLoaded: versions.actions.ensureLoaded,
-    loadMore: versions.actions.loadMore,
-    select: async (hash: string) => {
-      await versions.actions.select({
-        hash,
-        hasUnsavedChanges: saveAndRevert.state.hasUnsavedChanges,
-      });
-    },
-    backToLatest: async () => {
-      await versions.actions.backToLatest({
-        hasUnsavedChanges: saveAndRevert.state.hasUnsavedChanges,
-      });
-    },
-    dirtyPrompt: {
-      isOpen: versions.state.isDirtyPromptOpen,
-      dismiss: versions.actions.dismissDirtyPrompt,
-      discardAndContinue: async () => {
-        await versions.actions.discardAndContinue(async () => {
-          await saveAndRevert.actions.discardAllChanges();
-        });
-      },
-      saveAndContinue: () => {
-        versions.actions.saveAndContinue(() => {
-          void diff.actions.open();
-        });
-      },
-    },
-  };
-
-  const openRemoteLatestReview = async (options?: {
-    openModalOnRequiresReview?: boolean;
-  }) =>
-    compare.actions.openRemoteLatestReview(
-      diff.actions.open,
-      diff.state.isOpen,
-      options,
-    );
 
   return {
     diff: {
-      isOpen: diff.state.isOpen,
-      isCalculating: diff.state.isCalculating || compare.state.isCalculating,
-      diffs,
-      diffsByChapter: activeDiffsByChapter,
-      open: saveReview.open,
-      close: diff.actions.close,
+      state: compareSession.state,
+      open: saveReview,
+      close: compareSession.actions.close,
+      refresh: compareSession.actions.refresh,
+      apply: applyReview,
+      setUnitDecision: compareSession.actions.setUnitDecision,
+      setPresenceDecision: compareSession.actions.setPresenceDecision,
+      stampChapter: compareSession.actions.stampChapter,
+      stampAll: compareSession.actions.stampAll,
     },
     save: {
       saveProjectToDisk: saveAndRevert.actions.saveProjectToDisk,
-      saveReviewedWork,
       hasUnsavedChanges: saveAndRevert.state.hasUnsavedChanges,
     },
-    revert: {
-      diff: saveAndRevert.actions.revertDiff,
-      chapter: saveAndRevert.actions.revertChapter,
-      all: saveAndRevert.actions.revertAll,
-    },
-    versions: versionHistory,
-    compare: {
-      mode: compare.state.mode,
-      setMode: compare.actions.setMode,
-      sourceKind: compare.state.sourceKind,
-      setSourceKind: compare.actions.setSourceKind,
-      sourceProjectId: compare.state.sourceProjectId,
-      setSourceProjectId: compare.actions.setSourceProjectId,
-      sourceVersionHash: compare.state.sourceVersionHash,
-      setSourceVersionHash: compare.actions.setSourceVersionHash,
-      availableProjects: compare.state.availableProjects,
-      versionOptions: compare.state.versionOptions,
-      printCheckpoints: compare.state.printCheckpoints,
-      buildPrintChanges: compare.actions.buildPrintChanges,
-      warnings: compare.state.warnings,
-      hasComputed: compare.state.hasComputed,
-      refresh: compare.actions.refresh,
-      reset: compare.actions.reset,
-      loadFromProject: compare.actions.loadFromProject,
-      loadFromZip: compare.actions.loadFromZip,
-      loadFromDirectory: compare.actions.loadFromDirectory,
-      loadFromVersion: compare.actions.loadFromVersion,
-      loadFromRemoteLatest: async () => {
-        await compare.actions.loadFromRemoteLatest();
+    revert: { all: saveAndRevert.actions.revertAll },
+    versions: {
+      isOpen: versions.state.isOpen,
+      entries: versions.state.entries,
+      isLoading: versions.state.isLoading,
+      isSwitching: versions.state.isSwitchingVersion,
+      selectedHash: versions.state.selectedHash,
+      latestHash: versions.state.latestHash,
+      isViewingOlderVersion: versions.state.isViewingOlderVersion,
+      open: () =>
+        versions.actions.open({
+          hasUnsavedChanges: saveAndRevert.state.hasUnsavedChanges,
+        }),
+      close: versions.actions.close,
+      ensureLoaded: versions.actions.ensureLoaded,
+      loadMore: versions.actions.loadMore,
+      select: (hash: string) =>
+        versions.actions.select({
+          hash,
+          hasUnsavedChanges: saveAndRevert.state.hasUnsavedChanges,
+        }),
+      backToLatest: () =>
+        versions.actions.backToLatest({
+          hasUnsavedChanges: saveAndRevert.state.hasUnsavedChanges,
+        }),
+      dirtyPrompt: {
+        isOpen: versions.state.isDirtyPromptOpen,
+        dismiss: versions.actions.dismissDirtyPrompt,
+        discardAndContinue: () =>
+          versions.actions.discardAndContinue(async () => {
+            await saveAndRevert.actions.discardAllChanges();
+          }),
+        saveAndContinue: () =>
+          versions.actions.saveAndContinue(() => {
+            void openSavedWorkingReview();
+          }),
       },
+    },
+    compare: {
+      availableProjects,
+      versionOptions,
+      printCheckpoints: versions.state.entries.map((entry) => ({
+        hash: entry.hash,
+        label: `${entry.subject || "Saved version"} · ${VERSION_LABEL_FORMATTER.format(new Date(entry.authoredAtIso))}`,
+      })),
+      buildPrintChanges,
       openRemoteLatestReview,
-      applyIncomingHunk: compare.actions.applyIncomingHunk,
-      applyIncomingChapter: compare.actions.applyIncomingChapter,
-      applyIncomingAll: compare.actions.applyIncomingAll,
+      selectWorking: (side: CompareSide) => replaceSource(side, workingSource),
+      selectSaved: (side: CompareSide) => replaceSource(side, savedSource),
+      selectProject: (side: CompareSide, projectId: string) => {
+        const project = availableProjects.find(
+          (candidate) =>
+            candidate.projectId === projectId ||
+            candidate.folderName === projectId,
+        );
+        return replaceSource(
+          side,
+          sourceLoader.createExistingProjectDescriptor({
+            projectId,
+            label: project?.displayName ?? "Project",
+          }),
+        );
+      },
+      selectVersion: (side: CompareSide, oid: string) =>
+        replaceSource(
+          side,
+          sourceLoader.createPreviousVersionDescriptor({
+            loadedProject: args.loadedProject,
+            oid,
+            label:
+              versionOptions.find((option) => option.value === oid)?.label ??
+              "Saved version",
+          }),
+        ),
+      selectRemote: (side: CompareSide) =>
+        replaceSource(
+          side,
+          sourceLoader.createRemoteLatestDescriptor({
+            loadedProject: args.loadedProject,
+          }),
+        ),
+      selectZip: (side: CompareSide, file: File) =>
+        replaceSource(side, sourceLoader.createZipFileDescriptor({ file })),
+      selectDirectory: (side: CompareSide, files: FileList) =>
+        replaceSource(side, sourceLoader.createDirectoryDescriptor({ files })),
     },
   };
 }

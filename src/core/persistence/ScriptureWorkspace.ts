@@ -66,6 +66,8 @@ export interface ScriptureWorkspace {
       contents?: string;
     },
   ): Promise<BookRef>;
+  /** Remove one known persisted book and its container metadata entry. */
+  removeBook(storageKey: string): Promise<void>;
   listVersions(args?: {
     limit?: number;
     offset?: number;

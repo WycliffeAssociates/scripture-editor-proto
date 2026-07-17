@@ -82,6 +82,7 @@ function makeProject(
         storageKey: "01-GEN.usfm",
         path,
       })),
+      removeBook: vi.fn(),
       listVersions: vi.fn(async () => []),
       restoreVersion: vi.fn(async () => {}),
       stageAndCommit: vi.fn(async () => ({ hash: "abc123" })),

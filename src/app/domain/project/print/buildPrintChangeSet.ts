@@ -1,27 +1,24 @@
 import { diffWordsWithSpace } from "diff";
 
 import { buildCompareResultAsync } from "@/app/domain/project/compare/compareService.ts";
-import type { ProjectDiff } from "@/app/domain/project/diffTypes.ts";
+import type { CompareSourcePair } from "@/app/domain/project/compare/types.ts";
+import { buildCompareListRows } from "@/app/domain/project/compare/viewModels.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
+import type {
+  DecisionStatus,
+  DecisionUnit,
+  Token,
+} from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 /**
  * Builds the data model for the "Print changes" document — a terse,
  * verse-by-verse record of what changed between two scripture sides, ready to
  * render as a monochrome printable page.
  *
- * NOTE ON SIDES (read before changing the call site): this function takes BOTH
- * sides as explicit parameters — `oldFiles` (the earlier baseline) and
- * `newFiles` (the later state). It deliberately does NOT reach for the working
- * files store. Today the only caller passes `newFiles = working store` and
- * `oldFiles = a historical commit`, but that is the caller's choice, not this
- * module's assumption. `buildCompareResultAsync` is likewise general over both
- * sides; the existing wrongness is only in its *other* callers
- * (computeExternalDiffs / loadFromRemoteLatest / loadFromVersion in
- * useExternalCompare.ts), which bake `currentFiles = workingFilesStore.read()`
- * into themselves. Even if one-date-vs-working-store is all we ever ship,
- * hardcoding either side into the working store is not what we should have
- * done — both sides are data. Keep them parameters here.
+ * Both sides and their source identities are explicit. This module never reads
+ * the resident working-files store, so the same projection supports checkpoint,
+ * ZIP/folder, existing-project, and other read-only source pairs.
  */
 
 export type PrintWordMark = "added" | "removed" | "unchanged";
@@ -77,22 +74,29 @@ export type BuildPrintChangeSetArgs = {
   oldFiles: ScriptureBookState[];
   /** The later side (e.g. the current working files). */
   newFiles: ScriptureBookState[];
+  /** Named, addressable source identities for this read-only comparison. */
+  sources: CompareSourcePair;
   usfmOnionService: IUsfmOnionService;
   scope: PrintScope;
   granularity: PrintGranularity;
   includeUsfm: boolean;
 };
 
-function oldSideText(diff: ProjectDiff, includeUsfm: boolean): string {
-  return includeUsfm
-    ? diff.originalDisplayText
-    : (diff.originalTextOnly ?? diff.originalDisplayText);
-}
+type PrintUnitChange = Readonly<{
+  semanticSid: string;
+  status: DecisionStatus;
+  baselineTokens: readonly Token[];
+  currentTokens: readonly Token[];
+}>;
 
-function newSideText(diff: ProjectDiff, includeUsfm: boolean): string {
-  return includeUsfm
-    ? diff.currentDisplayText
-    : (diff.currentTextOnly ?? diff.currentDisplayText);
+function tokensToPrintText(
+  tokens: readonly Token[],
+  includeUsfm: boolean,
+): string {
+  return tokens
+    .filter((token) => includeUsfm || token.kind === "text")
+    .map((token) => token.source)
+    .join("");
 }
 
 type PrintSides = { oldRuns: PrintWordRun[]; newRuns: PrintWordRun[] };
@@ -102,17 +106,17 @@ type PrintSides = { oldRuns: PrintWordRun[]; newRuns: PrintWordRun[] };
  * old text with removed words marked; the after side carries the new text with
  * added words marked. A word diff drives both so the two columns line up.
  */
-function buildSides(diff: ProjectDiff, includeUsfm: boolean): PrintSides {
-  const oldText = oldSideText(diff, includeUsfm).trim();
-  const newText = newSideText(diff, includeUsfm).trim();
+function buildSides(change: PrintUnitChange, includeUsfm: boolean): PrintSides {
+  const oldText = tokensToPrintText(change.baselineTokens, includeUsfm).trim();
+  const newText = tokensToPrintText(change.currentTokens, includeUsfm).trim();
 
-  if (diff.status === "added") {
+  if (change.status === "added") {
     return {
       oldRuns: [],
       newRuns: newText ? [{ text: newText, mark: "added" }] : [],
     };
   }
-  if (diff.status === "deleted") {
+  if (change.status === "deleted") {
     return {
       oldRuns: oldText ? [{ text: oldText, mark: "removed" }] : [],
       newRuns: [],
@@ -135,7 +139,7 @@ function buildSides(diff: ProjectDiff, includeUsfm: boolean): PrintSides {
   return { oldRuns, newRuns };
 }
 
-function toEntryStatus(status: ProjectDiff["status"]): PrintEntryStatus {
+function toEntryStatus(status: DecisionStatus): PrintEntryStatus {
   // `unchanged` never reaches here — buildCompareResultAsync drops it.
   return status === "added" || status === "deleted" ? status : "modified";
 }
@@ -161,7 +165,7 @@ function statusForSides(
  * concatenating each side's runs (a space between blocks).
  */
 function mergeBlocksToVerseEntry(
-  blocks: ProjectDiff[],
+  blocks: PrintUnitChange[],
   includeUsfm: boolean,
 ): PrintVerseEntry {
   const first = blocks[0];
@@ -191,29 +195,32 @@ function mergeBlocksToVerseEntry(
 export async function buildPrintChangeSet(
   args: BuildPrintChangeSetArgs,
 ): Promise<PrintChangeSet> {
+  if (args.sources.writableSide !== null) {
+    throw new Error("Print comparisons must use two read-only sources.");
+  }
   const result = await buildCompareResultAsync({
     // old side is the baseline so "added" means "added since then".
-    currentFiles: args.oldFiles,
-    sourceFiles: args.newFiles,
+    leftFiles: args.oldFiles,
+    rightFiles: args.newFiles,
+    sources: args.sources,
     usfmOnionService: args.usfmOnionService,
   });
 
   const scope = args.scope;
-  const scoped = result.diffs.filter((diff) =>
-    scope.kind === "books" ? scope.bookCodes.includes(diff.bookCode) : true,
-  );
-
   // book -> chapter -> ordered blocks
-  const byBook = new Map<string, Map<number, ProjectDiff[]>>();
-  for (const diff of scoped) {
-    let chapters = byBook.get(diff.bookCode);
-    if (!chapters) {
-      chapters = new Map();
-      byBook.set(diff.bookCode, chapters);
+  const byBook = new Map<string, Map<number, PrintUnitChange[]>>();
+  for (const [bookCode, resultChapters] of Object.entries(result.chapters)) {
+    if (scope.kind === "books" && !scope.bookCodes.includes(bookCode)) continue;
+    const chapters = new Map<number, PrintUnitChange[]>();
+    for (const [chapterKey, chapter] of Object.entries(resultChapters)) {
+      const blocks = buildCompareListRows({
+        skeleton: chapter.skeleton,
+        decisions: {},
+        filters: { hideUnchanged: true },
+      }).map(({ unit }) => toPrintUnitChange(unit));
+      if (blocks.length > 0) chapters.set(Number(chapterKey), blocks);
     }
-    const blocks = chapters.get(diff.chapterNum) ?? [];
-    blocks.push(diff);
-    chapters.set(diff.chapterNum, blocks);
+    if (chapters.size > 0) byBook.set(bookCode, chapters);
   }
 
   let totalChanges = 0;
@@ -238,7 +245,7 @@ export async function buildPrintChangeSet(
         }
       } else {
         // verses — merge blocks sharing a verse, preserving order
-        const byVerse = new Map<string, ProjectDiff[]>();
+        const byVerse = new Map<string, PrintUnitChange[]>();
         const order: string[] = [];
         for (const block of blocks) {
           if (!byVerse.has(block.semanticSid)) order.push(block.semanticSid);
@@ -270,4 +277,13 @@ export async function buildPrintChangeSet(
   books.sort((a, b) => a.bookCode.localeCompare(b.bookCode));
 
   return { books, totalChanges };
+}
+
+function toPrintUnitChange(unit: DecisionUnit): PrintUnitChange {
+  return {
+    semanticSid: unit.currentSid ?? unit.baselineSid ?? unit.id,
+    status: unit.status,
+    baselineTokens: unit.baselineTokens,
+    currentTokens: unit.currentTokens,
+  };
 }

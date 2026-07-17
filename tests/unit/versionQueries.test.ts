@@ -23,7 +23,7 @@ describe("versionQueries", () => {
       formatScope: vi.fn(),
       applyTokenFixes: vi.fn(),
       diffTokens: vi.fn(),
-      revertDiffBlock: vi.fn(),
+      mergeDiffBlocks: vi.fn(),
       diffScope: vi.fn(),
       supportsPathIo: false,
     };
@@ -69,7 +69,7 @@ describe("versionQueries", () => {
       formatScope: vi.fn(),
       applyTokenFixes: vi.fn(),
       diffTokens: vi.fn(),
-      revertDiffBlock: vi.fn(),
+      mergeDiffBlocks: vi.fn(),
       diffScope: vi.fn(),
       supportsPathIo: false,
     };

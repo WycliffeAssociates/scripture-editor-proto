@@ -2,16 +2,13 @@ import { invoke } from "@tauri-apps/api/core";
 
 import { devTimer } from "@/app/ui/hooks/utils/domUtils.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
-import { defaultBuildSidBlocksOptions } from "@/core/domain/usfm/usfmOnionAdapters.ts";
 import type {
-  BuildSidBlocksOptions,
-  Diff,
-  DiffPathPair,
+  DiffSkeleton,
   DiffScopeItem,
-  DiffScopeOptions,
   LintIssue,
   LintOptions,
   LintScopeOptions,
+  MergeRequest,
   ProjectedUsfmDocument,
   ProjectUsfmOptions,
   Token,
@@ -164,18 +161,6 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
     );
     end();
     return mapped;
-  }
-
-  private async diffBatchFromPathPairs(
-    pathPairs: DiffPathPair[],
-    tokenOptions = { mergeHorizontalWhitespace: false },
-    buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
-  ): Promise<Diff[][]> {
-    return invoke("usfm_onion_diff_path_pairs", {
-      pathPairs,
-      tokenOptions,
-      buildOptions,
-    });
   }
 
   async parseUsfm(
@@ -382,104 +367,39 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
     };
   }
 
-  async diffScope(
-    scope: DiffScopeItem[],
-    options: DiffScopeOptions = {},
-  ): Promise<Diff[][]> {
+  async diffScope(scope: DiffScopeItem[]): Promise<DiffSkeleton[]> {
     if (!scope.length) return [];
-
-    const results: Diff[][] = Array.from({ length: scope.length }, () => []);
-    const pathIndices: number[] = [];
-    const pathPairs: DiffPathPair[] = [];
-    const tokenIndices: number[] = [];
-    const tokenPairs: Array<{
-      baseline: Token[];
-      current: Token[];
-    }> = [];
-
-    for (let i = 0; i < scope.length; i++) {
-      const item = scope[i];
-      if (item.baselineTokens && item.currentTokens) {
-        tokenIndices.push(i);
-        tokenPairs.push({
-          baseline: item.baselineTokens,
-          current: item.currentTokens,
-        });
-        continue;
-      }
-      if (item.baselinePath && item.currentPath && this.supportsPathIo) {
-        pathIndices.push(i);
-        pathPairs.push({
-          baselinePath: item.baselinePath,
-          currentPath: item.currentPath,
-        });
-        continue;
-      }
-      throw new Error(
-        `diffScope item at index ${i} must include baseline/current tokens or baseline/current paths`,
-      );
-    }
-
-    if (pathPairs.length > 0) {
-      const pathResults = await this.diffBatchFromPathPairs(
-        pathPairs,
-        {
-          mergeHorizontalWhitespace:
-            options.tokenOptions?.mergeHorizontalWhitespace ?? false,
-        },
-        options.buildOptions ?? defaultBuildSidBlocksOptions(),
-      );
-      for (let i = 0; i < pathResults.length; i++) {
-        results[pathIndices[i]] = pathResults[i] ?? [];
-      }
-    }
-
-    if (tokenPairs.length > 0) {
-      const tokenResults = await Promise.all(
-        tokenPairs.map((pair) =>
-          this.diffTokens(
-            pair.baseline,
-            pair.current,
-            options.buildOptions ?? defaultBuildSidBlocksOptions(),
-          ),
-        ),
-      );
-      for (let i = 0; i < tokenResults.length; i++) {
-        results[tokenIndices[i]] = tokenResults[i] ?? [];
-      }
-    }
-
-    return results;
+    return Promise.all(
+      scope.map((item) =>
+        this.diffTokens(item.baselineTokens, item.currentTokens),
+      ),
+    );
   }
 
   async diffTokens(
-    baselineTokens: Token[],
-    currentTokens: Token[],
-    buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
-  ): Promise<Diff[]> {
+    baselineTokens: readonly Token[],
+    currentTokens: readonly Token[],
+  ): Promise<DiffSkeleton> {
     const end = devTimer(
       `[tauri] diffTokens (baseline: ${baselineTokens.length}, current: ${currentTokens.length})`,
     );
-    const result = invoke<Diff[]>("usfm_onion_diff_tokens", {
+    const result = invoke<DiffSkeleton>("usfm_onion_diff_tokens", {
       baselineTokens,
       currentTokens,
-      buildOptions,
     });
     end();
     return result;
   }
 
-  async revertDiffBlock(
-    baselineTokens: Token[],
-    currentTokens: Token[],
-    blockId: string,
-    buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
+  async mergeDiffBlocks(
+    baselineTokens: readonly Token[],
+    currentTokens: readonly Token[],
+    request: MergeRequest,
   ): Promise<Token[]> {
-    return invoke("usfm_onion_revert_diff_block", {
+    return invoke("usfm_onion_merge_diff_blocks", {
       baselineTokens,
       currentTokens,
-      blockId,
-      buildOptions,
+      request,
     });
   }
 }

@@ -139,6 +139,11 @@ export function buildMetadataReviewWorkspace(args: {
         "Metadata review workspaces do not expose book creation before metadata is repaired.",
       );
     },
+    removeBook: async () => {
+      throw new Error(
+        "Metadata review workspaces do not expose book deletion before metadata is repaired.",
+      );
+    },
     listVersions: async () => [],
     restoreVersion: async () => {
       throw new Error(

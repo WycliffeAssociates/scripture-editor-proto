@@ -13,20 +13,6 @@ pub struct IntoTokensOptionsDto {
     pub merge_horizontal_whitespace: bool,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BuildSidBlocksOptionsDto {
-    #[serde(default = "default_true")]
-    pub allow_empty_sid: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DiffPathPairDto {
-    pub baseline_path: String,
-    pub current_path: String,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpanDto {
@@ -166,43 +152,113 @@ pub struct MarkerCatalogDto {
     pub info_by_marker: BTreeMap<String, usfm_onion_dto::MarkerInfo>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TokenAlignmentDto {
-    pub change: String,
-    pub counterpart_index: Option<usize>,
+pub enum SlotRoleDto {
+    Shared,
+    BaselineOnly,
+    CurrentOnly,
+    PairBaseline,
+    PairCurrent,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DecisionUnitKindDto {
+    Shared,
+    Added,
+    Deleted,
+    Coalesced,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DecisionStatusDto {
+    Unchanged,
+    Modified,
+    Added,
+    Deleted,
+    Moved,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum CoveredSideDto {
+    Baseline,
+    Current,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MergeSideDto {
+    Baseline,
+    Current,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SidBlockDto {
-    pub block_id: String,
-    pub semantic_sid: String,
-    pub start: usize,
-    pub end_exclusive: usize,
-    pub prev_block_id: Option<String>,
-    pub text_full: String,
+pub struct AnchorDto {
+    pub unit_id: String,
+    pub sid: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DiffDto {
-    pub block_id: String,
-    pub semantic_sid: String,
-    pub status: String,
-    pub original: Option<SidBlockDto>,
-    pub current: Option<SidBlockDto>,
-    pub original_text: String,
-    pub current_text: String,
-    pub original_text_only: String,
-    pub current_text_only: String,
+pub struct SlotDto {
+    pub unit_id: String,
+    pub role: SlotRoleDto,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub after: Option<AnchorDto>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DupContextDto {
+    pub baseline_count: u32,
+    pub current_count: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CoveredByDto {
+    pub unit_id: String,
+    pub sid: String,
+    pub side: CoveredSideDto,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DecisionUnitDto {
+    pub id: String,
+    pub kind: DecisionUnitKindDto,
+    pub status: DecisionStatusDto,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub baseline_sid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_sid: Option<String>,
+    pub baseline_tokens: Vec<FlatTokenDto>,
+    pub current_tokens: Vec<FlatTokenDto>,
+    pub displaced: bool,
+    pub relabeled: bool,
+    pub dup_context: DupContextDto,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub covered_by: Option<CoveredByDto>,
     pub is_whitespace_change: bool,
     pub is_usfm_structure_change: bool,
-    pub original_tokens: Vec<FlatTokenDto>,
-    pub current_tokens: Vec<FlatTokenDto>,
-    pub original_alignment: Vec<TokenAlignmentDto>,
-    pub current_alignment: Vec<TokenAlignmentDto>,
-    pub undo_side: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffSkeletonDto {
+    pub slots: Vec<SlotDto>,
+    pub units: Vec<DecisionUnitDto>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MergeRequestDto {
+    pub decisions: BTreeMap<String, MergeSideDto>,
+    pub default_side: MergeSideDto,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -233,10 +289,6 @@ pub struct TokenTransformResultDto {
     pub tokens: Vec<FlatTokenDto>,
     pub applied_changes: Vec<TokenTransformChangeDto>,
     pub skipped_changes: Vec<SkippedTokenTransformDto>,
-}
-
-fn default_true() -> bool {
-    true
 }
 
 fn read_usfm_source_from_path(path: &str) -> Result<String, String> {
@@ -569,77 +621,93 @@ fn map_projected_document(
     }
 }
 
-fn map_diff_status(status: onion::DiffStatus) -> String {
+fn map_slot_role(role: onion::SlotRole) -> SlotRoleDto {
+    match role {
+        onion::SlotRole::Shared => SlotRoleDto::Shared,
+        onion::SlotRole::BaselineOnly => SlotRoleDto::BaselineOnly,
+        onion::SlotRole::CurrentOnly => SlotRoleDto::CurrentOnly,
+        onion::SlotRole::PairBaseline => SlotRoleDto::PairBaseline,
+        onion::SlotRole::PairCurrent => SlotRoleDto::PairCurrent,
+    }
+}
+
+fn map_decision_unit_kind(kind: onion::DecisionUnitKind) -> DecisionUnitKindDto {
+    match kind {
+        onion::DecisionUnitKind::Shared => DecisionUnitKindDto::Shared,
+        onion::DecisionUnitKind::Added => DecisionUnitKindDto::Added,
+        onion::DecisionUnitKind::Deleted => DecisionUnitKindDto::Deleted,
+        onion::DecisionUnitKind::Coalesced => DecisionUnitKindDto::Coalesced,
+    }
+}
+
+fn map_decision_status(status: onion::DecisionStatus) -> DecisionStatusDto {
     match status {
-        onion::DiffStatus::Added => "added",
-        onion::DiffStatus::Deleted => "deleted",
-        onion::DiffStatus::Modified => "modified",
-        onion::DiffStatus::Unchanged => "unchanged",
+        onion::DecisionStatus::Unchanged => DecisionStatusDto::Unchanged,
+        onion::DecisionStatus::Modified => DecisionStatusDto::Modified,
+        onion::DecisionStatus::Added => DecisionStatusDto::Added,
+        onion::DecisionStatus::Deleted => DecisionStatusDto::Deleted,
+        onion::DecisionStatus::Moved => DecisionStatusDto::Moved,
     }
-    .to_string()
 }
 
-fn map_token_change(change: onion::DiffTokenChange) -> String {
-    match change {
-        onion::DiffTokenChange::Unchanged => "unchanged",
-        onion::DiffTokenChange::Added => "added",
-        onion::DiffTokenChange::Deleted => "deleted",
-        onion::DiffTokenChange::Modified => "modified",
-    }
-    .to_string()
-}
-
-fn map_undo_side(side: onion::DiffUndoSide) -> String {
+fn map_covered_side(side: onion::CoveredSide) -> CoveredSideDto {
     match side {
-        onion::DiffUndoSide::Original => "original",
-        onion::DiffUndoSide::Current => "current",
-    }
-    .to_string()
-}
-
-fn map_sid_block(block: &onion::SidBlock) -> SidBlockDto {
-    SidBlockDto {
-        block_id: block.block_id.clone(),
-        semantic_sid: block.semantic_sid.clone(),
-        start: block.start,
-        end_exclusive: block.end_exclusive,
-        prev_block_id: block.prev_block_id.clone(),
-        text_full: block.text_full.clone(),
+        onion::CoveredSide::Baseline => CoveredSideDto::Baseline,
+        onion::CoveredSide::Current => CoveredSideDto::Current,
     }
 }
 
-fn map_diff(diff: &onion::ChapterTokenDiff<onion::FormatToken>) -> DiffDto {
-    DiffDto {
-        block_id: diff.block_id.clone(),
-        semantic_sid: diff.semantic_sid.clone(),
-        status: map_diff_status(diff.status),
-        original: diff.original.as_ref().map(map_sid_block),
-        current: diff.current.as_ref().map(map_sid_block),
-        original_text: diff.original_text.clone(),
-        current_text: diff.current_text.clone(),
-        original_text_only: diff.original_text_only.clone(),
-        current_text_only: diff.current_text_only.clone(),
-        is_whitespace_change: diff.is_whitespace_change,
-        is_usfm_structure_change: diff.is_usfm_structure_change,
-        original_tokens: map_format_tokens(&diff.original_tokens),
-        current_tokens: map_format_tokens(&diff.current_tokens),
-        original_alignment: diff
-            .original_alignment
-            .iter()
-            .map(|entry| TokenAlignmentDto {
-                change: map_token_change(entry.change),
-                counterpart_index: entry.counterpart_index,
-            })
-            .collect(),
-        current_alignment: diff
-            .current_alignment
-            .iter()
-            .map(|entry| TokenAlignmentDto {
-                change: map_token_change(entry.change),
-                counterpart_index: entry.counterpart_index,
-            })
-            .collect(),
-        undo_side: map_undo_side(diff.undo_side),
+fn parse_merge_side(side: MergeSideDto) -> onion::MergeSide {
+    match side {
+        MergeSideDto::Baseline => onion::MergeSide::Baseline,
+        MergeSideDto::Current => onion::MergeSide::Current,
+    }
+}
+
+fn map_anchor(anchor: &onion::Anchor) -> AnchorDto {
+    AnchorDto {
+        unit_id: anchor.unit_id.to_string(),
+        sid: anchor.sid.clone(),
+    }
+}
+
+fn map_slot(slot: &onion::Slot) -> SlotDto {
+    SlotDto {
+        unit_id: slot.unit_id.to_string(),
+        role: map_slot_role(slot.role),
+        after: slot.after.as_ref().map(map_anchor),
+    }
+}
+
+fn map_decision_unit(unit: &onion::DecisionUnit<onion::FormatToken>) -> DecisionUnitDto {
+    DecisionUnitDto {
+        id: unit.id.to_string(),
+        kind: map_decision_unit_kind(unit.kind),
+        status: map_decision_status(unit.status),
+        baseline_sid: unit.baseline_sid.clone(),
+        current_sid: unit.current_sid.clone(),
+        baseline_tokens: map_format_tokens(&unit.baseline_tokens),
+        current_tokens: map_format_tokens(&unit.current_tokens),
+        displaced: unit.displaced,
+        relabeled: unit.relabeled,
+        dup_context: DupContextDto {
+            baseline_count: unit.dup_context.baseline_count,
+            current_count: unit.dup_context.current_count,
+        },
+        covered_by: unit.covered_by.as_ref().map(|covered_by| CoveredByDto {
+            unit_id: covered_by.unit_id.to_string(),
+            sid: covered_by.sid.clone(),
+            side: map_covered_side(covered_by.side),
+        }),
+        is_whitespace_change: unit.is_whitespace_change,
+        is_usfm_structure_change: unit.is_usfm_structure_change,
+    }
+}
+
+fn map_diff_skeleton(skeleton: &onion::DiffSkeleton<onion::FormatToken>) -> DiffSkeletonDto {
+    DiffSkeletonDto {
+        slots: skeleton.slots.iter().map(map_slot).collect(),
+        units: skeleton.units.iter().map(map_decision_unit).collect(),
     }
 }
 
@@ -767,7 +835,12 @@ pub fn lint_flat_tokens(
 ) -> Vec<LintIssueDto> {
     let stream =
         onion::TokenStream::from_tokens(tokens.into_iter().map(map_flat_token_dto).collect());
-    stream.lint(options).issues.iter().map(map_lint_issue).collect()
+    stream
+        .lint(options)
+        .issues
+        .iter()
+        .map(map_lint_issue)
+        .collect()
 }
 
 #[tauri::command]
@@ -843,49 +916,10 @@ pub fn usfm_onion_format_paths(
 }
 
 #[tauri::command]
-pub fn usfm_onion_diff_path_pairs(
-    path_pairs: Vec<DiffPathPairDto>,
-    _token_options: Option<IntoTokensOptionsDto>,
-    build_options: Option<BuildSidBlocksOptionsDto>,
-) -> Result<Vec<Vec<DiffDto>>, String> {
-    let build_opts = onion::BuildSidBlocksOptions {
-        allow_empty_sid: build_options.map(|o| o.allow_empty_sid).unwrap_or(true),
-    };
-    let left_sources = read_sources_from_paths(
-        path_pairs
-            .iter()
-            .map(|pair| pair.baseline_path.clone())
-            .collect(),
-    )?;
-    let right_sources = read_sources_from_paths(
-        path_pairs
-            .iter()
-            .map(|pair| pair.current_path.clone())
-            .collect(),
-    )?;
-    Ok(left_sources
-        .into_par_iter()
-        .zip(right_sources.into_par_iter())
-        .map(|(left, right)| {
-            let left_parsed = onion::Usfm::from_str(&left).parse_owned();
-            let right_parsed = onion::Usfm::from_str(&right).parse_owned();
-            left_parsed
-                .diff(&right_parsed)
-                .with_options(build_opts)
-                .run()
-                .iter()
-                .map(map_diff)
-                .collect()
-        })
-        .collect())
-}
-
-#[tauri::command]
 pub fn usfm_onion_diff_tokens(
     baseline_tokens: Vec<FlatTokenDto>,
     current_tokens: Vec<FlatTokenDto>,
-    build_options: Option<BuildSidBlocksOptionsDto>,
-) -> Result<Vec<DiffDto>, String> {
+) -> Result<DiffSkeletonDto, String> {
     let left = onion::TokenStream::from_tokens(
         baseline_tokens
             .into_iter()
@@ -895,23 +929,14 @@ pub fn usfm_onion_diff_tokens(
     let right = onion::TokenStream::from_tokens(
         current_tokens.into_iter().map(map_flat_token_dto).collect(),
     );
-    Ok(left
-        .diff(&right)
-        .with_options(onion::BuildSidBlocksOptions {
-            allow_empty_sid: build_options.map(|o| o.allow_empty_sid).unwrap_or(true),
-        })
-        .run()
-        .iter()
-        .map(map_diff)
-        .collect())
+    Ok(map_diff_skeleton(&left.diff(&right).run()))
 }
 
 #[tauri::command]
-pub fn usfm_onion_revert_diff_block(
+pub fn usfm_onion_merge_diff_blocks(
     baseline_tokens: Vec<FlatTokenDto>,
     current_tokens: Vec<FlatTokenDto>,
-    block_id: String,
-    build_options: Option<BuildSidBlocksOptionsDto>,
+    request: MergeRequestDto,
 ) -> Result<Vec<FlatTokenDto>, String> {
     let baseline = baseline_tokens
         .into_iter()
@@ -921,15 +946,19 @@ pub fn usfm_onion_revert_diff_block(
         .into_iter()
         .map(map_flat_token_dto)
         .collect::<Vec<_>>();
-    let next = onion::apply_revert_by_block_id(
-        &block_id,
+    let decisions = request
+        .decisions
+        .into_iter()
+        .map(|(id, side)| (onion::UnitId::new(id), parse_merge_side(side)))
+        .collect();
+    let merged = onion::merge_diff_blocks(
         &baseline,
         &current,
-        &onion::BuildSidBlocksOptions {
-            allow_empty_sid: build_options.map(|o| o.allow_empty_sid).unwrap_or(true),
-        },
-    );
-    Ok(map_format_tokens(&next))
+        &decisions,
+        parse_merge_side(request.default_side),
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(map_format_tokens(&merged))
 }
 
 #[tauri::command]
@@ -950,6 +979,20 @@ pub fn usfm_onion_apply_token_fix(
 mod tests {
     use super::*;
 
+    fn text_token(id: &str, sid: &str, text: &str) -> FlatTokenDto {
+        FlatTokenDto {
+            id: id.to_string(),
+            kind: "text".to_string(),
+            span: SpanDto {
+                start: 0,
+                end: text.len(),
+            },
+            sid: Some(sid.to_string()),
+            marker: None,
+            text: text.to_string(),
+        }
+    }
+
     // Integration guard at the command seam: the editor's `buildRegistry`
     // (src/core/domain/usfm/onionMarkers.ts) reads `infoByMarker[m].paragraphCategory`
     // / `.payload` and compares the strings by value. A desktop-only regression
@@ -968,5 +1011,79 @@ mod tests {
         assert_eq!(info["li1"]["paragraphCategory"], "list");
         assert_eq!(info["v"]["payload"], "numberRange");
         assert_eq!(info["id"]["payload"], "bookCode");
+    }
+
+    #[test]
+    fn diff_command_emits_skeleton_wire_shape_and_moved_status() {
+        let baseline = vec![
+            text_token("b1", "GEN 1:1", "one"),
+            text_token("b2", "GEN 1:2", "two"),
+        ];
+        let current = vec![
+            text_token("c2", "GEN 1:2", "two"),
+            text_token("c1", "GEN 1:1", "one"),
+        ];
+
+        let skeleton = usfm_onion_diff_tokens(baseline, current).expect("diff succeeds");
+        let json = serde_json::to_value(skeleton).expect("skeleton serializes");
+
+        assert_eq!(json["slots"].as_array().map(Vec::len), Some(3));
+        let moved = json["units"]
+            .as_array()
+            .expect("units array")
+            .iter()
+            .find(|unit| unit["status"] == "moved")
+            .expect("move unit");
+        assert_eq!(moved["kind"], "coalesced");
+        assert_eq!(moved["displaced"], true);
+        let moved_id = moved["id"].as_str().expect("unit id");
+        assert_eq!(
+            json["slots"]
+                .as_array()
+                .expect("slots array")
+                .iter()
+                .filter(|slot| slot["unitId"] == moved_id)
+                .count(),
+            2
+        );
+    }
+
+    #[test]
+    fn merge_command_projects_known_decisions_and_rejects_unknown_ids() {
+        let baseline = vec![text_token("b1", "GEN 1:1", "before")];
+        let current = vec![text_token("c1", "GEN 1:1", "after")];
+        let skeleton =
+            usfm_onion_diff_tokens(baseline.clone(), current.clone()).expect("diff succeeds");
+        let unit_id = skeleton.units[0].id.clone();
+
+        let merged = usfm_onion_merge_diff_blocks(
+            baseline.clone(),
+            current.clone(),
+            MergeRequestDto {
+                decisions: BTreeMap::from([(unit_id.clone(), MergeSideDto::Baseline)]),
+                default_side: MergeSideDto::Current,
+            },
+        )
+        .expect("known decision merges");
+        assert_eq!(
+            merged
+                .iter()
+                .map(|token| token.text.as_str())
+                .collect::<String>(),
+            "before"
+        );
+
+        let unknown_merge = usfm_onion_merge_diff_blocks(
+            baseline.clone(),
+            current.clone(),
+            MergeRequestDto {
+                decisions: BTreeMap::from([("unknown-unit".to_string(), MergeSideDto::Baseline)]),
+                default_side: MergeSideDto::Current,
+            },
+        );
+        assert_eq!(
+            unknown_merge.expect_err("unknown decision must fail"),
+            "unknown decision unit id: unknown-unit"
+        );
     }
 }

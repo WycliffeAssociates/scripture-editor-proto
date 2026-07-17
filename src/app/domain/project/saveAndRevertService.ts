@@ -6,7 +6,6 @@ import type {
   ScriptureBookState,
   ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
-import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { BookRef } from "@/core/persistence/ScriptureWorkspace.ts";
 
@@ -34,32 +33,17 @@ export function revertChapterToLoadedState(chapter: ScriptureChapterState) {
   chapter.dirty = false;
 }
 
-export async function revertChapterDiffByBlockId(args: {
-  chapter: ScriptureChapterState;
-  diffBlockId: string;
-  usfmOnionService: IUsfmOnionService;
-}) {
-  const baselineTokens = args.chapter.sourceTokens;
-  const currentTokens = args.chapter.currentTokens;
-
-  const nextTokens = await args.usfmOnionService.revertDiffBlock(
-    baselineTokens,
-    currentTokens,
-    args.diffBlockId,
-  );
-
-  args.chapter.currentTokens = nextTokens;
-  args.chapter.dirty = isChapterDirtyUsfm(args.chapter);
-}
-
 export function buildBooksSavePayload(
   files: ScriptureBookState[],
+  forcePersistBookCodes: ReadonlySet<string> = new Set(),
 ): Record<string, string> {
   // TODO(usfm-onion): `serializeChaptersToUsfm` belongs behind the crate
   // boundary once app/UI orchestration is fully separated.
   const toSave: Record<string, string> = {};
   for (const file of files) {
-    const shouldSaveBook = file.chapters.some((chapter) => chapter.dirty);
+    const shouldSaveBook =
+      forcePersistBookCodes.has(file.bookCode) ||
+      file.chapters.some((chapter) => chapter.dirty);
     if (!shouldSaveBook) continue;
 
     toSave[file.bookCode] = serializeChaptersToUsfm(
@@ -70,11 +54,16 @@ export function buildBooksSavePayload(
   return toSave;
 }
 
-const BOOK_PERSISTENCE_ACTION_VALUES = ["saveExisting", "addNew"] as const;
+const BOOK_PERSISTENCE_ACTION_VALUES = [
+  "saveExisting",
+  "addNew",
+  "deleteExisting",
+] as const;
 
 export const [
   BOOK_PERSISTENCE_ACTION_SAVE_EXISTING,
   BOOK_PERSISTENCE_ACTION_ADD_NEW,
+  BOOK_PERSISTENCE_ACTION_DELETE_EXISTING,
 ] = BOOK_PERSISTENCE_ACTION_VALUES;
 
 export type BookPersistenceAction =
@@ -88,17 +77,23 @@ export type BookPersistenceAction =
       kind: typeof BOOK_PERSISTENCE_ACTION_ADD_NEW;
       bookCode: string;
       contents: string;
+    }
+  | {
+      kind: typeof BOOK_PERSISTENCE_ACTION_DELETE_EXISTING;
+      bookCode: string;
+      storageKey: string;
     };
 
 export function buildBookPersistencePlan(args: {
   existingBooks: Pick<BookRef, "bookCode" | "storageKey">[];
   payload: Record<string, string>;
+  deletedBookCodes?: readonly string[];
 }): BookPersistenceAction[] {
   const existingByBookCode = new Map(
     args.existingBooks.map((book) => [book.bookCode, book.storageKey]),
   );
 
-  return Object.entries(args.payload).map(([bookCode, contents]) => {
+  const writes = Object.entries(args.payload).map(([bookCode, contents]) => {
     const storageKey = existingByBookCode.get(bookCode);
     if (storageKey) {
       return {
@@ -115,6 +110,23 @@ export function buildBookPersistencePlan(args: {
       contents,
     };
   });
+
+  const deletes = (args.deletedBookCodes ?? []).map((bookCode) => {
+    const storageKey = existingByBookCode.get(bookCode);
+    if (!storageKey) {
+      throw new Error(`Cannot delete unknown persisted book ${bookCode}`);
+    }
+    if (bookCode in args.payload) {
+      throw new Error(`Cannot save and delete book ${bookCode} together`);
+    }
+    return {
+      kind: BOOK_PERSISTENCE_ACTION_DELETE_EXISTING,
+      bookCode,
+      storageKey,
+    } as const;
+  });
+
+  return [...writes, ...deletes];
 }
 
 /**

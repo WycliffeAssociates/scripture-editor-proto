@@ -405,6 +405,26 @@ export class ResourceContainerProjectLoader {
           }
           return nextBook;
         },
+        removeBook: async (storageKey) => {
+          const bookEntry = findBookEntryByStorageKey(storageKey);
+          if (!bookEntry) {
+            throw new Error(`No book found for storage key ${storageKey}`);
+          }
+          const relativePath = removeLeadingDirSlashes(bookEntry.path);
+          const nextProjects = (parsedManifest.projects ?? []).filter(
+            (candidate) => candidate !== bookEntry,
+          );
+          await args.fs.atomicWriteText(
+            manifestPath,
+            stringify({ ...parsedManifest, projects: nextProjects }),
+          );
+          await args.fs.remove(`${args.projectRootPath}/${relativePath}`);
+          parsedManifest.projects = nextProjects;
+          const bookIndex = books.findIndex(
+            (candidate) => candidate.storageKey === storageKey,
+          );
+          if (bookIndex >= 0) books.splice(bookIndex, 1);
+        },
         listVersions: async () => {
           throw new Error(
             "Version operations are not available on loader-opened projects.",

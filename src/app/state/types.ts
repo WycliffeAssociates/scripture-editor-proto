@@ -89,6 +89,16 @@ export type CommitMeta = {
    * cheaply without paying the cost of materializing the patch.
    */
   dirtyTextContent: boolean;
+  /** Durable unsaved structure intent carried by the working-state noun. */
+  structuralChanges?: {
+    deletedBookCodes?: readonly string[];
+    structurallyChangedBookCodes?: readonly string[];
+  };
+  /** Structural intents whose corresponding disk actions succeeded. */
+  resolvedStructuralChanges?: {
+    deletedBookCodes?: readonly string[];
+    structurallyChangedBookCodes?: readonly string[];
+  };
   /**
    * Monotonic, strictly increasing per-store. Useful for ordering, deduping,
    * and dev-mode assertions.

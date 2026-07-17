@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   BOOK_PERSISTENCE_ACTION_ADD_NEW,
+  BOOK_PERSISTENCE_ACTION_DELETE_EXISTING,
   BOOK_PERSISTENCE_ACTION_SAVE_EXISTING,
   buildBookPersistencePlan,
   buildBooksSavePayload,
@@ -72,6 +73,33 @@ describe("buildBooksSavePayload", () => {
       "\\c 1\n\\p\nChapter one.\n\\c 15\n\\p\nNew text.\n",
     );
   });
+
+  it("serializes an explicitly structural book while its remaining chapters stay clean", () => {
+    const files: ScriptureBookState[] = [
+      {
+        path: "/tmp/MAT.usfm",
+        title: "Matthew",
+        bookCode: "MAT",
+        nextBookId: null,
+        prevBookId: null,
+        chapters: [
+          {
+            chapterNumber: 1,
+            dirty: false,
+            eol: "\n",
+            direction: "ltr",
+            sourceTokens: makeTokens("\\c 1\n", "MAT 1:1", "source"),
+            currentTokens: makeTokens("\\c 1\n", "MAT 1:1", "current"),
+          },
+        ],
+      },
+    ];
+
+    expect(buildBooksSavePayload(files, new Set(["MAT"]))).toEqual({
+      MAT: "\\c 1\n",
+    });
+    expect(files[0].chapters[0].dirty).toBe(false);
+  });
 });
 
 describe("buildBookPersistencePlan", () => {
@@ -102,5 +130,34 @@ describe("buildBookPersistencePlan", () => {
         contents: "\\c 1\nNew book.\n",
       },
     ]);
+  });
+
+  it("only plans deletions named explicitly by the caller", () => {
+    const plan = buildBookPersistencePlan({
+      existingBooks: [
+        { bookCode: "GEN", storageKey: "01-GEN.usfm" },
+        { bookCode: "EXO", storageKey: "02-EXO.usfm" },
+      ],
+      payload: {},
+      deletedBookCodes: ["EXO"],
+    });
+
+    expect(plan).toEqual([
+      {
+        kind: BOOK_PERSISTENCE_ACTION_DELETE_EXISTING,
+        bookCode: "EXO",
+        storageKey: "02-EXO.usfm",
+      },
+    ]);
+  });
+
+  it("fails loudly rather than treating an unloaded book as persisted", () => {
+    expect(() =>
+      buildBookPersistencePlan({
+        existingBooks: [{ bookCode: "GEN", storageKey: "01-GEN.usfm" }],
+        payload: {},
+        deletedBookCodes: ["EXO"],
+      }),
+    ).toThrow("Cannot delete unknown persisted book EXO");
   });
 });

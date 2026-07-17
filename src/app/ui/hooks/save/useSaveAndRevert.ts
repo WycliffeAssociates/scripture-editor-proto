@@ -3,23 +3,13 @@ import { useSyncExternalStore } from "react";
 
 import type { EditorModeSetting } from "@/app/data/editor.ts";
 import type { SettingsManager } from "@/app/data/settings.ts";
-import type {
-  DiffsByChapter,
-  ProjectDiff,
-} from "@/app/domain/project/diffTypes.ts";
-import {
-  revertChapterDiffByBlockId,
-  revertChapterToLoadedState,
-} from "@/app/domain/project/saveAndRevertService.ts";
+import { revertChapterToLoadedState } from "@/app/domain/project/saveAndRevertService.ts";
 import {
   runSavePipeline,
   type SaveOptions,
   type SaveResult,
 } from "@/app/domain/project/savePipeline.ts";
-import {
-  withWorkingFilesDraft,
-  withWorkingFilesDraftSync,
-} from "@/app/domain/project/workingFileCommand.ts";
+import { withWorkingFilesDraftSync } from "@/app/domain/project/workingFileCommand.ts";
 import type {
   ScriptureBookState,
   ScriptureChapterState,
@@ -37,7 +27,6 @@ import {
   showNotificationSuccess,
 } from "@/app/ui/components/primitives/notifications.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
-import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
@@ -76,16 +65,12 @@ export function useSaveAndRevert(args: {
   authSessionProvider: AuthSessionProvider;
   fileSystem: FileSystem;
   storageRoots: StorageRoots;
-  usfmOnionService: IUsfmOnionService;
   editorMode: EditorModeSetting;
   isViewingOlderVersion: boolean;
   selectedVersionHash: string | null;
   refreshVersions: () => Promise<void>;
   onSavedVersion: (hash: string) => void;
-  clearUnsavedDiffs: () => void;
-  setUnsavedDiffsByChapter: (next: DiffsByChapter) => void;
   bumpDirtyVersion: () => void;
-  rerunCompareForChapters: (chapters: ChapterRef[]) => Promise<void>;
   onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
   prepareRemoteBaseForSave?: () => Promise<void>;
 }) {
@@ -96,9 +81,9 @@ export function useSaveAndRevert(args: {
     args.workingFilesStore.subscribe.bind(args.workingFilesStore),
     args.workingFilesStore.getSnapshot.bind(args.workingFilesStore),
   );
-  const hasUnsavedChanges = files.some((file) =>
-    file.chapters.some((chapter) => chapter.dirty),
-  );
+  const hasUnsavedChanges =
+    files.some((file) => file.chapters.some((chapter) => chapter.dirty)) ||
+    args.workingFilesStore.hasPendingStructuralChanges();
 
   // Save is orchestrated by the UI-free `runSavePipeline`; this hook hands it
   // the workspace nouns/sinks (the hook `args` is a superset of
@@ -155,7 +140,6 @@ export function useSaveAndRevert(args: {
         }
       }
     }
-    args.setUnsavedDiffsByChapter({});
     args.bumpDirtyVersion();
     return withWorkingFilesDraftSync({
       workingFilesStore: args.workingFilesStore,
@@ -172,75 +156,6 @@ export function useSaveAndRevert(args: {
         }
       },
     });
-  }
-
-  function revertDiff(diffToRevert: ProjectDiff) {
-    if (!requireGateOpen(args.interactionGate.get())) return;
-    void (async () => {
-      // Async: the diff-block revert awaits the onion service, so this rides
-      // the validated seam (a concurrent commit to the chapter aborts it
-      // rather than clobbering) — not the sync door.
-      const historyToken = args.history.captureHistory();
-      const outcome = await withWorkingFilesDraft({
-        workingFilesStore: args.workingFilesStore,
-        interactionGate: args.interactionGate,
-        commitMeta: {
-          kind: "import",
-          action: "revertHunk",
-          dirtyTextContent: true,
-        },
-        mutate: async (draft) => {
-          const chapter = draft.chapterForWrite({
-            bookCode: diffToRevert.bookCode,
-            chapterNum: diffToRevert.chapterNum,
-          });
-          if (!chapter) return;
-          await revertChapterDiffByBlockId({
-            chapter,
-            diffBlockId: diffToRevert.uniqueKey,
-            usfmOnionService: args.usfmOnionService,
-          });
-        },
-      });
-      if (outcome.kind === "committed") {
-        args.history.recordHistory(historyToken, {
-          label: `Revert Change (${diffToRevert.semanticSid})`,
-          affected: outcome.committedChapters,
-        });
-      }
-      await args.rerunCompareForChapters([
-        {
-          bookCode: diffToRevert.bookCode,
-          chapterNum: diffToRevert.chapterNum,
-        },
-      ]);
-    })();
-  }
-
-  function revertChapter(bookCode: string, chapterNum: number) {
-    if (!requireGateOpen(args.interactionGate.get())) return;
-    void (async () => {
-      const historyToken = args.history.captureHistory();
-      const outcome = withWorkingFilesDraftSync({
-        workingFilesStore: args.workingFilesStore,
-        commitMeta: {
-          kind: "import",
-          action: "revertChapter",
-          dirtyTextContent: true,
-        },
-        mutate: (draft) => {
-          const chapter = draft.chapterForWrite({ bookCode, chapterNum });
-          if (chapter) revertChapterToLoadedState(chapter);
-        },
-      });
-      if (outcome.kind === "committed") {
-        args.history.recordHistory(historyToken, {
-          label: `Revert Chapter Changes (${bookCode} ${chapterNum})`,
-          affected: outcome.committedChapters,
-        });
-      }
-      await args.rerunCompareForChapters([{ bookCode, chapterNum }]);
-    })();
   }
 
   function revertAll() {
@@ -263,8 +178,6 @@ export function useSaveAndRevert(args: {
     },
     actions: {
       saveProjectToDisk,
-      revertDiff,
-      revertChapter,
       revertAll,
       discardAllChanges,
     },

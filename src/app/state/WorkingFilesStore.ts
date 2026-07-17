@@ -39,6 +39,9 @@ export type ChapterSelectionFact = {
 export class WorkingFilesStore {
   private state: ScriptureBookState[];
   private gen = 0;
+  private contentGen = 0;
+  private readonly pendingDeletedBooks = new Set<string>();
+  private readonly pendingStructurallyChangedBooks = new Set<string>();
   private readonly tickListeners = new Set<Listener>();
   private readonly pubsub: PubSub.PubSub<CommitEvent>;
   /**
@@ -68,6 +71,30 @@ export class WorkingFilesStore {
   /** Current commit generation — the high-water mark mirror seeds align to. */
   generation(): number {
     return this.gen;
+  }
+
+  /** Latest generation whose commit changed scripture content. */
+  contentGeneration(): number {
+    return this.contentGen;
+  }
+
+  pendingStructuralChanges(): {
+    deletedBookCodes: readonly string[];
+    structurallyChangedBookCodes: readonly string[];
+  } {
+    return Object.freeze({
+      deletedBookCodes: Object.freeze([...this.pendingDeletedBooks]),
+      structurallyChangedBookCodes: Object.freeze([
+        ...this.pendingStructurallyChangedBooks,
+      ]),
+    });
+  }
+
+  hasPendingStructuralChanges(): boolean {
+    return (
+      this.pendingDeletedBooks.size > 0 ||
+      this.pendingStructurallyChangedBooks.size > 0
+    );
   }
 
   /**
@@ -117,8 +144,10 @@ export class WorkingFilesStore {
   commit(input: { patch: WorkingFilesPatch; meta: CommitMetaInput }): void {
     const { patch, meta } = input;
     this.state = applyPatch(this.state, patch);
+    this.updateStructuralChanges(meta);
     freezeCommittedChapters(this.state);
     const fullMeta: CommitMeta = { ...meta, generation: ++this.gen };
+    if (fullMeta.dirtyTextContent) this.contentGen = fullMeta.generation;
     this.recordSelectionFacts(patch, fullMeta.generation);
     const event: CommitEvent = {
       meta: fullMeta,
@@ -128,6 +157,28 @@ export class WorkingFilesStore {
 
     for (const tickListener of this.tickListeners) tickListener();
     Effect.runFork(PubSub.publish(this.pubsub, event));
+  }
+
+  private updateStructuralChanges(meta: CommitMetaInput): void {
+    for (const bookCode of meta.structuralChanges?.deletedBookCodes ?? []) {
+      this.pendingDeletedBooks.add(bookCode);
+      this.pendingStructurallyChangedBooks.delete(bookCode);
+    }
+    for (const bookCode of meta.structuralChanges
+      ?.structurallyChangedBookCodes ?? []) {
+      // A later structural recreation supersedes an earlier pending deletion.
+      // Persist the now-present book instead of deleting it on retry.
+      this.pendingDeletedBooks.delete(bookCode);
+      this.pendingStructurallyChangedBooks.add(bookCode);
+    }
+    for (const bookCode of meta.resolvedStructuralChanges?.deletedBookCodes ??
+      []) {
+      this.pendingDeletedBooks.delete(bookCode);
+    }
+    for (const bookCode of meta.resolvedStructuralChanges
+      ?.structurallyChangedBookCodes ?? []) {
+      this.pendingStructurallyChangedBooks.delete(bookCode);
+    }
   }
 
   /**
@@ -187,6 +238,8 @@ export class WorkingFilesStore {
     this.state = next;
     freezeCommittedChapters(this.state);
     this.selectionFacts.clear();
+    this.pendingDeletedBooks.clear();
+    this.pendingStructurallyChangedBooks.clear();
   }
 
   /** React-side `useSyncExternalStore` subscribe (used by `useSave`). */

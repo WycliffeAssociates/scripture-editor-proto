@@ -1,20 +1,5 @@
-// applyIncomingToStore.ts
-//
-// The validated command boundary for incoming-source mutations (remote sync /
-// external compare). Every working-state write that derives from an awaited
-// incoming computation goes through `runIncomingMutation`, a thin adapter over
-// the shared lost-update contract in `validatedStoreMutation.ts`: the incoming
-// apply runs on a PRIVATE scratch (so it may create chapters/books the recording
-// draft can't), then the shared `commitIfNotStale` tail validates that the
-// branched-from state is still current, rechecks the gate, and commits from the
-// latest state. Side effects (remote-accept/status) run only after a validated
-// commit.
-
-import {
-  applyIncomingChapter,
-  applyIncomingHunk,
-} from "@/app/domain/project/compare/compareMutations.ts";
-import type { ProjectDiff } from "@/app/domain/project/diffTypes.ts";
+import { applyCompareProjectionToWorkingFiles } from "@/app/domain/project/compare/compareMutations.ts";
+import type { CompareProjectionArtifact } from "@/app/domain/project/compare/projection.ts";
 import {
   type IncomingMutationResult,
   type IncomingMutationRunResult,
@@ -24,22 +9,11 @@ import {
   commitIfNotStale,
   type StalenessScope,
 } from "@/app/domain/project/validatedStoreMutation.ts";
-import {
-  type ChapterRef,
-  overlayAffectedChapters,
-} from "@/app/domain/project/workingFileMutations.ts";
+import type { ChapterRef } from "@/app/domain/project/workingFileMutations.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import type { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
-import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 
-/**
- * Run a validated incoming mutation. `compute` does the async work on
- * captured/private inputs (no writable store draft held across the await);
- * `commit` is synchronous and writes from the validated latest state. Returns
- * whether the commit ran (`computed` is always returned so callers can reuse
- * the computed value for display/return).
- */
 export async function runIncomingMutation<T>(args: {
   workingFilesStore: WorkingFilesStore;
   interactionGate: WorkspaceGateStore;
@@ -61,63 +35,110 @@ export async function runIncomingMutation<T>(args: {
     : { kind: "aborted", reason: outcome.reason, computed };
 }
 
+function overlayProjectedChapters(args: {
+  latest: ScriptureBookState[];
+  scratch: ScriptureBookState[];
+  affected: readonly ChapterRef[];
+}) {
+  const affectedByBook = new Map<string, Set<number>>();
+  for (const ref of args.affected) {
+    const chapters = affectedByBook.get(ref.bookCode) ?? new Set<number>();
+    chapters.add(ref.chapterNum);
+    affectedByBook.set(ref.bookCode, chapters);
+  }
+  const scratchByBook = new Map(
+    args.scratch.map((book) => [book.bookCode, book] as const),
+  );
+  const result: ScriptureBookState[] = [];
+
+  for (const latestBook of args.latest) {
+    const affected = affectedByBook.get(latestBook.bookCode);
+    if (!affected) {
+      result.push(latestBook);
+      continue;
+    }
+    const scratchBook = scratchByBook.get(latestBook.bookCode);
+    const scratchChapters = new Map(
+      scratchBook?.chapters.map((chapter) => [
+        chapter.chapterNumber,
+        chapter,
+      ]) ?? [],
+    );
+    const chapters = latestBook.chapters
+      .filter(
+        (chapter) =>
+          !affected.has(chapter.chapterNumber) ||
+          scratchChapters.has(chapter.chapterNumber),
+      )
+      .map((chapter) =>
+        affected.has(chapter.chapterNumber)
+          ? (scratchChapters.get(chapter.chapterNumber) ?? chapter)
+          : chapter,
+      );
+    for (const chapterNum of affected) {
+      if (latestBook.chapters.some((c) => c.chapterNumber === chapterNum)) {
+        continue;
+      }
+      const created = scratchChapters.get(chapterNum);
+      if (created) chapters.push(created);
+    }
+    if (chapters.length > 0) {
+      result.push({
+        ...(scratchBook ?? latestBook),
+        chapters: chapters.sort(
+          (left, right) => left.chapterNumber - right.chapterNumber,
+        ),
+      });
+    }
+  }
+
+  const latestCodes = new Set(args.latest.map((book) => book.bookCode));
+  for (const [bookCode] of affectedByBook) {
+    if (latestCodes.has(bookCode)) continue;
+    const created = scratchByBook.get(bookCode);
+    if (created?.chapters.length) result.push(created);
+  }
+  return result;
+}
+
 /**
- * Apply incoming full-chapter replacements and/or hunks into the store through
- * the validated boundary. On `aborted`, nothing is committed — callers should
- * skip any "mark remote synced" side effect and leave the diff for retry.
+ * Commit an already-computed merge projection through the shared stale/gate
+ * boundary. This method never invokes Onion: Preview and Apply consume the
+ * identical artifact revision.
  */
 export async function applyIncomingToStore(args: {
   workingFilesStore: WorkingFilesStore;
   interactionGate: WorkspaceGateStore;
-  usfmOnionService: IUsfmOnionService;
-  fullChapterApplies: ChapterRef[];
-  hunkApplies: ProjectDiff[];
-  sourceFiles: ScriptureBookState[];
-}): Promise<IncomingMutationResult<ScriptureBookState[]>> {
-  const affectedRefs: ChapterRef[] = [
-    ...args.fullChapterApplies,
-    ...args.hunkApplies.map((diff) => ({
-      bookCode: diff.bookCode,
-      chapterNum: diff.chapterNum,
-    })),
-  ];
-  if (affectedRefs.length === 0) {
-    return incomingMutationAborted({ reason: "empty-plan" });
+  artifact: CompareProjectionArtifact;
+}): Promise<IncomingMutationResult<CompareProjectionArtifact>> {
+  if (!args.artifact.complete) {
+    return incomingMutationAborted({
+      reason: "empty-plan",
+      computed: args.artifact,
+    });
+  }
+  const affected = args.artifact.chapters
+    .filter((chapter) => chapter.structuralAction !== "unchanged")
+    .map((chapter) => chapter.address);
+  if (affected.length === 0) {
+    return incomingMutationAborted({
+      reason: "empty-plan",
+      computed: args.artifact,
+    });
   }
 
   return await runIncomingMutation({
     workingFilesStore: args.workingFilesStore,
     interactionGate: args.interactionGate,
-    scope: { kind: "chapters", candidates: affectedRefs },
-    // Apply on a STRUCTURAL-SHARING scratch — a `draftWithChapters` draft,
-    // only affected chapters get fresh objects, NOT a whole-project deep
-    // clone (that was ~1.5s on Psalm 119). Awaits are safe (the scratch
-    // isn't the store) and sequential hunk composition is preserved.
-    compute: async () => {
-      const scratch = args.workingFilesStore.draftWithChapters(affectedRefs);
-      for (const chapter of args.fullChapterApplies) {
-        applyIncomingChapter({
-          workingFiles: scratch,
-          sourceFiles: args.sourceFiles,
-          bookCode: chapter.bookCode,
-          chapterNum: chapter.chapterNum,
-        });
-      }
-      for (const diff of args.hunkApplies) {
-        await applyIncomingHunk({
-          workingFiles: scratch,
-          sourceFiles: args.sourceFiles,
-          diff,
-          usfmOnionService: args.usfmOnionService,
-        });
-      }
-      return scratch;
-    },
-    commit: (scratch, latest) => {
+    scope: { kind: "chapters", candidates: affected },
+    compute: async () => args.artifact,
+    commit: (artifact, latest) => {
+      const scratch = args.workingFilesStore.draftWithChapters(affected);
+      applyCompareProjectionToWorkingFiles({ workingFiles: scratch, artifact });
       args.workingFilesStore.commit({
         patch: {
           kind: "bulk",
-          files: overlayAffectedChapters(latest, scratch, affectedRefs),
+          files: overlayProjectedChapters({ latest, scratch, affected }),
         },
         meta: {
           kind: "import",

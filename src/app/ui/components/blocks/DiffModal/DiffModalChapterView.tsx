@@ -1,551 +1,289 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
-import { diffWordsWithSpace } from "diff";
-import { RotateCw } from "lucide-react";
-import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { BookOpen } from "lucide-react";
+import { useMemo } from "react";
 
-import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
-import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import type { ProjectDiff } from "@/app/domain/project/diffTypes.ts";
+import { requiresExplicitPresenceDecision } from "@/app/domain/project/compare/decisionState.ts";
+import type {
+  CompareDecisionMap,
+  CompareSide,
+} from "@/app/domain/project/compare/types.ts";
 import {
-  buildChapterRenderParagraphs,
-  type ChapterRenderParagraph,
-  type ChapterTokenWithOwner,
-} from "@/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts";
-import { shouldHideStructuralLineBreak } from "@/app/ui/components/blocks/DiffModal/diffDisplayUtils.ts";
-import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon/index.ts";
+  buildCompareChapterRows,
+  type CompareRowFilters,
+} from "@/app/domain/project/compare/viewModels.ts";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
-import { IconTooltip } from "@/app/ui/components/primitives/IconTooltip/index.ts";
-import { ToggleGroup } from "@/app/ui/components/primitives/ToggleGroup/ToggleGroup.tsx";
-import { useWorkspaceMediaQuery } from "@/app/ui/contexts/useWorkspaceMediaQuery.ts";
-import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
 
-type ChapterActionOverlayEntry = {
-  key: string;
+import {
+  shouldShowUnitSide,
+  slotMoveNarration,
+  tokensToReviewText,
+  unitDetailLabels,
+  unitPositionNarration,
+  unitReference,
+  unitStatusLabel,
+} from "./chapterDiffViewModel.ts";
+import {
+  type CompareDecisionChange,
+  CompareDecisionControl,
+  type CompareNavigate,
+  type ComparePresenceDecisionChange,
+  ComparePresenceDecisionControl,
+  type ComparePresentationChapter,
+} from "./DiffModalListView.tsx";
+
+type ChapterDecisionChange = (
+  address: ComparePresentationChapter["comparison"]["address"],
+  decision: CompareSide | null,
+) => void;
+
+const NO_DECISIONS: CompareDecisionMap = Object.freeze({});
+
+function ChapterSide({
+  label,
+  text,
+  visible,
+  selected,
+  dimmed,
+}: {
   label: string;
-  left: number;
-  onClick: () => void;
-  top: number;
-};
-
-function getVisibleChapterTokenText(args: {
-  showUsfmMarkers: boolean;
-  token: Extract<
-    ChapterRenderParagraph["tokens"][number]["token"]["node"],
-    { type: string }
-  >;
-}): string {
-  if (!isSerializedUSFMTextNode(args.token)) return "";
-
-  if (!args.showUsfmMarkers) {
-    if (
-      args.token.tokenType === "marker" ||
-      args.token.tokenType === "endMarker"
-    ) {
-      return "";
-    }
-    return args.token.text;
-  }
-
-  const explicitText = args.token.text ?? "";
-  if (explicitText.trim().length > 0) {
-    return explicitText;
-  }
-
-  if (!args.token.marker) {
-    return explicitText;
-  }
-
-  if (args.token.tokenType === "endMarker") {
-    return `\\${args.token.marker}*`;
-  }
-
-  if (args.token.tokenType === "marker") {
-    return `\\${args.token.marker}`;
-  }
-
-  return explicitText;
-}
-
-function renderTokenDiff(args: {
-  originalText: string;
-  currentText: string;
-  viewType: "original" | "current";
+  text: string;
+  visible: boolean;
+  selected: boolean;
+  dimmed: boolean;
 }) {
-  const wordDiff = diffWordsWithSpace(args.originalText, args.currentText);
-  const nodes: ReactNode[] = [];
-  let partIndex = 0;
-
-  for (const change of wordDiff) {
-    if (args.viewType === "original" && change.added) continue;
-    if (args.viewType === "current" && change.removed) continue;
-
-    const className =
-      args.viewType === "current"
-        ? change.added
-          ? styles.diffHighlightAdded
-          : ""
-        : change.removed
-          ? styles.diffHighlightRemoved
-          : "";
-    nodes.push(
-      <span
-        key={`part-${partIndex++}`}
-        className={className}
-        style={{ whiteSpace: "pre-wrap" }}
-      >
-        {change.value}
-      </span>,
-    );
-  }
-
-  return nodes;
-}
-
-function escapeCssValue(value: string): string {
-  if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
-    return CSS.escape(value);
-  }
-  return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
-}
-
-function isRenderedElement(el: HTMLElement): boolean {
-  return Boolean(
-    el.offsetWidth || el.offsetHeight || el.getClientRects().length,
-  );
-}
-
-function ChapterStructuredToken({
-  tokenWithOwner,
-  paragraph,
-  tokenIndex,
-  showUsfmMarkers,
-  viewType,
-}: {
-  tokenWithOwner: ChapterTokenWithOwner;
-  paragraph: ChapterRenderParagraph;
-  tokenIndex: number;
-  showUsfmMarkers: boolean;
-  viewType: "original" | "current";
-}) {
-  if (tokenWithOwner.token.node.type === "linebreak") {
-    const previousToken = paragraph.tokens[tokenIndex - 1]?.token;
-    if (
-      shouldHideStructuralLineBreak({
-        showUsfmMarkers,
-        tokenChange: tokenWithOwner.tokenChange,
-        previousToken,
-      })
-    ) {
-      return null;
-    }
-
-    const linebreakClass =
-      viewType === "current"
-        ? tokenWithOwner.tokenChange === "added" ||
-          tokenWithOwner.tokenChange === "modified"
-          ? styles.diffHighlightAdded
-          : ""
-        : tokenWithOwner.tokenChange === "deleted" ||
-            tokenWithOwner.tokenChange === "modified"
-          ? styles.diffHighlightRemoved
-          : "";
-
-    return (
-      <span key={tokenWithOwner.key}>
-        {tokenWithOwner.tokenChange !== "unchanged" && (
-          <span className={linebreakClass} style={{ whiteSpace: "pre" }}>
-            {"↵"}
-          </span>
-        )}
-        <br />
-      </span>
-    );
-  }
-
-  const node = tokenWithOwner.token.node;
-  if (!isSerializedUSFMTextNode(node)) return null;
-
-  const displayText = getVisibleChapterTokenText({
-    showUsfmMarkers,
-    token: node,
-  });
-  if (!displayText) return null;
-
-  const counterpartNode = tokenWithOwner.counterpartToken?.node;
-  const counterpartDisplayText =
-    counterpartNode && isSerializedUSFMTextNode(counterpartNode)
-      ? getVisibleChapterTokenText({
-          showUsfmMarkers,
-          token: counterpartNode,
-        })
-      : "";
-
-  const isModifiedWithPair =
-    !!counterpartNode &&
-    isSerializedUSFMTextNode(counterpartNode) &&
-    displayText !== counterpartDisplayText &&
-    (tokenWithOwner.tokenChange === "modified" ||
-      tokenWithOwner.tokenChange === "unchanged");
-  const wholeTokenClass =
-    viewType === "current"
-      ? tokenWithOwner.tokenChange === "added"
-        ? styles.diffHighlightAdded
-        : ""
-      : tokenWithOwner.tokenChange === "deleted"
-        ? styles.diffHighlightRemoved
-        : "";
-
-  return (
-    <span
-      key={tokenWithOwner.key}
-      data-id={node.id}
-      data-token-type={node.tokenType}
-      data-sid={node.sid}
-      data-in-para={node.inPara}
-      data-marker={node.marker}
-      data-lexical-text="true"
-      className={wholeTokenClass}
-      style={{ whiteSpace: "pre-wrap" }}
-    >
-      {isModifiedWithPair
-        ? renderTokenDiff({
-            originalText:
-              viewType === "original" ? displayText : counterpartDisplayText,
-            currentText:
-              viewType === "current" ? displayText : counterpartDisplayText,
-            viewType,
-          })
-        : displayText}
-    </span>
-  );
-}
-
-function ChapterActionOverlays({
-  actionMode,
-  diffs,
-  onApplyDiffToCurrent,
-  onRevertDiff,
-  rootRef,
-  viewType,
-}: {
-  actionMode: "unsaved" | "external";
-  diffs: ProjectDiff[];
-  onApplyDiffToCurrent: (diffToApply: ProjectDiff) => void;
-  onRevertDiff: (diffToRevert: ProjectDiff) => void;
-  rootRef: React.RefObject<HTMLDivElement | null>;
-  viewType: "original" | "current";
-}) {
-  const { bookCodeToProjectLocalizedTitle } = useWorkspaceContext();
-  const [entries, setEntries] = useState<ChapterActionOverlayEntry[]>([]);
-
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
-
-    const measure = () => {
-      const rootRect = root.getBoundingClientRect();
-      const nextEntries: ChapterActionOverlayEntry[] = [];
-
-      for (const diff of diffs) {
-        const actionSide =
-          actionMode === "external"
-            ? "current"
-            : (diff.undoSide ??
-              (diff.status === "deleted" ? "original" : "current"));
-        if (viewType !== actionSide || diff.status === "unchanged") {
-          continue;
-        }
-
-        const sidSelector = `[data-sid="${escapeCssValue(diff.semanticSid)}"]`;
-        const numberRanges = Array.from(
-          root.querySelectorAll<HTMLElement>(
-            `${sidSelector}[data-token-type="numberRange"]`,
-          ),
-        );
-        const allSidNodes = Array.from(
-          root.querySelectorAll<HTMLElement>(sidSelector),
-        );
-        const anchor =
-          numberRanges.find((element) => isRenderedElement(element)) ??
-          numberRanges[0] ??
-          allSidNodes.find((element) => isRenderedElement(element)) ??
-          allSidNodes[0];
-        if (!anchor) continue;
-
-        const rect = anchor.getBoundingClientRect();
-        const localizedSid = bookCodeToProjectLocalizedTitle({
-          bookCode: diff.bookCode,
-          replaceCodeInString: diff.semanticSid,
-        });
-        const actionLabel =
-          actionMode === "external"
-            ? t`Accept change in ${localizedSid} to current`
-            : localizedSid
-              ? t`Undo ${localizedSid}`
-              : t`Undo Change`;
-        const onClick = () => {
-          if (actionMode === "external") {
-            onApplyDiffToCurrent(diff);
-            return;
-          }
-          onRevertDiff(diff);
-        };
-
-        nextEntries.push({
-          key: diff.uniqueKey,
-          label: actionLabel,
-          left: Math.max(rect.left - rootRect.left - 24, 0),
-          top: Math.max(rect.top - rootRect.top + (rect.height - 16) / 2, 0),
-          onClick,
-        });
-      }
-
-      setEntries(nextEntries);
-    };
-
-    measure();
-    const resizeObserver = new ResizeObserver(measure);
-    resizeObserver.observe(root);
-    window.addEventListener("resize", measure);
-
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener("resize", measure);
-    };
-  }, [
-    actionMode,
-    bookCodeToProjectLocalizedTitle,
-    diffs,
-    onApplyDiffToCurrent,
-    onRevertDiff,
-    rootRef,
-    viewType,
-  ]);
-
-  if (entries.length === 0) return null;
-
-  return (
-    <div className={styles.chapterActionOverlayHost} aria-hidden="true">
-      {entries.map((entry) => (
-        <IconTooltip key={entry.key} label={entry.label}>
-          <ActionIconSimple
-            className={styles.chapterHunkAction}
-            data-testid={TESTING_IDS.save.chapterHunkAction}
-            onClick={entry.onClick}
-            aria-label={entry.label}
-            title={entry.label}
-            style={{ left: `${entry.left}px`, top: `${entry.top}px` }}
-          >
-            <RotateCw size={16} />
-          </ActionIconSimple>
-        </IconTooltip>
-      ))}
-    </div>
-  );
-}
-
-function ChapterDiffSide({
-  actionMode,
-  diffs,
-  onApplyDiffToCurrent,
-  onRevertDiff,
-  paragraphs,
-  showUsfmMarkers,
-  testId,
-  viewType,
-}: {
-  actionMode: "unsaved" | "external";
-  diffs: ProjectDiff[];
-  onApplyDiffToCurrent: (diffToApply: ProjectDiff) => void;
-  onRevertDiff: (diffToRevert: ProjectDiff) => void;
-  paragraphs: ChapterRenderParagraph[];
-  showUsfmMarkers: boolean;
-  testId: string;
-  viewType: "original" | "current";
-}) {
-  const rootRef = useRef<HTMLDivElement | null>(null);
-
   return (
     <div
-      ref={rootRef}
-      className={styles.chapterDiffBody}
-      data-testid={testId}
-      data-editor-mode={showUsfmMarkers ? "usfm" : "regular"}
-      data-editor-read-only="true"
+      className={styles.compareReviewPane}
+      data-selected={selected || undefined}
+      data-dimmed={dimmed || undefined}
+      data-empty={!visible || undefined}
     >
-      {paragraphs.map((paragraph) => (
-        <div
-          key={paragraph.key}
-          className="usfm-para-container"
-          data-id={paragraph.key}
-          data-sid={paragraph.sid}
-          data-in-para={paragraph.marker}
-          data-marker={paragraph.marker}
-        >
-          {paragraph.tokens.map((tokenWithOwner, tokenIndex) => (
-            <ChapterStructuredToken
-              key={tokenWithOwner.key}
-              tokenWithOwner={tokenWithOwner}
-              paragraph={paragraph}
-              tokenIndex={tokenIndex}
-              showUsfmMarkers={showUsfmMarkers}
-              viewType={viewType}
-            />
-          ))}
-        </div>
-      ))}
-      <ChapterActionOverlays
-        actionMode={actionMode}
-        diffs={diffs}
-        onApplyDiffToCurrent={onApplyDiffToCurrent}
-        onRevertDiff={onRevertDiff}
-        rootRef={rootRef}
-        viewType={viewType}
-      />
+      <span className={styles.diffLabel}>{label}</span>
+      {visible ? (
+        text ? (
+          <pre className={styles.diffPre}>{text}</pre>
+        ) : (
+          <span className={styles.versePlaceholder}>
+            <Trans>No content on this side</Trans>
+          </span>
+        )
+      ) : (
+        <span className={styles.versePlaceholder} aria-hidden="true">
+          —
+        </span>
+      )}
     </div>
   );
 }
 
 export function ChapterDiffStructuredDocument({
-  diffs,
-  actionMode,
-  hideWhitespaceOnly,
+  chapter,
+  filters = {},
+  leftLabel,
+  rightLabel,
+  readOnly,
   showUsfmMarkers,
-  chapterLabel,
-  onRevertDiff,
-  onApplyDiffToCurrent,
-  onChapterAction,
-  originalLabel,
-  currentLabel,
+  onDecisionChange,
+  onPresenceDecision,
+  onChapterDecision,
+  onNavigate,
 }: {
-  diffs: ProjectDiff[];
-  actionMode: "unsaved" | "external";
-  hideWhitespaceOnly: boolean;
+  chapter: ComparePresentationChapter;
+  filters?: CompareRowFilters;
+  leftLabel: string;
+  rightLabel: string;
+  readOnly: boolean;
   showUsfmMarkers: boolean;
-  chapterLabel: string;
-  onRevertDiff: (diffToRevert: ProjectDiff) => void;
-  onApplyDiffToCurrent: (diffToApply: ProjectDiff) => void;
-  onChapterAction?: () => void;
-  originalLabel: string;
-  currentLabel: string;
+  onDecisionChange?: CompareDecisionChange;
+  onPresenceDecision?: ComparePresenceDecisionChange;
+  onChapterDecision?: ChapterDecisionChange;
+  onNavigate?: CompareNavigate;
 }) {
-  const { isSm } = useWorkspaceMediaQuery();
-  const [mobileViewType, setMobileViewType] = useState<"original" | "current">(
-    "current",
-  );
-  const visibleDiffs = useMemo(
+  const { comparison } = chapter;
+  const decisions = readOnly ? NO_DECISIONS : chapter.decisions.units;
+  const rows = useMemo(
     () =>
-      hideWhitespaceOnly
-        ? diffs.filter((diff) => !diff.isWhitespaceChange)
-        : diffs,
-    [diffs, hideWhitespaceOnly],
-  );
-  const originalParagraphs = useMemo(
-    () =>
-      buildChapterRenderParagraphs({
-        diffs: visibleDiffs,
-        viewType: "original",
-        hideWhitespaceOnly,
-        showUsfmMarkers,
+      buildCompareChapterRows({
+        skeleton: comparison.skeleton,
+        decisions,
+        filters,
       }),
-    [visibleDiffs, hideWhitespaceOnly, showUsfmMarkers],
-  );
-  const currentParagraphs = useMemo(
-    () =>
-      buildChapterRenderParagraphs({
-        diffs: visibleDiffs,
-        viewType: "current",
-        hideWhitespaceOnly,
-        showUsfmMarkers,
-      }),
-    [visibleDiffs, hideWhitespaceOnly, showUsfmMarkers],
+    [comparison.skeleton, decisions, filters],
   );
 
   return (
-    <div
-      data-testid={TESTING_IDS.save.chapterPanel}
-      className={styles.chapterDiffItem}
-    >
-      <div className={styles.diffToolbarRow}>
-        <span className={styles.diffSidHeader}>{chapterLabel}</span>
-        {onChapterAction && (
-          <Button variant="primary" size="xs" onClick={onChapterAction}>
-            {actionMode === "external" ? (
-              <Trans>Take all changes in this chapter</Trans>
-            ) : (
-              <Trans>Revert changes in this chapter</Trans>
-            )}
-          </Button>
-        )}
-      </div>
+    <section className={styles.chapterDiffItem} aria-label={chapter.label}>
+      <header className={styles.compareChapterToolbar}>
+        <h3 className={styles.compareChapterHeading}>{chapter.label}</h3>
+        {!readOnly && onChapterDecision ? (
+          <div
+            className={styles.compareBulkActions}
+            aria-label={t`Chapter decisions`}
+          >
+            <Button
+              variant="default"
+              size="xs"
+              onClick={() => onChapterDecision(comparison.address, "left")}
+            >
+              <Trans>Use {leftLabel}</Trans>
+            </Button>
+            <Button
+              variant="default"
+              size="xs"
+              onClick={() => onChapterDecision(comparison.address, "right")}
+            >
+              <Trans>Use {rightLabel}</Trans>
+            </Button>
+            <Button
+              variant="default"
+              size="xs"
+              onClick={() => onChapterDecision(comparison.address, null)}
+            >
+              <Trans>Clear chapter</Trans>
+            </Button>
+          </div>
+        ) : null}
+      </header>
 
-      {isSm ? (
-        <div>
-          <ToggleGroup
-            value={mobileViewType}
-            onValueChange={(value) =>
-              setMobileViewType(value as "original" | "current")
-            }
-            items={[
-              { label: currentLabel, value: "current" },
-              { label: originalLabel, value: "original" },
-            ]}
-            className={styles.chapterMobileToggle}
-          />
-          <div className={styles.chapterDiffPanel}>
-            <ChapterDiffSide
-              actionMode={actionMode}
-              diffs={visibleDiffs}
-              onApplyDiffToCurrent={onApplyDiffToCurrent}
-              onRevertDiff={onRevertDiff}
-              paragraphs={
-                mobileViewType === "original"
-                  ? originalParagraphs
-                  : currentParagraphs
-              }
-              showUsfmMarkers={showUsfmMarkers}
-              testId={TEST_ID_GENERATORS.diffCurrentPre(mobileViewType)}
-              viewType={mobileViewType}
-            />
-          </div>
-        </div>
-      ) : (
-        <div className={styles.chapterGrid}>
-          <div className={styles.chapterColumn}>
-            <span className={styles.diffLabel}>{originalLabel}</span>
-            <div className={styles.chapterDiffPanel}>
-              <ChapterDiffSide
-                actionMode={actionMode}
-                diffs={visibleDiffs}
-                onApplyDiffToCurrent={onApplyDiffToCurrent}
-                onRevertDiff={onRevertDiff}
-                paragraphs={originalParagraphs}
-                showUsfmMarkers={showUsfmMarkers}
-                testId={TEST_ID_GENERATORS.diffCurrentPre("original")}
-                viewType="original"
-              />
-            </div>
-          </div>
-          <div className={styles.chapterColumn}>
-            <span className={styles.diffLabel}>{currentLabel}</span>
-            <div className={styles.chapterDiffPanel}>
-              <ChapterDiffSide
-                actionMode={actionMode}
-                diffs={visibleDiffs}
-                onApplyDiffToCurrent={onApplyDiffToCurrent}
-                onRevertDiff={onRevertDiff}
-                paragraphs={currentParagraphs}
-                showUsfmMarkers={showUsfmMarkers}
-                testId={TEST_ID_GENERATORS.diffCurrentPre("current")}
-                viewType="current"
-              />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      {!readOnly &&
+      onPresenceDecision &&
+      requiresExplicitPresenceDecision(comparison) ? (
+        <ComparePresenceDecisionControl
+          chapter={chapter}
+          leftLabel={leftLabel}
+          rightLabel={rightLabel}
+          onPresenceDecision={onPresenceDecision}
+        />
+      ) : null}
+
+      <div className={styles.compareChapterRows}>
+        {rows.map((row) => {
+          const unit = row.unit;
+          const sid = unitReference(unit);
+          const details = unitDetailLabels({ unit, leftLabel, rightLabel });
+          const positionNarration =
+            slotMoveNarration({
+              skeleton: comparison.skeleton,
+              slotIndex: row.slotIndex,
+              linkedSlotIndex: row.linkedSlotIndex,
+            }) ??
+            unitPositionNarration({
+              skeleton: comparison.skeleton,
+              unit,
+              leftSlotIndex:
+                row.side === "left" || row.side === "both"
+                  ? row.slotIndex
+                  : null,
+              rightSlotIndex:
+                row.side === "right" || row.side === "both"
+                  ? row.slotIndex
+                  : null,
+            });
+          const actionable = unit.status !== "unchanged";
+          const leftVisible = shouldShowUnitSide({
+            unit,
+            slot: row.slot,
+            side: "left",
+          });
+          const rightVisible = shouldShowUnitSide({
+            unit,
+            slot: row.slot,
+            side: "right",
+          });
+          const leftText = tokensToReviewText({
+            tokens: unit.baselineTokens,
+            showUsfmMarkers,
+          });
+          const rightText = tokensToReviewText({
+            tokens: unit.currentTokens,
+            showUsfmMarkers,
+          });
+          return (
+            <article
+              key={`${unit.id}:${row.slotIndex}`}
+              id={`compare-slot-${row.slotIndex}`}
+              className={styles.compareChapterSlot}
+              data-compare-unit-id={unit.id}
+              data-compare-slot-index={row.slotIndex}
+              data-linked-slot-index={row.linkedSlotIndex ?? undefined}
+            >
+              <header className={styles.compareReviewHeader}>
+                <div className={styles.compareReviewIdentity}>
+                  <strong>{sid}</strong>
+                  <span className={styles.diffBadge}>
+                    {unitStatusLabel(unit)}
+                  </span>
+                  {positionNarration ? (
+                    <span className={styles.compareMoveNarration}>
+                      {positionNarration}
+                    </span>
+                  ) : null}
+                  {row.linkedSlotIndex !== null ? (
+                    <a
+                      className={styles.compareMoveLink}
+                      href={`#compare-slot-${row.linkedSlotIndex}`}
+                    >
+                      <Trans>Show other position</Trans>
+                    </a>
+                  ) : null}
+                  {details.map((detail) => (
+                    <span key={detail} className={styles.compareReviewDetail}>
+                      {detail}
+                    </span>
+                  ))}
+                </div>
+                <div className={styles.compareReviewActions}>
+                  {onNavigate ? (
+                    <Button
+                      variant="default"
+                      size="xs"
+                      leftIcon={<BookOpen size={14} />}
+                      onClick={() =>
+                        onNavigate({
+                          address: comparison.address,
+                          unitId: unit.id,
+                          sid,
+                        })
+                      }
+                    >
+                      <Trans>Open in editor</Trans>
+                    </Button>
+                  ) : null}
+                  {!readOnly && actionable && onDecisionChange ? (
+                    <CompareDecisionControl
+                      chapter={chapter}
+                      unitId={unit.id}
+                      decision={row.decision}
+                      leftLabel={leftLabel}
+                      rightLabel={rightLabel}
+                      instanceId={`slot-${row.slotIndex}`}
+                      onDecisionChange={onDecisionChange}
+                    />
+                  ) : null}
+                </div>
+              </header>
+              <div className={styles.compareReviewPanes}>
+                <ChapterSide
+                  label={leftLabel}
+                  text={leftText}
+                  visible={leftVisible}
+                  selected={row.decision === "left"}
+                  dimmed={row.decision === "right"}
+                />
+                <ChapterSide
+                  label={rightLabel}
+                  text={rightText}
+                  visible={rightVisible}
+                  selected={row.decision === "right"}
+                  dimmed={row.decision === "left"}
+                />
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
   );
 }

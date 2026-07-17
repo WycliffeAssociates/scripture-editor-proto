@@ -102,8 +102,8 @@ export async function snapshotToScriptureBookStates(args: {
       args.usfmOnionService.applyTokenFixes(...serviceArgs),
     diffTokens: (...serviceArgs) =>
       args.usfmOnionService.diffTokens(...serviceArgs),
-    revertDiffBlock: (...serviceArgs) =>
-      args.usfmOnionService.revertDiffBlock(...serviceArgs),
+    mergeDiffBlocks: (...serviceArgs) =>
+      args.usfmOnionService.mergeDiffBlocks(...serviceArgs),
     diffScope: (...serviceArgs) =>
       args.usfmOnionService.diffScope(...serviceArgs),
   };

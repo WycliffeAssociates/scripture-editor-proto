@@ -1,336 +1,207 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import {
-  applyIncomingChapter,
-  applyIncomingChapterAll,
-  applyIncomingHunk,
-} from "@/app/domain/project/compare/compareMutations.ts";
-import {
-  buildCompareResultAsync,
-  type CompareMetadataSummary,
-} from "@/app/domain/project/compare/compareService.ts";
+import { buildCompareResultAsync } from "@/app/domain/project/compare/compareService.ts";
+import { buildCompareSourcePair } from "@/app/domain/project/compare/sourceDescriptors.ts";
+import type { CompareSourceDescriptor } from "@/app/domain/project/compare/types.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
-import { normalizeTokenSids } from "@/core/domain/usfm/tokenSidNormalization.ts";
-import type { Diff, Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
-import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
+import type { DiffSkeleton, Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
-function makeTokens(text: string, sid: string, id: string): Token[] {
-  return [
-    {
-      id,
-      kind: "text",
-      sid,
-      source: text,
-    },
-  ];
+function source(
+  kind: "saved" | "working" | "existingProject",
+  writable = false,
+): CompareSourceDescriptor {
+  return {
+    id: kind,
+    label: kind,
+    writable,
+    locator: { kind, projectId: "p1" },
+    reload: async () => ({ files: [] }),
+  };
 }
 
-function makeFiles(args: {
-  loadedText: string;
-  currentText: string;
-  bookCode?: string;
-  chapterNum?: number;
-}): ScriptureBookState[] {
-  const bookCode = args.bookCode ?? "GEN";
-  const chapterNum = args.chapterNum ?? 1;
+function files(
+  tokens: Token[],
+  eol: "\n" | "\r\n" = "\n",
+): ScriptureBookState[] {
   return [
     {
-      path: `/tmp/${bookCode}.usfm`,
-      title: bookCode,
-      bookCode,
+      path: "/GEN.usfm",
+      title: "Genesis",
+      bookCode: "GEN",
       nextBookId: null,
       prevBookId: null,
       chapters: [
         {
-          chapterNumber: chapterNum,
-          dirty: args.loadedText !== args.currentText,
-          eol: "\n" as const,
-          direction: "ltr" as const,
-          sourceTokens: makeTokens(
-            args.loadedText,
-            `${bookCode} ${chapterNum}:1`,
-            `${bookCode}-loaded`,
-          ),
-          currentTokens: makeTokens(
-            args.currentText,
-            `${bookCode} ${chapterNum}:1`,
-            `${bookCode}-current`,
-          ),
+          chapterNumber: 1,
+          dirty: false,
+          direction: "ltr",
+          eol,
+          sourceTokens: tokens,
+          currentTokens: tokens,
         },
       ],
     },
   ];
 }
 
-function makeDiffs(baselineTokens: Token[], currentTokens: Token[]): Diff[] {
-  const originalText = baselineTokens.map((token) => token.source).join("");
-  const currentText = currentTokens.map((token) => token.source).join("");
-  if (originalText === currentText) {
-    return [];
-  }
-
-  return [
-    {
-      blockId: baselineTokens[0]?.sid ?? currentTokens[0]?.sid ?? "block-0",
-      semanticSid: baselineTokens[0]?.sid ?? currentTokens[0]?.sid ?? "unknown",
-      status: "modified",
-      originalText,
-      currentText,
-      originalTextOnly: originalText,
-      currentTextOnly: currentText,
-      isWhitespaceChange: false,
-      isUsfmStructureChange: false,
-      originalTokens: baselineTokens,
-      currentTokens,
-      originalAlignment: [],
-      currentAlignment: [],
-      undoSide: "current",
-    },
-  ];
-}
-
-function createStubUsfmOnionService(): IUsfmOnionService {
+function skeleton(
+  left: readonly Token[],
+  right: readonly Token[],
+): DiffSkeleton {
   return {
-    supportsPathIo: false,
-    async getMarkerCatalog() {
-      return await webUsfmOnionService.getMarkerCatalog();
-    },
-    async diffScope(scope): Promise<Diff[][]> {
-      return scope.map((item) =>
-        makeDiffs(item.baselineTokens ?? [], item.currentTokens ?? []),
-      );
-    },
-    async diffTokens(
-      baselineTokens: Token[],
-      currentTokens: Token[],
-    ): Promise<Diff[]> {
-      return makeDiffs(baselineTokens, currentTokens);
-    },
-    async revertDiffBlock(
-      baselineTokens: Token[],
-      _currentTokens: Token[],
-      _blockId: string,
-    ): Promise<Token[]> {
-      return structuredClone(baselineTokens);
-    },
-  } as IUsfmOnionService;
+    slots: [
+      { unitId: "GEN 1:1", role: "pairBaseline" },
+      { unitId: "GEN 1:1", role: "pairCurrent" },
+    ],
+    units: [
+      {
+        id: "GEN 1:1",
+        kind: "coalesced",
+        status: "modified",
+        baselineSid: "GEN 1:1",
+        currentSid: "GEN 1:1",
+        baselineTokens: [...left],
+        currentTokens: [...right],
+        displaced: false,
+        relabeled: false,
+        dupContext: { baselineCount: 1, currentCount: 1 },
+        isWhitespaceChange: false,
+        isUsfmStructureChange: false,
+      },
+    ],
+  };
 }
 
-const usfmOnionService = createStubUsfmOnionService();
-
-describe("compareService.buildCompareResultAsync", () => {
-  it("normalizes chapter-0 document markers onto the intro sid", () => {
-    const normalized = normalizeTokenSids(
-      [
-        {
-          id: "GEN-0",
-          kind: "marker",
-          sid: "",
-          marker: "id",
-          source: "\\id",
-        },
-        {
-          id: "GEN-1",
-          kind: "bookCode",
-          sid: "GEN 0:0",
-          source: " GEN",
-        },
-      ],
-      "GEN",
-    );
-
-    expect(normalized[0]?.sid).toBe("GEN 0:0");
-    expect(normalized[1]?.sid).toBe("GEN 0:0");
-  });
-
-  it("uses the current dirty workspace as the compare baseline", async () => {
-    const current = makeFiles({
-      loadedText: "alpha",
-      currentText: "beta",
-    });
-    const source = makeFiles({
-      loadedText: "gamma",
-      currentText: "gamma",
-    });
-
-    const result = await buildCompareResultAsync({
-      currentFiles: current,
-      sourceFiles: source,
-      currentMetadata: undefined,
-      sourceMetadata: undefined,
-      usfmOnionService,
-    });
-
-    expect(result.diffs).toHaveLength(1);
-    expect(result.diffs[0]?.originalDisplayText).toContain("beta");
-    expect(result.diffs[0]?.currentDisplayText).toContain("gamma");
-  });
-
-  it("reports book/chapter coverage differences", async () => {
-    const current = makeFiles({
-      loadedText: "alpha",
-      currentText: "alpha",
-      bookCode: "GEN",
-    });
-    const source = makeFiles({
-      loadedText: "gamma",
-      currentText: "gamma",
-      bookCode: "EXO",
-    });
-
-    const result = await buildCompareResultAsync({
-      currentFiles: current,
-      sourceFiles: source,
-      currentMetadata: undefined,
-      sourceMetadata: undefined,
-      usfmOnionService,
-    });
-
-    expect(result.warnings.map((w) => w.code)).toContain("book_coverage_diff");
-  });
-
-  it("emits compatibility warnings for language/direction/project id mismatch", async () => {
-    const current = makeFiles({
-      loadedText: "alpha",
-      currentText: "alpha",
-    });
-    const source = makeFiles({
-      loadedText: "alpha",
-      currentText: "alpha",
-    });
-
-    const currentMeta: CompareMetadataSummary = {
-      projectId: "p1",
-      languageId: "en",
-      languageDirection: "ltr",
-    };
-    const sourceMeta: CompareMetadataSummary = {
-      projectId: "p2",
-      languageId: "es",
-      languageDirection: "rtl",
-    };
-
-    const result = await buildCompareResultAsync({
-      currentFiles: current,
-      sourceFiles: source,
-      currentMetadata: currentMeta,
-      sourceMetadata: sourceMeta,
-      usfmOnionService,
-    });
-
-    expect(result.warnings.map((w) => w.code)).toEqual(
-      expect.arrayContaining([
-        "project_id_mismatch",
-        "language_id_mismatch",
-        "direction_mismatch",
-      ]),
-    );
-  });
-});
-
-describe("compareService apply incoming", () => {
-  it("applies an incoming hunk to the working chapter", async () => {
-    const current = makeFiles({
-      loadedText: "alpha",
-      currentText: "alpha",
-    });
-    const source = makeFiles({
-      loadedText: "gamma",
-      currentText: "gamma",
-    });
-    const result = await buildCompareResultAsync({
-      currentFiles: current,
-      sourceFiles: source,
-      currentMetadata: undefined,
-      sourceMetadata: undefined,
-      usfmOnionService,
-    });
-
-    const diff = result.diffs[0];
-    expect(diff).toBeDefined();
-    if (!diff) return;
-
-    await applyIncomingHunk({
-      workingFiles: current,
-      sourceFiles: source,
-      diff,
-      usfmOnionService,
-    });
-
-    const after = await buildCompareResultAsync({
-      currentFiles: current,
-      sourceFiles: source,
-      currentMetadata: undefined,
-      sourceMetadata: undefined,
-      usfmOnionService,
-    });
-    expect(after.diffs).toHaveLength(0);
-  });
-
-  it("applies full incoming chapter and resolves all chapter diffs", async () => {
-    const current = makeFiles({
-      loadedText: "alpha",
-      currentText: "alpha",
-      chapterNum: 1,
-    });
-    const source = makeFiles({
-      loadedText: "gamma",
-      currentText: "gamma",
-      chapterNum: 1,
-    });
-
-    applyIncomingChapter({
-      workingFiles: current,
-      sourceFiles: source,
-      bookCode: "GEN",
-      chapterNum: 1,
-    });
-
-    const after = await buildCompareResultAsync({
-      currentFiles: current,
-      sourceFiles: source,
-      currentMetadata: undefined,
-      sourceMetadata: undefined,
-      usfmOnionService,
-    });
-    expect(after.diffs).toHaveLength(0);
-  });
-
-  it("applies all incoming chapters across coverage", async () => {
-    const current = makeFiles({
-      loadedText: "alpha",
-      currentText: "alpha",
-      bookCode: "GEN",
-      chapterNum: 1,
-    });
-    const source = [
-      ...makeFiles({
-        loadedText: "gamma",
-        currentText: "gamma",
-        bookCode: "GEN",
-        chapterNum: 1,
-      }),
-      ...makeFiles({
-        loadedText: "delta",
-        currentText: "delta",
-        bookCode: "EXO",
-        chapterNum: 2,
-      }),
+describe("frozen symmetric compare snapshot", () => {
+  it("normalizes and freezes complete chapter arrays before diffing", async () => {
+    const rawLeft: Token[] = [
+      { id: "c", kind: "marker", marker: "c", sid: "wrong", source: "\\c" },
+      {
+        id: "cn",
+        kind: "number",
+        sid: "wrong",
+        source: " 1",
+        numberInfo: { start: 1, kind: "single" },
+      },
+      { id: "v", kind: "marker", marker: "v", sid: "wrong", source: "\\v" },
+      {
+        id: "vn",
+        kind: "number",
+        sid: "wrong",
+        source: " 1",
+        numberInfo: { start: 1, kind: "single" },
+      },
+      { id: "t", kind: "text", sid: "wrong", source: " left" },
     ];
+    const rawRight = rawLeft.map((token) => ({
+      ...token,
+      id: `r-${token.id}`,
+    }));
+    const seen: Array<{ left: readonly Token[]; right: readonly Token[] }> = [];
+    const service = {
+      async diffScope(
+        scope: Array<{
+          baselineTokens: readonly Token[];
+          currentTokens: readonly Token[];
+        }>,
+      ) {
+        return scope.map(({ baselineTokens, currentTokens }) => {
+          seen.push({ left: baselineTokens, right: currentTokens });
+          expect(Object.isFrozen(baselineTokens)).toBe(true);
+          expect(Object.isFrozen(currentTokens)).toBe(true);
+          return skeleton(baselineTokens, currentTokens);
+        });
+      },
+    } as IUsfmOnionService;
 
-    applyIncomingChapterAll({
-      workingFiles: current,
-      sourceFiles: source,
+    const result = await buildCompareResultAsync({
+      leftFiles: files(rawLeft, "\r\n"),
+      rightFiles: files(rawRight),
+      sources: buildCompareSourcePair({
+        left: source("saved"),
+        right: source("working", true),
+      }),
+      usfmOnionService: service,
     });
 
-    const after = await buildCompareResultAsync({
-      currentFiles: current,
-      sourceFiles: source,
-      currentMetadata: undefined,
-      sourceMetadata: undefined,
-      usfmOnionService,
+    const chapter = result.chapters.GEN?.[1];
+    expect(chapter).toBeDefined();
+    expect(chapter?.left.tokens).toBe(seen[0]?.left);
+    expect(chapter?.right.tokens).toBe(seen[0]?.right);
+    expect(chapter?.left.tokens.map((token) => token.sid)).toEqual([
+      "GEN 1:0",
+      "GEN 1:0",
+      "GEN 1:1",
+      "GEN 1:1",
+      "GEN 1:1",
+    ]);
+    expect(chapter?.left.eol).toBe("\r\n");
+    expect(rawLeft[0]?.sid).toBe("wrong");
+  });
+
+  it("retains one-sided chapter presence and coverage", async () => {
+    const token: Token = { id: "t", kind: "text", sid: "GEN 1:1", source: "x" };
+    const service = {
+      diffScope: vi.fn(
+        async (
+          scope: Array<{
+            baselineTokens: readonly Token[];
+            currentTokens: readonly Token[];
+          }>,
+        ) =>
+          scope.map(({ baselineTokens, currentTokens }) =>
+            skeleton(baselineTokens, currentTokens),
+          ),
+      ),
+    } as unknown as IUsfmOnionService;
+
+    const result = await buildCompareResultAsync({
+      leftFiles: files([token]),
+      rightFiles: [],
+      sources: buildCompareSourcePair({
+        left: source("working", true),
+        right: source("existingProject"),
+      }),
+      usfmOnionService: service,
     });
-    expect(after.diffs).toHaveLength(0);
+
+    expect(result.chapters.GEN?.[1]?.left.present).toBe(true);
+    expect(result.chapters.GEN?.[1]?.right).toMatchObject({
+      present: false,
+      dirty: false,
+      eol: null,
+      direction: null,
+      book: null,
+      tokens: [],
+    });
+    expect(result.coverage.leftOnly).toEqual([
+      { bookCode: "GEN", chapterNum: 1 },
+    ]);
+    expect(result.warnings.map((warning) => warning.code)).toContain(
+      "book_coverage_diff",
+    );
+  });
+
+  it("creates an app-level decision for empty-present versus absent coverage", async () => {
+    const service = {
+      diffScope: async () => [{ slots: [], units: [] }],
+    } as unknown as IUsfmOnionService;
+
+    const result = await buildCompareResultAsync({
+      leftFiles: files([]),
+      rightFiles: [],
+      sources: buildCompareSourcePair({
+        left: source("working", true),
+        right: source("existingProject"),
+      }),
+      usfmOnionService: service,
+    });
+
+    expect(result.chapters.GEN?.[1]).toMatchObject({
+      left: { present: true, tokens: [] },
+      right: { present: false, tokens: [] },
+    });
+    expect(result.changedUnitCount).toBe(1);
   });
 });

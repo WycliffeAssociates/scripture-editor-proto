@@ -164,6 +164,7 @@ function makeOpenedProject(overrides: Partial<Project> = {}): Project {
     restoreVersion: async () => {},
     stageAndCommit: async () => ({ hash: "abc123" }),
     ...overrides,
+    removeBook: overrides.removeBook ?? (async () => {}),
   };
 }
 

@@ -1,19 +1,27 @@
 import type {
   AttributeItem as OnionAttributeItem,
-  BuildSidBlocksOptions as OnionBuildSidBlocksOptions,
-  ChapterTokenDiff as OnionChapterTokenDiff,
+  Anchor as OnionAnchor,
   ClosingBehavior as OnionClosingBehavior,
-  DiffUndoSide as OnionDiffUndoSide,
+  CoveredBy as OnionCoveredBy,
+  CoveredSide as OnionCoveredSide,
+  DecisionStatus as OnionDecisionStatus,
+  DecisionUnit as OnionDecisionUnit,
+  DecisionUnitKind as OnionDecisionUnitKind,
+  DiffSkeleton as OnionDiffSkeleton,
+  DupContext as OnionDupContext,
   LintCode as OnionLintCode,
   LintIssue as OnionLintIssue,
   LintOptions as OnionLintOptions,
   LintScope as OnionLintScope,
   MarkerInfo as OnionMarkerInfo,
   MarkerPayload as OnionMarkerPayload,
+  MergeRequest as OnionMergeRequest,
+  MergeSide as OnionMergeSide,
   ParagraphCategory as OnionParagraphCategory,
   ParsedUsfm as OnionParsedUsfm,
+  Slot as OnionSlot,
+  SlotRole as OnionSlotRole,
   Token as OnionToken,
-  TokenAlignment as OnionTokenAlignment,
   UsfmMarkerCatalog as OnionUsfmMarkerCatalog,
   TokenFix,
 } from "usfm-onion-web";
@@ -36,7 +44,6 @@ import type {
 export type Token = Omit<OnionToken, "span">;
 /** USFM 3.1 character-marker attribute (`|key="value"` after `\w` etc.). */
 export type AttributeItem = OnionAttributeItem;
-export type BuildSidBlocksOptions = OnionBuildSidBlocksOptions;
 export type ParsedUsfm = OnionParsedUsfm;
 export type MarkerInfo = OnionMarkerInfo;
 /**
@@ -63,8 +70,18 @@ export type MarkerPayload = OnionMarkerPayload;
  */
 export type ClosingBehavior = OnionClosingBehavior;
 export type RawUsfmMarkerCatalog = OnionUsfmMarkerCatalog;
-export type DiffUndoSide = OnionDiffUndoSide;
-export type DiffTokenAlignment = OnionTokenAlignment;
+export type Anchor = OnionAnchor;
+export type CoveredBy = OnionCoveredBy;
+export type CoveredSide = OnionCoveredSide;
+export type DecisionStatus = OnionDecisionStatus;
+export type DecisionUnit = OnionDecisionUnit;
+export type DecisionUnitKind = OnionDecisionUnitKind;
+export type DiffSkeleton = OnionDiffSkeleton;
+export type DupContext = OnionDupContext;
+export type MergeRequest = OnionMergeRequest;
+export type MergeSide = OnionMergeSide;
+export type Slot = OnionSlot;
+export type SlotRole = OnionSlotRole;
 export type LintIssue = OnionLintIssue;
 export type { TokenFix };
 
@@ -86,21 +103,9 @@ export type FormatScopeOptions = {
   tokenOptions?: IntoTokensOptions;
 };
 
-export type DiffPathPair = {
-  baselinePath: string;
-  currentPath: string;
-};
-
 export type DiffScopeItem = {
-  baselinePath?: string;
-  currentPath?: string;
-  baselineTokens?: Token[];
-  currentTokens?: Token[];
-};
-
-export type DiffScopeOptions = {
-  tokenOptions?: IntoTokensOptions;
-  buildOptions?: BuildSidBlocksOptions;
+  baselineTokens: readonly Token[];
+  currentTokens: readonly Token[];
 };
 
 export type TokenScopeLintSuppression = {
@@ -189,23 +194,4 @@ export type TokenTransformResult = {
   tokens: Token[];
   appliedChanges: TokenTransformChange[];
   skippedChanges: SkippedTokenTransform[];
-};
-
-export type Diff = {
-  blockId: string;
-  semanticSid: string;
-  status: OnionChapterTokenDiff["status"];
-  original?: OnionChapterTokenDiff["original"];
-  current?: OnionChapterTokenDiff["current"];
-  originalText: string;
-  currentText: string;
-  originalTextOnly: string;
-  currentTextOnly: string;
-  isWhitespaceChange: boolean;
-  isUsfmStructureChange: boolean;
-  originalTokens: Token[];
-  currentTokens: Token[];
-  originalAlignment: DiffTokenAlignment[];
-  currentAlignment: DiffTokenAlignment[];
-  undoSide: DiffUndoSide;
 };

@@ -1,5 +1,6 @@
-// tests/save.spec.ts
-import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
+import type { Locator, Page } from "@playwright/test";
+
+import { TESTING_IDS } from "@/app/data/constants.ts";
 
 import {
   appendToEditor,
@@ -8,105 +9,123 @@ import {
 } from "../helpers/e2e/editor-navigation.ts";
 import { expect, test } from "../helpers/e2e/fixtures.ts";
 
-test.describe("Save and Diff Functionality", () => {
-  test("review diff can navigate to chapter and revert one change", async ({
+function changedRow(page: Page, text: string): Locator {
+  return page
+    .locator("article[data-compare-unit-id]")
+    .filter({ hasText: text });
+}
+
+test.describe("Save and Option C review", () => {
+  test("unsaved review defaults to Working and stages Saved without mutating the editor", async ({
     editorPage,
   }) => {
     await appendToEditor(editorPage, " An addition ");
     await moveChapter(editorPage, "next", 2);
-
-    const chap3OriginalContent = await editorPage
-      .getByRole("textbox", { name: "USFM Editor" })
-      .textContent();
     await appendToEditor(editorPage, " Another addition ");
 
     await openSaveReview(editorPage);
-    const diffItems = editorPage.getByTestId(TESTING_IDS.save.diffItem);
-    await expect(diffItems).toHaveCount(2);
 
-    const diffHeader = diffItems
-      .first()
-      .getByTestId(TESTING_IDS.save.diffSidHeader);
-    await expect(diffHeader).toHaveText(/Maciu 1:\d+/);
+    const firstChange = changedRow(editorPage, "An addition");
+    const laterChange = changedRow(editorPage, "Another addition");
+    await expect(firstChange).toHaveCount(1);
+    await expect(laterChange).toHaveCount(1);
+    await expect(
+      firstChange.getByRole("radio", { name: "Working copy" }),
+    ).toBeChecked();
+    await expect(
+      laterChange.getByRole("radio", { name: "Working copy" }),
+    ).toBeChecked();
 
-    const currentPanel = diffItems
-      .nth(0)
-      .getByTestId(TEST_ID_GENERATORS.diffCurrentPre("current"));
-    await expect(currentPanel).toContainText("An addition");
+    await laterChange.getByRole("radio", { name: "Saved copy" }).check();
+    await expect(
+      laterChange.getByRole("radio", { name: "Saved copy" }),
+    ).toBeChecked();
 
-    const goToFirstChapterAgain = diffItems
-      .nth(0)
-      .getByTestId(`${TESTING_IDS.save.goToChapterButton}`);
-    await goToFirstChapterAgain.click();
-
-    // After clicking the "go to chapter" diff link, the main editor
-    // location reflects the picked chapter. Previously this asserted on a
-    // data-test-current-chapter attribute on a reference picker that's
-    // no longer the location source of truth.
-    const mainLocation = editorPage.getByTestId(TESTING_IDS.currentLocation);
-    await expect(mainLocation).toContainText("1");
-
-    await openSaveReview(editorPage);
-
-    const revertButton = diffItems
-      .nth(1)
-      .getByTestId(TESTING_IDS.save.revertButton);
-    await revertButton.click();
-    await expect(diffItems).toHaveCount(1);
-
-    // Close the diff modal so the editor toolbar (Next chapter button)
-    // is reachable. The modal does not respond to Escape, but its toolbar
-    // Close button does.
-    await editorPage.getByRole("button", { name: "Close" }).first().click();
-    await moveChapter(editorPage, "next", 2);
-
-    const revertedContent = await editorPage
-      .getByRole("textbox", { name: "USFM Editor" })
-      .textContent();
-    expect(revertedContent).toBe(chap3OriginalContent);
+    // A decision only changes the frozen projection. Opening the corresponding
+    // editor location exits review without rewriting the dirty buffer.
+    await laterChange.getByRole("button", { name: "Open in editor" }).click();
+    await expect(
+      editorPage.getByTestId(TESTING_IDS.save.modal),
+    ).not.toBeVisible();
+    await expect(
+      editorPage.getByTestId(TESTING_IDS.currentLocation),
+    ).toContainText("3");
+    await expect(
+      editorPage.getByRole("textbox", { name: "USFM Editor" }),
+    ).toContainText("Another addition");
   });
 
-  test("save all persists chapter edits after reload", async ({
+  test("Apply persists the exact staged result and replaces the diff with a receipt", async ({
+    editorPage,
+  }) => {
+    await appendToEditor(editorPage, " Discard this addition ");
+    await openSaveReview(editorPage);
+
+    const change = changedRow(editorPage, "Discard this addition");
+    await expect(change).toHaveCount(1);
+    await change.getByRole("radio", { name: "Saved copy" }).check();
+
+    const apply = editorPage.getByRole("button", { name: "Apply result" });
+    await expect(apply).toBeEnabled();
+    await apply.click();
+
+    await expect(editorPage.getByRole("status")).toContainText(
+      "Changes applied",
+    );
+    await expect(changedRow(editorPage, "Discard this addition")).toHaveCount(
+      0,
+    );
+
+    await editorPage.getByRole("button", { name: "Close" }).click();
+    await editorPage.reload();
+    await expect(
+      editorPage.getByRole("textbox", { name: "USFM Editor" }),
+    ).not.toContainText("Discard this addition");
+    await openSaveReview(editorPage);
+    await expect(changedRow(editorPage, "Discard this addition")).toHaveCount(
+      0,
+    );
+  });
+
+  test("default Working result persists after Apply and reload", async ({
     editorPage,
   }) => {
     await appendToEditor(editorPage, " Persisted addition ");
     await openSaveReview(editorPage);
 
-    const diffItems = editorPage.getByTestId(TESTING_IDS.save.diffItem);
-    await expect(diffItems).toHaveCount(1);
+    const change = changedRow(editorPage, "Persisted addition");
+    await expect(change).toHaveCount(1);
+    await expect(
+      change.getByRole("radio", { name: "Working copy" }),
+    ).toBeChecked();
 
-    const saveAllBtn = editorPage.getByTestId(TESTING_IDS.save.saveAllButton);
-    await saveAllBtn.click();
-    await expect(diffItems).toHaveCount(0);
+    await editorPage.getByRole("button", { name: "Apply result" }).click();
+    await expect(editorPage.getByRole("status")).toContainText(
+      "Changes applied",
+    );
+    await editorPage.getByRole("button", { name: "Close" }).click();
 
     await editorPage.reload();
-
-    const textBox = await editorPage
-      .getByRole("textbox", { name: "USFM Editor" })
-      .textContent();
-    expect(textBox?.includes("Persisted addition")).toBe(true);
+    await expect(
+      editorPage.getByRole("textbox", { name: "USFM Editor" }),
+    ).toContainText("Persisted addition");
   });
 
-  test("chapter view renders single full chapter diff with hunk overlays", async ({
+  test("chapter view shows the full comparison and reading result preview", async ({
     editorPage,
   }) => {
-    await appendToEditor(editorPage, " chapter overlay change ");
+    await appendToEditor(editorPage, " chapter preview change ");
     await openSaveReview(editorPage);
-    const chapterViewLabel = editorPage.getByText("By chapter").first();
-    if (await chapterViewLabel.isVisible()) {
-      await chapterViewLabel.click();
-    } else if (
-      await editorPage.getByRole("button", { name: "Controls" }).isVisible()
-    ) {
-      await editorPage.getByRole("button", { name: "Controls" }).click();
-      await editorPage.getByRole("menuitem", { name: "By chapter" }).click();
-    }
 
+    const modal = editorPage.getByTestId(TESTING_IDS.save.modal);
+    await modal.getByRole("button", { name: "Chapter", exact: true }).click();
+    const chapter = editorPage.getByRole("region", { name: /Maciu 1/ });
+    await expect(chapter).toBeVisible();
+    await expect(chapter).toContainText("chapter preview change");
+
+    await editorPage.getByText(/Result preview · Maciu 1/).click();
     await expect(
-      editorPage.getByTestId(TESTING_IDS.save.chapterPanel),
-    ).toHaveCount(1);
-    await expect(
-      editorPage.getByTestId(TESTING_IDS.save.chapterHunkAction).first(),
-    ).toBeVisible();
+      editorPage.locator("details").filter({ hasText: "Result preview" }),
+    ).toContainText("chapter preview change");
   });
 });
