@@ -49,11 +49,6 @@ function identDefaults(opts: TokenIdent | undefined, fallbackId: string) {
  * Single text-kind `Token` array (optionally led by a `\p` marker token so
  * shape-aware consumers have a paragraph-class block to build from).
  * Default sid `"GEN 1:1"`.
- *
- * @knipignore — part of the helper module's stable surface; kept
- * exported even when only used transitively via `makeChapter` so
- * future store-seam tests can compose `Token[]` directly without
- * re-deriving the shape.
  */
 export function makeTokens(
   text: string,

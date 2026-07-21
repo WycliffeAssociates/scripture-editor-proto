@@ -74,7 +74,7 @@ export function applyCompareProjectionToStore(args: {
     : Object.freeze({ kind: "aborted", reason: outcome.reason });
 }
 
-export function buildAppliedWorkingFiles(
+function buildAppliedWorkingFiles(
   snapshotFiles: ScriptureBookState[],
   artifact: CompareProjectionArtifact,
 ): AppliedProjection {

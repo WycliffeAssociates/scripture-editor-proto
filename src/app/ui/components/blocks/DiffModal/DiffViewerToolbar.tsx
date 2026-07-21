@@ -1,7 +1,7 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
-import { BookOpen, List, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { BookOpen, Eye, List, SlidersHorizontal, X } from "lucide-react";
+import { type RefObject, useEffect, useState } from "react";
 
 import type {
   CompareSide,
@@ -9,12 +9,25 @@ import type {
   CompareSourceKind,
 } from "@/app/domain/project/compare/types.ts";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
+import { Checkbox } from "@/app/ui/components/primitives/Checkbox/Checkbox.tsx";
+import {
+  Popover,
+  PopoverDropdown,
+  PopoverTarget,
+} from "@/app/ui/components/primitives/Popover/Popover.tsx";
+import {
+  type SelectItem,
+  SelectPrimitive,
+} from "@/app/ui/components/primitives/Select/Select.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
 
 export type DiffViewMode = "list" | "chapter";
 
 export type DiffViewerToolbarProps = Readonly<{
   onClose: () => void;
+  /** Portal target for select/popover dropdowns — must be inside the modal's
+   * own overlay, whose z-index otherwise sits above a body-portaled popup. */
+  popupPortalContainer: RefObject<HTMLDivElement | null>;
   leftSource: CompareSourceDescriptor | null;
   rightSource: CompareSourceDescriptor | null;
   viewMode: DiffViewMode;
@@ -33,6 +46,10 @@ export type DiffViewerToolbarProps = Readonly<{
   hiddenUnresolvedCount: number;
   onRevealHidden: () => void;
   readOnly: boolean;
+  /** Whether the current chapter has a resolvable result to preview at all. */
+  canPreview: boolean;
+  previewOpen: boolean;
+  onPreviewToggle: () => void;
   onGlobalDecision: (decision: CompareSide | null) => void;
   sourceDisabled: boolean;
   decisionDisabled: boolean;
@@ -52,6 +69,7 @@ function SourceSelector({
   onSourceKind,
   onProject,
   onVersion,
+  popupPortalContainer,
 }: Pick<
   DiffViewerToolbarProps,
   | "sourceDisabled"
@@ -60,6 +78,7 @@ function SourceSelector({
   | "onSourceKind"
   | "onProject"
   | "onVersion"
+  | "popupPortalContainer"
 > & {
   side: CompareSide;
   source: CompareSourceDescriptor | null;
@@ -71,82 +90,149 @@ function SourceSelector({
     setPendingKind(source?.locator.kind ?? "");
   }, [source?.id, source?.locator.kind]);
   const kind = pendingKind;
+
+  const kindItems: SelectItem[] = [
+    { value: "working", label: t`Working copy` },
+    { value: "saved", label: t`Saved copy` },
+    { value: "remoteLatest", label: t`Incoming shared changes` },
+    { value: "previousVersion", label: t`Previous version` },
+    { value: "existingProject", label: t`Another project` },
+    { value: "zipFile", label: t`ZIP file` },
+    { value: "directory", label: t`Folder` },
+  ];
+
   return (
     <div className={styles.compareSourceControl}>
       <span className={styles.compareSourceSide}>
         {side === "left" ? <Trans>Left</Trans> : <Trans>Right</Trans>}
       </span>
-      <label className={styles.visuallyHidden} htmlFor={`compare-${side}-kind`}>
-        {side === "left" ? (
-          <Trans>Choose left source</Trans>
-        ) : (
-          <Trans>Choose right source</Trans>
-        )}
-      </label>
-      <select
-        id={`compare-${side}-kind`}
-        className={styles.compareSourceSelect}
+      <SelectPrimitive
+        items={kindItems}
         value={kind}
+        placeholder={t`Choose a source`}
         disabled={sourceDisabled}
-        onChange={(event) => {
-          const next = event.currentTarget.value as CompareSourceKind;
+        compact
+        portalContainer={popupPortalContainer}
+        onValueChange={(value) => {
+          if (!value) return;
+          const next = value as CompareSourceKind;
           setPendingKind(next);
           if (next !== "existingProject" && next !== "previousVersion") {
             onSourceKind(side, next);
           }
         }}
-      >
-        {!kind ? <option value="">{t`Choose a source`}</option> : null}
-        <option value="working">{t`Working copy`}</option>
-        <option value="saved">{t`Saved copy`}</option>
-        <option value="remoteLatest">{t`Incoming shared changes`}</option>
-        <option value="previousVersion">{t`Previous version`}</option>
-        <option value="existingProject">{t`Another project`}</option>
-        <option value="zipFile">{t`ZIP file`}</option>
-        <option value="directory">{t`Folder`}</option>
-      </select>
+      />
       {kind === "existingProject" ? (
-        <select
-          aria-label={side === "left" ? t`Left project` : t`Right project`}
-          className={styles.compareSourceSelect}
+        <SelectPrimitive
+          items={[...availableProjects]}
           value={
             source?.locator.kind === "existingProject"
               ? source.locator.projectId
               : ""
           }
+          placeholder={t`Choose a project`}
           disabled={sourceDisabled}
-          onChange={(event) => onProject(side, event.currentTarget.value)}
-        >
-          <option value="">{t`Choose a project`}</option>
-          {availableProjects.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          compact
+          portalContainer={popupPortalContainer}
+          onValueChange={(value) => value && onProject(side, value)}
+        />
       ) : null}
       {kind === "previousVersion" ? (
-        <select
-          aria-label={side === "left" ? t`Left version` : t`Right version`}
-          className={styles.compareSourceSelect}
+        <SelectPrimitive
+          items={[...versionOptions]}
           value={
             source?.locator.kind === "previousVersion" ? source.locator.oid : ""
           }
+          placeholder={t`Choose a version`}
           disabled={sourceDisabled}
-          onChange={(event) => onVersion(side, event.currentTarget.value)}
-        >
-          <option value="">{t`Choose a version`}</option>
-          {versionOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          compact
+          portalContainer={popupPortalContainer}
+          onValueChange={(value) => value && onVersion(side, value)}
+        />
       ) : null}
       <span className={styles.compareSourceLabel}>
         {source?.label ?? t`Not selected`}
       </span>
     </div>
+  );
+}
+
+function FiltersMenu(
+  props: Pick<
+    DiffViewerToolbarProps,
+    | "hideWhitespaceOnly"
+    | "onHideWhitespaceOnlyChange"
+    | "hideUsfmStructureOnly"
+    | "onHideUsfmStructureOnlyChange"
+    | "hideDecided"
+    | "onHideDecidedChange"
+    | "showUsfmMarkers"
+    | "onShowUsfmMarkersChange"
+    | "readOnly"
+    | "popupPortalContainer"
+  >,
+) {
+  const anyActive =
+    props.hideWhitespaceOnly ||
+    props.hideUsfmStructureOnly ||
+    props.hideDecided ||
+    props.showUsfmMarkers;
+
+  return (
+    <Popover position="bottom-end" portalContainer={props.popupPortalContainer}>
+      <PopoverTarget
+        className={styles.toolbarIconToggle}
+        aria-label={t`Filters`}
+        title={t`Filters`}
+        data-pressed={anyActive || undefined}
+      >
+        <SlidersHorizontal size={16} />
+      </PopoverTarget>
+      <PopoverDropdown className={styles.diffMenuPopup}>
+        <div className={styles.diffMenuLabel}>
+          <Trans>Filters</Trans>
+        </div>
+        <div className={styles.filterMenuItem}>
+          <Checkbox
+            checked={props.hideWhitespaceOnly}
+            onChange={(event) =>
+              props.onHideWhitespaceOnlyChange(event.currentTarget.checked)
+            }
+            label={t`Hide whitespace-only changes`}
+          />
+        </div>
+        <div className={styles.filterMenuItem}>
+          <Checkbox
+            checked={props.hideUsfmStructureOnly}
+            onChange={(event) =>
+              props.onHideUsfmStructureOnlyChange(event.currentTarget.checked)
+            }
+            label={t`Hide USFM-structure-only changes`}
+          />
+        </div>
+        {!props.readOnly ? (
+          <div className={styles.filterMenuItem}>
+            <Checkbox
+              checked={props.hideDecided}
+              onChange={(event) =>
+                props.onHideDecidedChange(event.currentTarget.checked)
+              }
+              label={t`Hide already-decided rows`}
+            />
+          </div>
+        ) : null}
+        <div className={styles.diffMenuDivider} />
+        <div className={styles.filterMenuItem}>
+          <Checkbox
+            checked={props.showUsfmMarkers}
+            onChange={(event) =>
+              props.onShowUsfmMarkersChange(event.currentTarget.checked)
+            }
+            label={t`Show USFM markers`}
+          />
+        </div>
+      </PopoverDropdown>
+    </Popover>
   );
 }
 
@@ -185,6 +271,7 @@ export function DiffViewerToolbar(props: DiffViewerToolbarProps) {
           onSourceKind={props.onSourceKind}
           onProject={props.onProject}
           onVersion={props.onVersion}
+          popupPortalContainer={props.popupPortalContainer}
         />
         <SourceSelector
           side="right"
@@ -195,6 +282,7 @@ export function DiffViewerToolbar(props: DiffViewerToolbarProps) {
           onSourceKind={props.onSourceKind}
           onProject={props.onProject}
           onVersion={props.onVersion}
+          popupPortalContainer={props.popupPortalContainer}
         />
       </div>
 
@@ -222,64 +310,19 @@ export function DiffViewerToolbar(props: DiffViewerToolbarProps) {
         </div>
 
         {props.viewMode === "chapter" ? (
-          <select
-            className={styles.compareSourceSelect}
-            aria-label={t`Choose chapter`}
+          <SelectPrimitive
+            items={[...props.chapterOptions]}
             value={props.selectedChapter ?? ""}
-            onChange={(event) =>
-              props.onSelectedChapterChange(event.currentTarget.value)
+            placeholder={t`Choose chapter`}
+            compact
+            portalContainer={props.popupPortalContainer}
+            onValueChange={(value) =>
+              value && props.onSelectedChapterChange(value)
             }
-          >
-            {props.chapterOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          />
         ) : null}
 
-        <label className={styles.compareFilterLabel}>
-          <input
-            type="checkbox"
-            checked={props.hideWhitespaceOnly}
-            onChange={(event) =>
-              props.onHideWhitespaceOnlyChange(event.currentTarget.checked)
-            }
-          />
-          <Trans>Hide whitespace</Trans>
-        </label>
-        <label className={styles.compareFilterLabel}>
-          <input
-            type="checkbox"
-            checked={props.hideUsfmStructureOnly}
-            onChange={(event) =>
-              props.onHideUsfmStructureOnlyChange(event.currentTarget.checked)
-            }
-          />
-          <Trans>Hide USFM-only</Trans>
-        </label>
-        {!props.readOnly ? (
-          <label className={styles.compareFilterLabel}>
-            <input
-              type="checkbox"
-              checked={props.hideDecided}
-              onChange={(event) =>
-                props.onHideDecidedChange(event.currentTarget.checked)
-              }
-            />
-            <Trans>Hide decided</Trans>
-          </label>
-        ) : null}
-        <label className={styles.compareFilterLabel}>
-          <input
-            type="checkbox"
-            checked={props.showUsfmMarkers}
-            onChange={(event) =>
-              props.onShowUsfmMarkersChange(event.currentTarget.checked)
-            }
-          />
-          <Trans>Show USFM</Trans>
-        </label>
+        <span className={styles.ribbonSpacer} />
 
         {props.hiddenUnresolvedCount > 0 ? (
           <Button variant="default" size="xs" onClick={props.onRevealHidden}>
@@ -287,38 +330,65 @@ export function DiffViewerToolbar(props: DiffViewerToolbarProps) {
           </Button>
         ) : null}
 
-        {!props.readOnly ? (
-          <div
-            className={styles.compareBulkActions}
-            aria-label={t`All decisions`}
+        {props.canPreview ? (
+          <Button
+            variant={props.previewOpen ? "primary" : "default"}
+            size="xs"
+            onClick={props.onPreviewToggle}
+            leftIcon={<Eye size={14} />}
           >
-            <Button
-              size="xs"
-              variant="default"
-              disabled={props.decisionDisabled}
-              onClick={() => props.onGlobalDecision("left")}
-            >
-              <Trans>Use all Left</Trans>
-            </Button>
-            <Button
-              size="xs"
-              variant="default"
-              disabled={props.decisionDisabled}
-              onClick={() => props.onGlobalDecision("right")}
-            >
-              <Trans>Use all Right</Trans>
-            </Button>
-            <Button
-              size="xs"
-              variant="default"
-              disabled={props.decisionDisabled}
-              onClick={() => props.onGlobalDecision(null)}
-            >
-              <Trans>Clear all</Trans>
-            </Button>
-          </div>
+            <Trans>Preview</Trans>
+          </Button>
         ) : null}
+
+        <FiltersMenu
+          hideWhitespaceOnly={props.hideWhitespaceOnly}
+          onHideWhitespaceOnlyChange={props.onHideWhitespaceOnlyChange}
+          hideUsfmStructureOnly={props.hideUsfmStructureOnly}
+          onHideUsfmStructureOnlyChange={props.onHideUsfmStructureOnlyChange}
+          hideDecided={props.hideDecided}
+          onHideDecidedChange={props.onHideDecidedChange}
+          showUsfmMarkers={props.showUsfmMarkers}
+          onShowUsfmMarkersChange={props.onShowUsfmMarkersChange}
+          readOnly={props.readOnly}
+          popupPortalContainer={props.popupPortalContainer}
+        />
       </div>
+
+      {!props.readOnly ? (
+        <div
+          className={styles.toolbarSecondaryBand}
+          aria-label={t`All decisions`}
+        >
+          <span className={styles.toolbarSecondaryLabel}>
+            <Trans>All changes:</Trans>
+          </span>
+          <Button
+            size="xs"
+            variant="default"
+            disabled={props.decisionDisabled}
+            onClick={() => props.onGlobalDecision("left")}
+          >
+            <Trans>Use all Left</Trans>
+          </Button>
+          <Button
+            size="xs"
+            variant="default"
+            disabled={props.decisionDisabled}
+            onClick={() => props.onGlobalDecision("right")}
+          >
+            <Trans>Use all Right</Trans>
+          </Button>
+          <Button
+            size="xs"
+            variant="default"
+            disabled={props.decisionDisabled}
+            onClick={() => props.onGlobalDecision(null)}
+          >
+            <Trans>Clear all</Trans>
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,12 +1,7 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
-import {
-  CheckCircle2,
-  ChevronDown,
-  RefreshCw,
-  TriangleAlert,
-} from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { CheckCircle2, RefreshCw, TriangleAlert, X } from "lucide-react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import type { CompareSessionControllerState } from "@/app/domain/project/compare/CompareSessionController.ts";
@@ -24,7 +19,7 @@ import {
   countHiddenUnresolved,
   type CompareRowFilters,
 } from "@/app/domain/project/compare/viewModels.ts";
-import { tokensToReviewText } from "@/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts";
+import { CompareResultPreviewEditor } from "@/app/ui/components/blocks/DiffModal/CompareResultPreviewEditor.tsx";
 import { ChapterDiffStructuredDocument } from "@/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx";
 import {
   type CompareNavigate,
@@ -286,6 +281,7 @@ export function DiffViewerModal(props: DiffViewerModalProps) {
       <div ref={modalPaperRef} className={styles.modalScrollPaper}>
         <DiffViewerToolbar
           onClose={props.onClose}
+          popupPortalContainer={modalPaperRef}
           leftSource={active?.session.snapshot.sources.left ?? null}
           rightSource={active?.session.snapshot.sources.right ?? null}
           viewMode={viewMode}
@@ -304,6 +300,9 @@ export function DiffViewerModal(props: DiffViewerModalProps) {
           hiddenUnresolvedCount={hiddenUnresolvedCount}
           onRevealHidden={revealHidden}
           readOnly={Boolean(readOnly)}
+          canPreview={!readOnly && Boolean(selectedPresentation)}
+          previewOpen={previewOpen}
+          onPreviewToggle={() => setPreviewOpen((open) => !open)}
           onGlobalDecision={props.onGlobalDecision}
           sourceDisabled={sourceDisabled}
           decisionDisabled={decisionDisabled}
@@ -315,7 +314,7 @@ export function DiffViewerModal(props: DiffViewerModalProps) {
         />
 
         {(["left", "right"] as const).map((side) => (
-          <span key={side}>
+          <Fragment key={side}>
             <input
               ref={fileInputs[side]}
               className={styles.visuallyHidden}
@@ -344,7 +343,7 @@ export function DiffViewerModal(props: DiffViewerModalProps) {
                 event.currentTarget.value = "";
               }}
             />
-          </span>
+          </Fragment>
         ))}
 
         <main className={styles.optionCBody}>
@@ -352,7 +351,7 @@ export function DiffViewerModal(props: DiffViewerModalProps) {
             <div className={styles.diffCenter} role="status">
               <div className={styles.compareLoadingState}>
                 <span className={styles.diffLoader} aria-hidden="true" />
-                <Trans>Preparing a frozen comparison…</Trans>
+                <Trans>Loading comparison…</Trans>
               </div>
             </div>
           ) : null}
@@ -437,111 +436,40 @@ export function DiffViewerModal(props: DiffViewerModalProps) {
                 </div>
               ) : null}
 
-              <div className={styles.compareCoverageSummary}>
-                <span>
-                  <Trans>{chapters.length} changed chapters</Trans>
-                </span>
-                {!readOnly ? (
-                  <span>
-                    <Trans>{unresolvedCount} unresolved decisions</Trans>
-                  </span>
-                ) : (
-                  <span>
-                    <Trans>Read-only comparison</Trans>
-                  </span>
-                )}
-                {active.session.snapshot.coverage.leftOnly.length > 0 ? (
-                  <span>
-                    <Trans>
-                      {active.session.snapshot.coverage.leftOnly.length} only on
-                      Left
-                    </Trans>
-                  </span>
-                ) : null}
-                {active.session.snapshot.coverage.rightOnly.length > 0 ? (
-                  <span>
-                    <Trans>
-                      {active.session.snapshot.coverage.rightOnly.length} only
-                      on Right
-                    </Trans>
-                  </span>
-                ) : null}
-                {structuralSummary && !readOnly ? (
-                  <span>
-                    <Trans>
-                      {structuralSummary.add} to add ·{" "}
-                      {structuralSummary.delete} to remove
-                    </Trans>
-                  </span>
-                ) : null}
-              </div>
-
-              {chapters.length === 0 ? (
-                <div className={styles.diffCenter}>
-                  <p className={styles.diffStateMessage}>
-                    <Trans>These sources have no differences.</Trans>
-                  </p>
-                </div>
-              ) : viewMode === "list" ? (
-                <VirtualizedDiffList
-                  chapters={chapters}
-                  filters={filters}
-                  leftLabel={active.session.snapshot.sources.left.label}
-                  rightLabel={active.session.snapshot.sources.right.label}
-                  readOnly={Boolean(readOnly)}
-                  showUsfmMarkers={showUsfmMarkers}
-                  onDecisionChange={readOnly ? undefined : props.onUnitDecision}
-                  onPresenceDecision={
-                    readOnly ? undefined : props.onPresenceDecision
-                  }
-                  onNavigate={props.onNavigate}
-                />
-              ) : selectedPresentation ? (
-                <ChapterDiffStructuredDocument
-                  chapter={selectedPresentation}
-                  filters={filters}
-                  leftLabel={active.session.snapshot.sources.left.label}
-                  rightLabel={active.session.snapshot.sources.right.label}
-                  readOnly={Boolean(readOnly)}
-                  showUsfmMarkers={showUsfmMarkers}
-                  onDecisionChange={readOnly ? undefined : props.onUnitDecision}
-                  onPresenceDecision={
-                    readOnly ? undefined : props.onPresenceDecision
-                  }
-                  onChapterDecision={
-                    readOnly ? undefined : props.onChapterDecision
-                  }
-                  onNavigate={props.onNavigate}
-                />
-              ) : null}
-
-              {!readOnly && selectedPresentation ? (
-                <details
-                  className={styles.comparePreview}
-                  open={previewOpen}
-                  onToggle={(event) => setPreviewOpen(event.currentTarget.open)}
+              {previewOpen && selectedPresentation ? (
+                <section
+                  className={styles.previewDrawer}
+                  aria-label={t`Result preview`}
                 >
-                  <summary className={styles.comparePreviewSummary}>
-                    <span>
+                  <div className={styles.previewDrawerHeader}>
+                    <span className={styles.previewDrawerTitle}>
                       <Trans>
                         Result preview · {selectedPresentation.label}
                       </Trans>
                     </span>
-                    <ChevronDown size={16} aria-hidden="true" />
-                  </summary>
-                  <div className={styles.comparePreviewBody}>
+                    <Button
+                      variant="default"
+                      size="xs"
+                      onClick={() => setPreviewOpen(false)}
+                      leftIcon={<X size={14} />}
+                    >
+                      <Trans>Close preview</Trans>
+                    </Button>
+                  </div>
+                  <div className={styles.previewDrawerBody}>
                     {active.projection.status === "running" ? (
                       <p className={styles.diffTextMuted}>
                         <Trans>Updating preview…</Trans>
                       </p>
                     ) : projectedChapter ? (
                       projectedChapter.present ? (
-                        <pre className={styles.compareReadingPreview}>
-                          {tokensToReviewText({
-                            tokens: projectedChapter.tokens,
-                            showUsfmMarkers,
-                          })}
-                        </pre>
+                        <CompareResultPreviewEditor
+                          tokens={projectedChapter.tokens}
+                          direction={
+                            selectedPresentation.comparison.left.direction ??
+                            selectedPresentation.comparison.right.direction
+                          }
+                        />
                       ) : (
                         <p className={styles.diffTextMuted}>
                           <Trans>This decision removes the chapter.</Trans>
@@ -555,8 +483,92 @@ export function DiffViewerModal(props: DiffViewerModalProps) {
                       </p>
                     )}
                   </div>
-                </details>
-              ) : null}
+                </section>
+              ) : (
+                <>
+                  <div className={styles.compareCoverageSummary}>
+                    <span>
+                      <Trans>{chapters.length} changed chapters</Trans>
+                    </span>
+                    {!readOnly ? (
+                      <span>
+                        <Trans>{unresolvedCount} unresolved decisions</Trans>
+                      </span>
+                    ) : (
+                      <span>
+                        <Trans>Read-only comparison</Trans>
+                      </span>
+                    )}
+                    {active.session.snapshot.coverage.leftOnly.length > 0 ? (
+                      <span>
+                        <Trans>
+                          {active.session.snapshot.coverage.leftOnly.length}{" "}
+                          only on Left
+                        </Trans>
+                      </span>
+                    ) : null}
+                    {active.session.snapshot.coverage.rightOnly.length > 0 ? (
+                      <span>
+                        <Trans>
+                          {active.session.snapshot.coverage.rightOnly.length}{" "}
+                          only on Right
+                        </Trans>
+                      </span>
+                    ) : null}
+                    {structuralSummary && !readOnly ? (
+                      <span>
+                        <Trans>
+                          {structuralSummary.add} to add ·{" "}
+                          {structuralSummary.delete} to remove
+                        </Trans>
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {chapters.length === 0 ? (
+                    <div className={styles.diffCenter}>
+                      <p className={styles.diffStateMessage}>
+                        <Trans>These sources have no differences.</Trans>
+                      </p>
+                    </div>
+                  ) : viewMode === "list" ? (
+                    <VirtualizedDiffList
+                      chapters={chapters}
+                      filters={filters}
+                      leftLabel={active.session.snapshot.sources.left.label}
+                      rightLabel={active.session.snapshot.sources.right.label}
+                      readOnly={Boolean(readOnly)}
+                      showUsfmMarkers={showUsfmMarkers}
+                      onDecisionChange={
+                        readOnly ? undefined : props.onUnitDecision
+                      }
+                      onPresenceDecision={
+                        readOnly ? undefined : props.onPresenceDecision
+                      }
+                      onNavigate={props.onNavigate}
+                    />
+                  ) : selectedPresentation ? (
+                    <ChapterDiffStructuredDocument
+                      chapter={selectedPresentation}
+                      filters={filters}
+                      leftLabel={active.session.snapshot.sources.left.label}
+                      rightLabel={active.session.snapshot.sources.right.label}
+                      readOnly={Boolean(readOnly)}
+                      showUsfmMarkers={showUsfmMarkers}
+                      onDecisionChange={
+                        readOnly ? undefined : props.onUnitDecision
+                      }
+                      onPresenceDecision={
+                        readOnly ? undefined : props.onPresenceDecision
+                      }
+                      onChapterDecision={
+                        readOnly ? undefined : props.onChapterDecision
+                      }
+                      onNavigate={props.onNavigate}
+                    />
+                  ) : null}
+                </>
+              )}
             </>
           ) : null}
         </main>
@@ -577,15 +589,6 @@ export function DiffViewerModal(props: DiffViewerModalProps) {
                 defaultIncludeUsfm={showUsfmMarkers}
                 popupPortalContainer={modalPaperRef}
               />
-              {lifecycle?.status !== "stale" ? (
-                <Button
-                  variant="default"
-                  onClick={() => void props.onRefresh()}
-                  disabled={lifecycle?.status === "applying"}
-                >
-                  <Trans>Refresh</Trans>
-                </Button>
-              ) : null}
               {!readOnly ? (
                 <Button
                   data-testid={TESTING_IDS.save.saveAllButton}

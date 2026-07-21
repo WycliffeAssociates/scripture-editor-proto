@@ -34,6 +34,16 @@ export const stetHeaderActions = style({
   gap: vars.spacing.xs,
 });
 
+export const stetGuideSelect = style({
+  padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
+  border: `1px solid ${vars.color.surfaceBorder}`,
+  borderRadius: vars.border.radius.sm,
+  backgroundColor: "transparent",
+  color: vars.color.onSurfacePrimary,
+  cursor: "pointer",
+  fontSize: vars.typography.bodySmall.fontSize,
+});
+
 export const stetHeaderButton = style({
   padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
   border: `1px solid ${vars.color.surfaceBorder}`,
@@ -186,8 +196,15 @@ export const stetCoverage = style({
   color: vars.color.onSurfaceSecondary,
 });
 
-export const stetDefinitionParagraph = style({
+export const stetDefinitionList = style({
   margin: 0,
+  paddingInlineStart: vars.spacing.lg,
+  display: "flex",
+  flexDirection: "column",
+  gap: vars.spacing.xs,
+});
+
+export const stetDefinitionParagraph = style({
   fontSize: vars.typography.bodySmall.fontSize,
   color: vars.color.onSurfacePrimary,
   lineHeight: 1.5,
@@ -205,6 +222,10 @@ export const stetExhaustiveToggle = style({
   selectors: {
     "&:hover": { backgroundColor: vars.color.surfaceSecondary },
   },
+});
+
+export const stetResults = style({
+  paddingBlockStart: vars.spacing.sm,
 });
 
 export const stetStateBox = style({

@@ -47,6 +47,23 @@ export function StetPanel({
           <Trans>Spiritual Terms Evaluation</Trans>
         </span>
         <div className={styles.stetHeaderActions}>
+          {stet.guides.length > 1 ? (
+            <select
+              className={styles.stetGuideSelect}
+              data-testid={TESTING_IDS.stet.guideSelect}
+              value={stet.selectedGuideLocale ?? ""}
+              onChange={(event) =>
+                stet.selectGuideLocale(event.currentTarget.value)
+              }
+              aria-label={t`Select a reference guide`}
+            >
+              {stet.guides.map((entry) => (
+                <option key={entry.locale} value={entry.locale}>
+                  {entry.displayName}
+                </option>
+              ))}
+            </select>
+          ) : null}
           {onToggleDock ? (
             <button
               type="button"
@@ -228,15 +245,19 @@ function StetDetail({ stet }: { stet: ReturnType<typeof useStet> }) {
         >
           {t`${stet.coverage.presentTargetCount} of ${stet.coverage.designatedCount} verses available in this project`}
         </p>
-        {stet.definitionParagraphs.map((paragraph, index) => (
-          <p
-            // Definition paragraphs are positional and static per term.
-            key={index}
-            className={styles.stetDefinitionParagraph}
-          >
-            {paragraph}
-          </p>
-        ))}
+        {stet.definitionParagraphs.length > 0 ? (
+          <ul className={styles.stetDefinitionList}>
+            {stet.definitionParagraphs.map((paragraph, index) => (
+              <li
+                // Definition paragraphs are positional and static per term.
+                key={index}
+                className={styles.stetDefinitionParagraph}
+              >
+                {paragraph}
+              </li>
+            ))}
+          </ul>
+        ) : null}
         {stet.hasExhaustiveExtra ? (
           <button
             type="button"
@@ -251,7 +272,7 @@ function StetDetail({ stet }: { stet: ReturnType<typeof useStet> }) {
           </button>
         ) : null}
       </header>
-      <ResultBrowser rows={stet.rows} />
+      <ResultBrowser rows={stet.rows} containerClassName={styles.stetResults} />
     </section>
   );
 }

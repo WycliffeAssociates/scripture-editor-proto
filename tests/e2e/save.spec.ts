@@ -123,9 +123,13 @@ test.describe("Save and Option C review", () => {
     await expect(chapter).toBeVisible();
     await expect(chapter).toContainText("chapter preview change");
 
-    await editorPage.getByText(/Result preview · Maciu 1/).click();
-    await expect(
-      editorPage.locator("details").filter({ hasText: "Result preview" }),
-    ).toContainText("chapter preview change");
+    await modal.getByRole("button", { name: "Preview" }).click();
+    await expect(chapter).not.toBeVisible();
+    const preview = editorPage.getByRole("region", { name: "Result preview" });
+    await expect(preview).toContainText("Maciu 1");
+    await expect(preview).toContainText("chapter preview change");
+
+    await editorPage.getByRole("button", { name: "Close preview" }).click();
+    await expect(chapter).toBeVisible();
   });
 });

@@ -3,6 +3,7 @@ import {
   type ComponentProps,
   createContext,
   type ReactNode,
+  type RefObject,
   use,
   useMemo,
 } from "react";
@@ -20,6 +21,7 @@ type PopoverContextValue = {
   side: Side;
   align: Align;
   offset: number;
+  portalContainer?: RefObject<HTMLElement | null>;
 };
 
 const PopoverContext = createContext<PopoverContextValue | null>(null);
@@ -47,6 +49,10 @@ export interface PopoverProps {
   width?: number | string;
   closeOnClickOutside?: boolean;
   floatingStrategy?: "absolute" | "fixed";
+  /** Render the dropdown as a descendant of this element instead of
+   * `document.body` — needed inside a full-screen overlay (e.g. a modal) whose
+   * own stacking context otherwise sits above a body-portaled popover. */
+  portalContainer?: RefObject<HTMLElement | null>;
 }
 
 function parsePosition(position: string): { side: Side; align: Align } {
@@ -74,11 +80,12 @@ export function Popover({
   onChange,
   position = "bottom",
   offset = 8,
+  portalContainer,
 }: PopoverProps) {
   const { side, align } = parsePosition(position);
   const contextValue = useMemo(
-    () => ({ side, align, offset }),
-    [side, align, offset],
+    () => ({ side, align, offset, portalContainer }),
+    [side, align, offset, portalContainer],
   );
 
   return (
@@ -110,10 +117,10 @@ export interface PopoverDropdownProps {
 }
 
 export function PopoverDropdown({ children, className }: PopoverDropdownProps) {
-  const { side, align, offset } = usePopoverContext();
+  const { side, align, offset, portalContainer } = usePopoverContext();
 
   return (
-    <BasePopover.Portal>
+    <BasePopover.Portal container={portalContainer}>
       <BasePopover.Positioner
         side={side}
         align={align}

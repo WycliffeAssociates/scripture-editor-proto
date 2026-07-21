@@ -10,19 +10,20 @@ import type {
 } from "@/app/domain/project/compare/types.ts";
 import {
   buildCompareChapterRows,
+  type CompareChapterSlotRow,
   type CompareRowFilters,
 } from "@/app/domain/project/compare/viewModels.ts";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
+import { joinClassNames } from "@/app/ui/components/primitives/classNames.ts";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
 
 import {
+  movedAnchorCaptions,
   shouldShowUnitSide,
-  slotMoveNarration,
   tokensToReviewText,
   unitDetailLabels,
-  unitPositionNarration,
   unitReference,
-  unitStatusLabel,
+  unitStatusVariant,
 } from "./chapterDiffViewModel.ts";
 import {
   type CompareDecisionChange,
@@ -40,41 +41,201 @@ type ChapterDecisionChange = (
 
 const NO_DECISIONS: CompareDecisionMap = Object.freeze({});
 
-function ChapterSide({
+/** A displaced unit's origin/destination slot each get exactly one direction
+ * of the shared decision — the skeleton already lays the unit out at both of
+ * its real positions, so there is no ambiguity to resolve with a full L/R/Clear
+ * control at either one. Clicking the already-selected side clears it. */
+function CompareMoveSideToggle({
+  chapter,
+  unitId,
+  decision,
+  side,
   label,
-  text,
-  visible,
-  selected,
-  dimmed,
+  onDecisionChange,
 }: {
+  chapter: ComparePresentationChapter;
+  unitId: string;
+  decision: CompareSide | null;
+  side: CompareSide;
   label: string;
-  text: string;
-  visible: boolean;
-  selected: boolean;
-  dimmed: boolean;
+  onDecisionChange: CompareDecisionChange;
 }) {
+  const pressed = decision === side;
   return (
-    <div
-      className={styles.compareReviewPane}
-      data-selected={selected || undefined}
-      data-dimmed={dimmed || undefined}
-      data-empty={!visible || undefined}
-    >
-      <span className={styles.diffLabel}>{label}</span>
-      {visible ? (
-        text ? (
-          <pre className={styles.diffPre}>{text}</pre>
-        ) : (
-          <span className={styles.versePlaceholder}>
-            <Trans>No content on this side</Trans>
-          </span>
+    <button
+      type="button"
+      className={styles.compareMoveSideToggle}
+      data-pressed={pressed || undefined}
+      title={label}
+      onClick={() =>
+        onDecisionChange(
+          chapter.comparison.address,
+          unitId,
+          pressed ? null : side,
         )
-      ) : (
-        <span className={styles.versePlaceholder} aria-hidden="true">
-          —
+      }
+    >
+      {side === "left" ? "◀" : "▶"}
+      <span className={styles.visuallyHidden}>{label}</span>
+    </button>
+  );
+}
+
+/** One skeleton slot — three grid children (left cell, gutter, right cell)
+ * contributed directly into the parent's 3-column grid via a Fragment, so no
+ * extra wrapper element disturbs column alignment. A displaced unit's slot
+ * shows only its own side's content (`shouldShowUnitSide`) plus a single
+ * direction-appropriate toggle in the gutter, instead of a bespoke card —
+ * the skeleton already lays the move out at its two real positions. */
+function CompareChapterRowCells({
+  chapter,
+  row,
+  leftLabel,
+  rightLabel,
+  readOnly,
+  showUsfmMarkers,
+  onDecisionChange,
+  onNavigate,
+}: {
+  chapter: ComparePresentationChapter;
+  row: CompareChapterSlotRow;
+  leftLabel: string;
+  rightLabel: string;
+  readOnly: boolean;
+  showUsfmMarkers: boolean;
+  onDecisionChange?: CompareDecisionChange;
+  onNavigate?: CompareNavigate;
+}) {
+  const { comparison } = chapter;
+  const unit = row.unit;
+  const sid = unitReference(unit);
+  const changed = unit.status !== "unchanged";
+  const isMovedSlot = unit.displaced;
+  const details = unitDetailLabels({ unit, leftLabel, rightLabel });
+  const detailTitle = details.length > 0 ? details.join(" · ") : undefined;
+  const leftVisible = shouldShowUnitSide({
+    unit,
+    slot: row.slot,
+    side: "left",
+  });
+  const rightVisible = shouldShowUnitSide({
+    unit,
+    slot: row.slot,
+    side: "right",
+  });
+  const leftText = tokensToReviewText({
+    tokens: unit.baselineTokens,
+    showUsfmMarkers,
+  });
+  const rightText = tokensToReviewText({
+    tokens: unit.currentTokens,
+    showUsfmMarkers,
+  });
+  const captions = isMovedSlot
+    ? movedAnchorCaptions({
+        skeleton: comparison.skeleton,
+        leftSlotIndex:
+          row.slot.role === "pairBaseline"
+            ? row.slotIndex
+            : row.linkedSlotIndex,
+        rightSlotIndex:
+          row.slot.role === "pairCurrent" ? row.slotIndex : row.linkedSlotIndex,
+      })
+    : null;
+
+  const cell = (side: "left" | "right") => {
+    const visible = side === "left" ? leftVisible : rightVisible;
+    const text = side === "left" ? leftText : rightText;
+    const caption = side === "left" ? captions?.from : captions?.to;
+    return (
+      <div
+        className={styles.compareChapterCell}
+        data-compare-unit-id={unit.id}
+        data-selected={row.decision === side || undefined}
+        data-dimmed={
+          (row.decision !== null && row.decision !== side) || undefined
+        }
+        data-empty={!visible || undefined}
+        title={detailTitle}
+      >
+        <span
+          className={joinClassNames(
+            changed ? styles.compareChapterSid : styles.compareChapterSidMuted,
+            changed && styles.statusBadgeClassName[unitStatusVariant(unit)],
+          )}
+        >
+          {sid}
+          {caption ? (
+            <span className={styles.compareChapterMoveCaption}>
+              {" "}
+              · {caption}
+            </span>
+          ) : null}
         </span>
-      )}
-    </div>
+        {visible ? (
+          text ? (
+            <pre className={styles.diffPre}>{text}</pre>
+          ) : (
+            <span className={styles.versePlaceholder}>
+              <Trans>No content on this side</Trans>
+            </span>
+          )
+        ) : (
+          <span className={styles.versePlaceholder} aria-hidden="true">
+            —
+          </span>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      {cell("left")}
+      <div className={styles.compareChapterGutterCell}>
+        {!readOnly && changed && onDecisionChange ? (
+          isMovedSlot ? (
+            <CompareMoveSideToggle
+              chapter={chapter}
+              unitId={unit.id}
+              decision={row.decision}
+              side={row.slot.role === "pairBaseline" ? "left" : "right"}
+              label={
+                row.slot.role === "pairBaseline"
+                  ? t`Use original position`
+                  : t`Use new position`
+              }
+              onDecisionChange={onDecisionChange}
+            />
+          ) : (
+            <CompareDecisionControl
+              chapter={chapter}
+              unitId={unit.id}
+              decision={row.decision}
+              leftLabel={leftLabel}
+              rightLabel={rightLabel}
+              instanceId={`slot-${row.slotIndex}`}
+              onDecisionChange={onDecisionChange}
+              compact
+            />
+          )
+        ) : null}
+        {onNavigate && changed ? (
+          <Button
+            variant="default"
+            size="xs"
+            aria-label={t`Open in editor`}
+            title={t`Open in editor`}
+            onClick={() =>
+              onNavigate({ address: comparison.address, unitId: unit.id, sid })
+            }
+          >
+            <BookOpen size={12} />
+          </Button>
+        ) : null}
+      </div>
+      {cell("right")}
+    </>
   );
 }
 
@@ -159,130 +320,26 @@ export function ChapterDiffStructuredDocument({
       ) : null}
 
       <div className={styles.compareChapterRows}>
-        {rows.map((row) => {
-          const unit = row.unit;
-          const sid = unitReference(unit);
-          const details = unitDetailLabels({ unit, leftLabel, rightLabel });
-          const positionNarration =
-            slotMoveNarration({
-              skeleton: comparison.skeleton,
-              slotIndex: row.slotIndex,
-              linkedSlotIndex: row.linkedSlotIndex,
-            }) ??
-            unitPositionNarration({
-              skeleton: comparison.skeleton,
-              unit,
-              leftSlotIndex:
-                row.side === "left" || row.side === "both"
-                  ? row.slotIndex
-                  : null,
-              rightSlotIndex:
-                row.side === "right" || row.side === "both"
-                  ? row.slotIndex
-                  : null,
-            });
-          const actionable = unit.status !== "unchanged";
-          const leftVisible = shouldShowUnitSide({
-            unit,
-            slot: row.slot,
-            side: "left",
-          });
-          const rightVisible = shouldShowUnitSide({
-            unit,
-            slot: row.slot,
-            side: "right",
-          });
-          const leftText = tokensToReviewText({
-            tokens: unit.baselineTokens,
-            showUsfmMarkers,
-          });
-          const rightText = tokensToReviewText({
-            tokens: unit.currentTokens,
-            showUsfmMarkers,
-          });
-          return (
-            <article
-              key={`${unit.id}:${row.slotIndex}`}
-              id={`compare-slot-${row.slotIndex}`}
-              className={styles.compareChapterSlot}
-              data-compare-unit-id={unit.id}
-              data-compare-slot-index={row.slotIndex}
-              data-linked-slot-index={row.linkedSlotIndex ?? undefined}
-            >
-              <header className={styles.compareReviewHeader}>
-                <div className={styles.compareReviewIdentity}>
-                  <strong>{sid}</strong>
-                  <span className={styles.diffBadge}>
-                    {unitStatusLabel(unit)}
-                  </span>
-                  {positionNarration ? (
-                    <span className={styles.compareMoveNarration}>
-                      {positionNarration}
-                    </span>
-                  ) : null}
-                  {row.linkedSlotIndex !== null ? (
-                    <a
-                      className={styles.compareMoveLink}
-                      href={`#compare-slot-${row.linkedSlotIndex}`}
-                    >
-                      <Trans>Show other position</Trans>
-                    </a>
-                  ) : null}
-                  {details.map((detail) => (
-                    <span key={detail} className={styles.compareReviewDetail}>
-                      {detail}
-                    </span>
-                  ))}
-                </div>
-                <div className={styles.compareReviewActions}>
-                  {onNavigate ? (
-                    <Button
-                      variant="default"
-                      size="xs"
-                      leftIcon={<BookOpen size={14} />}
-                      onClick={() =>
-                        onNavigate({
-                          address: comparison.address,
-                          unitId: unit.id,
-                          sid,
-                        })
-                      }
-                    >
-                      <Trans>Open in editor</Trans>
-                    </Button>
-                  ) : null}
-                  {!readOnly && actionable && onDecisionChange ? (
-                    <CompareDecisionControl
-                      chapter={chapter}
-                      unitId={unit.id}
-                      decision={row.decision}
-                      leftLabel={leftLabel}
-                      rightLabel={rightLabel}
-                      instanceId={`slot-${row.slotIndex}`}
-                      onDecisionChange={onDecisionChange}
-                    />
-                  ) : null}
-                </div>
-              </header>
-              <div className={styles.compareReviewPanes}>
-                <ChapterSide
-                  label={leftLabel}
-                  text={leftText}
-                  visible={leftVisible}
-                  selected={row.decision === "left"}
-                  dimmed={row.decision === "right"}
-                />
-                <ChapterSide
-                  label={rightLabel}
-                  text={rightText}
-                  visible={rightVisible}
-                  selected={row.decision === "right"}
-                  dimmed={row.decision === "left"}
-                />
-              </div>
-            </article>
-          );
-        })}
+        <div className={styles.compareChapterColumnHeader}>
+          <span className={styles.diffLabel}>{leftLabel}</span>
+        </div>
+        <div className={styles.compareChapterColumnHeader} />
+        <div className={styles.compareChapterColumnHeader}>
+          <span className={styles.diffLabel}>{rightLabel}</span>
+        </div>
+        {rows.map((row) => (
+          <CompareChapterRowCells
+            key={row.slotIndex}
+            chapter={chapter}
+            row={row}
+            leftLabel={leftLabel}
+            rightLabel={rightLabel}
+            readOnly={readOnly}
+            showUsfmMarkers={showUsfmMarkers}
+            onDecisionChange={onDecisionChange}
+            onNavigate={onNavigate}
+          />
+        ))}
       </div>
     </section>
   );

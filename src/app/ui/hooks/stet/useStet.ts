@@ -69,17 +69,24 @@ export function useStet(options?: {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [showExhaustive, setShowExhaustive] = useState(false);
   const [selectedRowSid, setSelectedRowSid] = useState<string | null>(null);
+  const [selectedLocale, setSelectedLocale] = useState<string | null>(null);
 
   const guidesQuery = useQuery({
     queryKey: ["stetGuides"],
     queryFn: ({ signal }) => source.listGuides(signal),
   });
 
-  // V1: default to the English guide; no picker yet (locale resolution deferred).
+  const guides = guidesQuery.data ?? [];
+
+  // Default to the English guide until the user picks another; falls back to
+  // the first listed guide if English isn't available.
   const guide = useMemo(() => {
-    const guides = guidesQuery.data ?? [];
+    if (selectedLocale) {
+      const picked = guides.find((entry) => entry.locale === selectedLocale);
+      if (picked) return picked;
+    }
     return guides.find((entry) => entry.locale === "en") ?? guides[0] ?? null;
-  }, [guidesQuery.data]);
+  }, [guides, selectedLocale]);
 
   const catalogQuery = useQuery({
     // Keyed by provenanceId so a future snapshot bump invalidates naturally.
@@ -293,5 +300,8 @@ export function useStet(options?: {
     rows,
     referenceDisplayName,
     selectedRowSid,
+    guides,
+    selectedGuideLocale: guide?.locale ?? null,
+    selectGuideLocale: setSelectedLocale,
   };
 }

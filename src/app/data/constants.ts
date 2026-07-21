@@ -76,6 +76,7 @@ export const TESTING_IDS = {
     toolbarTrigger: "stet-toolbar-trigger",
     dockToggle: "stet-dock-toggle",
     emptyState: "stet-empty-state",
+    guideSelect: "stet-guide-select",
   },
   appDrawer: {
     projectsList: "app-drawer-projects-list",

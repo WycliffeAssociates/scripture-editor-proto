@@ -16,9 +16,11 @@ import type { ResultRow } from "./resultRow.ts";
 export function ResultBrowser({
   rows,
   containerData,
+  containerClassName,
 }: {
   rows: ResultRow[];
   containerData?: Record<string, string | number>;
+  containerClassName?: string;
 }) {
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -32,7 +34,11 @@ export function ResultBrowser({
   return (
     <div
       ref={parentRef}
-      className={styles.searchResultsContainer}
+      className={
+        containerClassName
+          ? `${styles.searchResultsContainer} ${containerClassName}`
+          : styles.searchResultsContainer
+      }
       {...containerData}
     >
       <div

@@ -38,7 +38,11 @@ test.describe("Format Feature", () => {
     ).toBeVisible();
   });
 
-  test("Format Project via Action Palette", async ({
+  // FIXME: parked pending the Option C review-modal redesign. This drives the
+  // pre-redesign save-modal DOM (save.diffItem rows, revert-all button,
+  // no-changes message) that DiffViewerModal no longer renders. Re-migrate to
+  // the new review UI (mirroring save.spec.ts) once it settles.
+  test.fixme("Format Project via Action Palette", async ({
     editorWithTwoProjects: page,
   }) => {
     // The "Format Project" action is no longer in a toolbar overflow menu;

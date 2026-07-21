@@ -34,8 +34,14 @@ test.describe("Spiritual Terms Evaluation", () => {
     ).toBeVisible({ timeout: CATALOG_TIMEOUT });
 
     // The pinned reference provenance is shown (header + per-row source label).
+    // Scope to visible matches: the reference-guide <select> also carries an
+    // <option> with this exact text, which Playwright treats as hidden, so an
+    // unscoped .first() would resolve to the option and fail visibility.
     await expect(
-      editorPage.getByText("English ULB (en_ulb)").first(),
+      editorPage
+        .getByText("English ULB (en_ulb)")
+        .filter({ visible: true })
+        .first(),
     ).toBeVisible();
   });
 

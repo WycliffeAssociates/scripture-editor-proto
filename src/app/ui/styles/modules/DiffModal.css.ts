@@ -490,8 +490,8 @@ export const diffPre = style({
   wordBreak: "break-word",
   fontFamily: "inherit",
   color: "inherit",
-  lineHeight: 1.6,
-  fontSize: vars.fontSizes.md,
+  lineHeight: 1.55,
+  fontSize: vars.fontSizes.sm,
 });
 
 // Placeholder text for added/deleted verses
@@ -897,15 +897,41 @@ export const diffBadge = style({
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  minHeight: "1.75rem",
-  padding: `0 ${vars.spacing.sm}`,
-  borderRadius: vars.radius.full,
-  border: `1px solid ${vars.colors.gray[3]}`,
-  backgroundColor: vars.colors.gray[0],
+  minHeight: "1.25rem",
+  padding: `0 ${vars.spacing.xs}`,
+  borderRadius: vars.radius.sm,
+  border: "none",
+  backgroundColor: "transparent",
   color: vars.colors.gray[7],
-  fontSize: ".8em",
-  fontWeight: 600,
+  fontSize: "0.7em",
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
 });
+
+export const diffBadgeAdded = style({
+  color: vars.colors.green[2],
+});
+
+export const diffBadgeDeleted = style({
+  color: vars.colors.red[2],
+});
+
+export const diffBadgeModified = style({
+  color: vars.colors.blue[7],
+});
+
+export const diffBadgeMoved = style({
+  color: vars.colors.blue[7],
+});
+
+export const statusBadgeClassName = {
+  added: diffBadgeAdded,
+  deleted: diffBadgeDeleted,
+  modified: diffBadgeModified,
+  moved: diffBadgeMoved,
+  unchanged: undefined,
+} as const;
 
 export const diffBadgePrimary = style({
   backgroundColor: vars.colors.blue[0],
@@ -943,10 +969,15 @@ export const diffPaper = style({
 });
 
 export const diffCenter = style({
-  minHeight: "100%",
+  // `flex: 1` (not a percentage minHeight) so this reliably fills whatever
+  // room `optionCBody`'s flex column actually has — a short empty/loading
+  // message otherwise collapses to its own content height and ends up
+  // crowding the footer instead of centering in the available space.
+  flex: "1 1 auto",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
+  padding: vars.spacing.xl,
 });
 
 const diffModalSpin = keyframes({
@@ -1046,10 +1077,9 @@ export const visuallyHidden = style({
   border: 0,
 });
 
-export const compareChapterGroup = style({
-  display: "grid",
-  gap: vars.spacing.sm,
-  paddingBlock: vars.spacing.sm,
+export const compareListChapterHeading = style({
+  paddingTop: vars.spacing.md,
+  paddingBottom: vars.spacing.xs,
 });
 
 export const compareChapterToolbar = style({
@@ -1069,11 +1099,19 @@ export const compareChapterHeading = style({
 
 export const compareReviewRow = style({
   display: "grid",
-  gap: vars.spacing.sm,
-  padding: `${vars.spacing.md} 0`,
-  borderBottom: `1px solid ${vars.colors.gray[3]}`,
+  gap: 0,
+  marginBottom: vars.spacing.md,
+  border: `1px solid ${vars.colors.gray[3]}`,
+  borderRadius: vars.radius.md,
+  backgroundColor: vars.colors.body,
+  overflow: "hidden",
   contentVisibility: "auto",
   containIntrinsicSize: "0 12rem",
+  selectors: {
+    [`${darkSelector} &`]: {
+      backgroundColor: vars.colors.dark[6],
+    },
+  },
 });
 
 export const compareReviewHeader = style({
@@ -1082,14 +1120,28 @@ export const compareReviewHeader = style({
   justifyContent: "space-between",
   gap: vars.spacing.sm,
   flexWrap: "wrap",
+  padding: `${vars.spacing.sm} ${vars.spacing.md}`,
+  backgroundColor: `color-mix(in srgb, ${vars.colors.gray[2]} 55%, ${vars.colors.body})`,
+  borderBottom: `1px solid ${vars.colors.gray[3]}`,
+  selectors: {
+    [`${darkSelector} &`]: {
+      backgroundColor: vars.colors.dark[4],
+    },
+  },
 });
 
 export const compareReviewIdentity = style({
   display: "flex",
-  alignItems: "center",
+  alignItems: "baseline",
   gap: vars.spacing.xs,
   flexWrap: "wrap",
   minWidth: 0,
+});
+
+export const compareReviewSid = style({
+  fontSize: vars.fontSizes.sm,
+  fontWeight: 600,
+  color: vars.colors.text,
 });
 
 export const compareReviewActions = style({
@@ -1109,7 +1161,7 @@ export const compareReviewDetail = style({
 export const compareReviewPanes = style({
   display: "grid",
   gridTemplateColumns: "minmax(0, 1fr)",
-  gap: vars.spacing.sm,
+  gap: 0,
   "@media": {
     [breakpoints.minWMd]: {
       gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
@@ -1121,16 +1173,11 @@ export const compareReviewPane = style({
   display: "grid",
   alignContent: "start",
   gap: vars.spacing.xs,
-  minHeight: "4rem",
-  padding: vars.spacing.sm,
-  borderRadius: vars.radius.md,
-  backgroundColor: vars.colors.body,
-  border: `1px solid ${vars.colors.gray[3]}`,
-  transition:
-    "border-color 150ms ease, background-color 150ms ease, opacity 150ms ease",
+  minHeight: "3rem",
+  padding: `${vars.spacing.sm} ${vars.spacing.md}`,
+  transition: "background-color 150ms ease, opacity 150ms ease",
   selectors: {
     "&[data-selected]": {
-      borderColor: vars.colors.blue[7],
       backgroundColor: vars.colors.blue[0],
     },
     "&[data-dimmed]": {
@@ -1138,10 +1185,9 @@ export const compareReviewPane = style({
     },
     "&[data-empty]": {
       backgroundColor: vars.colors.gray[2],
-      borderStyle: "dashed",
     },
     [`${darkSelector} &`]: {
-      backgroundColor: vars.colors.dark[6],
+      backgroundColor: "transparent",
     },
     [`${darkSelector} &[data-selected]`]: {
       backgroundColor: vars.colors.dark[4],
@@ -1151,18 +1197,37 @@ export const compareReviewPane = style({
     "(prefers-reduced-motion: reduce)": {
       transition: "none",
     },
+    [breakpoints.minWMd]: {
+      selectors: {
+        "&:nth-child(2)": {
+          borderLeft: `1px solid ${vars.colors.gray[3]}`,
+        },
+      },
+    },
   },
 });
 
 export const compareDecisionFieldset = style({
   display: "inline-flex",
-  alignItems: "center",
-  gap: "2px",
+  alignItems: "stretch",
+  gap: 0,
   margin: 0,
-  padding: "2px",
+  padding: 0,
   border: `1px solid ${vars.colors.gray[3]}`,
-  borderRadius: vars.radius.md,
-  backgroundColor: vars.colors.gray[2],
+  borderRadius: vars.radius.full,
+  backgroundColor: vars.colors.gray[0],
+  overflow: "hidden",
+  selectors: {
+    [`${darkSelector} &`]: {
+      backgroundColor: vars.colors.dark[6],
+    },
+    // The compact variant (gutter use) stacks its 3 segments vertically —
+    // there isn't enough column width for a horizontal pill with real labels.
+    "&[data-compact]": {
+      flexDirection: "column",
+      borderRadius: vars.radius.md,
+    },
+  },
 });
 
 export const comparePresenceFieldset = style({
@@ -1185,50 +1250,92 @@ export const comparePresenceLegend = style({
 });
 
 export const compareDecisionOption = style({
+  position: "relative",
   display: "inline-flex",
   alignItems: "center",
-  gap: vars.spacing.xs,
+  justifyContent: "center",
   minHeight: "1.75rem",
-  paddingInline: vars.spacing.xs,
-  borderRadius: vars.radius.sm,
+  paddingInline: vars.spacing.sm,
   cursor: "pointer",
+  transition: "background-color 120ms ease, color 120ms ease",
   selectors: {
+    "&:not(:last-of-type)": {
+      borderRight: `1px solid ${vars.colors.gray[3]}`,
+    },
     "&:hover": {
-      backgroundColor: vars.colors.body,
+      backgroundColor: vars.colors.gray[2],
+    },
+    "&:has(input:checked)": {
+      backgroundColor: vars.colors.blue[7],
+    },
+    "&:has(input:checked):hover": {
+      backgroundColor: vars.colors.blue[7],
     },
     "&:focus-within": {
       outline: "none",
       boxShadow: controlFocusRing,
     },
+    [`${compareDecisionFieldset}[data-compact] &`]: {
+      minHeight: "1.5rem",
+      paddingInline: vars.spacing.xs,
+    },
+    [`${compareDecisionFieldset}[data-compact] &:not(:last-of-type)`]: {
+      borderRight: "none",
+      borderBottom: `1px solid ${vars.colors.gray[3]}`,
+    },
   },
 });
 
+// Invisible but full-size and positioned exactly over its label (not clipped
+// to 1px) — the label's visible arrow/text render behind it in normal flow,
+// and this stays the actual click/tap target at its real on-screen position
+// (Playwright's role=radio locator clicks this element directly, not the
+// label — a clipped-to-1px input silently fails that click).
 export const compareDecisionInput = style({
-  width: "0.9rem",
-  height: "0.9rem",
+  position: "absolute",
+  inset: 0,
+  width: "100%",
+  height: "100%",
   margin: 0,
-  accentColor: vars.colors.blue[7],
+  padding: 0,
+  opacity: 0,
+  cursor: "pointer",
 });
 
 export const compareDecisionText = style({
   color: vars.colors.gray[7],
   fontSize: vars.fontSizes.sm,
   fontWeight: 600,
+  whiteSpace: "nowrap",
+  selectors: {
+    [`${compareDecisionOption}:has(input:checked) &`]: {
+      color: "#fff",
+    },
+  },
 });
 
 export const compareClearDecision = style({
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
   minHeight: "1.75rem",
   paddingInline: vars.spacing.sm,
   border: 0,
-  borderRadius: vars.radius.sm,
+  borderLeft: `1px solid ${vars.colors.gray[3]}`,
   backgroundColor: "transparent",
   color: vars.colors.gray[7],
   fontSize: vars.fontSizes.sm,
   fontWeight: 600,
   cursor: "pointer",
   selectors: {
+    [`${compareDecisionFieldset}[data-compact] &`]: {
+      minHeight: "1.5rem",
+      paddingInline: vars.spacing.xs,
+      borderLeft: "none",
+      borderTop: `1px solid ${vars.colors.gray[3]}`,
+    },
     "&:hover:not(:disabled)": {
-      backgroundColor: vars.colors.body,
+      backgroundColor: vars.colors.gray[2],
       color: vars.colors.text,
     },
     "&:focus-visible": {
@@ -1244,10 +1351,111 @@ export const compareClearDecision = style({
 
 export const compareChapterRows = style({
   display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) 2.5rem minmax(0, 1fr)",
   minHeight: 0,
   overflowY: "auto",
   backgroundColor: vars.colors.body,
   borderRadius: vars.radius.lg,
+  "@media": {
+    [breakpoints.minWMd]: {
+      gridTemplateColumns: "minmax(0, 1fr) 3.25rem minmax(0, 1fr)",
+    },
+  },
+});
+
+export const compareChapterColumnHeader = style({
+  position: "sticky",
+  top: 0,
+  zIndex: 1,
+  padding: `${vars.spacing.xs} ${vars.spacing.md}`,
+  backgroundColor: vars.colors.body,
+  borderBottom: `1px solid ${vars.colors.gray[3]}`,
+});
+
+export const compareChapterCell = style({
+  padding: `${vars.spacing.sm} ${vars.spacing.md}`,
+  borderBottom: `1px solid ${vars.colors.gray[3]}`,
+  fontSize: vars.fontSizes.sm,
+  lineHeight: 1.6,
+  minWidth: 0,
+  whiteSpace: "pre-wrap",
+  overflowWrap: "anywhere",
+  transition: "background-color 150ms ease, opacity 150ms ease",
+  selectors: {
+    "&[data-selected]": {
+      backgroundColor: vars.colors.blue[0],
+    },
+    "&[data-dimmed]": {
+      opacity: 0.55,
+    },
+    "&[data-empty]": {
+      backgroundColor: vars.colors.gray[2],
+    },
+    [`${darkSelector} &[data-selected]`]: {
+      backgroundColor: vars.colors.dark[4],
+    },
+  },
+});
+
+export const compareChapterSid = style({
+  display: "block",
+  fontWeight: 700,
+  fontSize: "0.7em",
+  color: vars.colors.blue[7],
+  marginBottom: "2px",
+});
+
+export const compareChapterSidMuted = style({
+  display: "block",
+  fontWeight: 600,
+  fontSize: "0.7em",
+  color: vars.colors.dimmed,
+  marginBottom: "2px",
+});
+
+export const compareChapterGutterCell = style({
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "2px",
+  padding: vars.spacing.xs,
+  borderBottom: `1px solid ${vars.colors.gray[3]}`,
+});
+
+export const compareMoveSideToggle = style({
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "1.5rem",
+  height: "1.5rem",
+  padding: 0,
+  border: `1px solid ${vars.colors.gray[3]}`,
+  borderRadius: vars.radius.md,
+  backgroundColor: vars.colors.gray[0],
+  color: vars.colors.gray[7],
+  fontSize: vars.fontSizes.sm,
+  cursor: "pointer",
+  transition: "background-color 120ms ease, color 120ms ease",
+  selectors: {
+    "&:hover": {
+      backgroundColor: vars.colors.gray[2],
+    },
+    "&[data-pressed]": {
+      backgroundColor: vars.colors.blue[7],
+      borderColor: vars.colors.blue[7],
+      color: "#fff",
+    },
+    "&:focus-visible": {
+      outline: "none",
+      boxShadow: controlFocusRing,
+    },
+  },
+});
+
+export const compareChapterMoveCaption = style({
+  fontWeight: 500,
+  color: vars.colors.dimmed,
 });
 
 export const compareChapterSlot = style({
@@ -1265,24 +1473,74 @@ export const compareChapterSlot = style({
   },
 });
 
+/* ---------- moved / collocated content grid (list view row body) ---------- */
+
+export const collocatedGrid = style({
+  display: "grid",
+  gridTemplateColumns: "auto minmax(0, 1fr) minmax(0, 1fr)",
+  gap: "1px",
+  backgroundColor: vars.colors.gray[3],
+  border: `1px solid ${vars.colors.gray[3]}`,
+  borderRadius: vars.radius.md,
+  overflow: "hidden",
+});
+
+export const collocatedCornerLabel = style({
+  backgroundColor: vars.colors.gray[0],
+});
+
+export const collocatedColLabel = style({
+  padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
+  backgroundColor: vars.colors.gray[0],
+  fontSize: vars.fontSizes.sm,
+  fontWeight: 700,
+  color: vars.colors.dimmed,
+});
+
+export const collocatedRowLabel = style({
+  display: "flex",
+  alignItems: "center",
+  padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
+  backgroundColor: vars.colors.gray[0],
+  fontSize: vars.fontSizes.sm,
+  fontWeight: 600,
+  color: vars.colors.dimmed,
+});
+
+export const collocatedCell = style({
+  padding: vars.spacing.sm,
+  backgroundColor: vars.colors.body,
+  fontSize: vars.fontSizes.sm,
+  lineHeight: 1.55,
+  whiteSpace: "pre-wrap",
+  overflowWrap: "anywhere",
+  minWidth: 0,
+  selectors: {
+    "&[data-chosen]": {
+      backgroundColor: vars.colors.blue[0],
+    },
+    "&[data-dim]": {
+      opacity: 0.55,
+    },
+  },
+});
+
+export const collocatedCorner = style({
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: vars.spacing.sm,
+  backgroundColor: vars.colors.body,
+  color: vars.colors.dimmed,
+  fontSize: vars.fontSizes.sm,
+  fontStyle: "italic",
+  textAlign: "center",
+});
+
 export const compareMoveNarration = style({
   color: vars.colors.blue[7],
   fontSize: vars.fontSizes.sm,
   fontWeight: 600,
-});
-
-export const compareMoveLink = style({
-  color: vars.colors.blue[7],
-  fontSize: vars.fontSizes.sm,
-  fontWeight: 600,
-  textDecoration: "underline",
-  textUnderlineOffset: "2px",
-  selectors: {
-    "&:focus-visible": {
-      outline: "none",
-      boxShadow: controlFocusRing,
-    },
-  },
 });
 
 export const compareBulkActions = style({
@@ -1323,28 +1581,6 @@ export const compareSourceSide = style({
   fontWeight: 700,
 });
 
-export const compareSourceSelect = style({
-  minWidth: 0,
-  minHeight: CONTROL_HEIGHT,
-  maxWidth: "16rem",
-  paddingInline: vars.spacing.sm,
-  border: controlBorder,
-  borderRadius: vars.radius.md,
-  backgroundColor: vars.colors.body,
-  color: vars.colors.text,
-  font: "inherit",
-  fontSize: vars.fontSizes.sm,
-  selectors: {
-    "&:focus-visible": {
-      outline: "none",
-      boxShadow: controlFocusRing,
-    },
-    "&:disabled": {
-      opacity: 0.55,
-    },
-  },
-});
-
 export const compareSourceLabel = style({
   minWidth: 0,
   overflow: "hidden",
@@ -1370,6 +1606,29 @@ export const compareFilterLabel = style({
   fontWeight: 600,
   whiteSpace: "nowrap",
   cursor: "pointer",
+});
+
+export const filterMenuItem = style({
+  display: "flex",
+  alignItems: "center",
+  width: "100%",
+  padding: `${vars.spacing.xs} ${vars.spacing.md}`,
+});
+
+export const toolbarSecondaryBand = style({
+  display: "flex",
+  alignItems: "center",
+  gap: vars.spacing.sm,
+  flexWrap: "wrap",
+  paddingInline: vars.spacing.sm,
+  color: vars.colors.dimmed,
+  fontSize: vars.fontSizes.sm,
+});
+
+export const toolbarSecondaryLabel = style({
+  color: vars.colors.dimmed,
+  fontWeight: 600,
+  whiteSpace: "nowrap",
 });
 
 export const optionCBody = style({
@@ -1424,61 +1683,49 @@ globalStyle(`${compareWarningBanner} > div, ${compareErrorBanner} > div`, {
 export const compareCoverageSummary = style({
   display: "flex",
   alignItems: "center",
-  gap: vars.spacing.xs,
+  gap: vars.spacing.sm,
   flexWrap: "wrap",
   color: vars.colors.dimmed,
   fontSize: vars.fontSizes.sm,
 });
 
-globalStyle(`${compareCoverageSummary} > span`, {
-  padding: `0.2rem ${vars.spacing.xs}`,
-  borderRadius: vars.radius.sm,
-  backgroundColor: vars.colors.gray[2],
+globalStyle(`${compareCoverageSummary} > span:not(:last-child)::after`, {
+  content: '"·"',
+  marginLeft: vars.spacing.sm,
+  color: vars.colors.gray[3],
 });
 
-export const comparePreview = style({
-  flex: "0 0 auto",
-  borderTop: `1px solid ${vars.colors.gray[3]}`,
+// --- Result preview drawer (replaces the body, not an inline disclosure) ---
+
+export const previewDrawer = style({
+  flex: "1 1 auto",
+  minHeight: 0,
+  display: "flex",
+  flexDirection: "column",
   backgroundColor: vars.colors.body,
 });
 
-export const comparePreviewSummary = style({
+export const previewDrawerHeader = style({
+  flex: "0 0 auto",
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
   gap: vars.spacing.sm,
-  padding: vars.spacing.sm,
+  paddingBottom: vars.spacing.sm,
+  borderBottom: `1px solid ${vars.colors.gray[3]}`,
+});
+
+export const previewDrawerTitle = style({
   color: vars.colors.text,
   fontSize: vars.fontSizes.sm,
   fontWeight: 700,
-  cursor: "pointer",
-  selectors: {
-    "&:focus-visible": {
-      outline: "none",
-      boxShadow: controlFocusRing,
-    },
-  },
 });
 
-globalStyle(`${comparePreview}[open] ${comparePreviewSummary} svg`, {
-  transform: "rotate(180deg)",
-});
-
-export const comparePreviewBody = style({
-  maxHeight: "18rem",
-  overflow: "auto",
-  padding: `0 ${vars.spacing.sm} ${vars.spacing.sm}`,
-});
-
-export const compareReadingPreview = style({
-  maxWidth: "75ch",
-  margin: 0,
-  whiteSpace: "pre-wrap",
-  overflowWrap: "anywhere",
-  color: vars.colors.text,
-  fontFamily: "inherit",
-  fontSize: vars.fontSizes.md,
-  lineHeight: 1.7,
+export const previewDrawerBody = style({
+  flex: "1 1 auto",
+  minHeight: 0,
+  overflow: "hidden",
+  paddingTop: vars.spacing.sm,
 });
 
 export const compareReceipt = style({

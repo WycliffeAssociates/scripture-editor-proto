@@ -70,13 +70,6 @@ export type LexicalUsfmTokenStream = {
   wrapper?: SerializedElementNode;
 };
 
-export type LexicalRenderToken = {
-  node: SerializedLexicalNode;
-  sid: string;
-  tokenType?: string;
-  marker?: string;
-};
-
 // This table is intentionally total over both vocabularies. Adding or
 // renaming an editor token type or an Onion TokenKind must update this adapter
 // before TypeScript will compile. Editor-only composite nodes map to null and
@@ -333,31 +326,6 @@ export {
   serializeChaptersToUsfm,
   tokensToUsfm,
 } from "@/core/domain/usfm/usfmBytes.ts";
-
-export function tokensToRenderTokens(tokens: Token[]): LexicalRenderToken[] {
-  return tokens.map((token) => {
-    const node =
-      token.kind === "newline"
-        ? ({ type: "linebreak", version: 1 } as SerializedLexicalNode)
-        : (createSerializedUSFMTextNode({
-            text: token.source,
-            id: token.id ?? guidGenerator(),
-            sid: token.sid ?? "",
-            tokenType: flatTokenKindToLexicalTokenType(token.kind),
-            marker: token.marker ?? undefined,
-          }) as SerializedLexicalNode);
-
-    return {
-      node,
-      sid: token.sid ?? "",
-      tokenType:
-        token.kind === "newline"
-          ? UsfmTokenTypes.verticalWhitespace
-          : flatTokenKindToLexicalTokenType(token.kind),
-      marker: token.marker ?? undefined,
-    };
-  });
-}
 
 // Aliased to `EditorShape`. Callers reading "this is the shape the
 // loader will use" don't have to retrain their eye on the new name.

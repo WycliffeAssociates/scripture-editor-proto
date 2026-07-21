@@ -36,6 +36,14 @@ msgstr "(más usado)"
 #~ msgid "(New verse)"
 #~ msgstr "(Verso nuevo)"
 
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:390
+msgid "(same text — shown above)"
+msgstr ""
+
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:360
+msgid "(same text — shown below)"
+msgstr ""
+
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:347
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:406
 #~ msgid "(Verse deleted)"
@@ -76,36 +84,36 @@ msgid "{0} — your current work compared with the version saved by {author}"
 msgstr "{0} — tu trabajo actual comparado con la versión guardada por {author}"
 
 #. placeholder {0}: chapters.length
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:442
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:491
 msgid "{0} changed chapters"
 msgstr ""
 
 #. placeholder {0}: structuralSummary.add
 #. placeholder {1}: structuralSummary.update
 #. placeholder {2}: structuralSummary.delete
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:373
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:372
 msgid "{0} chapters added, {1} updated, {2} removed."
 msgstr ""
 
 #. placeholder {0}: stet.coverage.presentTargetCount
 #. placeholder {1}: stet.coverage.designatedCount
-#: src/app/ui/components/views/stet-panel/StetPanel.tsx:229
+#: src/app/ui/components/views/stet-panel/StetPanel.tsx:246
 msgid "{0} of {1} verses available in this project"
 msgstr ""
 
 #. placeholder {0}: active.session.snapshot.coverage.leftOnly.length
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:455
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:504
 msgid "{0} only on Left"
 msgstr ""
 
 #. placeholder {0}: active.session.snapshot.coverage.rightOnly.length
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:463
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:512
 msgid "{0} only on Right"
 msgstr ""
 
 #. placeholder {0}: structuralSummary.add
 #. placeholder {1}: structuralSummary.delete
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:471
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:520
 msgid "{0} to add · {1} to remove"
 msgstr ""
 
@@ -146,7 +154,7 @@ msgid "{repoLabel} isn't tagged \"consolidated\", so it isn't available to "
 msgstr "{repoLabel} no está etiquetado como «consolidated», por lo que no está "
 "disponible para importar aquí."
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:446
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:495
 msgid "{unresolvedCount} unresolved decisions"
 msgstr ""
 
@@ -352,7 +360,7 @@ msgid "Added"
 msgstr "Agregado"
 
 #. placeholder {0}: anchorReference(rightSlot)
-#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:113
+#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:148
 msgid "Added after {0}"
 msgstr ""
 
@@ -379,11 +387,15 @@ msgstr "Afectados {0} capítulos"
 msgid "All"
 msgstr "Todo"
 
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:364
+msgid "All changes:"
+msgstr ""
+
 #: src/app/ui/components/blocks/FindingsPopover.tsx:632
 msgid "All clear"
 msgstr "Todo limpio"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:293
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:361
 msgid "All decisions"
 msgstr ""
 
@@ -399,7 +411,7 @@ msgstr "Ya está en el borde izquierdo"
 #~ msgid "An earlier snapshot saved on this device."
 #~ msgstr "Una instantánea anterior guardada en este dispositivo."
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:104
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:99
 msgid "Another project"
 msgstr ""
 
@@ -415,7 +427,7 @@ msgstr "Actualizaciones de la aplicación"
 msgid "Apply Autofix ({localizedFixLabel})"
 msgstr "Aplicar corrección automática ({localizedFixLabel})"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:598
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:601
 msgid "Apply result"
 msgstr ""
 
@@ -425,7 +437,7 @@ msgstr ""
 #~ msgid "Apply to current"
 #~ msgstr "Aplicar al actual"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:596
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:599
 msgid "Applying…"
 msgstr ""
 
@@ -545,7 +557,7 @@ msgstr "Cancelar"
 msgid "Changed"
 msgstr ""
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:364
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:363
 msgid "Changes applied"
 msgstr ""
 
@@ -561,7 +573,7 @@ msgstr "Cambios desde"
 msgid "Changes to send"
 msgstr "Cambios por enviar"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:220
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:308
 #: src/app/ui/i18n/usfmMarkerLocalization.ts:32
 msgid "Chapter"
 msgstr "Capítulo"
@@ -578,7 +590,7 @@ msgstr "El capítulo {found} viene después del capítulo {previous}."
 msgid "Chapter 0 metadata and introductory markers"
 msgstr "Metadatos del capítulo 0 y marcadores introductorios"
 
-#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:123
+#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:284
 msgid "Chapter decisions"
 msgstr ""
 
@@ -676,7 +688,7 @@ msgstr "Comprobando…"
 msgid "Choose a chapter"
 msgstr "Elegir un capítulo"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:120
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:133
 msgid "Choose a project"
 msgstr ""
 
@@ -694,16 +706,16 @@ msgid "Choose a resource from the picker above to read it alongside your "
 msgstr "Elige un recurso del selector de arriba para leerlo junto a tu "
 "proyecto."
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:99
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:112
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:266
 msgid "Choose a source"
 msgstr "Elegir una fuente"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:138
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:146
 msgid "Choose a version"
 msgstr ""
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:227
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:316
 msgid "Choose chapter"
 msgstr "Elegir capítulo"
 
@@ -712,12 +724,12 @@ msgid "Choose how change review opens by default."
 msgstr "Elegir cómo se abre la revisión de cambios de forma predeterminada."
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:81
-msgid "Choose left source"
-msgstr ""
+#~ msgid "Choose left source"
+#~ msgstr ""
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:83
-msgid "Choose right source"
-msgstr ""
+#~ msgid "Choose right source"
+#~ msgstr ""
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:260
 msgid "Choose the display language for Zephyr."
@@ -727,25 +739,27 @@ msgstr "Elige el idioma de visualización de Zephyr."
 msgid "Choose the theme used throughout the application."
 msgstr "Elegir el tema usado en toda la aplicación."
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:162
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:248
 msgid "Choose what the working copy should keep."
 msgstr ""
 
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:77
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:91
 msgid "Choose which source to use"
 msgstr ""
 
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:105
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:156
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:137
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:140
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:142
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:200
 #: src/app/ui/components/blocks/DiffModal/PrintChangesButton.tsx:205
 msgid "Clear"
 msgstr "Limpiar"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:317
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:388
 msgid "Clear all"
 msgstr ""
 
-#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:144
+#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:305
 msgid "Clear chapter"
 msgstr ""
 
@@ -766,18 +780,18 @@ msgid "Click Sync now to save your changes to the shared project."
 msgstr "Haz clic en Sincronizar ahora para guardar tus cambios en el proyecto "
 "compartido."
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:171
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:257
 #: src/app/ui/components/blocks/FindingsPopover.tsx:176
 #: src/app/ui/components/blocks/FindingsPopover.tsx:181
 #: src/app/ui/components/blocks/ImportProgressModal.tsx:101
 #: src/app/ui/components/blocks/ProjectSwitcher/ProjectBrowserPane.tsx:44
 #: src/app/ui/components/views/search-panel/SearchPanel.tsx:49
-#: src/app/ui/components/views/stet-panel/StetPanel.tsx:68
+#: src/app/ui/components/views/stet-panel/StetPanel.tsx:85
 msgid "Close"
 msgstr "Cerrar"
 
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:186
-#: src/app/ui/components/views/stet-panel/StetPanel.tsx:58
+#: src/app/ui/components/views/stet-panel/StetPanel.tsx:75
 msgid "Close Editor"
 msgstr "Cerrar editor"
 
@@ -786,11 +800,15 @@ msgstr "Cerrar editor"
 msgid "Close notification"
 msgstr "Cerrar notificación"
 
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:456
+msgid "Close preview"
+msgstr ""
+
 #: src/app/ui/components/views/search-panel/SearchPanel.tsx:47
 msgid "Close search"
 msgstr "Cerrar búsqueda"
 
-#: src/app/ui/components/views/stet-panel/StetPanel.tsx:66
+#: src/app/ui/components/views/stet-panel/StetPanel.tsx:83
 msgid "Close spiritual terms evaluation"
 msgstr ""
 
@@ -852,7 +870,7 @@ msgstr "Combinar estos dos párrafos en uno"
 #~ msgid "Comparison"
 #~ msgstr "Comparación"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:177
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:263
 msgid "Comparison sources"
 msgstr ""
 
@@ -967,7 +985,7 @@ msgstr "Copiando carpeta subida al almacenamiento de la aplicación (0/{0})..."
 msgid "Could not install v{selectedVersion}."
 msgstr "No se pudo instalar v{selectedVersion}."
 
-#: src/app/ui/components/views/stet-panel/StetPanel.tsx:99
+#: src/app/ui/components/views/stet-panel/StetPanel.tsx:116
 msgid "Could not load the spiritual terms catalog."
 msgstr ""
 
@@ -1033,7 +1051,7 @@ msgid "Couldn't send your changes"
 msgstr "No se pudieron enviar tus cambios"
 
 #. placeholder {0}: unit.coveredBy.sid
-#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:65
+#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:78
 msgid "Covered by {0} on {coveringLabel}"
 msgstr ""
 
@@ -1248,7 +1266,7 @@ msgstr "Número de capítulo duplicado"
 #. placeholder {1}: args.leftLabel
 #. placeholder {2}: unit.dupContext.currentCount
 #. placeholder {3}: args.rightLabel
-#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:69
+#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:82
 msgid "Duplicate context: {0} on {1}, {2} on {3}"
 msgstr ""
 
@@ -1373,14 +1391,20 @@ msgstr "Al archivo le falta su \\id (identificador de libro)."
 msgid "Filter"
 msgstr "Filtrar"
 
-#: src/app/ui/components/views/stet-panel/StetPanel.tsx:135
-#: src/app/ui/components/views/stet-panel/StetPanel.tsx:171
+#: src/app/ui/components/views/stet-panel/StetPanel.tsx:152
+#: src/app/ui/components/views/stet-panel/StetPanel.tsx:188
 msgid "Filter spiritual terms"
 msgstr ""
 
-#: src/app/ui/components/views/stet-panel/StetPanel.tsx:134
-#: src/app/ui/components/views/stet-panel/StetPanel.tsx:170
+#: src/app/ui/components/views/stet-panel/StetPanel.tsx:151
+#: src/app/ui/components/views/stet-panel/StetPanel.tsx:187
 msgid "Filter terms"
+msgstr ""
+
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:185
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:186
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:193
+msgid "Filters"
 msgstr ""
 
 #: src/app/ui/components/blocks/BookChapterPickerSidebar/BookChapterPickerSidebar.tsx:97
@@ -1393,7 +1417,7 @@ msgstr "Buscar"
 msgid "Fix Applied"
 msgstr "Corrección aplicada"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:106
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:101
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:317
 #: src/app/ui/components/blocks/SourcePicker/SourcePicker.tsx:252
 msgid "Folder"
@@ -1466,20 +1490,32 @@ msgstr "Caracteres de control ocultos en este texto."
 msgid "Hidden control characters"
 msgstr "Caracteres de control ocultos"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:270
-msgid "Hide decided"
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:220
+msgid "Hide already-decided rows"
 msgstr ""
+
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:270
+#~ msgid "Hide decided"
+#~ msgstr ""
 
 #: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:345
 msgid "Hide resource panel"
 msgstr "Ocultar el panel de recursos"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:259
-msgid "Hide USFM-only"
+#~ msgid "Hide USFM-only"
+#~ msgstr ""
+
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:210
+msgid "Hide USFM-structure-only changes"
 msgstr ""
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:249
-msgid "Hide whitespace"
+#~ msgid "Hide whitespace"
+#~ msgstr ""
+
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:201
+msgid "Hide whitespace-only changes"
 msgstr ""
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:333
@@ -1516,7 +1552,7 @@ msgstr "Incluir marcadores USFM"
 #~ msgstr "Compartido entrante"
 
 #: src/app/domain/project/remoteSync/sharedProjectCopy.ts:128
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:102
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:97
 msgid "Incoming shared changes"
 msgstr "Cambios compartidos entrantes"
 
@@ -1614,17 +1650,17 @@ msgstr "Última actualización en el proyecto compartido"
 msgid "Later"
 msgstr "Más tarde"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:77
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:107
 msgid "Left"
 msgstr ""
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:110
-msgid "Left project"
-msgstr ""
+#~ msgid "Left project"
+#~ msgstr ""
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:130
-msgid "Left version"
-msgstr ""
+#~ msgid "Left version"
+#~ msgstr ""
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:301
 msgid "Light"
@@ -1643,7 +1679,7 @@ msgstr "Los proyectos en la nube vinculados se importan con su conexión de "
 "proyectos de solo descarga copian los archivos en este dispositivo y "
 "comienzan desvinculados."
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:212
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:300
 msgid "List"
 msgstr ""
 
@@ -1664,6 +1700,10 @@ msgstr "Cargando catálogo…"
 msgid "Loading cloud projects..."
 msgstr "Cargando proyectos de nube..."
 
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:354
+msgid "Loading comparison…"
+msgstr ""
+
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:560
 msgid "Loading downloadable projects..."
 msgstr "Cargando proyectos descargables..."
@@ -1680,7 +1720,7 @@ msgstr "Cargando proyectos remotos..."
 msgid "Loading resource…"
 msgstr "Cargando recurso…"
 
-#: src/app/ui/components/views/stet-panel/StetPanel.tsx:90
+#: src/app/ui/components/views/stet-panel/StetPanel.tsx:107
 msgid "Loading spiritual terms…"
 msgstr ""
 
@@ -1843,6 +1883,10 @@ msgstr "Falta un espacio antes del marcador"
 msgid "Missing verse number"
 msgstr "Falta el número de versículo"
 
+#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:43
+msgid "Modified · moved"
+msgstr ""
+
 #: src/app/ui/components/primitives/ToolbarOverflowMenu/ToolbarOverflowMenu.tsx:49
 #: src/app/ui/components/primitives/ToolbarOverflowMenu/ToolbarOverflowMenu.tsx:50
 msgid "More actions"
@@ -1854,23 +1898,31 @@ msgid "Most projects should stay UTF-8. Change this only when the source text "
 msgstr "La mayoría de los proyectos deben seguir en UTF-8. Cambia esto solo "
 "cuando el texto fuente realmente dependa de otra codificación."
 
+#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:52
+#~ msgid "moved"
+#~ msgstr ""
+
 #: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:45
 msgid "Moved"
 msgstr ""
 
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:371
+msgid "moved away"
+msgstr ""
+
 #. placeholder {0}: anchorReference(leftSlot)
 #. placeholder {1}: anchorReference(rightSlot)
-#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:110
+#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:145
 msgid "Moved from after {0} to after {1}"
 msgstr ""
 
 #. placeholder {0}: anchorReference(linked)
-#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:87
+#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:100
 msgid "Moved from here; now after {0}"
 msgstr ""
 
 #. placeholder {0}: anchorReference(linked)
-#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:90
+#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:103
 msgid "Moved here; was after {0}"
 msgstr ""
 
@@ -1891,6 +1943,10 @@ msgstr ""
 #: src/app/ui/components/blocks/CloudSyncPanels.tsx:86
 msgid "Needs review"
 msgstr "Necesita revisión"
+
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:375
+msgid "New position"
+msgstr ""
 
 #: src/app/ui/components/primitives/ProjectList/ProjectList.tsx:211
 #: src/app/ui/components/views/IndexRoute.tsx:48
@@ -1931,8 +1987,10 @@ msgstr "Aún no hay proyectos de nube disponibles para esta cuenta."
 msgid "No content errors found"
 msgstr "No se encontraron errores de contenido"
 
-#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:69
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:165
+#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:180
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:209
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:366
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:396
 msgid "No content on this side"
 msgstr ""
 
@@ -2005,13 +2063,13 @@ msgstr "No se encontraron proyectos compartidos."
 msgid "No source text"
 msgstr "Sin texto fuente"
 
-#: src/app/ui/components/views/stet-panel/StetPanel.tsx:119
+#: src/app/ui/components/views/stet-panel/StetPanel.tsx:136
 msgid "No spiritual terms are available."
 msgstr ""
 
-#: src/app/ui/components/views/stet-panel/StetPanel.tsx:146
-#: src/app/ui/components/views/stet-panel/StetPanel.tsx:175
-#: src/app/ui/components/views/stet-panel/StetPanel.tsx:209
+#: src/app/ui/components/views/stet-panel/StetPanel.tsx:163
+#: src/app/ui/components/views/stet-panel/StetPanel.tsx:192
+#: src/app/ui/components/views/stet-panel/StetPanel.tsx:226
 msgid "No spiritual terms match your filter."
 msgstr ""
 
@@ -2032,11 +2090,15 @@ msgstr "Ninguno"
 msgid "Not connected"
 msgstr "No conectado"
 
-#: src/app/ui/hooks/stet/useStet.ts:194
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:381
+msgid "not here yet"
+msgstr ""
+
+#: src/app/ui/hooks/stet/useStet.ts:201
 msgid "Not in the frozen reference snapshot"
 msgstr ""
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:147
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:154
 msgid "Not selected"
 msgstr ""
 
@@ -2066,6 +2128,11 @@ msgstr "Nada cambió"
 msgid "Now · {nowLabel}"
 msgstr "Ahora · {nowLabel}"
 
+#. placeholder {0}: anchorReference(rightSlot)
+#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:126
+msgid "now after {0}"
+msgstr ""
+
 #: src/app/ui/i18n/findingCodeLabels.ts:93
 msgid "Number without a marker"
 msgstr "Número sin marcador"
@@ -2075,6 +2142,10 @@ msgstr "Número sin marcador"
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:397
 msgid "Offline"
 msgstr "Sin conexión"
+
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:348
+msgid "Old position"
+msgstr ""
 
 #: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:327
 msgid "On this device"
@@ -2105,12 +2176,14 @@ msgid "Open an existing project, or create a new one."
 msgstr "Abre un proyecto existente o crea uno nuevo."
 
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:186
-#: src/app/ui/components/views/stet-panel/StetPanel.tsx:58
+#: src/app/ui/components/views/stet-panel/StetPanel.tsx:75
 msgid "Open Editor"
 msgstr "Abrir editor"
 
-#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:251
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:278
+#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:227
+#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:228
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:475
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:476
 msgid "Open in editor"
 msgstr ""
 
@@ -2227,8 +2300,8 @@ msgid "Poetry 4"
 msgstr "Poesía 4"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:355
-msgid "Preparing a frozen comparison…"
-msgstr ""
+#~ msgid "Preparing a frozen comparison…"
+#~ msgstr ""
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:697
 msgid "Preparing..."
@@ -2238,6 +2311,10 @@ msgstr "Preparando..."
 msgid "Preparing…"
 msgstr "Preparando…"
 
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:340
+msgid "Preview"
+msgstr ""
+
 #: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:287
 msgid "Previous chapter"
 msgstr "Capítulo anterior"
@@ -2246,7 +2323,7 @@ msgstr "Capítulo anterior"
 msgid "Previous match in this verse"
 msgstr "Coincidencia anterior en este versículo"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:103
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:98
 msgid "Previous version"
 msgstr ""
 
@@ -2329,7 +2406,7 @@ msgstr "Proyectos"
 msgid "Read your text without making changes."
 msgstr "Lee tu texto sin hacer cambios."
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:450
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:499
 msgid "Read-only comparison"
 msgstr ""
 
@@ -2375,14 +2452,13 @@ msgstr "Rehacer — {redoLabel}"
 msgid "Reference relabeled"
 msgstr ""
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:414
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:586
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:413
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:422
 #: src/app/ui/components/import/CloudProjectImporter.tsx:89
 msgid "Refresh"
 msgstr "Actualizar"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:386
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:385
 msgid "Refresh comparison"
 msgstr ""
 
@@ -2416,7 +2492,7 @@ msgid "Removed"
 msgstr ""
 
 #. placeholder {0}: anchorReference(leftSlot)
-#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:116
+#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:151
 msgid "Removed after {0}"
 msgstr ""
 
@@ -2447,11 +2523,11 @@ msgstr "Repositorio"
 msgid "Repository not found"
 msgstr "Repositorio no encontrado"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:570
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:582
 msgid "Resolve every decision before applying."
 msgstr ""
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:552
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:480
 msgid "Resolve this chapter to preview its result."
 msgstr ""
 
@@ -2473,17 +2549,22 @@ msgstr "¡Recurso importado con éxito! Está disponible en el selector de "
 msgid "Resource is loading"
 msgstr "El recurso se está cargando"
 
+#: src/app/ui/components/blocks/DiffModal/CompareResultPreviewEditor.tsx:107
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:442
+msgid "Result preview"
+msgstr ""
+
 #. placeholder {0}: selectedPresentation.label
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:526
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:446
 msgid "Result preview · {0}"
 msgstr ""
 
-#: src/app/ui/components/views/stet-panel/StetPanel.tsx:107
+#: src/app/ui/components/views/stet-panel/StetPanel.tsx:124
 msgid "Retry"
 msgstr ""
 
 #. placeholder {0}: props.hiddenUnresolvedCount
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:286
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:329
 msgid "Reveal {0} unresolved"
 msgstr ""
 
@@ -2498,7 +2579,7 @@ msgstr ""
 #: src/app/domain/project/remoteSync/sharedProjectCopy.ts:112
 #: src/app/routes/playground.lazy.tsx:70
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:490
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:159
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:245
 msgid "Review changes"
 msgstr "Revisar cambios"
 
@@ -2511,7 +2592,7 @@ msgstr "Revisa los cambios antes de enviar tu trabajo."
 msgid "Review metadata"
 msgstr "Revisar metadatos"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:204
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:292
 msgid "Review view"
 msgstr ""
 
@@ -2519,17 +2600,17 @@ msgstr ""
 msgid "Revision mode"
 msgstr "Modo de revisión"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:77
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:107
 msgid "Right"
 msgstr ""
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:110
-msgid "Right project"
-msgstr ""
+#~ msgid "Right project"
+#~ msgstr ""
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:130
-msgid "Right version"
-msgstr ""
+#~ msgid "Right version"
+#~ msgstr ""
 
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:100
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:106
@@ -2544,7 +2625,7 @@ msgstr "Encabezado corriente"
 msgid "S5 chunk marker"
 msgstr "Marcador de fragmento S5"
 
-#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:61
+#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:74
 msgid "Same content, different reference label"
 msgstr ""
 
@@ -2586,7 +2667,7 @@ msgstr "Guarda tus cambios en el proyecto directamente, sin revisarlos primero."
 msgid "Save your own copy online to keep working."
 msgstr "Guarda tu propia copia en línea para seguir trabajando."
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:101
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:96
 msgid "Saved copy"
 msgstr ""
 
@@ -2702,6 +2783,10 @@ msgstr "Título de sección 4"
 msgid "Select a checkpoint"
 msgstr "Selecciona un punto de control"
 
+#: src/app/ui/components/views/stet-panel/StetPanel.tsx:58
+msgid "Select a reference guide"
+msgstr ""
+
 #: src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx:252
 msgid "Select a resource"
 msgstr "Selecciona un recurso"
@@ -2718,7 +2803,7 @@ msgstr "Selecciona un proyecto compartido"
 msgid "Select a source to continue."
 msgstr "Selecciona una fuente para continuar."
 
-#: src/app/ui/components/views/stet-panel/StetPanel.tsx:142
+#: src/app/ui/components/views/stet-panel/StetPanel.tsx:159
 msgid "Select a spiritual term"
 msgstr ""
 
@@ -2839,34 +2924,38 @@ msgid "Short table of contents title"
 msgstr "Título corto de la tabla de contenido"
 
 #. placeholder {0}: stet.verseCounts.union
-#: src/app/ui/components/views/stet-panel/StetPanel.tsx:250
+#: src/app/ui/components/views/stet-panel/StetPanel.tsx:271
 msgid "Show all occurrences ({0})"
 msgstr ""
 
 #. placeholder {0}: stet.verseCounts.curated
-#: src/app/ui/components/views/stet-panel/StetPanel.tsx:249
+#: src/app/ui/components/views/stet-panel/StetPanel.tsx:270
 msgid "Show curated verses only ({0})"
 msgstr ""
 
+#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:58
+#~ msgid "Show new position"
+#~ msgstr ""
+
 #: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:228
-msgid "Show other position"
-msgstr ""
+#~ msgid "Show other position"
+#~ msgstr ""
 
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:218
 #~ msgid "Show regular text for this verse"
 #~ msgstr "Mostrar texto regular para este verso"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:281
-msgid "Show USFM"
-msgstr ""
+#~ msgid "Show USFM"
+#~ msgstr ""
 
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:219
 #~ msgid "Show USFM for this verse"
 #~ msgstr "Mostrar USFM para este verso"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:339
-#~ msgid "Show USFM markers"
-#~ msgstr "Mostrar marcadores USFM"
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:231
+msgid "Show USFM markers"
+msgstr "Mostrar marcadores USFM"
 
 #. placeholder {0}: gitea.visiblePageSize
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:732
@@ -3056,7 +3145,7 @@ msgstr "Tamaño del texto"
 msgid "That checkpoint is no longer available."
 msgstr "Ese punto de control ya no está disponible."
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:428
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:427
 msgid "The comparison could not be prepared."
 msgstr ""
 
@@ -3068,7 +3157,7 @@ msgstr "La ULB en inglés está lista como recurso."
 #~ msgid "The latest version saved online by you or your team."
 #~ msgstr "La versión más reciente guardada en línea por ti o tu equipo."
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:367
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:366
 msgid "The reviewed result is now saved in your working copy."
 msgstr ""
 
@@ -3085,7 +3174,7 @@ msgstr ""
 msgid "The update could not be installed."
 msgstr "No se pudo instalar la actualización."
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:398
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:397
 msgid "The working copy changed"
 msgstr ""
 
@@ -3093,7 +3182,7 @@ msgstr ""
 msgid "There are updates to receive"
 msgstr "Hay actualizaciones por recibir"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:482
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:531
 msgid "These sources have no differences."
 msgstr ""
 
@@ -3127,7 +3216,7 @@ msgstr "Esta etiqueta de capítulo «{0}» difiere del resto del proyecto («{1}
 msgid "This chapter starts at verse {found}, not verse 1."
 msgstr "Este capítulo empieza en el versículo {found}, no en el versículo 1."
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:547
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:475
 msgid "This decision removes the chapter."
 msgstr ""
 
@@ -3141,7 +3230,7 @@ msgid "This file is not using UTF-8. Avoid changing the encoding casually "
 msgstr "Este archivo no está usando UTF-8. Evita cambiar la codificación sin "
 "cuidado porque puede corromper el texto."
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:401
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:400
 msgid "This frozen review is still visible, but it cannot be applied. Refresh "
 "to compare the latest content; current decisions will be cleared."
 msgstr ""
@@ -3187,7 +3276,7 @@ msgstr "Este versículo no tiene contenido"
 msgid "This verse has no content."
 msgstr "Este versículo no tiene contenido."
 
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:128
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:166
 msgid "This whole chapter exists on only one side. Use:"
 msgstr ""
 
@@ -3208,7 +3297,7 @@ msgid "Tools"
 msgstr "Herramientas"
 
 #: src/app/ui/components/blocks/CloudProjectStatus.tsx:101
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:435
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:434
 msgid "Try again"
 msgstr "Intentar de nuevo"
 
@@ -3317,28 +3406,36 @@ msgstr "Error al instalar la actualización"
 msgid "Updates to receive"
 msgstr "Actualizaciones por recibir"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:535
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:462
 msgid "Updating preview…"
 msgstr ""
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:568
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:580
 msgid "Updating result…"
 msgstr ""
 
-#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:130
+#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:291
 msgid "Use {leftLabel}"
 msgstr ""
 
-#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:137
+#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:298
 msgid "Use {rightLabel}"
 msgstr ""
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:301
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:372
 msgid "Use all Left"
 msgstr ""
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:309
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:380
 msgid "Use all Right"
+msgstr ""
+
+#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:206
+msgid "Use new position"
+msgstr ""
+
+#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:205
+msgid "Use original position"
 msgstr ""
 
 #: src/app/ui/components/blocks/SourcePicker/SourcePicker.tsx:102
@@ -3368,7 +3465,7 @@ msgstr "Modo USFM"
 msgid "USFM Resource Editor"
 msgstr "Editor de recursos USFM"
 
-#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:60
+#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:73
 msgid "USFM structure only"
 msgstr ""
 
@@ -3414,7 +3511,7 @@ msgstr "Versículo en una sección o encabezado"
 msgid "Verse marker \\v appears before the first \\c."
 msgstr "El marcador de versículo \\v aparece antes del primer \\c."
 
-#: src/app/ui/hooks/stet/useStet.ts:195
+#: src/app/ui/hooks/stet/useStet.ts:202
 msgid "Verse not available in this project"
 msgstr ""
 
@@ -3451,6 +3548,11 @@ msgstr "Versión"
 msgid "View mode"
 msgstr "Modo de vista"
 
+#. placeholder {0}: anchorReference(leftSlot)
+#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:125
+msgid "was after {0}"
+msgstr ""
+
 #: src/app/domain/project/cloudProjectActions.ts:17
 msgid "We made your own online copy and connected this project to it."
 msgstr "Hicimos tu propia copia en línea y conectamos este proyecto a ella."
@@ -3471,7 +3573,7 @@ msgstr "Al abrir este proyecto, comprueba si el proyecto compartido tiene "
 msgid "When you save, send your changes to the shared project."
 msgstr "Al guardar, envía tus cambios al proyecto compartido."
 
-#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:59
+#: src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts:72
 msgid "Whitespace only"
 msgstr ""
 
@@ -3487,7 +3589,7 @@ msgstr "Proyecto completo"
 msgid "Whole word"
 msgstr "Palabra completa"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:100
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:95
 msgid "Working copy"
 msgstr ""
 
@@ -3552,7 +3654,7 @@ msgstr "Tienes la última versión de este canal."
 msgid "Your own copy is saved online"
 msgstr "Tu propia copia está guardada en línea"
 
-#: src/app/ui/hooks/stet/useStet.ts:157
+#: src/app/ui/hooks/stet/useStet.ts:164
 msgid "Your project"
 msgstr ""
 
@@ -3611,7 +3713,7 @@ msgstr "Caracteres de ancho cero"
 msgid "ZIP"
 msgstr "ZIP"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:105
+#: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:100
 msgid "ZIP file"
 msgstr "Archivo ZIP"
 

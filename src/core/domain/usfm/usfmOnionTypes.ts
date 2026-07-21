@@ -1,14 +1,9 @@
 import type {
   AttributeItem as OnionAttributeItem,
-  Anchor as OnionAnchor,
   ClosingBehavior as OnionClosingBehavior,
-  CoveredBy as OnionCoveredBy,
-  CoveredSide as OnionCoveredSide,
   DecisionStatus as OnionDecisionStatus,
   DecisionUnit as OnionDecisionUnit,
-  DecisionUnitKind as OnionDecisionUnitKind,
   DiffSkeleton as OnionDiffSkeleton,
-  DupContext as OnionDupContext,
   LintCode as OnionLintCode,
   LintIssue as OnionLintIssue,
   LintOptions as OnionLintOptions,
@@ -16,11 +11,9 @@ import type {
   MarkerInfo as OnionMarkerInfo,
   MarkerPayload as OnionMarkerPayload,
   MergeRequest as OnionMergeRequest,
-  MergeSide as OnionMergeSide,
   ParagraphCategory as OnionParagraphCategory,
   ParsedUsfm as OnionParsedUsfm,
   Slot as OnionSlot,
-  SlotRole as OnionSlotRole,
   Token as OnionToken,
   UsfmMarkerCatalog as OnionUsfmMarkerCatalog,
   TokenFix,
@@ -70,18 +63,11 @@ export type MarkerPayload = OnionMarkerPayload;
  */
 export type ClosingBehavior = OnionClosingBehavior;
 export type RawUsfmMarkerCatalog = OnionUsfmMarkerCatalog;
-export type Anchor = OnionAnchor;
-export type CoveredBy = OnionCoveredBy;
-export type CoveredSide = OnionCoveredSide;
 export type DecisionStatus = OnionDecisionStatus;
 export type DecisionUnit = OnionDecisionUnit;
-export type DecisionUnitKind = OnionDecisionUnitKind;
 export type DiffSkeleton = OnionDiffSkeleton;
-export type DupContext = OnionDupContext;
 export type MergeRequest = OnionMergeRequest;
-export type MergeSide = OnionMergeSide;
 export type Slot = OnionSlot;
-export type SlotRole = OnionSlotRole;
 export type LintIssue = OnionLintIssue;
 export type { TokenFix };
 

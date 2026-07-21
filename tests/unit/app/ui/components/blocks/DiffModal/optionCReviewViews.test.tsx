@@ -30,6 +30,19 @@ beforeAll(() => {
   (
     globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;
+  // jsdom reports zero `offsetHeight`/`offsetWidth` for every element, which is
+  // exactly what @tanstack/react-virtual (used by the list view) reads to size
+  // its scroll container — with it at 0, the virtualizer's visible range is
+  // empty and nothing renders. Give every element a generous fake size so this
+  // small fixture's rows all fall inside the visible range.
+  Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+    configurable: true,
+    value: 2000,
+  });
+  Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+    configurable: true,
+    value: 800,
+  });
 });
 
 afterEach(() => {
@@ -160,7 +173,8 @@ describe("Option C list and chapter review views", () => {
     );
   });
 
-  it("renders moved content in two linked chapter slots with one shared decision", () => {
+  it("splits a moved unit's decision across its origin and destination slots", () => {
+    const onDecisionChange = vi.fn();
     const view = render(
       <ChapterDiffStructuredDocument
         chapter={chapter()}
@@ -169,30 +183,36 @@ describe("Option C list and chapter review views", () => {
         rightLabel="Working"
         readOnly={false}
         showUsfmMarkers={false}
-        onDecisionChange={() => {}}
+        onDecisionChange={onDecisionChange}
       />,
     );
 
-    const moved = view.querySelectorAll('[data-compare-unit-id="move"]');
-    expect(moved).toHaveLength(2);
-    expect(moved[0]?.getAttribute("data-linked-slot-index")).toBe("2");
-    expect(moved[1]?.getAttribute("data-linked-slot-index")).toBe("0");
-    expect(
-      moved[0]?.querySelector('a[href="#compare-slot-2"]')?.textContent,
-    ).toContain("Show other position");
-    expect(
-      Array.from(moved).every(
-        (row) =>
-          row.querySelector<HTMLInputElement>('input[value="right"]')?.checked,
-      ),
-    ).toBe(false);
-    expect(
-      Array.from(moved).every(
-        (row) =>
-          row.querySelectorAll<HTMLInputElement>('input[type="radio"]')[1]
-            ?.checked,
-      ),
-    ).toBe(true);
+    // The skeleton lays the moved unit out at both its real positions — the
+    // origin (pairBaseline) slot only offers a "use original position"
+    // toggle, the destination (pairCurrent) slot only "use new position",
+    // and both act on the same shared decision. Neither slot renders the
+    // full left/right/clear fieldset.
+    const cells = view.querySelectorAll('[data-compare-unit-id="move"]');
+    expect(cells.length).toBeGreaterThan(0);
+    for (const c of cells) expect(c.querySelector("fieldset")).toBeNull();
+    expect(view.textContent).toMatch(/was after|now after/);
+
+    const toggles = view.querySelectorAll<HTMLButtonElement>(
+      '[class*="compareMoveSideToggle"]',
+    );
+    expect(toggles).toHaveLength(2);
+    // Skeleton slot order puts the destination (pairCurrent) slot first.
+    // decisions: { move: "right" } — its toggle is pressed; the origin
+    // (pairBaseline) slot's toggle is not.
+    expect(toggles[0]?.dataset.pressed).toBe("true");
+    expect(toggles[1]?.dataset.pressed).toBeUndefined();
+
+    act(() => toggles[0]?.click());
+    expect(onDecisionChange).toHaveBeenCalledWith(
+      { bookCode: "GEN", chapterNum: 1 },
+      "move",
+      null,
+    );
   });
 
   it("removes all decision controls in read-only comparison mode", () => {

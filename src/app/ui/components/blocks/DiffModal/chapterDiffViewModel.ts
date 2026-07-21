@@ -40,12 +40,25 @@ export function unitStatusLabel(unit: DecisionUnit): string {
     case "deleted":
       return t`Removed`;
     case "modified":
-      return t`Changed`;
+      return unit.displaced ? t`Modified · moved` : t`Changed`;
     case "moved":
       return t`Moved`;
     case "unchanged":
       return unit.relabeled ? t`Reference relabeled` : t`Unchanged`;
   }
+}
+
+export type UnitStatusVariant =
+  | "added"
+  | "deleted"
+  | "modified"
+  | "moved"
+  | "unchanged";
+
+/** Badge color variant, independent of the exact label copy above. */
+export function unitStatusVariant(unit: DecisionUnit): UnitStatusVariant {
+  if (unit.status === "modified" && unit.displaced) return "moved";
+  return unit.status;
 }
 
 export function unitDetailLabels(args: {
@@ -90,6 +103,28 @@ export function slotMoveNarration(args: {
     return t`Moved here; was after ${anchorReference(linked)}`;
   }
   return null;
+}
+
+/** Split anchor captions for the moved/collocated card: one short phrase per
+ * column instead of `unitPositionNarration`'s single combined sentence. */
+export function movedAnchorCaptions(args: {
+  skeleton: DiffSkeleton;
+  leftSlotIndex: number | null;
+  rightSlotIndex: number | null;
+}): { from: string; to: string } | null {
+  const leftSlot =
+    args.leftSlotIndex === null
+      ? undefined
+      : args.skeleton.slots[args.leftSlotIndex];
+  const rightSlot =
+    args.rightSlotIndex === null
+      ? undefined
+      : args.skeleton.slots[args.rightSlotIndex];
+  if (!leftSlot || !rightSlot) return null;
+  return {
+    from: t`was after ${anchorReference(leftSlot)}`,
+    to: t`now after ${anchorReference(rightSlot)}`,
+  };
 }
 
 export function unitPositionNarration(args: {

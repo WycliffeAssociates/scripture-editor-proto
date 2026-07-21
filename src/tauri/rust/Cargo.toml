@@ -29,13 +29,13 @@ tauri-plugin-os = "2"
 md-5 = "0.10.0"
 tauri-plugin-dialog = "2"
 # Content findings: onion's `vref` module projects per-verse text; ssc-core
-# analyzes it (see src/sous.rs). Onion follows the unreleased 0.0.9 source
-# locally until the coordinated npm/native tag exists.
-usfm_onion = { path = "../../../../usfm_onion" }
+# analyzes it (see src/sous.rs). Pinned to the v0.0.9 tag, kept in lockstep
+# with the npm `usfm-onion-web` dep in package.json.
+usfm_onion = { git = "https://github.com/WycliffeAssociates/usfm-onion.git", tag = "v0.0.9" }
 # Target-agnostic serde DTO layer shared with the wasm bindings: the single
 # source of the marker wire-contract strings the editor's `buildRegistry` reads.
 # Default features only — `wasm` (tsify/wasm-bindgen) is for the web bindings.
-usfm_onion_dto = { path = "../../../../usfm_onion/crates/usfm_onion_dto", package = "usfm_onion_dto" }
+usfm_onion_dto = { git = "https://github.com/WycliffeAssociates/usfm-onion.git", tag = "v0.0.9", package = "usfm_onion_dto" }
 ssc-core = { git = "https://github.com/WycliffeAssociates/scripture-sous-chef.git", tag = "v0.0.1" }
 rayon = "1.10.0"
 zip = "2.4.2"
