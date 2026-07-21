@@ -13,7 +13,7 @@ pub struct IntoTokensOptionsDto {
     pub merge_horizontal_whitespace: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpanDto {
     pub start: usize,
@@ -25,6 +25,11 @@ pub struct SpanDto {
 pub struct FlatTokenDto {
     pub id: String,
     pub kind: String,
+    // The app's `Token` (usfmOnionTypes.ts) omits `span` — it's onion book-relative
+    // and nothing on the read surface needs it — so frontend-serialized tokens never
+    // carry it. Default it here rather than requiring it: onion's diff/merge ignore
+    // incoming span (its `FormatToken.span` is `Option`), matching the wasm path.
+    #[serde(default)]
     pub span: SpanDto,
     pub sid: Option<String>,
     pub marker: Option<String>,
@@ -991,6 +996,20 @@ mod tests {
             marker: None,
             text: text.to_string(),
         }
+    }
+
+    // Regression guard for a desktop-only break: the app's `Token`
+    // (usfmOnionTypes.ts) omits `span`, so the frontend serializes diff/merge
+    // command args WITHOUT it. `FlatTokenDto` must tolerate that shape —
+    // requiring `span` collapsed the native diff with "missing field `span`"
+    // in the prod build while the wasm/web path (span optional) stayed green.
+    #[test]
+    fn diff_tokens_accepts_frontend_tokens_without_span() {
+        let json = r#"[{"id":"GEN 1:1-a","kind":"text","sid":"GEN 1:1","source":"hello"}]"#;
+        let tokens: Vec<FlatTokenDto> =
+            serde_json::from_str(json).expect("spanless frontend tokens deserialize");
+        assert_eq!(tokens.len(), 1);
+        usfm_onion_diff_tokens(tokens.clone(), tokens).expect("diff runs on spanless tokens");
     }
 
     // Integration guard at the command seam: the editor's `buildRegistry`
