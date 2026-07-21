@@ -166,6 +166,10 @@ export const UsfmTokenTypes = {
   marker: "marker",
   endMarker: "endMarker",
   text: "text",
+  optBreak: "optBreak",
+  milestone: "milestone",
+  milestoneEnd: "milestoneEnd",
+  bookCode: "bookCode",
   numberRange: "numberRange",
   verticalWhitespace: "nl",
   error: "error",
@@ -177,6 +181,15 @@ export const UsfmTokenTypes = {
    */
   numberedMarker: "numberedMarker",
 } as const;
+
+export type UsfmTokenType =
+  (typeof UsfmTokenTypes)[keyof typeof UsfmTokenTypes];
+
+const USFM_TOKEN_TYPE_VALUES = new Set<unknown>(Object.values(UsfmTokenTypes));
+
+export function isUsfmTokenType(value: unknown): value is UsfmTokenType {
+  return USFM_TOKEN_TYPE_VALUES.has(value);
+}
 
 /**
  * Lexical update tags used to distinguish user edits from programmatic state

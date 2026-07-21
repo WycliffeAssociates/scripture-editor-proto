@@ -1,6 +1,7 @@
 import { makeSid, parseSid } from "@/core/data/bible/bible.ts";
 import { numRangeRe } from "@/core/domain/usfm/lex.ts";
 import { isChapterMarker } from "@/core/domain/usfm/onionMarkers.ts";
+import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 /**
  * Shared token-level parsing helpers used while projecting raw/serialized USFM into
@@ -21,6 +22,47 @@ export type TokenForSidCalculation = {
   sid?: string;
   numberInfo?: { start: number; end?: number };
 };
+
+/** Parse the live source of a chapter/verse number into Onion's number shape. */
+export function parseNumberInfoFromSource(
+  source: string,
+): NonNullable<Token["numberInfo"]> | undefined {
+  const first = /^\s*([1-9]\d*)[\p{L}\p{M}]*/u.exec(source);
+  if (!first?.[1]) return undefined;
+
+  const start = Number.parseInt(first[1], 10);
+  let cursor = first[0].length;
+  let end: number | undefined;
+  let sawRange = false;
+  let sawSequence = false;
+
+  while (cursor < source.length) {
+    const next = /^\u200f?([-,])([1-9]\d*)[\p{L}\p{M}]*/u.exec(
+      source.slice(cursor),
+    );
+    if (!next?.[1] || !next[2]) break;
+    if (next[1] === "-") {
+      sawRange = true;
+      end = Number.parseInt(next[2], 10);
+    } else {
+      sawSequence = true;
+    }
+    cursor += next[0].length;
+  }
+
+  return {
+    start,
+    ...(end === undefined ? {} : { end }),
+    kind:
+      sawRange && sawSequence
+        ? "sequenceWithRange"
+        : sawRange
+          ? "range"
+          : sawSequence
+            ? "sequence"
+            : "single",
+  };
+}
 
 /**
  * Move inline horizontal whitespace onto neighboring text-like tokens so later

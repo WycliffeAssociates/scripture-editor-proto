@@ -299,6 +299,13 @@ describe("CompareSessionController", () => {
 
   it("coalesces rapid decision changes into the latest pending projection", async () => {
     const store = new WorkingFilesStore([makeBook()]);
+    const mixedSkeleton: DiffSkeleton = {
+      slots: [
+        ...skeleton.slots,
+        { unitId: "other-change", role: "pairCurrent" },
+      ],
+      units: [...skeleton.units, { ...skeleton.units[0]!, id: "other-change" }],
+    };
     const firstMerge = deferred<Token[]>();
     const mergeDiffBlocks = vi
       .fn()
@@ -308,6 +315,8 @@ describe("CompareSessionController", () => {
       workingFilesStore: store,
       usfmOnionService: {
         ...service(),
+        diffScope: async (scope: DiffScopeItem[]) =>
+          scope.map(() => mixedSkeleton),
         mergeDiffBlocks,
       },
     });
@@ -319,6 +328,7 @@ describe("CompareSessionController", () => {
         files: () => store.read(),
       }),
     });
+    await tick();
     controller.setUnitDecision(
       { bookCode: "GEN", chapterNum: 1 },
       "change",
@@ -333,7 +343,7 @@ describe("CompareSessionController", () => {
     await tick();
     await tick();
 
-    expect(mergeDiffBlocks).toHaveBeenCalledTimes(2);
+    expect(mergeDiffBlocks).toHaveBeenCalledTimes(1);
     const state = controller.getSnapshot();
     expect(state.status === "active" && state.projection).toMatchObject({
       status: "ready",

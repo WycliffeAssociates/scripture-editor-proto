@@ -4,7 +4,8 @@
 // exactly (I1), the token stream the editor hands onion matches what the
 // lexer would produce (I2), and finding anchors (token ids) survive the
 // 1 node ⇄ 2–3 token conversion in both directions (I3).
-import type { SerializedLexicalNode } from "lexical";
+import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
+import { normalizeTokenSids } from "usfm-onion-web/token-sids";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { EDITOR_SHAPES, USFM_PARAGRAPH_NODE_TYPE } from "@/app/data/editor.ts";
@@ -114,6 +115,57 @@ describe("flat→tree pairing", () => {
 });
 
 describe("tree→flat emission", () => {
+  it("emits SID-normalizable number metadata after a regular-editor round trip", async () => {
+    const { state } = await loadRegular(
+      "\\id LUK test\n\\c 10\n\\p\n\\v 42 Verse text\n",
+    );
+    const workingTokens = lexicalToTokens(state);
+    const normalized = normalizeTokenSids(workingTokens, "LUK");
+
+    expect(
+      workingTokens
+        .filter((token) => token.kind === "number")
+        .map((token) => token.numberInfo),
+    ).toEqual([
+      { start: 10, kind: "single" },
+      { start: 42, kind: "single" },
+    ]);
+    expect(normalized.at(-1)?.sid).toBe("LUK 10:42");
+  });
+
+  it("rejects an unknown serialized editor token type at the Onion boundary", () => {
+    const state = {
+      root: {
+        type: "root",
+        version: 1,
+        children: [
+          {
+            type: "paragraph",
+            version: 1,
+            children: [
+              {
+                type: "usfm-text-node",
+                lexicalType: "usfm-text-node",
+                tokenType: "renamed-number-token",
+                id: "bad-token",
+                text: "42",
+                version: 1,
+                detail: 0,
+                format: 0,
+                mode: "normal",
+                style: "",
+              },
+            ],
+          },
+        ],
+      },
+    } as unknown as SerializedEditorState;
+
+    expect(() => lexicalToTokens(state)).toThrow(
+      "Unknown editor token type at Onion boundary: renamed-number-token",
+    );
+  });
+
   it("emits 2 tokens per node and reproduces the input bytes (I1/I2)", async () => {
     const { state } = await loadRegular(SIMPLE);
     const tokens = lexicalToTokens(state);

@@ -46,6 +46,11 @@ export type CompareProjectionState =
     }>
   | Readonly<{ status: "error"; revision: number; message: string }>;
 
+export type PreviousCompareProjection = Readonly<{
+  artifact: CompareProjectionArtifact;
+  decisions: CompareDecisionsByBook;
+}>;
+
 /**
  * Projects every fully-decided chapter. An incomplete session can still preview
  * a decided chapter, but only a complete artifact is eligible for Apply.
@@ -55,6 +60,7 @@ export async function projectCompareRevision(args: {
   decisions: CompareDecisionsByBook;
   revision: number;
   usfmOnionService: IUsfmOnionService;
+  previous?: PreviousCompareProjection;
 }): Promise<CompareProjectionArtifact> {
   if (args.snapshot.sources.writableSide === null) {
     throw new Error(
@@ -64,21 +70,56 @@ export async function projectCompareRevision(args: {
 
   const chapters: ProjectedChapter[] = [];
   const unresolved: ChapterAddress[] = [];
+  const previousChapters = new Map(
+    args.previous?.artifact.chapters.map((chapter) => [
+      chapterKey(chapter.address),
+      chapter,
+    ]),
+  );
+  const previousUnresolved = new Set(
+    args.previous?.artifact.unresolved.map(chapterKey),
+  );
   for (const chapter of iterateChapters(args.snapshot)) {
     const decisions = decisionsForChapter(args.decisions, chapter);
+    const previousDecisions =
+      args.previous?.decisions[chapter.address.bookCode]?.[
+        chapter.address.chapterNum
+      ];
+    // Decision updates structurally share untouched chapters, so identity is
+    // the invalidation key for reusing their last projected result.
+    if (previousDecisions === decisions) {
+      const previousChapter = previousChapters.get(chapterKey(chapter.address));
+      if (previousChapter) {
+        chapters.push(previousChapter);
+        continue;
+      }
+      if (previousUnresolved.has(chapterKey(chapter.address))) {
+        unresolved.push(chapter.address);
+        continue;
+      }
+    }
     if (!chapterDecisionCompleteness(chapter, decisions).complete) {
       unresolved.push(chapter.address);
       continue;
     }
-    const tokens = await args.usfmOnionService.mergeDiffBlocks(
-      chapter.left.tokens,
-      chapter.right.tokens,
-      toMergeRequest({
-        skeleton: chapter.skeleton,
-        decisions: decisions.units,
-        defaultSide: args.snapshot.sources.writableSide,
-      }),
-    );
+    const directSide = directlySelectedSide({
+      chapter,
+      decisions,
+      preferredSide: args.snapshot.sources.writableSide,
+    });
+    // A uniform choice is already represented by the frozen source array.
+    // Onion is needed only when the decision map combines both sides.
+    const tokens = directSide
+      ? chapter[directSide].tokens
+      : await args.usfmOnionService.mergeDiffBlocks(
+          chapter.left.tokens,
+          chapter.right.tokens,
+          toMergeRequest({
+            skeleton: chapter.skeleton,
+            decisions: decisions.units,
+            defaultSide: args.snapshot.sources.writableSide,
+          }),
+        );
     const working =
       args.snapshot.sources.writableSide === "left"
         ? chapter.left
@@ -93,15 +134,16 @@ export async function projectCompareRevision(args: {
         ? "add"
         : working.present && !present
           ? "delete"
-          : working.present && present && !tokensEqual(working.tokens, tokens)
+          : working.present &&
+              present &&
+              (directSide !== args.snapshot.sources.writableSide ||
+                working.dirty)
             ? "update"
-            : working.present && present && working.dirty
-              ? "update"
-              : "unchanged";
+            : "unchanged";
     chapters.push(
       Object.freeze({
         address: chapter.address,
-        tokens: Object.freeze(tokens),
+        tokens: Object.isFrozen(tokens) ? tokens : Object.freeze(tokens),
         present,
         eol: present ? (working.eol ?? other.eol ?? "\n") : null,
         direction: present ? (working.direction ?? other.direction) : null,
@@ -117,6 +159,27 @@ export async function projectCompareRevision(args: {
     unresolved: Object.freeze(unresolved),
     complete: unresolved.length === 0,
   });
+}
+
+function chapterKey(address: ChapterAddress): string {
+  return `${address.bookCode}:${address.chapterNum}`;
+}
+
+function directlySelectedSide(args: {
+  chapter: FrozenChapterComparison;
+  decisions: CompareChapterDecisions;
+  preferredSide: "left" | "right";
+}): "left" | "right" | null {
+  const present = projectedPresence(args.chapter, args.decisions);
+  const matches = (side: "left" | "right") =>
+    args.chapter[side].present === present &&
+    args.chapter.skeleton.units
+      .filter((unit) => unit.status !== "unchanged")
+      .every((unit) => args.decisions.units[unit.id] === side);
+
+  if (matches(args.preferredSide)) return args.preferredSide;
+  const otherSide = args.preferredSide === "left" ? "right" : "left";
+  return matches(otherSide) ? otherSide : null;
 }
 
 function projectedPresence(
@@ -144,10 +207,6 @@ function projectedPresence(
           ? chapter.right.present
           : false;
     });
-}
-
-function tokensEqual(left: readonly Token[], right: readonly Token[]): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 export function reduceProjectionState(

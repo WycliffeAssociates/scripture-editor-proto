@@ -192,7 +192,7 @@ describe("decision maps", () => {
 });
 
 describe("revision-tagged merge projection", () => {
-  it("passes the frozen snapshot arrays to merge and emits an Apply-ready artifact", async () => {
+  it("reuses a frozen side when every decision selects it", async () => {
     const snapshot = result();
     const chapter = snapshot.chapters.GEN?.[1];
     const mergeDiffBlocks = vi.fn(
@@ -209,8 +209,8 @@ describe("revision-tagged merge projection", () => {
       usfmOnionService: { mergeDiffBlocks } as unknown as IUsfmOnionService,
     });
 
-    expect(mergeDiffBlocks.mock.calls[0]?.[0]).toBe(chapter?.left.tokens);
-    expect(mergeDiffBlocks.mock.calls[0]?.[1]).toBe(chapter?.right.tokens);
+    expect(mergeDiffBlocks).not.toHaveBeenCalled();
+    expect(artifact.chapters[0]?.tokens).toBe(chapter?.right.tokens);
     expect(artifact).toMatchObject({ revision: 3, complete: true });
     expect(artifact.chapters[0]).toMatchObject({
       present: true,
@@ -220,6 +220,66 @@ describe("revision-tagged merge projection", () => {
     expect(assertApplyArtifact({ artifact, currentRevision: 3 })).toBe(
       artifact,
     );
+  });
+
+  it("passes the frozen snapshot arrays to Onion for mixed decisions", async () => {
+    const snapshot = result();
+    const chapter = snapshot.chapters.GEN![1]!;
+    const mixedSkeleton: DiffSkeleton = {
+      slots: [
+        ...chapter.skeleton.slots,
+        { unitId: "second", role: "pairCurrent" },
+      ],
+      units: [
+        ...chapter.skeleton.units,
+        { ...chapter.skeleton.units[0]!, id: "second" },
+      ],
+    };
+    const mixedSnapshot: CompareResult = {
+      ...snapshot,
+      chapters: {
+        GEN: { 1: { ...chapter, skeleton: mixedSkeleton } },
+      },
+    };
+    const mergeDiffBlocks = vi.fn(
+      async (_left: readonly Token[], _right: readonly Token[]) => [rightToken],
+    );
+
+    await projectCompareRevision({
+      snapshot: mixedSnapshot,
+      decisions: {
+        GEN: {
+          1: { units: { move: "left", second: "right" }, presence: null },
+        },
+      },
+      revision: 1,
+      usfmOnionService: { mergeDiffBlocks } as unknown as IUsfmOnionService,
+    });
+
+    expect(mergeDiffBlocks.mock.calls[0]?.[0]).toBe(chapter.left.tokens);
+    expect(mergeDiffBlocks.mock.calls[0]?.[1]).toBe(chapter.right.tokens);
+  });
+
+  it("reuses unchanged chapter projections across decision revisions", async () => {
+    const snapshot = result();
+    const decisions = createInitialDecisions(snapshot);
+    const mergeDiffBlocks = vi.fn(async () => [rightToken]);
+    const first = await projectCompareRevision({
+      snapshot,
+      decisions,
+      revision: 1,
+      usfmOnionService: { mergeDiffBlocks } as unknown as IUsfmOnionService,
+    });
+    const second = await projectCompareRevision({
+      snapshot,
+      decisions,
+      revision: 2,
+      usfmOnionService: { mergeDiffBlocks } as unknown as IUsfmOnionService,
+      previous: { artifact: first, decisions },
+    });
+
+    expect(mergeDiffBlocks).not.toHaveBeenCalled();
+    expect(second.chapters[0]).toBe(first.chapters[0]);
   });
 
   it("models choosing the absent side as a real chapter deletion", async () => {

@@ -2,7 +2,7 @@
 
 import { createState } from "lexical";
 
-import { UsfmTokenTypes } from "@/app/data/editor.ts";
+import { isUsfmTokenType, UsfmTokenTypes } from "@/app/data/editor.ts";
 
 /**
  * Shared Lexical NodeState definitions for USFM nodes.
@@ -45,7 +45,7 @@ const inCharsState = createState("inChars", {
  * Examples: 'text', 'marker', 'numberRange'
  */
 const tokenTypeState = createState("tokenType", {
-  parse: (value) => (typeof value === "string" ? value : UsfmTokenTypes.text),
+  parse: (value) => (isUsfmTokenType(value) ? value : UsfmTokenTypes.text),
 });
 
 /**

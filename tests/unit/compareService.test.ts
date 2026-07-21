@@ -5,7 +5,11 @@ import { buildCompareSourcePair } from "@/app/domain/project/compare/sourceDescr
 import type { CompareSourceDescriptor } from "@/app/domain/project/compare/types.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
-import type { DiffSkeleton, Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import type {
+  DiffScopeItem,
+  DiffSkeleton,
+  Token,
+} from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 function source(
   kind: "saved" | "working" | "existingProject",
@@ -23,6 +27,7 @@ function source(
 function files(
   tokens: Token[],
   eol: "\n" | "\r\n" = "\n",
+  dirty = false,
 ): ScriptureBookState[] {
   return [
     {
@@ -34,7 +39,7 @@ function files(
       chapters: [
         {
           chapterNumber: 1,
-          dirty: false,
+          dirty,
           direction: "ltr",
           eol,
           sourceTokens: tokens,
@@ -116,8 +121,8 @@ describe("frozen symmetric compare snapshot", () => {
     } as IUsfmOnionService;
 
     const result = await buildCompareResultAsync({
-      leftFiles: files(rawLeft, "\r\n"),
-      rightFiles: files(rawRight),
+      leftFiles: files(rawLeft, "\r\n", true),
+      rightFiles: files(rawRight, "\n", true),
       sources: buildCompareSourcePair({
         left: source("saved"),
         right: source("working", true),
@@ -138,6 +143,54 @@ describe("frozen symmetric compare snapshot", () => {
     ]);
     expect(chapter?.left.eol).toBe("\r\n");
     expect(rawLeft[0]?.sid).toBe("wrong");
+  });
+
+  it("diffs only dirty chapters for Saved-vs-Working review", async () => {
+    const cleanToken: Token = {
+      id: "clean",
+      kind: "text",
+      sid: "GEN 1:1",
+      source: "clean",
+    };
+    const dirtyToken: Token = {
+      id: "dirty",
+      kind: "text",
+      sid: "GEN 2:1",
+      source: "dirty",
+    };
+    const saved = files([cleanToken]);
+    const working = files([cleanToken]);
+    saved[0]!.chapters.push({
+      ...saved[0]!.chapters[0]!,
+      chapterNumber: 2,
+      sourceTokens: [cleanToken],
+      currentTokens: [cleanToken],
+    });
+    working[0]!.chapters.push({
+      ...working[0]!.chapters[0]!,
+      chapterNumber: 2,
+      dirty: true,
+      sourceTokens: [cleanToken],
+      currentTokens: [dirtyToken],
+    });
+    const diffScope = vi.fn(async (_scope: DiffScopeItem[]) => [
+      skeleton([cleanToken], [dirtyToken]),
+    ]);
+
+    const result = await buildCompareResultAsync({
+      leftFiles: saved,
+      rightFiles: working,
+      sources: buildCompareSourcePair({
+        left: source("saved"),
+        right: source("working", true),
+      }),
+      usfmOnionService: { diffScope } as unknown as IUsfmOnionService,
+    });
+
+    expect(diffScope).toHaveBeenCalledTimes(1);
+    expect(diffScope.mock.calls[0]?.[0]).toHaveLength(1);
+    expect(result.chapters.GEN?.[1]).toBeUndefined();
+    expect(result.chapters.GEN?.[2]).toBeDefined();
   });
 
   it("retains one-sided chapter presence and coverage", async () => {

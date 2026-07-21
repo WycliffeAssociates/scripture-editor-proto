@@ -7,6 +7,7 @@ import type {
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
+import { shouldDefaultToWritableSide } from "./sourceDescriptors.ts";
 import type {
   ChapterAddress,
   CompareChaptersByBook,
@@ -101,9 +102,19 @@ export async function buildCompareResultAsync(
 ): Promise<CompareResult> {
   const leftMap = buildChapterMap(args.leftFiles);
   const rightMap = buildChapterMap(args.rightFiles);
-  const allKeys = Array.from(
+  const sourceKeys = Array.from(
     new Set([...leftMap.keys(), ...rightMap.keys()]),
   ).sort(compareChapterKeys);
+  const allKeys = shouldDefaultToWritableSide(args.sources)
+    ? sourceKeys.filter((key) => {
+        const workingMap =
+          args.sources.writableSide === "left" ? leftMap : rightMap;
+        return (
+          (workingMap.get(key)?.side.chapter.dirty ?? false) ||
+          leftMap.has(key) !== rightMap.has(key)
+        );
+      })
+    : sourceKeys;
   const leftOnly: ChapterAddress[] = [];
   const rightOnly: ChapterAddress[] = [];
   const overlapping: ChapterAddress[] = [];

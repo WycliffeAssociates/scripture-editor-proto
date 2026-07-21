@@ -1,6 +1,10 @@
 import { $createLineBreakNode, type LexicalNode } from "lexical";
 
-import { type EditorShape, UsfmTokenTypes } from "@/app/data/editor.ts";
+import {
+  type EditorShape,
+  type UsfmTokenType,
+  UsfmTokenTypes,
+} from "@/app/data/editor.ts";
 import { $createUSFMNumberedMarkerNode } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import { $createUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
@@ -15,7 +19,7 @@ import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 const USFM_MARKER_PATTERN =
   /(^|[\s\u00A0])\\[A-Za-z][A-Za-z0-9]*\*?(?=$|[\s\u00A0])/gmu;
-const VALID_INSERTABLE_TOKEN_TYPES = new Set<string>([
+const VALID_INSERTABLE_TOKEN_TYPES = new Set<UsfmTokenType>([
   UsfmTokenTypes.marker,
   UsfmTokenTypes.endMarker,
   UsfmTokenTypes.numberRange,
@@ -49,22 +53,20 @@ export function isUsfmLikePaste(text: string): boolean {
   return candidates.some((marker) => ALL_USFM_MARKERS.has(marker));
 }
 
-function onionKindToLexicalTokenType(kind: Token["kind"]): string {
-  switch (kind) {
-    case "marker":
-      return UsfmTokenTypes.marker;
-    case "endMarker":
-      return UsfmTokenTypes.endMarker;
-    case "newline":
-      return UsfmTokenTypes.verticalWhitespace;
-    case "number":
-      return UsfmTokenTypes.numberRange;
-    case "bookCode":
-    case "optBreak":
-      return UsfmTokenTypes.text;
-    default:
-      return kind;
-  }
+const PASTE_EDITOR_TYPE_BY_ONION_KIND = {
+  newline: UsfmTokenTypes.verticalWhitespace,
+  optBreak: UsfmTokenTypes.text,
+  marker: UsfmTokenTypes.marker,
+  endMarker: UsfmTokenTypes.endMarker,
+  milestone: UsfmTokenTypes.milestone,
+  milestoneEnd: UsfmTokenTypes.milestoneEnd,
+  bookCode: UsfmTokenTypes.text,
+  number: UsfmTokenTypes.numberRange,
+  text: UsfmTokenTypes.text,
+} as const satisfies Record<Token["kind"], UsfmTokenType>;
+
+function onionKindToLexicalTokenType(kind: Token["kind"]): UsfmTokenType {
+  return PASTE_EDITOR_TYPE_BY_ONION_KIND[kind];
 }
 
 export function parseClipboardUsfmToTokens(args: {

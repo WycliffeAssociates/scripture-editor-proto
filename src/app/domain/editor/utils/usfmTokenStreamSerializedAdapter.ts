@@ -7,6 +7,7 @@ import type {
 import {
   EDITOR_SHAPES,
   type EditorShape,
+  type UsfmTokenType,
   UsfmTokenTypes,
 } from "@/app/data/editor.ts";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
@@ -25,6 +26,7 @@ import {
 } from "@/app/domain/editor/utils/modeTransforms.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 import type { LanguageDirection } from "@/core/domain/project/project.ts";
+import { parseNumberInfoFromSource } from "@/core/domain/usfm/parseUtils.ts";
 import type { TokenEnvelope } from "@/core/domain/usfm/tokenEnvelope.ts";
 import { normalizeTokenSids } from "@/core/domain/usfm/tokenSidNormalization.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
@@ -75,43 +77,60 @@ export type LexicalRenderToken = {
   marker?: string;
 };
 
+// This table is intentionally total over both vocabularies. Adding or
+// renaming an editor token type or an Onion TokenKind must update this adapter
+// before TypeScript will compile. Editor-only composite nodes map to null and
+// must be flattened before they can cross the Onion boundary.
+const ONION_KIND_BY_EDITOR_TOKEN_TYPE = {
+  [UsfmTokenTypes.marker]: "marker",
+  [UsfmTokenTypes.endMarker]: "endMarker",
+  [UsfmTokenTypes.text]: "text",
+  [UsfmTokenTypes.numberRange]: "number",
+  [UsfmTokenTypes.verticalWhitespace]: "newline",
+  [UsfmTokenTypes.error]: "text",
+  [UsfmTokenTypes.numberedMarker]: null,
+  optBreak: "optBreak",
+  milestone: "milestone",
+  milestoneEnd: "milestoneEnd",
+  bookCode: "bookCode",
+} as const satisfies Record<UsfmTokenType, Token["kind"] | null>;
+
+function isEditorTokenType(value: string): value is UsfmTokenType {
+  return Object.hasOwn(ONION_KIND_BY_EDITOR_TOKEN_TYPE, value);
+}
+
 function lexicalTokenTypeToOnionKind(
   tokenType: string | undefined,
 ): Token["kind"] {
-  switch (tokenType) {
-    case UsfmTokenTypes.marker:
-      return "marker";
-    case UsfmTokenTypes.endMarker:
-      return "endMarker";
-    case UsfmTokenTypes.numberRange:
-      return "number";
-    case UsfmTokenTypes.verticalWhitespace:
-      return "newline";
-    default:
-      return (tokenType ?? "text") as Token["kind"];
+  if (tokenType === undefined) return "text";
+  if (!isEditorTokenType(tokenType)) {
+    throw new Error(
+      `Unknown editor token type at Onion boundary: ${tokenType}`,
+    );
   }
+  const onionKind = ONION_KIND_BY_EDITOR_TOKEN_TYPE[tokenType];
+  if (onionKind === null) {
+    throw new Error(
+      `Composite editor token reached Onion boundary before flattening: ${tokenType}`,
+    );
+  }
+  return onionKind;
 }
 
-function flatTokenKindToLexicalTokenType(kind: string): string {
-  switch (kind) {
-    case "marker":
-    case "milestone":
-      return UsfmTokenTypes.marker;
-    case "endMarker":
-    case "milestoneEnd":
-      return UsfmTokenTypes.endMarker;
-    case "newline":
-      return UsfmTokenTypes.verticalWhitespace;
-    case "number":
-      return UsfmTokenTypes.numberRange;
-    case "bookCode":
-      return "bookCode";
-    case "optBreak":
-    case "attributeList":
-      return UsfmTokenTypes.text;
-    default:
-      return kind;
-  }
+const EDITOR_TYPE_BY_ONION_KIND = {
+  newline: UsfmTokenTypes.verticalWhitespace,
+  optBreak: UsfmTokenTypes.text,
+  marker: UsfmTokenTypes.marker,
+  endMarker: UsfmTokenTypes.endMarker,
+  milestone: UsfmTokenTypes.marker,
+  milestoneEnd: UsfmTokenTypes.endMarker,
+  bookCode: UsfmTokenTypes.bookCode,
+  number: UsfmTokenTypes.numberRange,
+  text: UsfmTokenTypes.text,
+} as const satisfies Record<Token["kind"], UsfmTokenType>;
+
+function flatTokenKindToLexicalTokenType(kind: Token["kind"]): UsfmTokenType {
+  return EDITOR_TYPE_BY_ONION_KIND[kind];
 }
 
 export function lexicalRootChildrenToUsfmTokenStream(
@@ -275,9 +294,12 @@ export function lexicalToTokens(
     const sid = node.sid ?? lastSid;
     const text = node.text ?? "";
     const marker = node.marker ?? undefined;
+    const kind = lexicalTokenTypeToOnionKind(node.tokenType);
+    const numberInfo =
+      kind === "number" ? parseNumberInfoFromSource(text) : undefined;
     tokens.push({
       id: node.id,
-      kind: lexicalTokenTypeToOnionKind(node.tokenType),
+      kind,
       sid,
       marker,
       // USFM 3.1 marks nested character markers with a "+" prefix;
@@ -286,6 +308,7 @@ export function lexicalToTokens(
       // Upstream renamed `Token.text` → `Token.source` in v0.0.3; the
       // value carried is still the lexed byte slice for this token.
       source: text,
+      ...(numberInfo === undefined ? {} : { numberInfo }),
       // USFM 3.1 character-marker attribute list (`|key="value"`).
       // Round-tripped via `tokensToUsfm` upstream — without this
       // the attribute slice silently drops on save.

@@ -4,6 +4,7 @@ import {
   USFM_PARAGRAPH_NODE_TYPE,
   USFM_TEXT_NODE_TYPE,
   type USFMNodeJSON,
+  type UsfmTokenType,
   UsfmTokenTypes,
 } from "@/app/data/editor.ts";
 import { isSectionMarker } from "@/app/domain/editor/markerTaxonomy.ts";
@@ -107,7 +108,7 @@ export function groupFlatNodesIntoParagraphContainers(
     direction: LanguageDirection;
     format: "start";
     indent: 0;
-    tokenType: string;
+    tokenType: UsfmTokenType;
     id: string;
     sid: string;
     marker: string;

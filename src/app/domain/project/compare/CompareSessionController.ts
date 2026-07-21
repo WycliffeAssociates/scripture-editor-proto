@@ -25,6 +25,7 @@ import {
   reduceProjectionState,
   type CompareProjectionArtifact,
   type CompareProjectionState,
+  type PreviousCompareProjection,
 } from "./projection.ts";
 import { buildCompareSourcePair } from "./sourceDescriptors.ts";
 import type {
@@ -76,6 +77,9 @@ export class CompareSessionController {
     { status: "active" }
   > | null = null;
   private projectionRunningSessionId: string | null = null;
+  private previousProjection:
+    | (PreviousCompareProjection & Readonly<{ sessionId: string }>)
+    | null = null;
 
   constructor(
     private readonly deps: {
@@ -96,6 +100,7 @@ export class CompareSessionController {
     right: CompareSourceDescriptor;
   }): Promise<void> {
     const sequence = ++this.sessionSequence;
+    this.previousProjection = null;
     this.stopStaleWatch();
     if (this.state.status === "active") {
       if (this.displacedState)
@@ -209,6 +214,7 @@ export class CompareSessionController {
 
   async close(): Promise<void> {
     ++this.sessionSequence;
+    this.previousProjection = null;
     this.stopStaleWatch();
     const previous = this.state;
     this.publish(Object.freeze({ status: "closed" }));
@@ -452,11 +458,20 @@ export class CompareSessionController {
             decisions: active.session.decisions,
             revision,
             usfmOnionService: this.deps.usfmOnionService,
+            previous:
+              this.previousProjection?.sessionId === sessionId
+                ? this.previousProjection
+                : undefined,
           });
           const current = this.state;
           if (current.status !== "active" || current.session.id !== sessionId) {
             return;
           }
+          this.previousProjection = Object.freeze({
+            sessionId,
+            artifact,
+            decisions: active.session.decisions,
+          });
           if (current.session.decisionRevision !== revision) continue;
           this.publish(
             Object.freeze({

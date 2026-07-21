@@ -6,7 +6,11 @@ import {
   type LexicalEditor,
 } from "lexical";
 
-import { EDITOR_TAGS_USED, UsfmTokenTypes } from "@/app/data/editor.ts";
+import {
+  EDITOR_TAGS_USED,
+  type UsfmTokenType,
+  UsfmTokenTypes,
+} from "@/app/data/editor.ts";
 import type { Settings } from "@/app/data/settings.ts";
 import { $isUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
@@ -18,7 +22,7 @@ import { ALL_CHAR_MARKERS } from "@/core/domain/usfm/onionMarkers.ts";
 
 export type DocStructureFxnArgs = {
   node: USFMTextNode;
-  tokenType: string;
+  tokenType: UsfmTokenType;
   appSettings: Settings;
   updates: Array<{
     dbgLabel: string;

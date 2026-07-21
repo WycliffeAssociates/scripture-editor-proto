@@ -1,7 +1,11 @@
 import type { SerializedElementNode } from "lexical";
 import { describe, expect, it } from "vitest";
 
-import { type USFMNodeJSON, UsfmTokenTypes } from "@/app/data/editor.ts";
+import {
+  type USFMNodeJSON,
+  type UsfmTokenType,
+  UsfmTokenTypes,
+} from "@/app/data/editor.ts";
 import type { USFMNestedEditorNodeJSON } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import type { USFMParagraphNodeJSON } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
@@ -278,7 +282,7 @@ describe("reduceSerializedNodesToText", () => {
   function createMockUSFMTextNode(
     text: string,
     sid: string,
-    tokenType: string = UsfmTokenTypes.text,
+    tokenType: UsfmTokenType = UsfmTokenTypes.text,
   ): SerializedUSFMTextNode {
     return {
       type: "usfm-text-node",
@@ -305,7 +309,7 @@ describe("reduceSerializedNodesToText", () => {
     return {
       type: "usfm-paragraph-node",
       id: "element-1",
-      tokenType: "element",
+      tokenType: UsfmTokenTypes.marker,
       inPara: "p",
       sid,
       marker: "p",

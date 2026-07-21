@@ -1,7 +1,11 @@
 import type { SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
 
-import { USFM_TEXT_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
+import {
+  USFM_TEXT_NODE_TYPE,
+  type UsfmTokenType,
+  UsfmTokenTypes,
+} from "@/app/data/editor.ts";
 import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import {
   lexicalRootChildrenToUsfmTokenStream,
@@ -33,7 +37,7 @@ function applyPrettifyToNodeTree(
 
 const createToken = (
   text: string,
-  tokenType: string = UsfmTokenTypes.text,
+  tokenType: UsfmTokenType = UsfmTokenTypes.text,
   marker?: string,
 ) =>
   ({
@@ -51,7 +55,7 @@ const createNl = () =>
 
 const createSerializedTextNode = (
   text: string,
-  tokenType: string = UsfmTokenTypes.text,
+  tokenType: UsfmTokenType = UsfmTokenTypes.text,
   marker?: string,
 ): SerializedUSFMTextNode => ({
   type: USFM_TEXT_NODE_TYPE,

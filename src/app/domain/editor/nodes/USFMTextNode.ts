@@ -12,7 +12,11 @@ import {
   TextNode,
 } from "lexical";
 
-import { USFM_TEXT_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
+import {
+  USFM_TEXT_NODE_TYPE,
+  type UsfmTokenType,
+  UsfmTokenTypes,
+} from "@/app/data/editor.ts";
 import {
   idState,
   inCharsState,
@@ -37,7 +41,7 @@ export type SerializedUSFMTextNode = SerializedTextNode & {
       style: string;
       text: string;
   */
-  tokenType: string;
+  tokenType: UsfmTokenType;
   sid?: string;
   marker?: string;
   lexicalType: typeof USFM_TEXT_NODE_TYPE;
@@ -117,7 +121,7 @@ export class USFMTextNode extends TextNode {
     return $getState(this.getLatest(), inParaState);
   }
 
-  getTokenType(): string {
+  getTokenType(): UsfmTokenType {
     return $getState(this.getLatest(), tokenTypeState);
   }
 
@@ -130,7 +134,7 @@ export class USFMTextNode extends TextNode {
 
   getAllScalarStates(): {
     id: string;
-    tokenType: string;
+    tokenType: UsfmTokenType;
     sid?: string;
     inPara?: string;
     marker?: string;
@@ -162,7 +166,7 @@ export class USFMTextNode extends TextNode {
     return this;
   }
 
-  setTokenType(tokenType: string): this {
+  setTokenType(tokenType: UsfmTokenType): this {
     $setState(this.getWritable(), tokenTypeState, tokenType);
     return this;
   }
@@ -262,7 +266,7 @@ export type USFMTextNodeMetadata = {
   sid?: string;
   inPara?: string;
   inChars?: string[];
-  tokenType?: string;
+  tokenType?: UsfmTokenType;
   marker?: string;
   [key: string]: unknown;
 };
@@ -292,7 +296,7 @@ type CreateSerializedUSFMTextNodeParams = {
   text: string;
   id: string;
   sid: string;
-  tokenType: string;
+  tokenType: UsfmTokenType;
   inPara?: string;
   inChars?: string[];
   marker?: string;

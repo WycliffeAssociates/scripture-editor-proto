@@ -1,7 +1,11 @@
 import type { EditorConfig, LexicalNode, SerializedElementNode } from "lexical";
 import { $create, $getState, $setState, ElementNode, TextNode } from "lexical";
 
-import { USFM_PARAGRAPH_NODE_TYPE } from "@/app/data/editor.ts";
+import {
+  USFM_PARAGRAPH_NODE_TYPE,
+  type UsfmTokenType,
+  UsfmTokenTypes,
+} from "@/app/data/editor.ts";
 import {
   idState,
   inParaState,
@@ -15,7 +19,7 @@ import {
 export type USFMParagraphNodeJSON = SerializedElementNode & {
   type: typeof USFM_PARAGRAPH_NODE_TYPE;
   id: string;
-  tokenType: string;
+  tokenType: UsfmTokenType;
   marker?: string;
   inPara?: string;
   sid?: string;
@@ -64,7 +68,11 @@ export class USFMParagraphNode extends ElementNode {
     $setState(writable, sidState, json.sid ?? "");
     $setState(writable, markerState, json.marker);
     $setState(writable, inParaState, json.inPara);
-    $setState(writable, tokenTypeState, json.tokenType ?? "marker");
+    $setState(
+      writable,
+      tokenTypeState,
+      json.tokenType ?? UsfmTokenTypes.marker,
+    );
     $setState(writable, markerTextState, json.markerText);
     $setState(
       writable,
@@ -99,7 +107,7 @@ export class USFMParagraphNode extends ElementNode {
     return $getState(this.getLatest(), sidState);
   }
 
-  getTokenType(): string {
+  getTokenType(): UsfmTokenType {
     return $getState(this.getLatest(), tokenTypeState);
   }
 
@@ -117,7 +125,7 @@ export class USFMParagraphNode extends ElementNode {
 
   private static getAllStatesFromNode(node: USFMParagraphNode): {
     id: string;
-    tokenType: string;
+    tokenType: UsfmTokenType;
     sid?: string;
     inPara?: string;
     marker?: string;
@@ -146,7 +154,7 @@ export class USFMParagraphNode extends ElementNode {
   }
   getAllStates(): {
     id: string;
-    tokenType: string;
+    tokenType: UsfmTokenType;
     sid?: string;
     inPara?: string;
     marker?: string;
@@ -167,7 +175,7 @@ export class USFMParagraphNode extends ElementNode {
     return this;
   }
 
-  setTokenType(tokenType: string): this {
+  setTokenType(tokenType: UsfmTokenType): this {
     $setState(this.getWritable(), tokenTypeState, tokenType);
     return this;
   }
@@ -265,7 +273,7 @@ export type CreateUSFMParagraphNodeParams = {
   id: string;
   marker: string;
   inPara?: string;
-  tokenType?: string;
+  tokenType?: UsfmTokenType;
   markerText?: string;
 };
 
@@ -277,7 +285,11 @@ export function $createUSFMParagraphNode(
   $setState(writable, idState, params.id);
   $setState(writable, markerState, params.marker);
   $setState(writable, inParaState, params.inPara);
-  $setState(writable, tokenTypeState, params.tokenType ?? "marker");
+  $setState(
+    writable,
+    tokenTypeState,
+    params.tokenType ?? UsfmTokenTypes.marker,
+  );
   $setState(
     writable,
     markerTextState,

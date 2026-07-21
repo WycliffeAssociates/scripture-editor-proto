@@ -24,6 +24,7 @@
 // the wrong way, so an a/b split (`5`, `5b` → both read 5) is a repeat, left to
 // onion, never re-emitted here.
 
+import { parseNumberInfoFromSource } from "@/core/domain/usfm/parseUtils.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 import type { FindingSeverity } from "../finding.ts";
@@ -72,9 +73,6 @@ export type ChapterMarker = { number: number; tokenId: string };
 /** A `\c`/`\v` number parsed from its `number` token (id + bridge-aware value). */
 type ParsedNumber = { start: number; end: number; tokenId: string };
 
-// `start[-end]` off the literal source: "93" → 93, "5-6" → 5..6, "5b" → 5.
-const NUMBER_RANGE = /^(\d+)(?:-(\d+))?/;
-
 /**
  * The number for the `\c`/`\v` marker at `markerIndex`: parsed from the SOURCE
  * of the following `number` token (skipping trivia), and carrying that token's
@@ -87,12 +85,11 @@ function numberAfterMarker(
   for (let i = markerIndex + 1; i < tokens.length; i++) {
     const token = tokens[i];
     if (token.kind === "number") {
-      const match = NUMBER_RANGE.exec(token.source.trim());
-      if (!match) return null;
-      const start = Number.parseInt(match[1], 10);
+      const numberInfo = parseNumberInfoFromSource(token.source);
+      if (!numberInfo) return null;
       return {
-        start,
-        end: match[2] ? Number.parseInt(match[2], 10) : start,
+        start: numberInfo.start,
+        end: numberInfo.end ?? numberInfo.start,
         tokenId: token.id,
       };
     }
