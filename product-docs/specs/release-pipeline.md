@@ -111,7 +111,7 @@ The worker fetches the `.sig` file contents inline at manifest-build time and em
 
 A single Tauri minisign keypair signs both channels. The private key + password live in 1Password (`op://DevOps/Scripture-Editor/tauri-updater-private-key`, `…-password`). `release.yml` pulls both at build time and forwards them as `TAURI_SIGNING_PRIVATE_KEY` / `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` to `tauri-apps/tauri-action@v0`. The public key is embedded in `src/tauri/rust/tauri.conf.json` and shipped with every binary.
 
-The Nightly overlay `src/tauri/rust/tauri.conf.nightly.json` overrides `productName` (`Zephyr Nightly`), `identifier` (`org.bibletranslationtools.zephyr.nightly`), and the updater endpoint URL — but **not** the pubkey. Same key, two channels, side-by-side install on the same machine via the distinct bundle identifier.
+The Nightly overlay `src/tauri/rust/tauri.conf.nightly.json` overrides `productName` (`Sefer Nightly`), `identifier` (`org.bibletranslationtools.zephyr.nightly`), and the updater endpoint URL — but **not** the pubkey. Same key, two channels, side-by-side install on the same machine via the distinct bundle identifier.
 
 ## In-app updater UX
 

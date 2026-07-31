@@ -27,7 +27,7 @@ function toSidCalculationToken(token: Token): TokenForSidCalculation {
  * App-level SID normalization for stored token streams.
  *
  * Upstream parsing can leave some intro/document marker tokens without a SID,
- * especially around `\\id`. Once Zephyr owns a token array, we normalize SIDs
+ * especially around `\\id`. Once Sefer owns a token array, we normalize SIDs
  * so diffing, history, and rendering can rely on one consistent invariant:
  * chapter-0 material is anchored to `BOOK 0:0`.
  */

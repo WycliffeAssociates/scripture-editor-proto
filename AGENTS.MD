@@ -1,6 +1,6 @@
-# Zephyr AGENTS Guide
+# Sefer AGENTS Guide
 
-Zephyr is a local-first scripture editor for USFM, with shared core logic across Web (OPFS) and Desktop (Tauri).
+Sefer is a local-first scripture editor for USFM, with shared core logic across Web (OPFS) and Desktop (Tauri).
 
 ## Repository-wide essentials
 - Package manager: `pnpm`

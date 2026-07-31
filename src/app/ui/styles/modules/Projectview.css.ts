@@ -257,6 +257,16 @@ export const workspaceOverlayPane = style({
   // bleed past the seam onto the editor.
   overflow: "hidden",
   zIndex: zLayer.editorOverlayPane,
+  // Declared on the base class (not just the docked variant) so the retreat
+  // animates symmetrically in both directions — docking adds the `Docked`
+  // class along with its value in one step, but undocking removes that class
+  // entirely, and a transition only present there wouldn't survive to ease
+  // the reverse change.
+  "@media": {
+    "screen and (prefers-reduced-motion: no-preference)": {
+      transition: "inset-inline-end 220ms ease",
+    },
+  },
 });
 
 // Docked search: the overlay retreats to the leading ~70%, revealing the editor
@@ -264,11 +274,6 @@ export const workspaceOverlayPane = style({
 // inset keeps the editor on the inline-end edge in both LTR and RTL.
 export const workspaceOverlayPaneDocked = style({
   insetInlineEnd: "35%",
-  "@media": {
-    "screen and (prefers-reduced-motion: no-preference)": {
-      transition: "inset-inline-end 220ms ease",
-    },
-  },
 });
 
 export const referenceToggleButton = style({
@@ -307,6 +312,12 @@ export const desktopContentGrid = style({
       alignItems: "stretch",
       gridTemplateColumns: "minmax(0, 1fr)",
     },
+    // Declared on the base class (not just `desktopContentGridDocked`) so the
+    // width animates symmetrically both ways — see the matching note on
+    // `workspaceOverlayPane`.
+    "screen and (prefers-reduced-motion: no-preference)": {
+      transition: "max-width 220ms ease",
+    },
   },
 });
 
@@ -328,9 +339,6 @@ export const desktopContentGridDocked = style({
     [mediaQuery.up("lg")]: {
       maxWidth: "35%",
       justifySelf: "end",
-    },
-    "screen and (prefers-reduced-motion: no-preference)": {
-      transition: "max-width 220ms ease",
     },
   },
 });

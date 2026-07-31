@@ -20,7 +20,7 @@ import type {
 } from "usfm-onion-web";
 
 /**
- * Shared USFM Onion type surface re-exported into Zephyr's core domain.
+ * Shared USFM Onion type surface re-exported into Sefer's core domain.
  *
  * Keeping these aliases here prevents the rest of the codebase from depending
  * directly on package-specific names at every call site.

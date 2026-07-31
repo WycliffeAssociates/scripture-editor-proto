@@ -85,8 +85,8 @@ export function AttachResolveStatus(props: {
           ) : null}
           <p className={styles.help}>
             <Trans>
-              This project can't be worked on inside Zephyr, so you can't
-              connect to it.
+              This project can't be worked on inside Sefer, so you can't connect
+              to it.
             </Trans>
           </p>
         </div>

@@ -198,7 +198,7 @@ fn try_resolve_reference_target(repo: &Repository, reference: &str) -> Result<Op
 
 fn reset_branch_to_commit(repo: &Repository, branch: &str, target: Oid) -> Result<(), String> {
     let ref_name = format!("refs/heads/{branch}");
-    repo.reference(&ref_name, target, true, "zephyr remote replay")
+    repo.reference(&ref_name, target, true, "sefer remote replay")
         .map_err(|e| e.message().to_string())?;
     repo.set_head(&ref_name)
         .map_err(|e| e.message().to_string())?;

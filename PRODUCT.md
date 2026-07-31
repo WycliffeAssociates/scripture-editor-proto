@@ -6,11 +6,11 @@ product
 
 ## Users
 
-Zephyr serves scripture translation teams whose members may have little or no familiarity with Git or software-development workflows. They need to edit, review, save, recover, and share scripture confidently while several people may work on the same project from different devices and with unreliable connectivity.
+Sefer serves scripture translation teams whose members may have little or no familiarity with Git or software-development workflows. They need to edit, review, save, recover, and share scripture confidently while several people may work on the same project from different devices and with unreliable connectivity.
 
 ## Product Purpose
 
-Zephyr is a local-first scripture editor for USFM. It protects work on the user's device, creates understandable saved versions, and helps teams exchange and reconcile changes without requiring them to learn Git. Success means users can tell where their work is, what will happen next, and when a human decision is required—without fearing silent data loss.
+Sefer is a local-first scripture editor for USFM. It protects work on the user's device, creates understandable saved versions, and helps teams exchange and reconcile changes without requiring them to learn Git. Success means users can tell where their work is, what will happen next, and when a human decision is required—without fearing silent data loss.
 
 ## Brand Personality
 

@@ -198,7 +198,15 @@ export function SearchResults() {
         locationLabel,
         columns,
         active: isActive,
+        // Only the row that currently owns the open desktop-docked editor
+        // shows the close affordance; every other row still just navigates
+        // (and takes over the dock) when clicked.
+        closesSideEditor: !isSm && isActive && search.isSearchDocked,
         onNavigate: () => {
+          if (!isSm && isActive && search.isSearchDocked) {
+            search.toggleSearchDock();
+            return;
+          }
           // The navigate arrow focuses the row AND opens the editor: dock it
           // beside find on desktop (no-op if already docked), or reveal it on
           // small screens. Occurrence cycling stays row-local and independent.

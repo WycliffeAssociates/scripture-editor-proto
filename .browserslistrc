@@ -1,4 +1,4 @@
-# Runtime support floor for Zephyr's WebView targets (NOT open-web population —
+# Runtime support floor for Sefer's WebView targets (NOT open-web population —
 # a Tauri app inherits its engine from the host OS, so popularity queries like
 # `>0.5%` are meaningless here).
 #

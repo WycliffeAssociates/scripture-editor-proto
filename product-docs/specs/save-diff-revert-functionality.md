@@ -2,7 +2,7 @@
 
 ## What this feature does
 
-Zephyr reviews any two addressable scripture sources through one symmetric
+Sefer reviews any two addressable scripture sources through one symmetric
 surface. Sources may be the current Working copy, its Saved copy, another
 project, a ZIP, a folder, a Git checkpoint, or remote latest.
 
@@ -46,7 +46,7 @@ underlying decision unit in their scope, including hidden rows.
 
 ## Frozen sessions and staleness
 
-At session creation Zephyr reads each full chapter on both sides, explicitly
+At session creation Sefer reads each full chapter on both sides, explicitly
 normalizes both arrays through `usfm-onion-web/token-sids` with the book code,
 freezes those exact arrays, and passes them unchanged to diff and merge.
 Granular Onion APIs continue to trust caller-supplied SIDs; adapters do not
@@ -55,7 +55,7 @@ normalize implicitly.
 A writable session watches content commits to `WorkingFilesStore`. If Working
 changes while the modal is open, the session becomes stale. The frozen diff,
 decisions, filters, preview, and navigation remain visible, but Apply is
-disabled. Refresh discards the old decisions and creates a new snapshot. Zephyr
+disabled. Refresh discards the old decisions and creates a new snapshot. Sefer
 never automatically re-diffs or remaps decisions, and the final write still
 uses `commitIfNotStale` as a race guard.
 
@@ -113,9 +113,9 @@ while runtime composition remains hardcoded to `book`. This enum governs Git
 history disjointness only; it does not change the verse/SID-grained dirty-buffer
 comparison.
 
-When all incoming content is safe and the project is behind-only, Zephyr may
+When all incoming content is safe and the project is behind-only, Sefer may
 fast-forward. If any local content is retained, Working is dirty, or history
-diverged, Zephyr adopts remote latest as the save base and creates one new local
+diverged, Sefer adopts remote latest as the save base and creates one new local
 checkpoint for the reviewed result. Publish remains a later outcome.
 
 ## Crash recovery and history

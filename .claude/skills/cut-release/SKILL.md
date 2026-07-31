@@ -1,6 +1,6 @@
 ---
 name: cut-release
-description: Cut a Stable release for the Zephyr repo. Use when the user says "cut a release", "cut X.Y.Z", "ship a release", or asks to tag and release Stable. Drives a four-step flow — release-prep branch, AI-drafted PR body, human merge, tag-and-push to fire release.yml.
+description: Cut a Stable release for the Sefer repo. Use when the user says "cut a release", "cut X.Y.Z", "ship a release", or asks to tag and release Stable. Drives a four-step flow — release-prep branch, AI-drafted PR body, human merge, tag-and-push to fire release.yml.
 ---
 
 # Cut Stable release

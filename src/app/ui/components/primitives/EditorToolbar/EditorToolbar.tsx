@@ -4,9 +4,9 @@ import { useRouter } from "@tanstack/react-router";
 import { $getSelection, $isRangeSelection } from "lexical";
 import {
   AlignLeft,
-  BookCopy,
   ChevronLeft,
   ChevronRight,
+  Columns2,
   Hash,
   Loader2,
   MessageSquare,
@@ -347,7 +347,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
                 }
                 onClick={props.onToggleReferencePane}
                 active={props.isReferencePaneOpen}
-                icon={<BookCopy size={16} />}
+                icon={<Columns2 size={16} />}
               />
               {props.onToggleSearchPane ? (
                 <ToolbarTooltipButton

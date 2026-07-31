@@ -1,11 +1,11 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Zephyr Nightly",
+  "productName": "Sefer Nightly",
   "identifier": "org.bibletranslationtools.zephyr.nightly",
   "app": {
     "windows": [
       {
-        "title": "Zephyr Nightly"
+        "title": "Sefer Nightly"
       }
     ]
   },

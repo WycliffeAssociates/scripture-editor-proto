@@ -220,20 +220,20 @@ export function SourcePicker(props: SourcePickerProps) {
       {showHero ? (
         <header className={styles.hero}>
           <h1 className={styles.heroTitle}>
-            <Trans>Search for an existing project</Trans>
+            <Trans>Load Project</Trans>
           </h1>
           {canImportFromDevice ? (
             <p className={styles.heroSubtitle}>
               <Trans>
-                Don't see what you're looking for? You can{" "}
+                Use the search bar to find a project to work on, or you can{" "}
                 <button
                   type="button"
                   className={styles.inlineLink}
                   onClick={() => setImportOpen((open) => !open)}
                 >
-                  import one
-                </button>{" "}
-                from a local folder or zip file.
+                  load one from a file
+                </button>
+                .
               </Trans>
             </p>
           ) : null}

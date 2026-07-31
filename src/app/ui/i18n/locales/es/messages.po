@@ -732,8 +732,8 @@ msgstr "Elegir cómo se abre la revisión de cambios de forma predeterminada."
 #~ msgstr ""
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:260
-msgid "Choose the display language for Zephyr."
-msgstr "Elige el idioma de visualización de Zephyr."
+msgid "Choose the display language for Sefer."
+msgstr "Elige el idioma de visualización de Sefer."
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:288
 msgid "Choose the theme used throughout the application."
@@ -789,6 +789,10 @@ msgstr "Haz clic en Sincronizar ahora para guardar tus cambios en el proyecto "
 #: src/app/ui/components/views/stet-panel/StetPanel.tsx:85
 msgid "Close"
 msgstr "Cerrar"
+
+#: src/app/ui/components/views/result-browser/ResultBrowserRow.tsx:102
+msgid "Close editor"
+msgstr ""
 
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:186
 #: src/app/ui/components/views/stet-panel/StetPanel.tsx:75
@@ -1210,10 +1214,10 @@ msgid "Don't have an account?"
 msgstr "¿No tienes una cuenta?"
 
 #: src/app/ui/components/blocks/SourcePicker/SourcePicker.tsx:227
-msgid "Don't see what you're looking for? You can <0>import one</0> from a "
-"local folder or zip file."
-msgstr "¿No ves lo que buscas? Puedes <0>importar uno</0> desde una carpeta "
-"local o un archivo zip."
+#~ msgid "Don't see what you're looking for? You can <0>import one</0> from a "
+#~ "local folder or zip file."
+#~ msgstr "¿No ves lo que buscas? Puedes <0>importar uno</0> desde una carpeta "
+#~ "local o un archivo zip."
 
 #: src/app/ui/components/blocks/SourcePicker/SourcePicker.tsx:375
 msgid "Double-check your spelling, or try removing any active filters to "
@@ -1278,7 +1282,7 @@ msgstr "Número de versículo duplicado"
 msgid "Edit"
 msgstr "Editar"
 
-#: src/app/ui/components/views/result-browser/ResultBrowserRow.tsx:339
+#: src/app/ui/components/views/result-browser/ResultBrowserRow.tsx:353
 msgid "Edit in USFM mode"
 msgstr ""
 
@@ -1687,6 +1691,10 @@ msgstr ""
 msgid "Load more"
 msgstr "Cargar más"
 
+#: src/app/ui/components/blocks/SourcePicker/SourcePicker.tsx:223
+msgid "Load Project"
+msgstr ""
+
 #. placeholder {0}: activeReferenceResource.displayName
 #: src/app/ui/components/blocks/ReferenceEditor.tsx:242
 msgid "Loading {0}…"
@@ -1931,7 +1939,7 @@ msgid "Multiple spaces or a stray tab here — collapse to a single space."
 msgstr "Varios espacios o una tabulación aquí: contraer a un solo espacio."
 
 #. placeholder {0}: row.locationLabel
-#: src/app/ui/components/views/result-browser/ResultBrowserRow.tsx:100
+#: src/app/ui/components/views/result-browser/ResultBrowserRow.tsx:103
 msgid "Navigate to {0}"
 msgstr ""
 
@@ -1957,7 +1965,7 @@ msgstr "Nuevo proyecto"
 msgid "Next chapter"
 msgstr "Capítulo siguiente"
 
-#: src/app/ui/components/views/result-browser/ResultBrowserRow.tsx:107
+#: src/app/ui/components/views/result-browser/ResultBrowserRow.tsx:112
 msgid "Next match in this verse"
 msgstr "Siguiente coincidencia en este versículo"
 
@@ -2045,7 +2053,7 @@ msgid "No results for \"{query}\""
 msgstr "No hay resultados para «{query}»"
 
 #. placeholder {0}: search.searchTerm
-#: src/app/ui/components/views/search-panel/SearchResults.tsx:283
+#: src/app/ui/components/views/search-panel/SearchResults.tsx:291
 msgid "No results found for <0>{0}</0>"
 msgstr "No se encontraron resultados para <0>{0}</0>"
 
@@ -2319,7 +2327,7 @@ msgstr ""
 msgid "Previous chapter"
 msgstr "Capítulo anterior"
 
-#: src/app/ui/components/views/result-browser/ResultBrowserRow.tsx:106
+#: src/app/ui/components/views/result-browser/ResultBrowserRow.tsx:111
 msgid "Previous match in this verse"
 msgstr "Coincidencia anterior en este versículo"
 
@@ -2496,7 +2504,7 @@ msgstr ""
 msgid "Removed after {0}"
 msgstr ""
 
-#: src/app/ui/components/views/result-browser/ResultBrowserRow.tsx:309
+#: src/app/ui/components/views/result-browser/ResultBrowserRow.tsx:323
 msgid "Replace"
 msgstr "Reemplazar"
 
@@ -2505,12 +2513,12 @@ msgstr "Reemplazar"
 msgid "Replace \"{0}\" with \"{replacement}\""
 msgstr ""
 
-#: src/app/ui/components/views/result-browser/ResultBrowserRow.tsx:306
-#: src/app/ui/components/views/result-browser/ResultBrowserRow.tsx:307
+#: src/app/ui/components/views/result-browser/ResultBrowserRow.tsx:320
+#: src/app/ui/components/views/result-browser/ResultBrowserRow.tsx:321
 msgid "Replace this match"
 msgstr "Reemplazar esta coincidencia"
 
-#: src/app/ui/components/views/result-browser/ResultBrowserRow.tsx:299
+#: src/app/ui/components/views/result-browser/ResultBrowserRow.tsx:313
 msgid "Replace with..."
 msgstr "Reemplazar con..."
 
@@ -2699,8 +2707,8 @@ msgstr "Busca un idioma, título, propietario o nombre de repositorio para ver "
 #~ msgstr "Buscar capítulos"
 
 #: src/app/ui/components/blocks/SourcePicker/SourcePicker.tsx:223
-msgid "Search for an existing project"
-msgstr "Buscar un proyecto existente"
+#~ msgid "Search for an existing project"
+#~ msgstr "Buscar un proyecto existente"
 
 #: src/app/ui/components/blocks/SourcePicker/SourcePicker.tsx:300
 msgid "Search language, code, or users..."
@@ -2742,7 +2750,7 @@ msgid "Search scope"
 msgstr "Alcance de la búsqueda"
 
 #. placeholder {0}: search.searchTerm
-#: src/app/ui/components/views/search-panel/SearchResults.tsx:273
+#: src/app/ui/components/views/search-panel/SearchResults.tsx:281
 msgid "Searching for <0>{0}</0>..."
 msgstr "Buscando <0>{0}</0>..."
 
@@ -3235,7 +3243,7 @@ msgid "This frozen review is still visible, but it cannot be applied. Refresh "
 "to compare the latest content; current decisions will be cleared."
 msgstr ""
 
-#: src/app/ui/components/views/result-browser/ResultBrowserRow.tsx:337
+#: src/app/ui/components/views/result-browser/ResultBrowserRow.tsx:351
 msgid "This match crosses hidden formatting — edit it in USFM mode"
 msgstr ""
 
@@ -3246,9 +3254,9 @@ msgstr "Este rango de números no está precedido por un marcador que espera un 
 "número (como \\c o \\v)."
 
 #: src/app/ui/components/blocks/SharedProjectAttach/AttachResolveStatus.tsx:87
-msgid "This project can't be worked on inside Zephyr, so you can't connect to "
+msgid "This project can't be worked on inside Sefer, so you can't connect to "
 "it."
-msgstr "No se puede trabajar en este proyecto dentro de Zephyr, por lo que no "
+msgstr "No se puede trabajar en este proyecto dentro de Sefer, por lo que no "
 "puedes conectarte a él."
 
 #: src/app/ui/hooks/usePrettifyOperations.tsx:300
@@ -3310,7 +3318,7 @@ msgstr "Vuelve a intentar igualar el formato una vez que el capítulo del "
 msgid "Type"
 msgstr "Tipo"
 
-#: src/app/ui/components/views/search-panel/SearchResults.tsx:264
+#: src/app/ui/components/views/search-panel/SearchResults.tsx:272
 msgid "Type to start searching"
 msgstr "Escribe para empezar a buscar"
 
@@ -3436,6 +3444,11 @@ msgstr ""
 
 #: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:205
 msgid "Use original position"
+msgstr ""
+
+#: src/app/ui/components/blocks/SourcePicker/SourcePicker.tsx:227
+msgid "Use the search bar to find a project to work on, or you can <0>load one "
+"from a file</0>."
 msgstr ""
 
 #: src/app/ui/components/blocks/SourcePicker/SourcePicker.tsx:102

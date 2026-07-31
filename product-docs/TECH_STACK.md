@@ -1,4 +1,4 @@
-# Zephyr Tech Stack
+# Sefer Tech Stack
 
 ## Platform Targets
 

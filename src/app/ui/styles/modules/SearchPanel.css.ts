@@ -567,6 +567,13 @@ export const searchResultNavigate = style({
   },
 });
 
+// Rotated to signal the arrow now closes the side editor it opened, rather
+// than navigating to it.
+export const searchResultNavigateIconOpen = style({
+  transform: "rotate(180deg)",
+  transition: "transform 120ms ease",
+});
+
 // Per-verse occurrence cursor on the active row: ‹ 2/3 ›. Clusters with the
 // navigate button on the trailing edge.
 export const occurrenceStepper = style({

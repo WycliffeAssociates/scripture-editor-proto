@@ -43,6 +43,54 @@
 4. Project appears in `Projects`.
 5. Open it from the list and start editing.
 
+## Reference sources (reference panel)
+
+When editing, the reference panel offers scripture to read alongside the working
+project, from two grouped sources:
+
+- **On this device** — projects already imported locally, grouped by language.
+- **Available to add** — rows from the WA-Catalog that are not yet on the device.
+
+An "available" row that the device already has is hidden/marked as already-added by
+provenance matching (see below), so the same upstream resource does not appear
+twice. Adding an available row runs it through the same import path as any other
+repository download.
+
+- `src/app/ui/components/blocks/ReferencePanel/ReferencePanel.tsx`
+- `src/app/ui/hooks/useReferenceCatalog.ts`
+- `src/app/domain/project/catalogOriginMatch.ts` (provenance-based dedupe)
+
+## Import provenance (`projectOrigin` sidecar)
+
+Every import records *where the project came from* as a durable app-data sidecar,
+kept deliberately separate from the remote a project is *currently attached* to
+(`gitRemoteProjectInfo`) — a project can be imported from repo A and later attached
+to B. The sidecar lives on disk (not only in the Dexie index, which is a throwaway
+projection rebuilt from disk), so it survives a reindex. An absent sidecar means the
+project predates provenance and is treated as "unknown origin".
+
+Recorded shapes (`ProjectOrigin`, schema version 1):
+
+- **`remote`** — a repository download. Stores the normalized base repo `url` plus
+  `owner`/`name` parsed as the last two path segments (host-agnostic, so it works
+  for both the public catalog host and pasted gitea links). The catalog download
+  arrives as `${repo_url}/archive/<branch>.zip`; `normalizeOriginUrl` strips the
+  `/archive/<branch>.zip`, a trailing `.git`, and trailing slashes so the stored key
+  matches a catalog row's `repo_url` regardless of branch/suffix.
+- **`local`** — a folder or ZIP import, with `source: "folder" | "zip"`. No upstream
+  URL is recoverable; a self-describing "brought in locally" record beats a missing
+  one. (Note: this records the *import source type*; it does not sniff whether an
+  imported folder/ZIP contained its own `.git` remote.)
+- **prepared-dir continuation** — a metadata-review continuation of an
+  already-stamped import yields no new origin.
+
+Provenance is written by `DefaultProjectsService.importProject`, cleaned up by
+`deleteProject`, and read via `readProjectOrigin` on `ProjectsService` /
+`WorkspaceService`. Its primary consumers are reference-panel dedupe (above) and the
+cloud attach flow (matching a recorded origin to a catalog row).
+
+- `src/core/persistence/projectOriginModels.ts` / `projectOriginPaths.ts` / `projectOriginStore.ts`
+
 ## Current limits and non-goals
 
 - Project type detection is metadata-based (`metadata.json` or `manifest.yaml`).

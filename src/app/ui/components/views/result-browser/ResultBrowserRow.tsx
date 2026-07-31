@@ -97,7 +97,12 @@ export function ResultBrowserRow({ row }: { row: ResultRow }) {
       <ResultHeader
         locationLabel={row.locationLabel}
         onPick={row.onNavigate}
-        navigateLabel={t`Navigate to ${row.locationLabel}`}
+        navigateLabel={
+          row.closesSideEditor
+            ? t`Close editor`
+            : t`Navigate to ${row.locationLabel}`
+        }
+        closesSideEditor={row.closesSideEditor}
         navigateDisabled={row.navigateDisabled}
         navigateDisabledLabel={row.navigateDisabledLabel}
         occurrenceCount={occurrenceCount}
@@ -190,6 +195,7 @@ function PreviewBlock(props: {
 function ResultHeader(props: {
   locationLabel: string;
   navigateLabel: string;
+  closesSideEditor?: boolean;
   navigateDisabled?: boolean;
   navigateDisabledLabel?: string;
   onPick: () => void;
@@ -223,8 +229,16 @@ function ResultHeader(props: {
           onClick={props.onPick}
           disabled={props.navigateDisabled}
           aria-label={label}
+          aria-pressed={props.closesSideEditor}
         >
-          <ArrowRight size={14} />
+          <ArrowRight
+            size={14}
+            className={
+              props.closesSideEditor
+                ? styles.searchResultNavigateIconOpen
+                : undefined
+            }
+          />
         </button>
       </IconTooltip>
     </div>

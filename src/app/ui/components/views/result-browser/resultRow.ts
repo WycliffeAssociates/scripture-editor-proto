@@ -72,6 +72,14 @@ export type ResultRow = {
    */
   navigateDisabled?: boolean;
   navigateDisabledLabel?: string;
+  /**
+   * When set, this row's navigate control instead closes the side editor it
+   * opened — a one-click toggle back. Only true for the row that currently
+   * owns the open editor; every other row's control still just navigates.
+   * `onNavigate` itself decides which behavior fires; this only drives the
+   * control's rotated icon + label.
+   */
+  closesSideEditor?: boolean;
   /** Present only for Find rows; STET rows omit it (no stepping / replace). */
   find?: ResultRowFind;
   /**

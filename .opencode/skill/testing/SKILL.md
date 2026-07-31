@@ -24,7 +24,7 @@ We do **not** chase 100% coverage. We chase **Confidence**.
 - **Medium Risk:** Complex UI interactions, Form submissions. (SHOULD TEST).
 - **Low Risk:** CSS tweaks, Static content, "Button color". (SKIP).
 
-## How to Write Tests (React/Zephyr)
+## How to Write Tests (React/Sefer)
 
 ### 1. Integration (Preferred)
 
@@ -60,7 +60,7 @@ Use for complex algorithmic helpers (e.g., `parseUSFM`).
 
 If I rename a function or refactor a component's internal structure, **the test should still pass**. If the test breaks but the app works, the test was bad.
 
-## Zephyr-Specific Patterns
+## Sefer-Specific Patterns
 
 ### Lexical Editor Testing
 

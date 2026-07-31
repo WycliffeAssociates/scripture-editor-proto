@@ -1,3 +1,4 @@
+import { Tooltip } from "@base-ui/react/tooltip";
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 
 import type { RouterContext } from "@/app/entrypoint.tsx";
@@ -13,5 +14,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 });
 
 export function RootComponent() {
-  return <Outlet />;
+  return (
+    <Tooltip.Provider delay={200}>
+      <Outlet />
+    </Tooltip.Provider>
+  );
 }
