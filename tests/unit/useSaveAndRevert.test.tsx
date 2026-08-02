@@ -214,6 +214,7 @@ describe("useSaveAndRevert", () => {
     const commitAll = vi
       .fn<GitProvider["commitAll"]>()
       .mockResolvedValue({ hash: "delete-hash" });
+    const onSuccessfulDiskSave = vi.fn();
     const fileSystem = new InMemoryFileSystem();
     const project = createProject({
       saveBook: vi.fn(),
@@ -252,6 +253,7 @@ describe("useSaveAndRevert", () => {
         refreshVersions: vi.fn(),
         onSavedVersion: vi.fn(),
         bumpDirtyVersion: vi.fn(),
+        onSuccessfulDiskSave,
       },
       { deletedBookCodes: ["MAT"] },
     );
@@ -268,6 +270,59 @@ describe("useSaveAndRevert", () => {
       persistedBookCodes: ["MAT"],
       checkpoint: { kind: "created", hash: "delete-hash" },
     });
+    expect(onSuccessfulDiskSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not announce cache warming when the save snapshot changes while disk awaits", async () => {
+    const store = new WorkingFilesStore([makeWorkingFile()]);
+    const onSuccessfulDiskSave = vi.fn();
+    const saveBook = vi.fn<Project["saveBook"]>(async () => {
+      // Simulate a programmatic commit arriving while the disk write is
+      // suspended. The saved bytes still come from the captured payload, but
+      // the resident mirror can no longer reproduce that historical snapshot.
+      store.commit({
+        patch: { kind: "bulk", files: store.read() },
+        meta: {
+          kind: "userEdit",
+          scope: { chapters: [{ bookCode: "MAT", chapterNum: 1 }] },
+          dirtyTextContent: true,
+        },
+      });
+    });
+    const result = await runSavePipeline({
+      workingFilesStore: store,
+      workspaceBaselineStore: new WorkspaceBaselineStore({
+        calculateMd5: async (text) => text,
+      }),
+      recoveredConflictTracker: new RecoveredConflictTracker(),
+      interactionGate: new WorkspaceGateStore(),
+      saveStatusStore: new SaveStatusStore(),
+      loadedProject: createProject({ saveBook, addBook: vi.fn() }),
+      gitProvider: createGitProvider({
+        commitAll: vi.fn().mockResolvedValue({ hash: "save-hash" }),
+        pushCurrentBranch: vi.fn(),
+      }),
+      settingsManager: {
+        getSettings: vi.fn() as never,
+        get: vi.fn().mockReturnValue(false),
+        set: vi.fn(),
+        update: vi.fn(),
+        applySettings: vi.fn(),
+      },
+      authSessionProvider: createAuthSessionProvider(),
+      fileSystem: new InMemoryFileSystem(),
+      storageRoots,
+      isViewingOlderVersion: false,
+      selectedVersionHash: null,
+      refreshVersions: vi.fn(),
+      onSavedVersion: vi.fn(),
+      bumpDirtyVersion: vi.fn(),
+      onSuccessfulDiskSave,
+    });
+
+    expect(result.kind).toBe("saved");
+    expect(saveBook).toHaveBeenCalledTimes(1);
+    expect(onSuccessfulDiskSave).not.toHaveBeenCalled();
   });
 
   it("retains failed structural deletion intent and retries it on ordinary Save", async () => {
@@ -380,13 +435,28 @@ describe("useSaveAndRevert", () => {
         refreshVersions: vi.fn(),
         onSavedVersion: vi.fn(),
         bumpDirtyVersion: vi.fn(),
+        publishBraid: vi.fn().mockResolvedValue({
+          packed: new ArrayBuffer(0),
+          snapshotId: "snapshot",
+          books: [],
+          sources: [
+            {
+              bookCode: "MAT",
+              sourceKey: "MAT",
+              source: "\\c 1\n\\v 1 Braid bytes.\n",
+            },
+          ],
+          serializedBooks: [
+            { bookCode: "MAT", contents: "\\c 1\n\\v 1 Braid bytes.\n" },
+          ],
+        }),
       },
       { structurallyChangedBookCodes: ["MAT"] },
     );
 
     expect(saveBook).toHaveBeenCalledWith(
       "41-MAT.usfm",
-      "\\c 1\n\\v 1 Remaining.\n",
+      "\\c 1\n\\v 1 Braid bytes.\n",
     );
     expect(commitAll).toHaveBeenCalledWith(
       "/userData/projects/foo",

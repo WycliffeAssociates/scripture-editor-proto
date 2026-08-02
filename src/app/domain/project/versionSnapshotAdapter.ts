@@ -84,8 +84,6 @@ export async function snapshotToScriptureBookStates(args: {
   });
   const contentOnlyUsfmOnionService: IUsfmOnionService = {
     supportsPathIo: false,
-    getMarkerCatalog: (...serviceArgs) =>
-      args.usfmOnionService.getMarkerCatalog(...serviceArgs),
     parseUsfm: (...serviceArgs) =>
       args.usfmOnionService.parseUsfm(...serviceArgs),
     parseUsfmBatchFromPaths: (...serviceArgs) =>

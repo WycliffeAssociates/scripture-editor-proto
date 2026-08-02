@@ -6,7 +6,7 @@
 // 1 node ⇄ 2–3 token conversion in both directions (I3).
 import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 import { normalizeTokenSids } from "usfm-onion-web/token-sids";
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { EDITOR_SHAPES, USFM_PARAGRAPH_NODE_TYPE } from "@/app/data/editor.ts";
 import {
@@ -18,12 +18,7 @@ import {
   lexicalToTokens,
   tokensToLexical,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
-import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
-
-beforeAll(async () => {
-  initializeUsfmMarkerCatalog(await webUsfmOnionService.getMarkerCatalog());
-});
 
 async function loadRegular(usfm: string) {
   const { tokens } = await webUsfmOnionService.parseUsfm(usfm);

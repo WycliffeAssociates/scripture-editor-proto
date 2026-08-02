@@ -77,6 +77,12 @@ export class OpfsFileSystem implements FileSystem {
     await this.writeText(path, content);
   }
 
+  async atomicWriteBytes(path: string, content: Uint8Array): Promise<void> {
+    // OPFS commits the buffered writable stream on close, so the existing
+    // binary writer has the same replace-on-close atomicity as writeText.
+    await this.writeBytes(path, content);
+  }
+
   async writeBytes(path: string, content: Uint8Array): Promise<void> {
     const normalized = this.assertManagedPath(path);
     const fileHandle = await this.resolveFileHandle(normalized, true);

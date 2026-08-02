@@ -1,12 +1,12 @@
 import { Effect } from "effect";
+import type { SousConfig } from "scripture-sous-chef-web";
 
 import {
   type FoldedBookScope,
   makeFoldedScopePipeline,
 } from "@/app/domain/editor/pipelines/foldedScopePipeline.ts";
 import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
-import type { AnalyzeScope } from "@/app/domain/mirror/mirrorProtocol.ts";
-import { mirrorTrace } from "@/app/domain/mirror/mirrorTrace.ts";
+import { endDevTimer } from "@/app/domain/mirror/performanceTiming.ts";
 import {
   type ConsumerBookScope,
   NO_BOOKS,
@@ -18,7 +18,7 @@ import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 // sous work is more expensive than lint and wants its own clock — a calmer
 // cadence than lint's ~100ms. A superseded pass is still cancelled, so this
 // is "lint at typing cadence + sous at a calmer cadence", not 2x traffic.
-const DEFAULT_SOUS_DEBOUNCE_MS = 100;
+const DEFAULT_SOUS_DEBOUNCE_MS = 30;
 
 /**
  * Which books sous re-analyzes for a commit — sous's OWN policy (same relevance
@@ -50,31 +50,29 @@ export function sousCommitScope(event: CommitEvent): ConsumerBookScope {
  *
  * `sousCommitScope` fuses relevance (empty set = skip) and expansion into one
  * function — for a scoped consumer "relevant" just means "non-empty scope", so
- * there's no separate relevance predicate (book granularity). The folded
- * scope drains as one `analyzeSous` command; the mirror assembles each book's
- * tokens from resident state (the vref build + sous run happen mirror-side) and
- * returns the per-book result. The result router commits findings + the segment
- * map into the sous slice — same downstream shape as the old inline analyze.
+ * there's no separate relevance predicate. The folded scope drains as one
+ * whole-corpus `analyzeGalley` command; the edited books only determine when
+ * the pass runs. The result router commits the complete snapshot and segment
+ * map after main-thread materialization.
  */
 export function makeSousPipeline(args: {
   workingFilesStore: WorkingFilesStore;
   feed: MirrorFeed;
   debounceMs?: number;
+  config?: () => SousConfig;
 }): Effect.Effect<void> {
   const sousPass = (scope: FoldedBookScope): Effect.Effect<void> =>
     Effect.sync(() => {
-      const analyzeScope: AnalyzeScope = scope.all
-        ? "all"
-        : { books: Array.from(scope.books) };
       const generation = args.workingFilesStore.generation();
-      mirrorTrace("pipeline.sous.send", {
-        scope: analyzeScope === "all" ? "all" : analyzeScope.books,
-        gen: generation,
-      });
+      const config = args.config?.();
+      if (import.meta.env.DEV && !scope.all) {
+        endDevTimer(`sous:chapter-to-command:${generation}`);
+      }
       args.feed.sendCommand({
-        kind: "analyzeSous",
-        scope: analyzeScope,
+        kind: "analyzeGalley",
         generation,
+        config,
+        cachePolicy: "none",
       });
     });
 

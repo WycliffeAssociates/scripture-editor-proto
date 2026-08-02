@@ -5,6 +5,8 @@
 // Finding is byte→UTF-16 converted at the boundary, so offsets here are UTF-16
 // code units — the same space as `Utf16Span` / `resolveContentRange`.
 
+import type { DecodedFinding } from "scripture-sous-chef-web/findings";
+
 import type { SegmentsBySid } from "@/core/domain/usfm/vrefTypes.ts";
 
 /** sous severities are already lowercase and 1:1 with `Finding`. */
@@ -20,12 +22,13 @@ export type SousFinding = {
   end: number;
   /** Confidence, when the rule scores; undefined for binary rules. */
   score?: number;
+  /** Official decoded record retained for reconciliation identity/metadata. */
+  snapshotFinding?: DecodedFinding;
 };
 
 /**
- * What `ISousService.analyze` returns: the vref segment map (so the editor can
- * resolve each finding's range to DOM rects) AND the findings over it. Both
- * come from one pass — onion builds the projection, sous analyzes its text.
+ * The materialized Galley snapshot shape used by the editor annotation
+ * pipeline: the VREF segment map plus findings decoded from packed bytes.
  */
 export type SousAnalyzeResult = {
   segments: SegmentsBySid;

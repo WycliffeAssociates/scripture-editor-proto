@@ -78,6 +78,15 @@ export class TauriFileSystem implements FileSystem {
     await rename(resolvedTemp, resolved);
   }
 
+  async atomicWriteBytes(path: string, content: Uint8Array): Promise<void> {
+    const resolved = await this.resolvePath(path);
+    const tempPublicPath = `${path}.tmp`;
+    const resolvedTemp = await this.resolvePath(tempPublicPath);
+    await mkdir(await dirname(resolved), { recursive: true });
+    await writeFile(resolvedTemp, content);
+    await rename(resolvedTemp, resolved);
+  }
+
   async exists(path: string): Promise<boolean> {
     return exists(await this.resolvePath(path));
   }

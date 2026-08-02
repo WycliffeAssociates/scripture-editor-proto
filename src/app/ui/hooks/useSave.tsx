@@ -3,6 +3,9 @@ import type { LexicalEditor } from "lexical";
 import { useEffect, useMemo, useState } from "react";
 
 import type { EditorModeSetting } from "@/app/data/editor.ts";
+import { publishResidentBraid } from "@/app/domain/mirror/braidHost.ts";
+import { writeBraidWarmCache } from "@/app/domain/mirror/braidWarmCache.ts";
+import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import { acceptRemoteLatestReview } from "@/app/domain/project/acceptRemoteLatestReview.ts";
 import { applyCompareProjectionToStore } from "@/app/domain/project/compare/applyProjection.ts";
 import { CompareSourceLoader } from "@/app/domain/project/compare/compareSourceLoader.ts";
@@ -34,6 +37,7 @@ import {
   listChangedChapterRefs,
 } from "@/app/domain/project/remoteSync/incomingReconciliationPlan.ts";
 import { runIncomingReconciliation } from "@/app/domain/project/remoteSync/runIncomingReconciliation.ts";
+import type { SuccessfulDiskSaveReceipt } from "@/app/domain/project/savePipeline.ts";
 import { snapshotToScriptureBookStates } from "@/app/domain/project/versionSnapshotAdapter.ts";
 import type {
   ScriptureBookState,
@@ -85,7 +89,9 @@ type UseSaveProps = {
   editorMode: EditorModeSetting;
   allProjects: ProjectListItem[];
   currentProjectRoute: string;
+  mirrorFeed?: MirrorFeed;
   onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
+  onSuccessfulDiskSave?: (receipt: SuccessfulDiskSaveReceipt) => void;
 };
 
 export type PrintChangesResult =
@@ -129,6 +135,7 @@ export function useSave(args: UseSaveProps) {
     bumpDirtyVersion,
   });
 
+  const residentFeed = args.mirrorFeed;
   const saveAndRevert = useSaveAndRevert({
     ...args,
     settingsManager,
@@ -141,6 +148,25 @@ export function useSave(args: UseSaveProps) {
       versions.actions.setSelectedHash(hash);
     },
     bumpDirtyVersion,
+    publishBraid: residentFeed
+      ? (generation) =>
+          publishResidentBraid({
+            feed: residentFeed,
+            generation,
+          })
+      : undefined,
+    onSuccessfulDiskSave: (receipt) => {
+      if (receipt.braidPublication) {
+        void writeBraidWarmCache({
+          fileSystem: args.fileSystem,
+          cacheRoot: args.storageRoots.cacheRoot,
+          workspaceKey: args.loadedProject.folderName,
+          publication: receipt.braidPublication,
+          project: args.loadedProject,
+        });
+      }
+      args.onSuccessfulDiskSave?.(receipt);
+    },
   });
 
   const compareSession = useCompareSession({

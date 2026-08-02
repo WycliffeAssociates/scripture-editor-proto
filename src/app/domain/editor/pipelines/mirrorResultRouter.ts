@@ -5,10 +5,9 @@
 // slice, sous slice, dirty-buffer writes).
 //
 //  - lintResult  → normalize + commit each book into the findings onion slice.
-//  - sousResult  → normalize + commit findings + segment map into the sous slice.
-//  - backupResult → web persisted itself (nothing to do but log a clear);
-//                   desktop ships envelope bytes back for one dumb FS write
-//                   through the existing DirtyBufferStore seam.
+//  - galleyResult → decode + normalize + commit findings + segment map into the
+//    existing sous-chef slice.
+//  - backupResult → resident host persisted or cleared the managed backup.
 //  - resyncRequest → re-seed the mirror from current store state.
 //
 // Stale-result defence: results carry the generation they ran against; a result
@@ -17,45 +16,50 @@
 // mark decision 8 calls for, applied uniformly so an unordered transport is
 // safe too.
 
+import type { FindingSnapshot } from "scripture-sous-chef-web/findings";
+import type { LintSnapshot } from "usfm-onion-web";
+import { reconcileFindings as reconcileBraidFindings } from "usfm-onion-web/packed";
+
+import { decodeGalleyAnalysis } from "@/app/domain/editor/annotations/decodeGalleyFindings.ts";
 import {
-  groupFindingsByChapter,
+  groupFindingsByBook,
   onionFindingsByChapter,
   sousFindingsToFindings,
 } from "@/app/domain/editor/annotations/normalizeFindings.ts";
 import { seedMirror } from "@/app/domain/editor/pipelines/mirrorPatchProducer.ts";
 import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import type { MirrorResult } from "@/app/domain/mirror/mirrorProtocol.ts";
-import { mirrorTrace } from "@/app/domain/mirror/mirrorTrace.ts";
-import { retryBackupWrite } from "@/app/domain/mirror/retryBackupWrite.ts";
-import type {
-  DirtyBufferFile,
-  DirtyBufferStore,
-} from "@/app/state/DirtyBufferStore.ts";
+import { endDevTimer } from "@/app/domain/mirror/performanceTiming.ts";
 import type { FindingsStore } from "@/app/state/FindingsStore.ts";
+import type { FindingsByScope } from "@/app/state/FindingsStore.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import type { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
+import type { LintIssue as AppLintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
+
+type SnapshotFinding = {
+  book: string;
+  issue: AppLintIssue;
+};
 
 /**
  * Wire the result handler onto the feed. Returns the unsubscribe so the
  * workspace can tear it down with the rest of its lifecycle.
  *
- * `workspaceKey`/`dirtyBufferStore` are the desktop write seam: on web the
- * mirror persists inside the worker and these are never exercised for a backup
- * write (only the `cleared` log path), but they're always wired so the same
- * router serves both platforms.
  */
 export function makeMirrorResultRouter(args: {
   feed: MirrorFeed;
   workingFilesStore: WorkingFilesStore;
   workspaceBaselineStore: WorkspaceBaselineStore;
   findingsStore: FindingsStore;
-  dirtyBufferStore: DirtyBufferStore;
-  workspaceKey: string;
 }): () => void {
   // High-water mark per result class — a result older than what we've already
   // applied for that class is a stale calm-period pass and is dropped.
   let lintHighWater = -1;
   let sousHighWater = -1;
+  let onionIssuesByBook = new Map<string, readonly AppLintIssue[]>();
+  let onionSnapshotFindings: readonly SnapshotFinding[] = [];
+  let sousSnapshot: FindingSnapshot | null = null;
+  let sousSnapshotState: "persisted" | "fresh" | null = null;
   // Resync coalesce guard: a full re-seed is heavy and re-tokenizes the whole
   // project. A behind transient can fire several resyncRequests in a burst (one
   // per analyze class), all carrying the same trailing generation; re-seeding
@@ -66,86 +70,110 @@ export function makeMirrorResultRouter(args: {
   const handle = (result: MirrorResult): void => {
     switch (result.kind) {
       case "lintResult": {
+        if (result.ranAtGeneration < args.workingFilesStore.generation()) {
+          return;
+        }
         const dropped = result.ranAtGeneration < lintHighWater;
-        mirrorTrace("router.lintResult", {
-          ranAtGen: result.ranAtGeneration,
-          highWater: lintHighWater,
-          requestId: result.requestId,
-          books: Object.keys(result.byBook),
-          decision: dropped ? "stale-drop" : "commit",
-        });
         if (dropped) return;
         lintHighWater = result.ranAtGeneration;
-        for (const [bookCode, issues] of Object.entries(result.byBook)) {
-          args.findingsStore.commitBookFindings(
-            "onion",
-            bookCode,
-            onionFindingsByChapter(issues),
-          );
+        const nextSnapshot = result.snapshot;
+        const nextSnapshotFindings = snapshotFindings(nextSnapshot);
+        const reconciledSnapshotFindings = reconcileBraidFindings(
+          onionSnapshotFindings,
+          nextSnapshotFindings,
+        );
+        const mutableIssuesByBook = new Map<string, AppLintIssue[]>();
+        const nextIssuesByBook = new Map<string, readonly AppLintIssue[]>();
+        const byBook: FindingsByScope = {};
+        for (const finding of reconciledSnapshotFindings) {
+          let issues = mutableIssuesByBook.get(finding.book);
+          if (!issues) {
+            const nextIssues: AppLintIssue[] = [];
+            mutableIssuesByBook.set(finding.book, nextIssues);
+            issues = nextIssues;
+          }
+          issues.push(finding.issue);
         }
+        for (const [bookCode, issues] of mutableIssuesByBook) {
+          const previous = onionIssuesByBook.get(bookCode);
+          const stableIssues =
+            previous !== undefined && sameIssueArray(previous, issues)
+              ? previous
+              : issues;
+          nextIssuesByBook.set(bookCode, stableIssues);
+          byBook[bookCode] = onionFindingsByChapter(stableIssues);
+        }
+        onionSnapshotFindings = reconciledSnapshotFindings;
+        onionIssuesByBook = nextIssuesByBook;
+        args.findingsStore.commitBraidSnapshot(byBook);
         return;
       }
-      case "sousResult": {
+      case "galleyResult": {
+        // A result can be the first one delivered for its class and still be
+        // obsolete: another editor commit may have advanced the working store
+        // before this result crossed the transport boundary.
+        if (result.ranAtGeneration < args.workingFilesStore.generation()) {
+          return;
+        }
         const sousDropped = result.ranAtGeneration < sousHighWater;
-        mirrorTrace("router.sousResult", {
-          ranAtGen: result.ranAtGeneration,
-          highWater: sousHighWater,
-          requestId: result.requestId,
-          books: Object.keys(result.byBook),
-          decision: sousDropped ? "stale-drop" : "commit",
-        });
         if (sousDropped) return;
+        // If a fresh result won a same-generation race, a late cache read must
+        // not roll the UI back to the older persisted snapshot.
+        if (
+          result.cacheState === "persisted" &&
+          sousHighWater === result.ranAtGeneration &&
+          sousSnapshotState === "fresh"
+        ) {
+          return;
+        }
         sousHighWater = result.ranAtGeneration;
-        for (const [bookCode, analysis] of Object.entries(result.byBook)) {
-          args.findingsStore.commitSousBookFindings(
-            bookCode,
-            groupFindingsByChapter(sousFindingsToFindings(analysis.findings)),
-            analysis.segments,
-          );
+        let analysis: ReturnType<typeof decodeGalleyAnalysis>;
+        try {
+          analysis = decodeGalleyAnalysis(result, sousSnapshot ?? undefined);
+        } catch (error: unknown) {
+          if (result.cacheState === "persisted") {
+            // A native restore can arrive after the initial waiter has
+            // unsubscribed. Reissue a scopeless fresh pass, but do not rewrite
+            // corpus.bin during load. The cache is a one-time cold-load seed;
+            // replacement is reserved for a successful save receipt.
+            args.feed.sendCommand({
+              kind: "analyzeGalley",
+              generation: result.ranAtGeneration,
+              cachePolicy: "none",
+            });
+            return;
+          }
+          throw error;
+        }
+        sousSnapshot = analysis.snapshot;
+        sousSnapshotState = result.cacheState;
+        const findings = sousFindingsToFindings(analysis.findings);
+        args.findingsStore.commitSousFindings(
+          groupFindingsByBook(findings),
+          result.segments,
+        );
+        if (import.meta.env.DEV && result.cacheState === "fresh") {
+          endDevTimer(`sous:result-to-findings:${result.ranAtGeneration}`);
+          endDevTimer(`sous:chapter-to-findings:${result.ranAtGeneration}`);
         }
         return;
       }
       case "backupResult": {
-        const bookCode = result.bookCode;
-        // Desktop: the backup worker can't `invoke`, so a clean book ships back
-        // `clearOnMain` for main to clear through the store seam. Web cleared in
-        // the worker (OPFS) and there's nothing to do here.
-        if (result.cleared) {
-          if (!result.clearOnMain) return;
-          void retryBackupWrite(() =>
-            args.dirtyBufferStore.clear(args.workspaceKey, bookCode),
-          ).catch((error: unknown) => {
-            console.error(
-              "[mirror] desktop backup clear failed after retries; book left dormant",
-              { bookCode, error },
-            );
-          });
-          return;
-        }
-        if (result.envelopeJson === undefined) return;
-        // Desktop: the worker serialized and shipped the bytes; main does the
-        // one dumb write through the seam. Bounded retry covers a transient FS
-        // hiccup so the safety-net write isn't lost silently; on exhaust we log
-        // loudly and leave the book dormant until its next commit re-triggers a
-        // write.
-        const entry = JSON.parse(result.envelopeJson) as DirtyBufferFile;
-        void retryBackupWrite(() =>
-          args.dirtyBufferStore.put(args.workspaceKey, bookCode, entry),
-        ).catch((error: unknown) => {
-          console.error(
-            "[mirror] desktop backup write failed after retries; book left dormant",
-            { bookCode, error },
-          );
-        });
+        return;
+      }
+      case "applyBraidFixResult": {
+        // Resident fix callers await this correlated result directly. It is
+        // intentionally not a findings publication or a mirror high-water
+        // update.
+        return;
+      }
+      case "braidCommandError": {
+        // The correlated resident operation owns this failure. Keeping it out
+        // of findings prevents an operational error from masquerading as an
+        // empty or stale snapshot.
         return;
       }
       case "resyncRequest": {
-        mirrorTrace("router.resyncRequest", {
-          lastGeneration: result.lastGeneration,
-          resyncHighWater,
-          decision:
-            result.lastGeneration <= resyncHighWater ? "coalesced" : "reseed",
-        });
         if (result.lastGeneration <= resyncHighWater) return;
         resyncHighWater = result.lastGeneration;
         seedMirror({
@@ -160,4 +188,21 @@ export function makeMirrorResultRouter(args: {
   };
 
   return args.feed.onResult(handle);
+}
+
+function snapshotFindings(snapshot: LintSnapshot): SnapshotFinding[] {
+  return snapshot.books.flatMap((book) =>
+    book.findings.map((issue) => ({ book: book.book, issue })),
+  );
+}
+
+function sameIssueArray(
+  left: readonly AppLintIssue[] | undefined,
+  right: readonly AppLintIssue[],
+): boolean {
+  return (
+    left !== undefined &&
+    left.length === right.length &&
+    right.every((issue, index) => issue === left[index])
+  );
 }

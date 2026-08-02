@@ -1,32 +1,32 @@
 // WorkspaceMirror.ts
 //
-// The mirror state machine: a passive token replica + the engine/backup logic
+// The mirror state machine: a passive token replica + host coordination logic
 // that reads it. This is a PLAIN module — no Worker, no DOM, no postMessage —
 // so it is unit-testable directly and runs unchanged whether hosted in a web
 // worker (today) or driven inline. The transport (worker message pump) is a
 // thin shell that feeds patches/commands in and ships results out; all the
 // behavior lives here.
 //
-// Resident state is per-chapter tokens/eol/dirty keyed `(book, chapter)`, plus
-// per-book disk baselines for the backup envelope. Patches mutate it
-// idempotently by generation (a patch older than what a chapter already holds
-// is a no-op — covers an unordered or replayed transport). Commands assemble
-// scope from resident state and call the injected engines.
+// The resident Braid/Galley hosts own the token corpus. This coordinator retains
+// only chapter metadata and disk baselines needed for backup policy and transport
+// idempotence; it never keeps a second copy of resident tokens.
+
+import type { SousConfig } from "scripture-sous-chef-web";
+import type { CorpusScope, FormatOptions, LintSnapshot } from "usfm-onion-web";
 
 import {
   DIRTY_BUFFER_SCHEMA_VERSION,
   type DirtyBufferFile,
   type DiskBaseline,
 } from "@/app/state/DirtyBufferStore.ts";
-import type { SousAnalyzeResult } from "@/core/domain/sous/sousTypes.ts";
-import {
-  type LineEnding,
-  serializeChaptersToUsfm,
-} from "@/core/domain/usfm/usfmBytes.ts";
-import type { LintIssue, Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import type {
+  GalleyAnalysis,
+  GalleyMutationEffect,
+} from "@/core/domain/sous/galleyTypes.ts";
+import type { Token, TokenFix } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 import type {
-  AnalyzeScope,
+  GalleyCachePolicy,
   BackupResult,
   Generation,
   LintResult,
@@ -34,31 +34,90 @@ import type {
   MirrorCommand,
   MirrorPatch,
   MirrorResult,
-  SousResult,
+  GalleyResult,
+  ApplyBraidFixResult,
+  FormatBraidResult,
+  PublishBraidResult,
+  RestoreBraidResult,
+  BraidPublication,
+  RestoreBraidRecord,
 } from "./mirrorProtocol.ts";
 import { retryBackupWrite } from "./retryBackupWrite.ts";
 
 /**
  * The engine + persistence callbacks the mirror needs to do its work. Injected
- * so the host (worker) wires wasm/OPFS and tests wire fakes. `lintBook` /
- * `analyzeSousBook` take a flat token stream — the same input the single-thread
- * services took — so the wasm glue is reused verbatim. `persistBackup` returns
- * `true` if it wrote (web/OPFS) or `false` if it can't persist here (desktop
- * worker), in which case the envelope is shipped back for main to write.
+ * so the host (worker) wires wasm/OPFS and tests wire fakes. Galley is a
+ * resident handle: the mirror seeds it once, applies chapter/book mutations,
+ * then calls parameterless analysis. Backup persistence stays behind this
+ * resident-host interface.
  */
 export interface MirrorEngines {
-  lintBook(tokens: Token[]): Promise<LintIssue[]>;
-  analyzeSousBook(tokens: Token[]): Promise<SousAnalyzeResult>;
+  /** Complete resident Braid publication; Braid owns scope and ordering. */
+  lintFindings(): Promise<LintSnapshot> | LintSnapshot;
+  seedGalley(
+    books: ResidentBraidBook[],
+    config?: SousConfig,
+  ): GalleyMutationEffect;
+  updateGalleyChapter(
+    bookCode: string,
+    chapterNum: number,
+    tokens: Token[],
+  ): GalleyMutationEffect;
+  updateGalleyBook(
+    bookCode: string,
+    tokens: Token[],
+    lineEnding: "lf" | "crlf",
+  ): GalleyMutationEffect;
+  removeGalleyChapter(
+    bookCode: string,
+    chapterNum: number,
+  ): GalleyMutationEffect;
+  removeGalleyBook(bookCode: string): GalleyMutationEffect;
+  updateGalleyConfig(config: SousConfig): GalleyMutationEffect;
+  analyzeGalley(
+    config?: SousConfig,
+    cachePolicy?: GalleyCachePolicy,
+  ): Promise<GalleyAnalysis>;
+  /** Optional app-cache load performed after Galley has established identity. */
+  loadGalley?(config?: SousConfig): Promise<GalleyAnalysis | null>;
+  formatBraid(
+    scope: CorpusScope,
+    options?: FormatOptions,
+  ): { books: Record<string, Token[]>; usfm: Record<string, string> };
+  applyBraidFix(
+    bookCode: string,
+    fix: TokenFix,
+  ): { books: Record<string, Token[]>; usfm: Record<string, string> };
+  publishBraid(): Promise<BraidPublication> | BraidPublication;
+  restoreBraid(
+    packed: ArrayBuffer,
+    records: RestoreBraidRecord[],
+  ):
+    | Promise<{ accepted: boolean; error?: string }>
+    | { accepted: boolean; error?: string };
+  setBraidBaseline(bookCode: string, tokens: Token[], eol: "lf" | "crlf"): void;
+  clearBraidBaseline(bookCode: string): void;
+  isBraidDirty(bookCode: string): boolean;
+  braidUsfm(bookCode: string): string;
   computeMd5(content: string): Promise<string>;
-  /** Persist a book's backup envelope. Returns false if persistence is not
-   *  available in this host (desktop worker → main does the write). */
+  /** Persist a book's backup envelope through the resident host. */
   persistBackup(bookCode: string, envelopeJson: string): Promise<boolean>;
-  /** Clear a book's backup. Returns false if clearing is not available in this
-   *  host (desktop backup worker → main clears through the store seam). */
+  /** Clear a book's backup through the resident host. */
   clearBackup(bookCode: string): Promise<boolean>;
+  /** Release resident wasm/native handles before the transport is torn down. */
+  dispose?(): void;
 }
 
-type ResidentChapter = MirrorChapter & { generation: Generation };
+export type ResidentBraidBook = {
+  bookCode: string;
+  tokens: Token[];
+  baselineTokens: Token[];
+  lineEnding: "lf" | "crlf";
+};
+
+type ResidentChapter = Pick<MirrorChapter, "eol" | "dirty"> & {
+  generation: Generation;
+};
 
 type ResidentBook = {
   diskBaseline: DiskBaseline;
@@ -66,35 +125,35 @@ type ResidentBook = {
   chapters: Map<number, ResidentChapter>;
 };
 
-/**
- * Same shape `serializeChaptersToUsfm` expects (`chapterNumber`, `eol`,
- * `currentTokens`). Reusing that one serializer is the HARD invariant: backup
- * bytes must equal what a real save persists, so the mirror cannot reimplement
- * the join.
- */
-type SerializableChapter = {
-  chapterNumber: number;
-  eol: LineEnding;
-  currentTokens: Token[];
-};
-
-/** Optional diagnostic sink — the worker passes one that relays to main. */
-export type MirrorTraceFn = (
-  boundary: string,
-  data?: Record<string, unknown>,
-) => void;
-
 export class WorkspaceMirror {
   private readonly books = new Map<string, ResidentBook>();
+  private galleySeeded = false;
+  private galleyDirty = false;
+  private lastGalley: GalleyAnalysis | null = null;
+  private latestPatchGeneration = -1;
 
   constructor(
     private readonly engines: MirrorEngines,
-    private readonly trace: MirrorTraceFn = () => {},
+    private readonly backgroundResult: (
+      result: MirrorResult,
+    ) => void = () => {},
   ) {}
+
+  dispose(): void {
+    this.engines.dispose?.();
+    this.books.clear();
+    this.galleySeeded = false;
+    this.galleyDirty = false;
+    this.lastGalley = null;
+  }
 
   // --- Patch application (idempotent by generation) ------------------------
 
   applyPatch(patch: MirrorPatch): void {
+    this.latestPatchGeneration = Math.max(
+      this.latestPatchGeneration,
+      patch.generation,
+    );
     switch (patch.kind) {
       case "fullSync":
         this.applyFullSync(patch);
@@ -107,19 +166,19 @@ export class WorkspaceMirror {
         const existing = book.chapters.get(patch.ref.chapterNum);
         // Stale patch (an out-of-order/replayed transport) is a no-op.
         const stale = !!existing && existing.generation > patch.generation;
-        this.trace("mirror.pushChapter", {
-          book: patch.ref.bookCode,
-          ch: patch.ref.chapterNum,
-          gen: patch.generation,
-          residentGen: existing?.generation,
-          tokens: patch.chapter.tokens.length,
-          decision: stale ? "stale-drop" : "applied",
-        });
         if (stale) return;
         book.chapters.set(patch.ref.chapterNum, {
-          ...patch.chapter,
+          eol: patch.chapter.eol,
+          dirty: patch.chapter.dirty,
           generation: patch.generation,
         });
+        this.requireResident();
+        this.galleyDirty =
+          this.engines.updateGalleyChapter(
+            patch.ref.bookCode,
+            patch.ref.chapterNum,
+            patch.chapter.tokens,
+          ) === "changed" || this.galleyDirty;
         return;
       }
       case "deleteChapter": {
@@ -128,7 +187,76 @@ export class WorkspaceMirror {
         if (!book || !existing) return;
         if (existing.generation > patch.generation) return;
         book.chapters.delete(patch.ref.chapterNum);
-        if (book.chapters.size === 0) this.books.delete(patch.ref.bookCode);
+        if (book.chapters.size === 0) {
+          this.books.delete(patch.ref.bookCode);
+          this.requireResident();
+          this.galleyDirty =
+            this.engines.removeGalleyBook(patch.ref.bookCode) === "changed" ||
+            this.galleyDirty;
+          this.engines.clearBraidBaseline(patch.ref.bookCode);
+        } else {
+          this.requireResident();
+          this.galleyDirty =
+            this.engines.removeGalleyChapter(
+              patch.ref.bookCode,
+              patch.ref.chapterNum,
+            ) === "changed" || this.galleyDirty;
+        }
+        return;
+      }
+      case "updateBook": {
+        const existing = this.books.get(patch.book.bookCode);
+        if (existing && existing.baselineGeneration > patch.generation) {
+          return;
+        }
+        const chapters = new Map<number, ResidentChapter>();
+        for (const { chapterNum, chapter } of patch.book.chapters) {
+          const prior = existing?.chapters.get(chapterNum);
+          if (prior && prior.generation > patch.generation) return;
+          chapters.set(chapterNum, {
+            eol: chapter.eol,
+            dirty: chapter.dirty,
+            generation: patch.generation,
+          });
+        }
+        this.requireResident();
+        this.galleyDirty =
+          this.engines.updateGalleyBook(
+            patch.book.bookCode,
+            patch.book.chapters.flatMap(({ chapter }) => chapter.tokens),
+            patch.book.chapters[0]?.chapter.eol === "\r\n" ? "crlf" : "lf",
+          ) === "changed" || this.galleyDirty;
+        this.engines.setBraidBaseline(
+          patch.book.bookCode,
+          patch.book.baselineTokens,
+          patch.book.chapters[0]?.chapter.eol === "\r\n" ? "crlf" : "lf",
+        );
+        this.books.set(patch.book.bookCode, {
+          diskBaseline: patch.book.diskBaseline,
+          baselineGeneration: patch.generation,
+          chapters,
+        });
+        this.latestPatchGeneration = Math.max(
+          this.latestPatchGeneration,
+          patch.generation,
+        );
+        return;
+      }
+      case "removeBook": {
+        const existing = this.books.get(patch.bookCode);
+        if (!existing || existing.baselineGeneration > patch.generation) {
+          return;
+        }
+        this.books.delete(patch.bookCode);
+        this.requireResident();
+        this.galleyDirty =
+          this.engines.removeGalleyBook(patch.bookCode) === "changed" ||
+          this.galleyDirty;
+        this.engines.clearBraidBaseline(patch.bookCode);
+        this.latestPatchGeneration = Math.max(
+          this.latestPatchGeneration,
+          patch.generation,
+        );
         return;
       }
       case "pushBaseline": {
@@ -136,6 +264,11 @@ export class WorkspaceMirror {
         if (book.baselineGeneration > patch.generation) return;
         book.diskBaseline = patch.diskBaseline;
         book.baselineGeneration = patch.generation;
+        this.engines.setBraidBaseline(
+          patch.bookCode,
+          patch.baselineTokens,
+          this.lineEnding(book),
+        );
         return;
       }
     }
@@ -144,22 +277,37 @@ export class WorkspaceMirror {
   private applyFullSync(
     patch: Extract<MirrorPatch, { kind: "fullSync" }>,
   ): void {
-    this.trace("mirror.fullSync", {
-      gen: patch.generation,
-      books: patch.books.map((b) => b.bookCode),
-    });
     this.books.clear();
+    this.galleySeeded = false;
+    this.galleyDirty = false;
+    this.lastGalley = null;
+    this.latestPatchGeneration = patch.generation;
+    const seedBooks: ResidentBraidBook[] = [];
     for (const book of patch.books) {
       const chapters = new Map<number, ResidentChapter>();
       for (const { chapterNum, chapter } of book.chapters) {
-        chapters.set(chapterNum, { ...chapter, generation: patch.generation });
+        chapters.set(chapterNum, {
+          eol: chapter.eol,
+          dirty: chapter.dirty,
+          generation: patch.generation,
+        });
       }
       this.books.set(book.bookCode, {
         diskBaseline: book.diskBaseline,
         baselineGeneration: patch.generation,
         chapters,
       });
+      const firstChapter = book.chapters[0]?.chapter;
+      seedBooks.push({
+        bookCode: book.bookCode,
+        tokens: book.chapters.flatMap(({ chapter }) => chapter.tokens),
+        baselineTokens: book.baselineTokens,
+        lineEnding: firstChapter?.eol === "\r\n" ? "crlf" : "lf",
+      });
     }
+    this.engines.seedGalley(seedBooks);
+    this.galleySeeded = true;
+    this.galleyDirty = true;
   }
 
   /**
@@ -178,6 +326,11 @@ export class WorkspaceMirror {
       if (book.baselineGeneration <= patch.generation) {
         book.diskBaseline = meta.diskBaseline;
         book.baselineGeneration = patch.generation;
+        this.engines.setBraidBaseline(
+          meta.bookCode,
+          meta.baselineTokens,
+          this.lineEnding(book),
+        );
       }
       for (const { chapterNum, dirty } of meta.chapterDirty) {
         const chapter = book.chapters.get(chapterNum);
@@ -206,16 +359,35 @@ export class WorkspaceMirror {
   async runCommand(command: MirrorCommand): Promise<MirrorResult> {
     switch (command.kind) {
       case "analyzeLint":
-        return this.runLint(
-          command.scope,
+        return this.runLint(command.generation, command.requestId);
+      case "analyzeGalley":
+        return this.runGalley(
           command.generation,
           command.requestId,
+          command.config,
+          command.cachePolicy,
         );
-      case "analyzeSous":
-        return this.runSous(
-          command.scope,
+      case "formatBraid":
+        return this.runFormatBraid(
           command.generation,
           command.requestId,
+          command.scope,
+          command.options,
+        );
+      case "applyBraidFix":
+        return this.runApplyBraidFix(
+          command.generation,
+          command.requestId,
+          command.bookCode,
+          command.fix,
+        );
+      case "publishBraid":
+        return this.runPublishBraid(command.generation, command.requestId);
+      case "restoreBraid":
+        return this.runRestoreBraid(
+          command.generation,
+          command.packed,
+          command.records,
         );
       case "writeBackup":
         return this.runWriteBackup(
@@ -228,80 +400,208 @@ export class WorkspaceMirror {
     }
   }
 
-  private booksInScope(scope: AnalyzeScope): string[] {
-    if (scope === "all") return Array.from(this.books.keys());
-    return scope.books.filter((bookCode) => this.books.has(bookCode));
+  private runFormatBraid(
+    generation: Generation,
+    requestId: string,
+    scope: CorpusScope,
+    options?: FormatOptions,
+  ): FormatBraidResult {
+    if (generation !== this.latestPatchGeneration) {
+      return {
+        kind: "formatBraidResult",
+        requestId,
+        books: {},
+        usfm: {},
+        ranAtGeneration: generation,
+        behind: generation > this.latestPatchGeneration,
+        superseded: generation < this.latestPatchGeneration,
+      };
+    }
+    return {
+      kind: "formatBraidResult",
+      requestId,
+      ...this.engines.formatBraid(scope, options),
+      ranAtGeneration: generation,
+      behind: false,
+      superseded: false,
+    };
   }
 
-  /**
-   * A book's tokens in disk-chapter order. Resident chapters carry no explicit
-   * order, so we sort by chapter number — the load/sync produced them in disk
-   * order and chapter number is monotonic with it (invariant I1).
-   */
-  private bookTokens(bookCode: string): Token[] {
-    const book = this.books.get(bookCode);
-    if (!book) return [];
-    const tokens: Token[] = [];
-    for (const [, chapter] of this.chaptersInOrder(book)) {
-      tokens.push(...chapter.tokens);
+  private runApplyBraidFix(
+    generation: Generation,
+    requestId: string,
+    bookCode: string,
+    fix: TokenFix,
+  ): ApplyBraidFixResult {
+    if (generation !== this.latestPatchGeneration) {
+      return {
+        kind: "applyBraidFixResult",
+        requestId,
+        books: {},
+        usfm: {},
+        ranAtGeneration: generation,
+        behind: generation > this.latestPatchGeneration,
+        superseded: generation < this.latestPatchGeneration,
+      };
     }
-    return tokens;
+    return {
+      kind: "applyBraidFixResult",
+      requestId,
+      ...this.engines.applyBraidFix(bookCode, fix),
+      ranAtGeneration: generation,
+      behind: false,
+      superseded: false,
+    };
+  }
+
+  private async runPublishBraid(
+    generation: Generation,
+    requestId: string,
+  ): Promise<PublishBraidResult> {
+    if (generation !== this.latestPatchGeneration) {
+      return {
+        kind: "publishBraidResult",
+        requestId,
+        ranAtGeneration: generation,
+        behind: generation > this.latestPatchGeneration,
+        superseded: generation < this.latestPatchGeneration,
+      };
+    }
+    this.requireResident();
+    return {
+      kind: "publishBraidResult",
+      requestId,
+      publication: await this.engines.publishBraid(),
+      ranAtGeneration: generation,
+      behind: false,
+      superseded: false,
+    };
+  }
+
+  private async runRestoreBraid(
+    generation: Generation,
+    packed: ArrayBuffer,
+    records: RestoreBraidRecord[],
+  ): Promise<RestoreBraidResult> {
+    if (generation !== this.latestPatchGeneration) {
+      return {
+        kind: "restoreBraidResult",
+        accepted: false,
+        ranAtGeneration: generation,
+        error: "restore request was superseded by a newer editor generation",
+      };
+    }
+    this.requireResident();
+    try {
+      return {
+        kind: "restoreBraidResult",
+        accepted: (await this.engines.restoreBraid(packed, records)).accepted,
+        ranAtGeneration: generation,
+      };
+    } catch (error) {
+      return {
+        kind: "restoreBraidResult",
+        accepted: false,
+        ranAtGeneration: generation,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   private async runLint(
-    scope: AnalyzeScope,
     generation: Generation,
     requestId: string | undefined,
   ): Promise<LintResult> {
-    const byBook: Record<string, LintIssue[]> = {};
-    for (const bookCode of this.booksInScope(scope)) {
-      const tokens = this.bookTokens(bookCode);
-      byBook[bookCode] = tokens.length
-        ? await this.engines.lintBook(tokens)
-        : [];
-    }
-    this.trace("mirror.runLint", {
-      gen: generation,
-      requestId,
-      scope: scope === "all" ? "all" : scope.books,
-      residentBooks: [...this.books.keys()],
-      counts: Object.fromEntries(
-        Object.entries(byBook).map(([b, issues]) => [b, issues.length]),
-      ),
-    });
+    this.requireResident();
     return {
       kind: "lintResult",
-      byBook,
+      snapshot: await this.engines.lintFindings(),
       ranAtGeneration: generation,
       requestId,
     };
   }
 
-  private async runSous(
-    scope: AnalyzeScope,
+  private async runGalley(
     generation: Generation,
     requestId: string | undefined,
-  ): Promise<SousResult> {
-    const byBook: Record<string, SousAnalyzeResult> = {};
-    for (const bookCode of this.booksInScope(scope)) {
-      const tokens = this.bookTokens(bookCode);
-      byBook[bookCode] = tokens.length
-        ? await this.engines.analyzeSousBook(tokens)
-        : { segments: {}, findings: [] };
+    config: SousConfig | undefined,
+    cachePolicy: GalleyCachePolicy,
+  ): Promise<GalleyResult> {
+    this.requireResident();
+    if (config) {
+      this.galleyDirty =
+        this.engines.updateGalleyConfig(config) === "changed" ||
+        this.galleyDirty;
     }
+
+    if (!this.galleyDirty && cachePolicy === "none" && this.lastGalley) {
+      return {
+        kind: "galleyResult",
+        ...cloneGalleyAnalysis(this.lastGalley),
+        ranAtGeneration: generation,
+        requestId,
+      };
+    }
+
+    const cached =
+      cachePolicy === "restore" && this.engines.loadGalley
+        ? await this.engines.loadGalley(config)
+        : null;
+    if (cached) {
+      // Return the validated-by-main candidate immediately, then let the
+      // resident handle publish a fresh result without blocking first paint.
+      setTimeout(() => {
+        void this.engines
+          .analyzeGalley(config, cachePolicy)
+          .then((fresh) => {
+            this.galleyDirty = false;
+            this.rememberGalley(fresh);
+            this.backgroundResult({
+              kind: "galleyResult",
+              ...fresh,
+              ranAtGeneration: generation,
+            });
+          })
+          .catch((error: unknown) =>
+            console.error("[mirror] background Galley refresh failed", {
+              error,
+            }),
+          );
+      }, 0);
+      return {
+        kind: "galleyResult",
+        ...cached,
+        ranAtGeneration: generation,
+        requestId,
+      };
+    }
+
+    const fresh = await this.engines.analyzeGalley(config, cachePolicy);
+    this.galleyDirty = false;
+    this.rememberGalley(fresh);
     return {
-      kind: "sousResult",
-      byBook,
+      kind: "galleyResult",
+      ...fresh,
       ranAtGeneration: generation,
       requestId,
+    };
+  }
+
+  private rememberGalley(analysis: GalleyAnalysis): void {
+    // The worker transfers the result buffer, so retain an owned copy for a
+    // later no-op command instead of re-running Galley just to recreate it.
+    this.lastGalley = {
+      ...analysis,
+      packed: analysis.packed.slice(0),
+      keys: [...analysis.keys],
+      segments: analysis.segments,
     };
   }
 
   /**
-   * The dirty/clean decision is made HERE against resident state (it moved off
-   * main with the serialization). Any dirty chapter → serialize the whole book
-   * and persist; all clean → clear. Byte-identity with a real save is held by
-   * reusing `serializeChaptersToUsfm` over `currentTokens` + per-chapter eol.
+   * Braid is the semantic dirty authority. It compares the resident working
+   * book with the saved baseline; the app's chapter flags remain metadata for
+   * recovery UI but are no longer the backup decision.
    */
   private async runWriteBackup(
     bookCode: string,
@@ -309,11 +609,15 @@ export class WorkspaceMirror {
     generation: Generation,
   ): Promise<BackupResult> {
     const book = this.books.get(bookCode);
-    if (!book || ![...book.chapters.values()].some((c) => c.dirty)) {
+    if (!book) {
+      return this.runClearBackup(bookCode, generation);
+    }
+    this.requireResident();
+    if (!this.engines.isBraidDirty(bookCode)) {
       return this.runClearBackup(bookCode, generation);
     }
 
-    const content = this.serializeBook(book);
+    const content = this.engines.braidUsfm(bookCode);
     const bodyMd5 = await this.engines.computeMd5(content);
     const entry: DirtyBufferFile = {
       schemaVersion: DIRTY_BUFFER_SCHEMA_VERSION,
@@ -324,16 +628,13 @@ export class WorkspaceMirror {
       content,
     };
     const envelopeJson = JSON.stringify(entry);
-    let wrote = false;
     try {
-      wrote = await retryBackupWrite(() =>
+      await retryBackupWrite(() =>
         this.engines.persistBackup(bookCode, envelopeJson),
       );
     } catch (error) {
       // Retries exhausted: log loudly and leave the book dormant until its next
-      // commit re-triggers a write. We still ship the bytes back so a host that
-      // can persist on main (desktop) gets a last chance; if that also fails the
-      // book stays uncovered until the next commit — never tear anything down.
+      // commit re-triggers a write.
       console.error(
         "[mirror] backup write failed after retries; book left dormant",
         { bookCode, error },
@@ -342,8 +643,6 @@ export class WorkspaceMirror {
     return {
       kind: "backupResult",
       bookCode,
-      // Ship the bytes back when the host couldn't persist them (or failed).
-      envelopeJson: wrote ? undefined : envelopeJson,
       ranAtGeneration: generation,
     };
   }
@@ -352,14 +651,9 @@ export class WorkspaceMirror {
     bookCode: string,
     generation: Generation,
   ): Promise<BackupResult> {
-    // `false` means the host can't clear here (the desktop backup worker can't
-    // reach Tauri FS) — main does the clear through the store seam. A throw is
-    // a transient failure: retry, then leave dormant.
-    let cleared = false;
+    // A throw is a transient failure: retry, then leave dormant.
     try {
-      cleared = await retryBackupWrite(() =>
-        this.engines.clearBackup(bookCode),
-      );
+      await retryBackupWrite(() => this.engines.clearBackup(bookCode));
     } catch (error) {
       console.error(
         "[mirror] backup clear failed after retries; book left dormant",
@@ -370,26 +664,31 @@ export class WorkspaceMirror {
       kind: "backupResult",
       bookCode,
       cleared: true,
-      clearOnMain: cleared ? undefined : true,
       ranAtGeneration: generation,
     };
   }
 
-  /** Resident chapters in chapter-number-ascending order (invariant I1). */
-  private chaptersInOrder(
-    book: ResidentBook,
-  ): Array<[number, ResidentChapter]> {
-    return [...book.chapters.entries()].sort((a, b) => a[0] - b[0]);
+  private requireResident(): void {
+    if (!this.galleySeeded) {
+      throw new Error(
+        "Resident Braid must be seeded before commands or patches",
+      );
+    }
   }
 
-  private serializeBook(book: ResidentBook): string {
-    const chapters: SerializableChapter[] = this.chaptersInOrder(book).map(
-      ([chapterNum, chapter]) => ({
-        chapterNumber: chapterNum,
-        eol: chapter.eol,
-        currentTokens: chapter.tokens,
-      }),
-    );
-    return serializeChaptersToUsfm(chapters, (c) => c.currentTokens);
+  private lineEnding(book: ResidentBook): "lf" | "crlf" {
+    const first = book.chapters.values().next().value as
+      | ResidentChapter
+      | undefined;
+    return first?.eol === "\r\n" ? "crlf" : "lf";
   }
+}
+
+function cloneGalleyAnalysis(analysis: GalleyAnalysis): GalleyAnalysis {
+  return {
+    ...analysis,
+    packed: analysis.packed.slice(0),
+    keys: [...analysis.keys],
+    segments: analysis.segments,
+  };
 }

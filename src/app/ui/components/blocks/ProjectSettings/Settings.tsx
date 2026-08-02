@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { Check, Languages, MoonStar, Save, SunMedium } from "lucide-react";
 import { type ReactNode, type RefObject, useRef, useState } from "react";
+import { rule_catalog, type RuleId } from "scripture-sous-chef-web";
 
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { GET_LOCALES, type Settings } from "@/app/data/settings.ts";
@@ -37,7 +38,7 @@ import * as styles from "./settings.css.ts";
 import { UpdateSettingsSection } from "./UpdateSettingsSection.tsx";
 import ZoomControl from "./ZoomControl.tsx";
 
-type SettingsTab = "app-appearance" | "advanced";
+type SettingsTab = "app-appearance" | "proofreading" | "advanced";
 
 interface SettingsPanelProps {
   onClose?: () => void;
@@ -84,6 +85,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         autoAcceptOwnWorkOnSave: nextSettings.autoAcceptOwnWorkOnSave,
         autoAcceptIncomingWork: nextSettings.autoAcceptIncomingWork,
         diffViewModeDefault: nextSettings.diffViewModeDefault,
+        proofreading: nextSettings.proofreading,
       });
     } catch (error) {
       showErrorNotification({
@@ -146,6 +148,12 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 <BaseTabs.Tab value="advanced" className={styles.tabsTrigger}>
                   <Trans>Advanced</Trans>
                 </BaseTabs.Tab>
+                <BaseTabs.Tab
+                  value="proofreading"
+                  className={styles.tabsTrigger}
+                >
+                  <Trans>Proofreading</Trans>
+                </BaseTabs.Tab>
               </BaseTabs.List>
             </div>
           </div>
@@ -174,6 +182,15 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 applyUpdates={handleSettingsChange}
                 portalContainer={overlayPortalRef}
                 updaterService={updaterService}
+              />
+            </div>
+          </BaseTabs.Panel>
+
+          <BaseTabs.Panel value="proofreading" className={styles.tabsPanel}>
+            <div className={styles.tabsPanelInner}>
+              <ProofreadingTab
+                settings={project.appSettings}
+                applyUpdates={handleSettingsChange}
               />
             </div>
           </BaseTabs.Panel>
@@ -206,6 +223,65 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ProofreadingTab({
+  settings,
+  applyUpdates,
+}: {
+  settings: Settings;
+  applyUpdates: (updates: Partial<Settings>) => Promise<void>;
+}) {
+  const catalog = rule_catalog();
+  const proofreading = settings.proofreading;
+  const updateRule = (code: RuleId, enabled: boolean) =>
+    applyUpdates({
+      proofreading: {
+        ...proofreading,
+        rules: { ...proofreading.rules, [code]: enabled },
+      },
+    });
+
+  return (
+    <div className={styles.section}>
+      <SettingRow
+        title={t`Review depth`}
+        description={t`Choose how broadly Galley should surface review-worthy findings.`}
+        control={
+          <div className={styles.sliderControl}>
+            <input
+              className={styles.sliderInput}
+              aria-label={t`Review depth`}
+              type="range"
+              min={catalog.review_depth.minimum}
+              max={catalog.review_depth.maximum}
+              value={proofreading.depth}
+              onChange={(event) =>
+                void applyUpdates({
+                  proofreading: {
+                    ...proofreading,
+                    depth: Number(event.currentTarget.value),
+                  },
+                })
+              }
+            />
+            <output className={styles.sliderOutput}>
+              {proofreading.depth}
+            </output>
+          </div>
+        }
+      />
+      {catalog.cards.map((card) => (
+        <EnabledDisabledRow
+          key={card.code}
+          title={card.title}
+          description={card.what}
+          checked={proofreading.rules[card.code] !== false}
+          onChange={(checked) => void updateRule(card.code, checked)}
+        />
+      ))}
     </div>
   );
 }

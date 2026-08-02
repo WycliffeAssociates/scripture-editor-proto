@@ -14,7 +14,6 @@ describe("versionQueries", () => {
       readProjectSnapshotAtCommit: vi.fn().mockResolvedValue(new Map()),
     };
     const usfmOnionService = {
-      getMarkerCatalog: vi.fn(),
       parseUsfm: vi.fn(),
       parseUsfmBatchFromPaths: vi.fn(),
       parseUsfmBatchFromContents: vi.fn(),
@@ -60,7 +59,6 @@ describe("versionQueries", () => {
       readProjectSnapshotAtCommit: vi.fn().mockResolvedValue(new Map()),
     };
     const usfmOnionService = {
-      getMarkerCatalog: vi.fn(),
       parseUsfm: vi.fn(),
       parseUsfmBatchFromPaths: vi.fn(),
       parseUsfmBatchFromContents: vi.fn(),

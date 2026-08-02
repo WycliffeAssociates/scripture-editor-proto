@@ -49,6 +49,7 @@ import { AnnotationPopover } from "@/app/ui/components/blocks/AnnotationPopover.
 import { useDecorateFindings } from "@/app/ui/hooks/useDecorateFindings.ts";
 import { useLayoutTick } from "@/app/ui/hooks/useLayoutTick.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
+import { vars } from "@/app/ui/styles/designSystem.css.ts";
 import * as styles from "@/app/ui/styles/modules/FindingsOverlay.css.ts";
 
 type Rect = { left: number; top: number; width: number; height: number };
@@ -63,6 +64,7 @@ type HighlightEntry = {
   // carries `data-annotation-id`), keyed to this finding's exact range
   // rather than the shared underlying token.
   annotationId?: string;
+  severity: Finding["severity"];
 };
 
 type BadgeEntry = {
@@ -72,9 +74,17 @@ type BadgeEntry = {
   dataSid: string | null;
   left: number;
   top: number;
+  severity: Finding["severity"];
 };
 
 type OverlayEntry = HighlightEntry | BadgeEntry;
+
+const severityColor: Record<Finding["severity"], string> = {
+  error: vars.color.onSurfaceError,
+  warning: vars.color.onSurfaceWarning,
+  // The design system's brand blue is the current info token.
+  info: vars.color.brandBase,
+};
 
 /** Per-token-finding resolution state, keyed by `Finding.id` in `recordsRef`. */
 type AnchorRecord = {
@@ -429,6 +439,7 @@ function publishEntries(
         dataId,
         dataSid,
         rects: record.rects,
+        severity: record.finding.severity,
       });
     } else if (record.kind === "badge") {
       // The badge overlay itself is the hover target (data-js); we do NOT
@@ -441,6 +452,7 @@ function publishEntries(
         dataSid,
         left: record.left,
         top: record.top,
+        severity: record.finding.severity,
       });
     }
   }
@@ -610,6 +622,7 @@ export function FindingsOverlayPlugin({ editor }: FindingsOverlayPluginProps) {
         dataSid: null,
         rects: resolved.rects,
         annotationId: annotation.id,
+        severity: annotation.finding.severity,
       });
     }
     return out;
@@ -793,6 +806,7 @@ export function FindingsOverlayPlugin({ editor }: FindingsOverlayPluginProps) {
                   top: `${rect.top}px`,
                   width: `${rect.width}px`,
                   height: `${rect.height}px`,
+                  backgroundColor: `color-mix(in srgb, ${severityColor[entry.severity]} 22%, transparent)`,
                 }}
               />
             ))
@@ -806,6 +820,8 @@ export function FindingsOverlayPlugin({ editor }: FindingsOverlayPluginProps) {
               style={{
                 left: `${entry.left}px`,
                 top: `${entry.top}px`,
+                background: `color-mix(in srgb, ${severityColor[entry.severity]} 88%, ${vars.color.surfacePrimary})`,
+                color: severityColor[entry.severity],
               }}
             />
           ),

@@ -1,32 +1,18 @@
-import { Effect } from "effect";
+import { Duration, Effect, Stream } from "effect";
 
-import {
-  type FoldedBookScope,
-  makeFoldedScopePipeline,
-} from "@/app/domain/editor/pipelines/foldedScopePipeline.ts";
 import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
-import type { AnalyzeScope } from "@/app/domain/mirror/mirrorProtocol.ts";
-import { mirrorTrace } from "@/app/domain/mirror/mirrorTrace.ts";
-import {
-  type ConsumerBookScope,
-  NO_BOOKS,
-  touchedBooks,
-} from "@/app/state/commitFilters.ts";
 import type { CommitEvent } from "@/app/state/types.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 
 const DEFAULT_LINT_DEBOUNCE_MS = 100;
 
 /**
- * Which books lint reacts to for a commit — lint's OWN policy. Floor: never less
- * than a book (the USFM linter's structure checks span chapters within a book,
- * so chapter scopes widen to their books). Excludes `metadataOnly` (no text),
- * `structuralFixup` (writebacks fix structure, don't surface issues), and `load`
- * (initial state is mirror-seeded). `undo`/`redo` are NOT excluded — replay
- * commits carry precise scope, so the touched books re-lint.
+ * Whether a commit should trigger the resident Braid's complete lint snapshot.
+ * Braid owns dirty-book narrowing internally; the editor only decides whether
+ * text changed and whether this commit class is eligible for a pass.
  */
-export function lintCommitScope(event: CommitEvent): ConsumerBookScope {
-  if (!event.meta.dirtyTextContent) return NO_BOOKS;
+export function shouldLintCommit(event: CommitEvent): boolean {
+  if (!event.meta.dirtyTextContent) return false;
   // Exhaustive over CommitKind: a new kind won't compile until it picks a side.
   switch (event.meta.kind) {
     case "userEdit":
@@ -34,54 +20,39 @@ export function lintCommitScope(event: CommitEvent): ConsumerBookScope {
     case "import":
     case "undo":
     case "redo":
-      return touchedBooks(event);
+      return true;
     case "load": // initial state is mirror-seeded
     case "structuralFixup": // writebacks fix structure, don't surface issues
     case "metadataOnly": // no text change
-      return NO_BOOKS;
+      return false;
   }
 }
 
 /**
  * Stream pipeline that drives lint in response to working-files commits.
  *
- * `lintCommitScope` fuses relevance (empty set = skip) and expansion into one
- * function — for a scoped consumer "relevant" just means "non-empty scope", so
- * there's no separate relevance predicate (book granularity); scopes
- * accumulated across the debounce window are drained as ONE `analyzeLint`
- * command carrying the folded book set + the commit generation. The mirror
- * reads its resident tokens for those books and returns the raw issues per
- * book; the result router (see `makeMirrorResultRouter`) normalizes and commits
- * them into the findings store's onion slice — same supersession-per-book
- * shape as before, just sourced from the mirror instead of an inline service
- * call. The Effect debounce/fold/cancel shell is unchanged.
+ * The resident Braid host always lints and publishes the complete corpus; no
+ * editor-owned book scope is folded into the command.
  */
 export function makeLintPipeline(args: {
   workingFilesStore: WorkingFilesStore;
   feed: MirrorFeed;
   debounceMs?: number;
 }): Effect.Effect<void> {
-  const lintPass = (scope: FoldedBookScope): Effect.Effect<void> =>
-    Effect.sync(() => {
-      const analyzeScope: AnalyzeScope = scope.all
-        ? "all"
-        : { books: Array.from(scope.books) };
-      const generation = args.workingFilesStore.generation();
-      mirrorTrace("pipeline.lint.send", {
-        scope: analyzeScope === "all" ? "all" : analyzeScope.books,
-        gen: generation,
-      });
-      args.feed.sendCommand({
-        kind: "analyzeLint",
-        scope: analyzeScope,
-        generation,
-      });
-    });
-
-  return makeFoldedScopePipeline({
-    changes: args.workingFilesStore.changes,
-    scopeFor: lintCommitScope,
-    debounceMs: args.debounceMs ?? DEFAULT_LINT_DEBOUNCE_MS,
-    run: lintPass,
-  });
+  return args.workingFilesStore.changes.pipe(
+    Stream.map(shouldLintCommit),
+    Stream.filter(Boolean),
+    Stream.debounce(
+      Duration.millis(args.debounceMs ?? DEFAULT_LINT_DEBOUNCE_MS),
+    ),
+    Stream.mapEffect(() =>
+      Effect.sync(() => {
+        args.feed.sendCommand({
+          kind: "analyzeLint",
+          generation: args.workingFilesStore.generation(),
+        });
+      }),
+    ),
+    Stream.runDrain,
+  );
 }

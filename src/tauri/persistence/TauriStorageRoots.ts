@@ -21,7 +21,8 @@ export class TauriStorageRoots implements StorageRoots {
 
   static async create(): Promise<TauriStorageRoots> {
     // Keep user-visible project data separate from app-private temp/cache/db
-    // directories while preserving the shared root names used by core code.
+    // directories. The shared findings cache is intentionally under appData so
+    // it follows the workspace cache location across desktop and web.
     const [publicRoot, privateRoot] = await Promise.all([
       appDataDir(),
       appLocalDataDir(),
@@ -30,7 +31,7 @@ export class TauriStorageRoots implements StorageRoots {
       await Promise.all([
         join(publicRoot, "projects"),
         join(privateRoot, "temp"),
-        join(privateRoot, "cache"),
+        join(publicRoot, "cache"),
         join(privateRoot, "logs"),
         join(privateRoot, "database"),
       ]);

@@ -16,6 +16,8 @@ import {
   bookLineEnding,
   tokensToUsfm,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { applyResidentBraidFix } from "@/app/domain/mirror/braidHost.ts";
+import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import { withWorkingFilesDraft } from "@/app/domain/project/workingFileCommand.ts";
 import type { ReadonlyScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { FindingsStore } from "@/app/state/FindingsStore.ts";
@@ -158,6 +160,7 @@ export type LintFixDeps = {
   workingFilesStore: WorkingFilesStore;
   interactionGate: WorkspaceGateStore;
   history: CustomHistoryHook;
+  mirrorFeed: MirrorFeed;
   usfmOnionService: IUsfmOnionService;
   editorMode: EditorModeSetting;
   /**
@@ -169,8 +172,9 @@ export type LintFixDeps = {
 
 /**
  * Apply a clicked lint issue's upstream fix as one history transaction:
- * apply the token fix on a scratch, rebuild chapter state, commit through the
- * working-files seam, relint via the pipeline subscribers.
+ * resolve/apply the snapshot-bound patch through resident Braid, rebuild the
+ * changed book state from Braid's emitted USFM, and commit through the
+ * working-files seam. The lint pipeline relints after that commit.
  */
 export async function fixLintFinding(err: LintIssue, deps: LintFixDeps) {
   // Crash-recovery gate: suppress programmatic working-state mutations while
@@ -186,13 +190,13 @@ export async function fixLintFinding(err: LintIssue, deps: LintFixDeps) {
   const sidParsed = parseSid(err.sid);
   if (!sidParsed) return;
 
-  // applyLintFixToFile rebuilds the whole book (rebuildParsedFileFromUsfm
-  // replaces `targetFile.chapters` and may rebuild multiple chapters), so the
-  // mutator checks the book out WHOLESALE — the seam commits it as a validated
-  // bulk rather than a per-chapter overlay. Lint/diff/editor sync react to the
-  // commit via their subscribers; the success toast runs on the typed result,
-  // so a save racing this op (which aborts at the gate recheck) can't leave
-  // the UI claiming the fix landed.
+  // Braid applies the fix to the resident book before this mutator checks the
+  // book out WHOLESALE. `rebuildParsedFileFromUsfm` replaces
+  // `targetFile.chapters` and may rebuild multiple chapters, so the seam
+  // commits it as a validated bulk. Lint/diff/editor sync react to the commit
+  // via their subscribers; the success toast runs on the typed result, so a
+  // save racing this op (which aborts at the gate recheck) cannot leave the UI
+  // claiming the fix landed.
   const originalFile = deps.workingFilesStore
     .read()
     .find((f) => f.bookCode === sidParsed.book);
@@ -220,15 +224,43 @@ export async function fixLintFinding(err: LintIssue, deps: LintFixDeps) {
     mutate: async (draft): Promise<LintFixComputeResult> => {
       const file = draft.read().find((f) => f.bookCode === sidParsed.book);
       if (!file) return { applied: false };
-      const computed = await applyLintFixToFile({
-        err,
-        issueFix,
-        file,
-        targetBookCode: file.bookCode,
-        targetChapterNumber,
-        usfmOnionService: deps.usfmOnionService,
-      });
-      if (!computed.applied) return computed;
+      let nextUsfm: string | undefined;
+      let fallbackIssues: LintIssue[] | undefined;
+      try {
+        const result = await applyResidentBraidFix({
+          feed: deps.mirrorFeed,
+          generation: deps.workingFilesStore.generation(),
+          bookCode: file.bookCode,
+          fix: issueFix,
+        });
+        nextUsfm = result.usfm[file.bookCode];
+      } catch {
+        // The finding may predate a mutation that already changed Braid's
+        // resident snapshot. Re-find the logical issue against current text,
+        // then retry the resident patch exactly once.
+        fallbackIssues = await relintBookFile(file, deps.usfmOnionService);
+        const normalizedIssue = findEquivalentIssue(
+          fallbackIssues,
+          err,
+          file.bookCode,
+          targetChapterNumber,
+        );
+        if (!normalizedIssue?.fix) {
+          return { applied: false, fallbackIssues };
+        }
+        try {
+          const result = await applyResidentBraidFix({
+            feed: deps.mirrorFeed,
+            generation: deps.workingFilesStore.generation(),
+            bookCode: file.bookCode,
+            fix: normalizedIssue.fix,
+          });
+          nextUsfm = result.usfm[file.bookCode];
+        } catch {
+          return { applied: false, fallbackIssues };
+        }
+      }
+      if (nextUsfm === undefined) return { applied: false, fallbackIssues };
 
       // The fix produced changes — check out the book and rebuild it in
       // place from the new USFM (replaces its chapters wholesale).
@@ -236,11 +268,11 @@ export async function fixLintFinding(err: LintIssue, deps: LintFixDeps) {
       if (!writableFile) return { applied: false };
       await rebuildParsedFileFromUsfm({
         targetFile: writableFile,
-        sourceUsfm: computed.nextUsfm,
+        sourceUsfm: nextUsfm,
         usfmOnionService: deps.usfmOnionService,
         shape: shapeForSurface("workingRebuild", deps.editorMode),
       });
-      return computed;
+      return { applied: true, nextUsfm, fallbackIssues };
     },
   });
 

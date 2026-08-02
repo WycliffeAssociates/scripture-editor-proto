@@ -106,15 +106,21 @@ export function WorkingFilesBridgePlugin() {
         });
 
         // Step 3 — publish decision.
-        if (tags.has(EDITOR_TAGS_USED.programaticIgnore)) return;
-        if (!requireGateOpen(interactionGate.get())) return;
+        if (tags.has(EDITOR_TAGS_USED.programaticIgnore)) {
+          return;
+        }
+        if (!requireGateOpen(interactionGate.get())) {
+          return;
+        }
         // structuralFixup classifies before HISTORY_MERGE_TAG so the
         // structure pipeline's writebacks still publish — the
         // historyMerge tag is also present to keep them out of undo.
         const isStructuralFix = tags.has(
           EDITOR_TAGS_USED.programmaticStructuralFix,
         );
-        if (!isStructuralFix && tags.has(HISTORY_MERGE_TAG)) return;
+        if (!isStructuralFix && tags.has(HISTORY_MERGE_TAG)) {
+          return;
+        }
 
         const bookCode = project.pickedFile.bookCode;
         const chapter =

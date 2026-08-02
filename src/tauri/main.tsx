@@ -15,16 +15,13 @@ import {
 } from "@/app/persistence/DexieProjectIndex.ts";
 import { installDevTimerLogger } from "@/app/ui/hooks/utils/domUtils.ts";
 import { applyColorSchemeToDocument } from "@/app/ui/theme/appTheme.ts";
-import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
 import { FsBackedAuthSessionProvider } from "@/core/persistence/FsBackedAuthSessionProvider.ts";
 import { normalizeGiteaHostBaseUrl } from "@/core/persistence/giteaConfig.ts";
 import { GiteaRemoteRepoProvider } from "@/core/persistence/GiteaRemoteRepoProvider.ts";
 import { TauriGitProvider } from "@/tauri/adapters/git/TauriGitProvider.ts";
 import { TauriMd5Service } from "@/tauri/domain/md5/TauriMd5Service.ts";
-import { BackupWorkerSession } from "@/tauri/domain/mirror/BackupWorkerSession.ts";
 import { RustMirrorSession } from "@/tauri/domain/mirror/RustMirrorSession.ts";
 import { createTauriSettingsManager } from "@/tauri/domain/settings/settings.ts";
-import { TauriSousService } from "@/tauri/domain/sous/TauriSousService.ts";
 import { TauriUpdaterService } from "@/tauri/domain/updater/TauriUpdaterService.ts";
 import { TauriUsfmOnionService } from "@/tauri/domain/usfm/TauriUsfmOnionService.ts";
 import { TauriFileSystem } from "@/tauri/persistence/TauriFileSystem.ts";
@@ -57,7 +54,6 @@ const authSessionProvider = new FsBackedAuthSessionProvider(
 );
 const md5Service = new TauriMd5Service();
 const usfmOnionService = new TauriUsfmOnionService();
-const sousService = new TauriSousService();
 const gitProvider = new TauriGitProvider();
 const remoteRepoProvider = new GiteaRemoteRepoProvider();
 const opener = new TauriOpener(fileSystem);
@@ -80,34 +76,29 @@ const importService = new TauriImportService(
   fileSystem,
   import.meta.env.VITE_GIT_PROXY_X_REQUESTED_WITH ?? null,
 );
-initializeUsfmMarkerCatalog(await usfmOnionService.getMarkerCatalog());
 const updaterService = new TauriUpdaterService();
 await updaterService.initialize();
 // Desktop mirror: two sinks on the multicast feed. The Rust resident-state
 // mirror owns lint/sous (tokens born in Rust at parse, edits flow as
-// `mirror_push_patch`; analyze reads resident State); a wasm-free backup worker
-// owns crash-recovery backup (it serializes off the main thread and bounces the
-// bytes back for main's FS write, since a worker can't `invoke` — S2).
+// `mirror_push_patch`; Braid also owns desktop serialization, dirty checks, and
+// crash-recovery backups, so no second token-copying persistence worker is needed.
 const mirrorSessionFactory: MirrorSessionFactory = ({
   feed,
   workspaceKey,
   dirtyBufferRoot,
+  fileSystem,
+  cacheRoot,
 }) => {
-  const rust = new RustMirrorSession({ feed });
-  const backup = new BackupWorkerSession({
+  const rust = new RustMirrorSession({
     feed,
     workspaceKey,
+    fileSystem,
+    cacheRoot,
     dirtyBufferRoot,
   });
   const session: MirrorSession = {
-    // The Rust mirror is ready synchronously (`invoke` is available at once);
-    // the composed session is ready when the backup worker's wasm-free init
-    // ACKs. Awaiting both keeps the load contract uniform across transports.
-    ready() {
-      return backup.ready();
-    },
+    ready: async () => {},
     dispose() {
-      backup.dispose();
       rust.dispose();
     },
   };
@@ -131,7 +122,6 @@ root.render(
       libraryService={libraryService}
       importService={importService}
       usfmOnionService={usfmOnionService}
-      sousService={sousService}
       gitProvider={gitProvider}
       opener={opener}
       platform={currentPlatform}

@@ -120,7 +120,7 @@ describe("lintPipeline (integration)", () => {
     );
   });
 
-  it("FOLDS scopes across the debounce window — two books in ONE command", async () => {
+  it("FOLDS scopes across the debounce window into ONE command", async () => {
     const { feed, commands } = captureFeed();
     const wf = new WorkingFilesStore([
       makeBook({ bookCode: "GEN" }),
@@ -145,11 +145,8 @@ describe("lintPipeline (integration)", () => {
         yield* passTime(DEBOUNCE_MS + 20);
         const lints = lintCommands(commands);
         expect(lints).toHaveLength(1);
-        const scope = lints[0]!.scope;
-        expect(scope === "all" ? scope : [...scope.books].sort()).toEqual([
-          "EXO",
-          "GEN",
-        ]);
+        expect(lints[0]).toMatchObject({ kind: "analyzeLint" });
+        expect(lints[0]).not.toHaveProperty("scope");
       }),
     );
   });
@@ -186,7 +183,7 @@ describe("lintPipeline (integration)", () => {
         yield* passTime(DEBOUNCE_MS + 20);
         const lints = lintCommands(commands);
         expect(lints).toHaveLength(1);
-        expect(lints[0]!.scope).toBe("all");
+        expect(lints[0]).not.toHaveProperty("scope");
       }),
     );
   });

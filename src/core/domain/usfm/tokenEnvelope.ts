@@ -11,6 +11,8 @@ export type TokenEnvelope = {
   inPara?: string;
   inChars?: string[];
   attributes?: Record<string, string>;
+  attributeSource?: string;
+  attributeOffset?: number;
   content?: TokenEnvelope[];
   [key: string]: unknown;
 };

@@ -63,6 +63,7 @@ function createSettingsManager(autoPushOnSave: boolean): SettingsManager {
       autoAcceptOwnWorkOnSave: false,
       autoAcceptIncomingWork: false,
       diffViewModeDefault: "list",
+      proofreading: { depth: 50, rules: {} },
       referenceByProject: {},
     }),
     get: (key) => createSettingsManager(autoPushOnSave).getSettings()[key],

@@ -32,27 +32,6 @@
 // green; if any flip to passing in the future, the test will fail
 // and prompt re-evaluation):
 //
-//   - kitchen-sink × any shape: character-marker attribute lists
-//     (e.g. `\w word|strong="H3444"\w*`) now round-trip correctly
-//     after the v0.0.3 upstream fix + our adapter plumbing
-//     (`SerializedUSFMTextNode.attributes` carrying `AttributeItem[]`
-//     through `tokensToLexical` / `lexicalToTokens`). But milestone-
-//     style markers (`\qt-s |sid="..."\*`, table milestones, etc.)
-//     still lose their attribute lists. Root cause: our adapter
-//     collapses `Token.kind: "milestone"` → `"marker"` during
-//     Lexical serialization (`flatTokenKindToLexicalTokenType` and
-//     its inverse only emit `UsfmTokenTypes.marker` / `endMarker`,
-//     no milestone variant). Upstream's `tokens_to_usfm` therefore
-//     can't apply the milestone closer-shape rule and ends up
-//     draining the pending attributes at end-of-stream, producing
-//     a concatenated `|eid=... |sid=...` blob instead of inline
-//     emission.
-//
-//     Fix path (future): preserve the milestone/milestoneEnd kind
-//     through the adapter — add a `usfm:milestone` token-type
-//     variant and round-trip it. Once that lands these kitchen-sink
-//     entries unlock automatically.
-//
 //   - common-errors × regular shape: USED to diverge — regular-mode
 //     load auto-closed the unclosed `\f` footnote (appended `\f*`) so
 //     the WYSIWYG renderer wouldn't swallow the rest of the chapter
@@ -72,7 +51,7 @@ import type { SerializedEditorState } from "lexical";
 // usfm-onion v0.0.2; it preserves USFM 3.1 attribute lists that the
 // `tokens.map(t => t.text).join("")` shorthand silently drops.
 import { tokensToUsfm } from "usfm-onion-web";
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { type EditorShape, EDITOR_SHAPES } from "@/app/data/editor.ts";
 import { transformToShape } from "@/app/domain/editor/utils/modeTransforms.ts";
@@ -80,7 +59,6 @@ import {
   lexicalToTokens,
   tokensToLexical,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
-import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -106,19 +84,6 @@ const SHAPES: EditorShape[] = [
 // "fix landed" signal. Each entry is a (fixture, scenario) tuple;
 // scenario is either "load <shape>" or "flip <from> → <to>".
 const KNOWN_DIVERGENT: Set<string> = new Set([
-  // Kitchen-sink: milestone markers (`\qt-s`, table/list milestones,
-  // etc.) lose their attribute lists because our adapter collapses
-  // milestone-kind → marker-kind during the Lexical round-trip. See
-  // header comment for the fix path.
-  "kitchen-sink load regular",
-  "kitchen-sink load form",
-  "kitchen-sink load flat",
-  "kitchen-sink flip regular→form",
-  "kitchen-sink flip regular→flat",
-  "kitchen-sink flip form→regular",
-  "kitchen-sink flip form→flat",
-  "kitchen-sink flip flat→regular",
-  "kitchen-sink flip flat→form",
   // Common-errors regular-shape scenarios used to live here: regular
   // mode auto-closed the unclosed `\f` footnote (appended `\f*`) to
   // stop the WYSIWYG renderer from swallowing the rest of the chapter.
@@ -136,12 +101,14 @@ async function loadFixture(fileName: string): Promise<{
   const { tokens } = await webUsfmOnionService.parseUsfm(usfm);
   return {
     usfm,
-    initialState: (shape) =>
-      tokensToLexical({
+    initialState: (shape) => {
+      const state = tokensToLexical({
         tokens,
         direction: "ltr",
         mode: shape,
-      }),
+      });
+      return state;
+    },
   };
 }
 
@@ -173,10 +140,6 @@ function maybeFails(scenario: string): typeof it | typeof it.fails {
 // The regular-shape rebuild pairs marker+number tokens into numbered nodes
 // via the catalog registry (isEnabledNumberedMarker); without initialization
 // the pairing no-ops and the suite would silently exercise the legacy path.
-beforeAll(async () => {
-  initializeUsfmMarkerCatalog(await webUsfmOnionService.getMarkerCatalog());
-});
-
 describe("synthetic fixture round-trip", () => {
   for (const fixture of FIXTURES) {
     describe(fixture.name, () => {

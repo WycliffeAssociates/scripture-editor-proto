@@ -18,7 +18,6 @@ export function ProjectEditorRoute() {
     rejectionReason,
     workspaceBaselineStore,
     recoveredConflictTracker,
-    dirtyBufferStore,
     workspaceKey,
     restoredBookCodes,
     conflictedBookCodes,
@@ -64,8 +63,6 @@ export function ProjectEditorRoute() {
       loadedProject={loadedProject}
       workspaceBaselineStore={workspaceBaselineStore}
       recoveredConflictTracker={recoveredConflictTracker}
-      dirtyBufferStore={dirtyBufferStore}
-      workspaceKey={workspaceKey}
       restoredBookCodes={restoredBookCodes}
       conflictedBookCodes={conflictedBookCodes}
       recoveryReportEntries={recoveryReportEntries}

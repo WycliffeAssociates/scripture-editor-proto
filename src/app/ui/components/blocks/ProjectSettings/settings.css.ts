@@ -159,6 +159,27 @@ export const fieldControl = style({
   maxWidth: "24rem",
 });
 
+export const sliderControl = style({
+  width: "100%",
+  maxWidth: "24rem",
+  display: "grid",
+  gridTemplateColumns: "1fr auto",
+  alignItems: "center",
+  gap: vars.spacing.sm,
+});
+
+export const sliderInput = style({
+  width: "100%",
+  accentColor: vars.color.brandBase,
+});
+
+export const sliderOutput = style({
+  minWidth: "2.5rem",
+  textAlign: "end",
+  color: vars.color.onSurfaceSecondary,
+  fontVariantNumeric: "tabular-nums",
+});
+
 export const footer = style({
   width: "100%",
   borderTop: `1px solid ${vars.color.surfaceBorder}`,

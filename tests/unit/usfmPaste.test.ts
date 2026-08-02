@@ -9,7 +9,7 @@ import {
   ParagraphNode,
   TextNode,
 } from "lexical";
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
@@ -29,12 +29,10 @@ import {
 } from "@/app/domain/editor/utils/usfmPaste.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
-import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 
 function createMockUsfmOnionService(): IUsfmOnionService {
   return {
-    getMarkerCatalog: () => webUsfmOnionService.getMarkerCatalog(),
     parseUsfm: (
       source: string,
       options?: Parameters<IUsfmOnionService["parseUsfm"]>[1],
@@ -67,10 +65,6 @@ function createEditor(): LexicalEditor {
 
 // Detection (ALL_USFM_MARKERS membership) and regular-shape pairing both
 // answer from the catalog registry.
-beforeAll(async () => {
-  initializeUsfmMarkerCatalog(await webUsfmOnionService.getMarkerCatalog());
-});
-
 describe("usfmPaste", () => {
   it("detects USFM-like marker blocks and ignores plain prose", () => {
     const usfmBlock = `\\s5

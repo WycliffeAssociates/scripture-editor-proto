@@ -21,6 +21,9 @@ import {
   idState,
   inCharsState,
   inParaState,
+  attributeOffsetState,
+  attributeSourceState,
+  attributesState,
   markerState,
   sidState,
   tokenTypeState,
@@ -57,6 +60,9 @@ export type SerializedUSFMTextNode = SerializedTextNode & {
    * carry attributes.
    */
   attributes?: AttributeItem[];
+  /** Verbatim attribute bytes and placement for untouched round-trips. */
+  attributeSource?: string;
+  attributeOffset?: number;
   [key: string]: unknown;
 };
 
@@ -89,6 +95,9 @@ export class USFMTextNode extends TextNode {
         { flat: true, stateConfig: tokenTypeState },
         { flat: true, stateConfig: markerState },
         { flat: true, stateConfig: inCharsState },
+        { flat: true, stateConfig: attributesState },
+        { flat: true, stateConfig: attributeSourceState },
+        { flat: true, stateConfig: attributeOffsetState },
       ],
     });
   }
@@ -105,6 +114,9 @@ export class USFMTextNode extends TextNode {
       inPara: this.getInPara(),
       inChars: this.getInChars(),
       marker: this.getMarker(),
+      attributes: $getState(this.getLatest(), attributesState),
+      attributeSource: $getState(this.getLatest(), attributeSourceState),
+      attributeOffset: $getState(this.getLatest(), attributeOffsetState),
     };
   }
   // getters and setters
@@ -268,6 +280,9 @@ export type USFMTextNodeMetadata = {
   inChars?: string[];
   tokenType?: UsfmTokenType;
   marker?: string;
+  attributes?: AttributeItem[];
+  attributeSource?: string;
+  attributeOffset?: number;
   [key: string]: unknown;
 };
 export function $createUSFMTextNode(
@@ -290,6 +305,9 @@ export function $createUSFMTextNode(
   if (metadata.inChars) {
     $setState(writable, inCharsState, metadata.inChars);
   }
+  $setState(writable, attributesState, metadata.attributes);
+  $setState(writable, attributeSourceState, metadata.attributeSource);
+  $setState(writable, attributeOffsetState, metadata.attributeOffset);
   return node;
 }
 type CreateSerializedUSFMTextNodeParams = {
@@ -306,6 +324,8 @@ type CreateSerializedUSFMTextNodeParams = {
    * unmodified so the round-trip serializer can re-emit it.
    */
   attributes?: AttributeItem[];
+  attributeSource?: string;
+  attributeOffset?: number;
   [key: string]: unknown;
 };
 export function createSerializedUSFMTextNode(
@@ -322,6 +342,8 @@ export function createSerializedUSFMTextNode(
     inChars: params.inChars,
     marker: params.marker,
     attributes: params.attributes,
+    attributeSource: params.attributeSource,
+    attributeOffset: params.attributeOffset,
     version: 1,
     text: params.text,
     detail: 0,

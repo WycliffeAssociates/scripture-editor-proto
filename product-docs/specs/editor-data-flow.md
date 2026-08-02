@@ -57,7 +57,7 @@ Stream<CommitEvent>
   │
   ├── lintPipeline           filter(lintScopeFor)              → debounce(100) → switchMap → MirrorFeed.analyzeLint command → (result router) → FindingsStore (onion slice)
   │                          // gated off (Effect.void) in plain mode via analysisDisabledInMode
-  ├── sousPipeline           filter(sousScopeFor)              → debounce(100) → switchMap → MirrorFeed.analyzeSous command → (result router) → FindingsStore (sous slice)
+  ├── sousPipeline           filter(sousScopeFor)              → debounce(100) → switchMap → MirrorFeed.analyzeGalley command → (result router) → FindingsStore (sous slice)
   │                          // gated off in plain mode; parallel to lint on its own clock
   ├── saveStatusPipeline     filter(isSaveStatusRelevant)      → tap → SaveStatusStore
   ├── structureMaintenancePipeline  filter(userEdit && dirtyTextContent) → debounce(16) → mapEffect → editor writeback (metadata: sid/inPara/structural-empty + residual char repair)
@@ -330,7 +330,7 @@ and is the smell we explicitly avoid.
   `runIncomingMutation` (the incoming-content boundary)
 - `src/app/domain/editor/pipelines/*.ts`
   - `structureMaintenancePipeline.ts` — metadata pass (sid/inPara/structural-empty) + residual char repair, 16 ms
-  - `sousPipeline.ts` — sends `analyzeSous` to MirrorFeed, 100 ms debounce
+  - `sousPipeline.ts` — sends `analyzeGalley` to MirrorFeed, 100 ms debounce
   - `lintPipeline.ts` — sends `analyzeLint` to MirrorFeed, 100 ms debounce
   - `tokenFixpointPipeline.ts` — dev-only I2 re-lex alarm, 250 ms
 - `src/app/ui/contexts/WorkspaceContext.tsx` — pipeline forks + store wiring

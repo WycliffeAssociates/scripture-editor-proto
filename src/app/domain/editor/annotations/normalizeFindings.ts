@@ -24,6 +24,9 @@
 // pass regardless of engine output order. Twins are interchangeable, so which
 // twin gets which suffix is unobservable; only determinism matters.
 
+import type { LintSnapshot } from "usfm-onion-web";
+
+import type { FindingsByScope } from "@/app/state/FindingsStore.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
 import type { SousFinding } from "@/core/domain/sous/sousTypes.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
@@ -38,6 +41,11 @@ type ProtoFinding = {
   baseKey: string;
   build: (id: string) => Finding;
 };
+
+const normalizedSousBySnapshot = new WeakMap<object, Finding>();
+const normalizedSousArrays = new WeakMap<object, Finding[]>();
+const normalizedOnionByIssue = new WeakMap<object, Finding>();
+const normalizedOnionArrays = new WeakMap<object, Finding[]>();
 
 /**
  * Assign `#occurrence` suffixes deterministically and return findings in the
@@ -67,30 +75,39 @@ function finalizeFindings(protos: ProtoFinding[]): Finding[] {
  * producer payload: the default decorator reads `issue.fix`, the message
  * formatter reads `messageParams`/`message`.
  */
-export function lintIssuesToFindings(issues: LintIssue[]): Finding[] {
-  return finalizeFindings(
+export function lintIssuesToFindings(issues: readonly LintIssue[]): Finding[] {
+  const cached = normalizedOnionArrays.get(issues);
+  if (cached) return cached;
+  const normalized = finalizeFindings(
     issues.map((issue) => ({
       baseKey: `onion:${issue.code}:${issue.tokenId ?? ""}:${issue.relatedTokenId ?? ""}`,
-      build: (id): Finding => ({
-        id,
-        source: "onion",
-        code: issue.code,
-        severity: issue.severity,
-        category: issue.issueType === "content" ? "content" : "structure",
-        anchor: {
-          kind: "token",
-          tokenId: issue.tokenId ?? issue.relatedTokenId ?? "?",
-          sid: issue.sid,
-        },
-        // onion issues hover-match on either their token or related
-        // token (the old hover behavior).
-        touchedTokenIds: [issue.tokenId, issue.relatedTokenId].filter(
-          (tokenId): tokenId is string => typeof tokenId === "string",
-        ),
-        issue,
-      }),
+      build: (id): Finding => {
+        const cached = normalizedOnionByIssue.get(issue);
+        if (cached) return cached;
+        const finding: Finding = {
+          id,
+          source: "onion",
+          code: issue.code,
+          severity: issue.severity,
+          category: issue.issueType === "content" ? "content" : "structure",
+          anchor: {
+            kind: "token",
+            tokenId: issue.tokenId ?? issue.relatedTokenId ?? "?",
+            sid: issue.sid,
+          },
+          // Onion issues hover-match on either their token or related token.
+          touchedTokenIds: [issue.tokenId, issue.relatedTokenId].filter(
+            (tokenId): tokenId is string => typeof tokenId === "string",
+          ),
+          issue,
+        };
+        normalizedOnionByIssue.set(issue, finding);
+        return finding;
+      },
     })),
   );
+  normalizedOnionArrays.set(issues, normalized);
+  return normalized;
 }
 
 /**
@@ -112,9 +129,38 @@ export function groupFindingsByChapter(findings: Finding[]): FindingsByChapter {
   return grouped;
 }
 
+/** Bucket one complete Galley snapshot back into the store's display index. */
+export function groupFindingsByBook(findings: Finding[]): FindingsByScope {
+  const byBook: Record<string, Finding[]> = {};
+  for (const finding of findings) {
+    const sid = finding.anchor.kind === "content" ? finding.anchor.sid : null;
+    const book = sid?.split(" ")[0]?.toUpperCase() ?? "?";
+    byBook[book] ??= [];
+    byBook[book].push(finding);
+  }
+  return Object.fromEntries(
+    Object.entries(byBook).map(([book, bookFindings]) => [
+      book,
+      groupFindingsByChapter(bookFindings),
+    ]),
+  );
+}
+
 /** The onion commit payload in one step: normalize, then chapter-bucket. */
-export function onionFindingsByChapter(issues: LintIssue[]): FindingsByChapter {
+export function onionFindingsByChapter(
+  issues: readonly LintIssue[],
+): FindingsByChapter {
   return groupFindingsByChapter(lintIssuesToFindings(issues));
+}
+
+/** Materialize a complete Braid snapshot for the initial store transaction. */
+export function onionSnapshotByBook(snapshot: LintSnapshot): FindingsByScope {
+  return Object.fromEntries(
+    snapshot.books.map((book) => [
+      book.book,
+      onionFindingsByChapter(book.findings),
+    ]),
+  );
 }
 
 /**
@@ -187,22 +233,36 @@ export function localLintChapterLabelFindings(
 
 /** sous `SousFinding` → content-anchored `Finding`. All sous rules are content. */
 export function sousFindingsToFindings(findings: SousFinding[]): Finding[] {
-  return finalizeFindings(
+  const cached = normalizedSousArrays.get(findings);
+  if (cached) return cached;
+  const normalized = finalizeFindings(
     findings.map((finding) => ({
       baseKey: `sous-chef:${finding.code}:${finding.sid}:${finding.start}:${finding.end}`,
-      build: (id): Finding => ({
-        id,
-        source: "sous-chef",
-        code: finding.code,
-        severity: finding.severity,
-        category: "content",
-        anchor: {
-          kind: "content",
-          sid: finding.sid,
-          range: { start: finding.start, end: finding.end },
-        },
-        score: finding.score,
-      }),
+      build: (id): Finding => {
+        const snapshot = finding.snapshotFinding;
+        if (snapshot) {
+          const existing = normalizedSousBySnapshot.get(snapshot);
+          if (existing) return existing;
+        }
+        const normalized: Finding = {
+          id,
+          source: "sous-chef",
+          code: finding.code,
+          severity: finding.severity,
+          category: "content",
+          anchor: {
+            kind: "content",
+            sid: finding.sid,
+            range: { start: finding.start, end: finding.end },
+          },
+          score: finding.score,
+          snapshotFinding: snapshot,
+        };
+        if (snapshot) normalizedSousBySnapshot.set(snapshot, normalized);
+        return normalized;
+      },
     })),
   );
+  normalizedSousArrays.set(findings, normalized);
+  return normalized;
 }

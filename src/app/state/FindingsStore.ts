@@ -92,12 +92,24 @@ export class FindingsStore {
   ): void {
     const book = bookCode.toUpperCase();
     const slice = this.state[source];
+    if (sameChapterFindings(slice?.byBook[book], byChapter)) return;
     this.state = {
       ...this.state,
       [source]: {
         ...slice,
         byBook: { ...slice?.byBook, [book]: byChapter },
       },
+    };
+    this.notify();
+  }
+
+  /** Replace the complete Braid lint snapshot in one transaction. */
+  commitBraidSnapshot(byBook: FindingsByScope): void {
+    const current = this.state.onion?.byBook;
+    if (sameBookFindings(current, byBook)) return;
+    this.state = {
+      ...this.state,
+      onion: { byBook },
     };
     this.notify();
   }
@@ -132,23 +144,26 @@ export class FindingsStore {
     this.notify();
   }
 
-  /**
-   * The sous variant carries the segment-map sidecar in the same commit, so
-   * findings and the projection they resolve against can never be observed
-   * out of step.
-   */
-  commitSousBookFindings(
-    bookCode: string,
-    byChapter: FindingsByChapter,
-    segments: SegmentsBySid,
-  ): void {
-    const book = bookCode.toUpperCase();
-    const slice = this.state["sous-chef"];
+  /** Replace the complete Galley snapshot and its projection sidecar atomically. */
+  commitSousFindings(byBook: FindingsByScope, segments: SegmentsBySid): void {
+    const segmentsByBook: Record<string, SegmentsBySid> = {};
+    for (const [sid, value] of Object.entries(segments)) {
+      const book = sid.split(" ")[0]?.toUpperCase() ?? "?";
+      segmentsByBook[book] ??= {};
+      segmentsByBook[book][sid] = value;
+    }
+    const current = this.state["sous-chef"];
+    if (
+      sameBookFindings(current?.byBook, byBook) &&
+      sameSegments(current?.segmentsByBook, segmentsByBook)
+    ) {
+      return;
+    }
     this.state = {
       ...this.state,
       "sous-chef": {
-        byBook: { ...slice?.byBook, [book]: byChapter },
-        segmentsByBook: { ...slice?.segmentsByBook, [book]: segments },
+        byBook,
+        segmentsByBook,
       },
     };
     this.notify();
@@ -169,4 +184,46 @@ export class FindingsStore {
   private notify(): void {
     for (const listener of this.listeners) listener();
   }
+}
+
+function sameChapterFindings(
+  left: FindingsByChapter | undefined,
+  right: FindingsByChapter,
+): boolean {
+  if (!left) return false;
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+  return rightKeys.every((key) => left[Number(key)] === right[Number(key)]);
+}
+
+function sameBookFindings(
+  left: FindingsByScope | undefined,
+  right: FindingsByScope,
+): boolean {
+  if (!left) return false;
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+  return rightKeys.every((book) =>
+    sameChapterFindings(left[book], right[book]),
+  );
+}
+
+function sameSegments(
+  left: Record<string, SegmentsBySid> | undefined,
+  right: Record<string, SegmentsBySid>,
+): boolean {
+  if (!left) return false;
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+  return rightKeys.every((book) => {
+    const leftSids = left[book];
+    const rightSids = right[book];
+    if (!leftSids || !rightSids) return false;
+    const sidKeys = Object.keys(rightSids);
+    if (Object.keys(leftSids).length !== sidKeys.length) return false;
+    return sidKeys.every((sid) => leftSids[sid] === rightSids[sid]);
+  });
 }

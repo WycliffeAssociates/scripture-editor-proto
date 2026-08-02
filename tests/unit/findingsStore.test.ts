@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import type { Finding } from "@/app/domain/editor/annotations/finding.ts";
 import {
   groupFindingsByChapter,
+  groupFindingsByBook,
   lintIssuesToFindings,
   onionFindingsByChapter,
   sousFindingsToFindings,
@@ -54,11 +55,9 @@ describe("FindingsStore", () => {
     );
     const afterOnion = store.read();
 
-    store.commitSousBookFindings(
-      "GEN",
-      groupFindingsByChapter([sousFinding("GEN 1:1")]),
-      { "GEN 1:1": [] },
-    );
+    store.commitSousFindings(groupFindingsByBook([sousFinding("GEN 1:1")]), {
+      "GEN 1:1": [],
+    });
     const afterSous = store.read();
 
     // The sous commit replaced the root and its own slice — but the onion
@@ -90,6 +89,21 @@ describe("FindingsStore", () => {
 
     store.commitBookFindings("onion", "GEN", {});
     expect(store.read().onion?.byBook.GEN).toEqual({});
+  });
+
+  it("complete onion snapshots remove books absent from the resident result", () => {
+    const store = new FindingsStore();
+    const gen = onionFindingsByChapter([makeIssue({ sid: "GEN 1:1" })]);
+    const exo = onionFindingsByChapter([
+      makeIssue({ sid: "EXO 1:1", tokenId: "exo-1" }),
+    ]);
+
+    store.commitBraidSnapshot({ GEN: gen, EXO: exo });
+    const before = store.read().onion;
+    store.commitBraidSnapshot({ GEN: gen });
+
+    expect(store.read().onion?.byBook).toEqual({ GEN: gen });
+    expect(store.read().onion?.byBook.GEN).toBe(before?.byBook.GEN);
   });
 
   it("chapter 0 is an address: front-matter findings land in bucket 0 and survive (the falsy-zero regression)", () => {

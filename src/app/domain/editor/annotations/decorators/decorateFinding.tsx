@@ -16,6 +16,7 @@ import { t } from "@lingui/core/macro";
 import { Wand2 } from "lucide-react";
 
 import type { EditorModeSetting } from "@/app/data/editor.ts";
+import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import type { FindingsStore } from "@/app/state/FindingsStore.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import type { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
@@ -53,6 +54,7 @@ export type FindingDecorationContext = {
   editorMode: EditorModeSetting;
   /** For fix flows' no-op fallback publish (see lintFix.ts). */
   findingsStore: FindingsStore;
+  mirrorFeed: MirrorFeed;
   /** The workspace modal outlet (see WorkspaceModalStore.ts). */
   openModal: WorkspaceModalStore["open"];
   closeModal: () => void;

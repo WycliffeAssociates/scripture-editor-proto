@@ -446,9 +446,7 @@ where
         return Err(format!(
             "Download failed with status: {} {}",
             status.as_u16(),
-            status
-                .canonical_reason()
-                .unwrap_or("Unknown Status")
+            status.canonical_reason().unwrap_or("Unknown Status")
         ));
     }
 

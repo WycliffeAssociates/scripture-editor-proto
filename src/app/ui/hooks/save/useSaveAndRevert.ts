@@ -3,11 +3,13 @@ import { useSyncExternalStore } from "react";
 
 import type { EditorModeSetting } from "@/app/data/editor.ts";
 import type { SettingsManager } from "@/app/data/settings.ts";
+import type { BraidPublication } from "@/app/domain/mirror/mirrorProtocol.ts";
 import { revertChapterToLoadedState } from "@/app/domain/project/saveAndRevertService.ts";
 import {
   runSavePipeline,
   type SaveOptions,
   type SaveResult,
+  type SuccessfulDiskSaveReceipt,
 } from "@/app/domain/project/savePipeline.ts";
 import { withWorkingFilesDraftSync } from "@/app/domain/project/workingFileCommand.ts";
 import type {
@@ -72,7 +74,9 @@ export function useSaveAndRevert(args: {
   onSavedVersion: (hash: string) => void;
   bumpDirtyVersion: () => void;
   onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
+  publishBraid?: (generation: number) => Promise<BraidPublication>;
   prepareRemoteBaseForSave?: () => Promise<void>;
+  onSuccessfulDiskSave?: (receipt: SuccessfulDiskSaveReceipt) => void;
 }) {
   // Re-derive `hasUnsavedChanges` on every store commit. Subscribing here
   // (instead of in the parent) keeps the dirty-aware UI honest without

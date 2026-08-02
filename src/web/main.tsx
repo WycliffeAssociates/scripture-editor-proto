@@ -12,7 +12,6 @@ import {
 import { installDevTimerLogger } from "@/app/ui/hooks/utils/domUtils.ts";
 import { applyColorSchemeToDocument } from "@/app/ui/theme/appTheme.ts";
 import { webMd5Service } from "@/core/domain/md5/webMd5.ts";
-import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
 import { FsBackedAuthSessionProvider } from "@/core/persistence/FsBackedAuthSessionProvider.ts";
 import {
   normalizeGiteaHostBaseUrl,
@@ -23,7 +22,6 @@ import { OpfsGitFs } from "@/web/adapters/git/OpfsGitFs.ts";
 import { WebGitProvider } from "@/web/adapters/git/WebGitProvider.ts";
 import { WorkerMirrorSession } from "@/web/domain/mirror/WorkerMirrorSession.ts";
 import { createBrowserSettingsManager } from "@/web/domain/settings.ts";
-import { WebSousService } from "@/web/domain/sous/WebSousService.ts";
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 import { OpfsFileSystem } from "@/web/persistence/OpfsFileSystem.ts";
 import { OpfsStorageRoots } from "@/web/persistence/OpfsStorageRoots.ts";
@@ -74,7 +72,6 @@ const gitProvider = new WebGitProvider(new OpfsGitFs(), {
   requestedWithHeaderValue: gitProxyRequestedWithHeaderValue,
 });
 const remoteRepoProvider = new GiteaRemoteRepoProvider();
-const sousService = new WebSousService();
 const opener = new WebOpener(fileSystem);
 const projectIndex = new DexieProjectIndex(
   buildProjectIndexDbName(resolveWebStorageNamespace()),
@@ -103,7 +100,6 @@ const mirrorSessionFactory: MirrorSessionFactory = ({
   workspaceKey,
   dirtyBufferRoot,
 }) => new WorkerMirrorSession({ feed, workspaceKey, dirtyBufferRoot });
-initializeUsfmMarkerCatalog(await webUsfmOnionService.getMarkerCatalog());
 root.render(
   <StrictMode>
     <App
@@ -114,7 +110,6 @@ root.render(
       giteaHostBaseUrl={giteaHostBaseUrl}
       storageRoots={storageRoots}
       usfmOnionService={webUsfmOnionService}
-      sousService={sousService}
       gitProvider={gitProvider}
       opener={opener}
       platform={platform}

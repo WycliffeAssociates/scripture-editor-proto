@@ -17,7 +17,10 @@
 // backup envelope always has the book's current `diskBaseline`.
 
 import { Effect, Stream } from "effect";
+import type { SousConfig } from "scripture-sous-chef-web";
+import type { LintSnapshot } from "usfm-onion-web";
 
+import { decodeGalleyAnalysis } from "@/app/domain/editor/annotations/decodeGalleyFindings.ts";
 import type { FindingsByChapter } from "@/app/domain/editor/annotations/finding.ts";
 import { isDirtyBufferRelevant } from "@/app/domain/editor/pipelines/dirtyBufferPipeline.ts";
 import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
@@ -28,7 +31,7 @@ import type {
   MirrorPatch,
   SyncMetaBook,
 } from "@/app/domain/mirror/mirrorProtocol.ts";
-import { mirrorTrace } from "@/app/domain/mirror/mirrorTrace.ts";
+import { startDevTimer } from "@/app/domain/mirror/performanceTiming.ts";
 import type {
   ScriptureBookState,
   ScriptureChapterState,
@@ -37,8 +40,7 @@ import type { DiskBaseline } from "@/app/state/DirtyBufferStore.ts";
 import type { CommitEvent } from "@/app/state/types.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import type { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
-import type { SousAnalyzeResult } from "@/core/domain/sous/sousTypes.ts";
-import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import type { GalleyAnalysis } from "@/core/domain/sous/galleyTypes.ts";
 
 function tokenizeChapter(chapter: ScriptureChapterState): MirrorChapter {
   return {
@@ -57,6 +59,7 @@ function fullSyncBooks(
   return snapshot.map((book) => ({
     bookCode: book.bookCode,
     diskBaseline: baselineFor(book.bookCode),
+    baselineTokens: book.chapters.flatMap((chapter) => chapter.sourceTokens),
     chapters: book.chapters.map((chapter) => ({
       chapterNum: chapter.chapterNumber,
       chapter: tokenizeChapter(chapter),
@@ -71,6 +74,7 @@ function syncMetaBooks(
   return snapshot.map((book) => ({
     bookCode: book.bookCode,
     diskBaseline: baselineFor(book.bookCode),
+    baselineTokens: book.chapters.flatMap((chapter) => chapter.sourceTokens),
     chapterDirty: book.chapters.map((chapter) => ({
       chapterNum: chapter.chapterNumber,
       dirty: chapter.dirty,
@@ -110,15 +114,61 @@ export function patchesForCommit(
 
   const patches: MirrorPatch[] = [];
   const baselinePushed = new Set<string>();
+  const structuralBooks = new Set(
+    event.meta.structuralChanges?.structurallyChangedBookCodes ?? [],
+  );
+  const deletedBooks = new Set(
+    event.meta.structuralChanges?.deletedBookCodes ?? [],
+  );
+  for (const bookCode of structuralBooks) {
+    const book = event.snapshot.find(
+      (candidate) => candidate.bookCode === bookCode,
+    );
+    if (!book) {
+      deletedBooks.add(bookCode);
+      continue;
+    }
+    patches.push({
+      kind: "updateBook",
+      book: {
+        bookCode: book.bookCode,
+        diskBaseline: baselineFor(book.bookCode),
+        baselineTokens: book.chapters.flatMap(
+          (chapter) => chapter.sourceTokens,
+        ),
+        chapters: book.chapters.map((chapter) => ({
+          chapterNum: chapter.chapterNumber,
+          chapter: tokenizeChapter(chapter),
+        })),
+      },
+      generation,
+    });
+  }
+  for (const bookCode of deletedBooks) {
+    if (!structuralBooks.has(bookCode)) {
+      patches.push({ kind: "removeBook", bookCode, generation });
+    }
+  }
   for (const ref of scope.chapters) {
+    if (structuralBooks.has(ref.bookCode) || deletedBooks.has(ref.bookCode)) {
+      continue;
+    }
     const book = event.snapshot.find((b) => b.bookCode === ref.bookCode);
-    if (!book) continue;
+    if (!book) {
+      // A deletion that empties a book removes its resident book as well. The
+      // deleted chapter is still the precise identity the mirror needs to drop.
+      patches.push({ kind: "deleteChapter", ref, generation });
+      continue;
+    }
     if (!baselinePushed.has(ref.bookCode)) {
       baselinePushed.add(ref.bookCode);
       patches.push({
         kind: "pushBaseline",
         bookCode: ref.bookCode,
         diskBaseline: baselineFor(ref.bookCode),
+        baselineTokens: book.chapters.flatMap(
+          (chapter) => chapter.sourceTokens,
+        ),
         generation,
       });
     }
@@ -162,16 +212,11 @@ export function seedMirror(args: {
   });
 }
 
-/**
- * The findings of an initial project-wide pass, in the RAW per-book engine
- * shapes the result router normalizes. The kernel awaits these at load and the
- * provider commits them into the FindingsStore before first paint; they ALSO
- * flow through the result router (the live path), so committing them is
- * idempotent against that.
- */
+/** The one complete Galley snapshot awaited before first paint. */
 export type InitialFindings = {
-  lint: Record<string, LintIssue[]>;
-  sous: Record<string, SousAnalyzeResult>;
+  /** Complete resident Braid snapshot; null means no analysis result. */
+  lint: LintSnapshot | null;
+  sous: GalleyAnalysis | null;
   /**
    * Already-normalized per-book findings from the main-thread `local-lint`
    * reduce — not a mirror engine shape (it never round-trips off-main), so the
@@ -185,8 +230,8 @@ export type MirrorInitialFindings = Pick<InitialFindings, "lint" | "sous">;
 
 /** Empty initial findings — plain mode (analysis disabled) returns this. */
 export const NO_INITIAL_FINDINGS: InitialFindings = {
-  lint: {},
-  sous: {},
+  lint: null,
+  sous: null,
   localLint: {},
 };
 
@@ -226,13 +271,15 @@ export async function awaitInitialFindings(args: {
   generation: Generation;
   /** Re-push the seed `fullSync` — caller-supplied so this stays decoupled from the store. */
   reseed: () => void;
+  config?: SousConfig;
 }): Promise<MirrorInitialFindings> {
   const lintRequestId = `initial-lint-${args.generation}`;
   const sousRequestId = `initial-sous-${args.generation}`;
 
   return new Promise<MirrorInitialFindings>((resolveAll) => {
-    let lint: Record<string, LintIssue[]> | null = null;
-    let sous: Record<string, SousAnalyzeResult> | null = null;
+    let lint: LintSnapshot | null = null;
+    let sous: GalleyAnalysis | null = null;
+    let cacheRejected = false;
     // Coalesce the resync burst (one per analyze class, same trailing
     // generation) into a single re-seed, exactly as the router does.
     let resyncHighWater = -1;
@@ -244,7 +291,7 @@ export async function awaitInitialFindings(args: {
     const finish = (): void => {
       off();
       if (giveUpTimer !== null) clearTimeout(giveUpTimer);
-      resolveAll({ lint: lint ?? {}, sous: sous ?? {} });
+      resolveAll({ lint, sous });
     };
     const settleIfBothIn = (): void => {
       if (lint !== null && sous !== null) finish();
@@ -253,30 +300,47 @@ export async function awaitInitialFindings(args: {
       if (lint === null) {
         args.feed.sendCommand({
           kind: "analyzeLint",
-          scope: "all",
           generation: args.generation,
           requestId: lintRequestId,
         });
       }
       if (sous === null) {
         args.feed.sendCommand({
-          kind: "analyzeSous",
-          scope: "all",
+          kind: "analyzeGalley",
           generation: args.generation,
           requestId: sousRequestId,
+          config: args.config,
+          cachePolicy: cacheRejected ? "none" : "restore",
         });
       }
     };
 
     off = args.feed.onResult((result) => {
       if (result.kind === "lintResult" && result.requestId === lintRequestId) {
-        lint = result.byBook;
+        lint = result.snapshot;
         settleIfBothIn();
       } else if (
-        result.kind === "sousResult" &&
+        result.kind === "galleyResult" &&
         result.requestId === sousRequestId
       ) {
-        sous = result.byBook;
+        if (result.cacheState === "persisted") {
+          try {
+            // The persisted candidate is not readiness proof until the
+            // official decoder validates its identity and wire shape.
+            decodeGalleyAnalysis(result);
+          } catch (error: unknown) {
+            cacheRejected = true;
+            console.warn(
+              "[mirror] persisted Galley cache rejected; using fresh analysis",
+              {
+                error,
+              },
+            );
+            sendPending();
+            return;
+          }
+        }
+        sous = result;
         settleIfBothIn();
       } else if (
         result.kind === "resyncRequest" &&
@@ -317,18 +381,10 @@ export function makeMirrorPatchProducer(args: {
     Stream.runForEach((event) =>
       Effect.sync(() => {
         const patches = patchesForCommit(event, baselineFor);
-        mirrorTrace("producer.commit", {
-          gen: event.meta.generation,
-          metaKind: event.meta.kind,
-          dirtyText: event.meta.dirtyTextContent,
-          scope:
-            "project" in event.meta.scope
-              ? "project"
-              : event.meta.scope.chapters.map(
-                  (c) => `${c.bookCode}:${c.chapterNum}`,
-                ),
-          patchKinds: patches.map((p) => p.kind),
-        });
+        if (import.meta.env.DEV && event.meta.dirtyTextContent) {
+          startDevTimer(`sous:chapter-to-findings:${event.meta.generation}`);
+          startDevTimer(`sous:chapter-to-command:${event.meta.generation}`);
+        }
         for (const patch of patches) {
           args.feed.pushPatch(patch);
         }

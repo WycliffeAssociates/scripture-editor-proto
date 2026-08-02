@@ -1,8 +1,14 @@
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
+import type { RuleId } from "scripture-sous-chef-web";
 
 import type { EditorModeSetting } from "@/app/data/editor.ts";
 import type { LanguageDirection } from "@/core/domain/project/project.ts";
+
+export type ProofreadingSettings = {
+  depth: number;
+  rules: Partial<Record<RuleId, boolean>>;
+};
 
 /**
  * Locale identifiers currently shipped with the app bundle.
@@ -58,6 +64,7 @@ export type Settings = {
   autoAcceptOwnWorkOnSave: boolean;
   autoAcceptIncomingWork: boolean;
   diffViewModeDefault: "list" | "chapter";
+  proofreading: ProofreadingSettings;
   /**
    * Remembered reference text per target project (key = target project path,
    * value = reference resource path). A pure UI preference — it does not travel
@@ -89,6 +96,7 @@ export const settingsDefaults: Settings = {
   autoAcceptOwnWorkOnSave: false,
   autoAcceptIncomingWork: false,
   diffViewModeDefault: "list",
+  proofreading: { depth: 50, rules: {} },
   referenceByProject: {},
 };
 

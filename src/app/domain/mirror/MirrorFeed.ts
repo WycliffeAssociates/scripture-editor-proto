@@ -35,8 +35,8 @@ export class MirrorFeed {
   }
 
   /** Fan a command to every sink. */
-  sendCommand(command: MirrorCommand): void {
-    for (const sink of this.sinks) sink.sendCommand(command);
+  sendCommand(command: MirrorCommand, transfer?: Transferable[]): void {
+    for (const sink of this.sinks) sink.sendCommand(command, transfer);
   }
 
   /** Called by a transport when a result arrives back from its mirror. */

@@ -15,7 +15,7 @@
 //   - the store seam: a gap target returns `{ kind: "gap" }` with the store
 //     untouched.
 
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { EDITOR_SHAPES } from "@/app/data/editor.ts";
 import { tokensToLexical } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
@@ -33,16 +33,11 @@ import {
   type MatchAnchors,
   resolveMatchAnchors,
 } from "@/app/domain/search/tokenReplace.ts";
-import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
 import { normalizeTokenSids } from "@/core/domain/usfm/tokenSidNormalization.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 
 const svc = webUsfmOnionService;
-
-beforeAll(async () => {
-  initializeUsfmMarkerCatalog(await svc.getMarkerCatalog());
-});
 
 const TIT = `\\id TIT
 \\c 1

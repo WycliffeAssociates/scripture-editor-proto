@@ -39,12 +39,12 @@ what comes back.
   the `"onion"` slice (`commitBookFindings`). Stale results (generation below
   the lint high-water mark) are dropped in the router.
 - **sous content analysis** (`sousPipeline.ts`, 100 ms debounce): same pipeline
-  shape — folds to a book-granular scope, sends `analyzeSous` to `MirrorFeed`.
-  The mirror assembles vref tokens and runs the sous engine, returning a
-  `SousResult` (per-book `SousAnalyzeResult`). The router calls
-  `sousFindingsToFindings` and commits findings + the `SegmentsBySid` sidecar
-  atomically into the sous slice (`commitSousBookFindings`). Same stale-drop
-  logic at the sous high-water mark.
+  shape — folds to a book-granular mutation scope, sends `analyzeGalley` to
+  `MirrorFeed`. The mirror updates the resident Galley for those books, then
+  analyzes and returns one complete packed corpus snapshot. The router decodes
+  it on the main thread, calls `sousFindingsToFindings`, and replaces the sous
+  slice plus its `SegmentsBySid` sidecar atomically (`commitSousFindings`). Same
+  stale-drop logic at the sous high-water mark.
 
 **First-paint findings:** at workspace load, `workspaceKernel` awaits an
 initial project-wide lint + sous pass through the mirror (`InitialFindings`).
@@ -55,9 +55,11 @@ through the live result-router path, making the seed idempotent.
 ## FindingsStore (`state/FindingsStore.ts`, `findingsSelectors.ts`)
 
 Namespace-partitioned by producer. The sous slice additionally holds a
-`segmentsByBook` sidecar. The supersession unit is **one book in one producer's
-slice**, replaced wholesale; writes are path-copy (only the touched book/slice
-get new references) so untouched branches keep stable memo identity. Selectors
+`segmentsByBook` sidecar. The supersession unit is **one complete Galley
+snapshot** for the sous slice; the UI filters it by book/chapter at read time.
+Lint remains book-scoped. Writes are path-copy (only the touched producer
+slice gets a new reference) so untouched branches keep stable memo identity.
+Selectors
 (`flattenFindings`, `chapterFindingsAcrossSources`, `sousSegmentsForBook`)
 expose data with no message formatting — localization happens at the React edge.
 

@@ -12,7 +12,7 @@
 import { describe, expect, it } from "vitest";
 
 import { isDirtyBufferRelevant } from "@/app/domain/editor/pipelines/dirtyBufferPipeline.ts";
-import { lintCommitScope } from "@/app/domain/editor/pipelines/lintPipeline.ts";
+import { shouldLintCommit } from "@/app/domain/editor/pipelines/lintPipeline.ts";
 import { isSaveStatusRelevant } from "@/app/domain/editor/pipelines/saveStatusPipeline.ts";
 import { sousCommitScope } from "@/app/domain/editor/pipelines/sousPipeline.ts";
 import { isStructureMaintenanceRelevant } from "@/app/domain/editor/pipelines/structureMaintenancePipeline.ts";
@@ -60,9 +60,8 @@ type Row = {
 };
 
 // Policy matrix. Rows match the prose in `commitFilters.ts`:
-//  - lint / sous (scope policies; `lint: true` = non-empty scope): dirty
-//    text + not in { metadataOnly, structuralFixup, load }. Undo/redo ARE
-//    relevant — replay commits carry precise chapter scope.
+//  - Braid lint / sous: dirty text + not in { metadataOnly, structuralFixup,
+//    load }. Braid lint publishes a complete corpus and has no scope value.
 //  - saveStatus: dirty text + not in { metadataOnly, structuralFixup,
 //    load }.
 //  - structureMaintenance: userEdit + dirty text only.
@@ -180,10 +179,9 @@ describe("commitFilters policy matrix", () => {
   });
 
   it.each(POLICY)(
-    "lintCommitScope($kind, dirty=$dirty) non-empty → $lint",
+    "shouldLintCommit($kind, dirty=$dirty) → $lint",
     ({ kind, dirty, lint }) => {
-      const scope = lintCommitScope(makeEvent(kind, dirty));
-      expect(scope !== "all" && scope.size === 0).toBe(!lint);
+      expect(shouldLintCommit(makeEvent(kind, dirty))).toBe(lint);
     },
   );
 
@@ -231,27 +229,8 @@ describe("scope policies — expansion shape", () => {
     };
   }
 
-  it("widens chapter refs to their books, deduped", () => {
-    const scope = lintCommitScope(
-      makeScopedEvent({
-        chapters: [
-          { bookCode: "GEN", chapterNum: 1 },
-          { bookCode: "GEN", chapterNum: 2 },
-          { bookCode: "EXO", chapterNum: 5 },
-        ],
-      }),
-    );
-    expect(scope).toEqual(new Set(["GEN", "EXO"]));
-  });
-
   it("maps project scope to the all sentinel", () => {
-    expect(lintCommitScope(makeScopedEvent({ project: true }))).toBe("all");
     expect(sousCommitScope(makeScopedEvent({ project: true }))).toBe("all");
-  });
-
-  it("returns an empty set for an empty chapter list", () => {
-    const scope = lintCommitScope(makeScopedEvent({ chapters: [] }));
-    expect(scope !== "all" && scope.size === 0).toBe(true);
   });
 });
 

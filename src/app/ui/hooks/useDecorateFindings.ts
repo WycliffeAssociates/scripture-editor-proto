@@ -26,6 +26,7 @@ export function useDecorateFindings(): (finding: Finding) => DecoratedFinding {
     findingsStore,
     project,
     workspaceModalStore,
+    mirrorFeed,
   } = useWorkspaceContext();
   const { usfmOnionService } = useRouter().options.context;
   const editorMode = project.appSettings.editorMode;
@@ -38,6 +39,7 @@ export function useDecorateFindings(): (finding: Finding) => DecoratedFinding {
       usfmOnionService,
       editorMode,
       findingsStore,
+      mirrorFeed,
       openModal: workspaceModalStore.open,
       closeModal: workspaceModalStore.close,
     };
@@ -50,5 +52,6 @@ export function useDecorateFindings(): (finding: Finding) => DecoratedFinding {
     editorMode,
     findingsStore,
     workspaceModalStore,
+    mirrorFeed,
   ]);
 }

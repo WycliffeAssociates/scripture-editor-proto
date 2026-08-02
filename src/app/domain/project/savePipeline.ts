@@ -20,6 +20,7 @@
 // the books are marked clean regardless.
 
 import type { SettingsManager } from "@/app/data/settings.ts";
+import type { BraidPublication } from "@/app/domain/mirror/mirrorProtocol.ts";
 import { resolveGitCommitAuthorForProject } from "@/app/domain/project/gitCommitAuthorResolver.ts";
 import {
   type PublishAfterSaveResult,
@@ -92,6 +93,18 @@ export type SaveResult =
   | { kind: "failed"; error: unknown }
   | { kind: "blocked"; reason: WorkspaceCommandBlockReason };
 
+/** Immutable evidence for a successful disk write and any post-save warming. */
+export type SuccessfulDiskSaveReceipt = {
+  /** Generation of the resident editor snapshot captured before save IO. */
+  snapshotGeneration: number;
+  /** Generation after the successful clean-mark commit. */
+  editorGeneration: number;
+  /** Exact ordered book bytes written by this save. */
+  serializedBooks: ReadonlyArray<{ bookCode: string; contents: string }>;
+  /** Complete publication captured from the exact resident save snapshot. */
+  braidPublication?: BraidPublication;
+};
+
 /** The workspace nouns + sinks the save pipeline orchestrates. */
 export type SavePipelineDeps = {
   workingFilesStore: WorkingFilesStore;
@@ -112,6 +125,10 @@ export type SavePipelineDeps = {
   bumpDirtyVersion: () => void;
   onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
   prepareRemoteBaseForSave?: () => Promise<void>;
+  /** Serialize the captured resident Braid snapshot before any disk write. */
+  publishBraid?: (generation: number) => Promise<BraidPublication>;
+  /** Refresh the whole-corpus Galley cache after bytes are durably saved. */
+  onSuccessfulDiskSave?: (receipt: SuccessfulDiskSaveReceipt) => void;
 };
 
 export type SaveOptions = {
@@ -170,6 +187,7 @@ export async function runSavePipeline(
   args.interactionGate.set({ kind: "saving" });
   try {
     args.saveStatusStore.setSaving();
+    const saveStartGeneration = args.workingFilesStore.generation();
     const currentFiles = args.workingFilesStore.read();
     // Two shapes off that one snapshot, for two different consumers:
     // `dirtyChapterRefs` is a flat "BOOK chapter" list that rides along as the
@@ -212,16 +230,6 @@ export async function runSavePipeline(
         structurallyChangedBookCodes.has(file.bookCode) ||
         dirtyFiles.includes(file),
     );
-    const toSave = buildBooksSavePayload(
-      filesToSave,
-      structurallyChangedBookCodes,
-    );
-    const persistencePlan = buildBookPersistencePlan({
-      existingBooks: args.loadedProject.books,
-      payload: toSave,
-      deletedBookCodes,
-    });
-
     // Freeze per-chapter tokens at the SAME synchronous instant the save
     // payload is built (no await in between). The persisted bytes derive
     // from these tokens; rebasing the saved baseline to this capture (not
@@ -241,6 +249,49 @@ export async function runSavePipeline(
         );
       }
     }
+
+    let toSave: Record<string, string>;
+    let braidPublication: BraidPublication | undefined;
+    try {
+      const needsBraidPublication =
+        filesToSave.length > 0 ||
+        deletedBookCodes.length > 0 ||
+        structurallyChangedBookCodes.size > 0;
+      if (args.publishBraid && needsBraidPublication) {
+        braidPublication = await args.publishBraid(saveStartGeneration);
+        toSave = Object.fromEntries(
+          braidPublication.serializedBooks
+            .filter(({ bookCode }) =>
+              filesToSave.some((file) => file.bookCode === bookCode),
+            )
+            .map(({ bookCode, contents }) => [bookCode, contents]),
+        );
+      } else {
+        toSave = buildBooksSavePayload(
+          filesToSave,
+          structurallyChangedBookCodes,
+        );
+      }
+      for (const file of filesToSave) {
+        if (!(file.bookCode in toSave)) {
+          throw new Error(
+            `Resident Braid did not serialize selected book ${file.bookCode}`,
+          );
+        }
+      }
+    } catch (serializationError) {
+      console.error(
+        "Save aborted: resident Braid serialization failed before any write.",
+        serializationError,
+      );
+      args.saveStatusStore.setFailed(serializationError);
+      return { kind: "failed", error: serializationError };
+    }
+    const persistencePlan = buildBookPersistencePlan({
+      existingBooks: args.loadedProject.books,
+      payload: toSave,
+      deletedBookCodes,
+    });
 
     let savedVersionHash: string | null = null;
     // Post-disk substates reported back to the caller (which renders the
@@ -402,6 +453,13 @@ export async function runSavePipeline(
     // Check out and rebase only the chapters we captured tokens for (the
     // persisted ones); the measured scope is exactly those chapters, not the
     // whole project.
+    // If anything committed while disk/git work awaited, the captured save
+    // payload is no longer the live snapshot. The clean-mark below still
+    // rebases exactly the captured chapters, but cache warming must be
+    // skipped because the resident Galley cannot reproduce that historical
+    // snapshot from the now-current mirror state.
+    const saveSnapshotWasStable =
+      args.workingFilesStore.generation() === saveStartGeneration;
     withWorkingFilesDraftSync({
       workingFilesStore: args.workingFilesStore,
       commitMeta: {
@@ -460,6 +518,19 @@ export async function runSavePipeline(
     args.bumpDirtyVersion();
     if (!saveError) {
       args.saveStatusStore.setSaved();
+      if (persistedBooks.size > 0 && saveSnapshotWasStable) {
+        args.onSuccessfulDiskSave?.({
+          snapshotGeneration: saveStartGeneration,
+          editorGeneration: args.workingFilesStore.generation(),
+          serializedBooks: Object.entries(toSave).map(
+            ([bookCode, contents]) => ({
+              bookCode,
+              contents,
+            }),
+          ),
+          braidPublication,
+        });
+      }
     }
 
     return saveError

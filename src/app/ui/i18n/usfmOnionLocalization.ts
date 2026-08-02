@@ -1,4 +1,5 @@
 import { t } from "@lingui/core/macro";
+import type { LintCode } from "usfm-onion-web";
 
 import type { LintIssue, TokenFix } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
@@ -58,7 +59,20 @@ export const LOCALIZED_LINT_CODES = [
   "missing-content-space-after-close-marker",
   "verse-in-section-or-other-paragraph",
   "content-after-blank-marker",
+  "invalid-book-code",
+  "book-code-not-uppercase",
 ] as const;
+
+// Keep the app-owned wording census closed over the generated upstream union.
+// A newly shipped Braid code must add a localized branch before this module
+// typechecks; engine English is never an acceptable UI fallback.
+const _allLintCodesCovered: Exclude<
+  Exclude<LintCode, "book-id-mismatch">,
+  (typeof LOCALIZED_LINT_CODES)[number]
+> extends never
+  ? true
+  : never = true;
+void _allLintCodesCovered;
 
 export function formatLintIssueMessage(issue: LintIssue): string {
   const marker = markerForIssue(issue);
@@ -73,8 +87,6 @@ export function formatLintIssueMessage(issue: LintIssue): string {
   const category = getParam(issue.messageParams, "category");
   const location = getParam(issue.messageParams, "location");
   const text = getParam(issue.messageParams, "text");
-  const fallbackMessage = issue.message.trim();
-
   switch (issue.code) {
     case "missing-id-marker":
       return t`File is missing its \\id (book identifier).`;
@@ -161,7 +173,7 @@ export function formatLintIssueMessage(issue: LintIssue): string {
     case "invalid-number-range":
       return verse
         ? t`'${verse}' is not a valid verse range.`
-        : fallbackMessage;
+        : t`This is not a valid verse range.`;
     case "number-range-not-preceded-by-marker-expecting-number":
       return t`This number range is not preceded by a marker that expects a number (like \\c or \\v).`;
     case "missing-whitespace-before-marker":
@@ -179,9 +191,19 @@ export function formatLintIssueMessage(issue: LintIssue): string {
       return t`\\v is not allowed inside a non-content paragraph; verses must appear inside body paragraphs, lists, or tables.`;
     case "content-after-blank-marker":
       return t`\\${marker} is a blank line and takes no content; put this content in its own paragraph (\\p, \\q, …).`;
+    case "invalid-book-code":
+      return t`The \\id book code "${getParam(issue.messageParams, "code", text)}" is not a recognized USFM book identifier.`;
+    case "book-code-not-uppercase":
+      return t`The \\id book code "${getParam(issue.messageParams, "code", text)}" must be uppercase: ${getParam(issue.messageParams, "uppercase")}.`;
+    case "book-id-mismatch":
+      return t`The \\id book code does not match the book this file is expected to contain.`;
     default:
-      return fallbackMessage;
+      return assertNever(issue.code);
   }
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled Braid lint code: ${String(value)}`);
 }
 
 // Last-resort prettifier for fix codes we haven't given an explicit localized

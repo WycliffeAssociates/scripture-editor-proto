@@ -18,10 +18,19 @@
 // idempotently and drop stale results. Stamping is uniform so no transport has
 // to special-case it.
 
+import type { SousConfig } from "scripture-sous-chef-web";
+import type {
+  FormatOptions,
+  CorpusScope,
+  LintSnapshot,
+  PublishedBookInfo,
+} from "usfm-onion-web";
+
 import type { DiskBaseline } from "@/app/state/DirtyBufferStore.ts";
-import type { SousAnalyzeResult } from "@/core/domain/sous/sousTypes.ts";
+import type { GalleyCacheIdentity } from "@/core/domain/sous/galleyTypes.ts";
 import type { LineEnding } from "@/core/domain/usfm/usfmBytes.ts";
-import type { LintIssue, Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import type { Token, TokenFix } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import type { SegmentsBySid } from "@/core/domain/usfm/vrefTypes.ts";
 
 /** A chapter address in the mirror, mirroring the editor's `(book, chapter)`. */
 export type ChapterRef = { bookCode: string; chapterNum: number };
@@ -58,11 +67,27 @@ export type DeleteChapterPatch = {
   generation: Generation;
 };
 
+/** Replace one structurally changed book in its complete editor order. */
+export type UpdateBookPatch = {
+  kind: "updateBook";
+  book: FullSyncBook;
+  generation: Generation;
+};
+
+/** Remove a book whose last resident chapter disappeared. */
+export type RemoveBookPatch = {
+  kind: "removeBook";
+  bookCode: string;
+  generation: Generation;
+};
+
 /** Record what disk holds for a book — needed for the backup envelope. */
 export type PushBaselinePatch = {
   kind: "pushBaseline";
   bookCode: string;
   diskBaseline: DiskBaseline;
+  /** Exact last-saved token stream used to seed Braid's baseline. */
+  baselineTokens: Token[];
   generation: Generation;
 };
 
@@ -81,6 +106,8 @@ export type FullSyncPatch = {
 export type FullSyncBook = {
   bookCode: string;
   diskBaseline: DiskBaseline;
+  /** Exact last-saved token stream used to seed Braid's baseline. */
+  baselineTokens: Token[];
   chapters: Array<{ chapterNum: number; chapter: MirrorChapter }>;
 };
 
@@ -102,28 +129,24 @@ export type SyncMetaPatch = {
 export type SyncMetaBook = {
   bookCode: string;
   diskBaseline: DiskBaseline;
+  /** Exact last-saved token stream used to advance Braid's baseline. */
+  baselineTokens: Token[];
   chapterDirty: Array<{ chapterNum: number; dirty: boolean }>;
 };
 
 export type MirrorPatch =
   | PushChapterPatch
   | DeleteChapterPatch
+  | UpdateBookPatch
+  | RemoveBookPatch
   | PushBaselinePatch
   | FullSyncPatch
   | SyncMetaPatch;
 
 // --- Commands (main → mirror): read resident state, produce a result. ------
 
-/**
- * A command's reaction scope, expressed in the SAME book-granular vocabulary
- * the main-thread `commitFilters` policies emit. `"all"` means every book the
- * mirror currently holds (the `project: true` fold). Chapter→book widening for
- * lint/sous happens HERE, mirror-side, by reading resident tokens — the patch
- * only ever carried the changed chapter. (Analyze runs at book grain even though
- * edits arrive per-chapter; whether that's still required is a per-chapter-lint
- * optimization question — see `agent-tmp/ideas/chapter-grain-lint.md`.)
- */
-export type AnalyzeScope = { books: ReadonlyArray<string> } | "all";
+/** Ownership policy for the single whole-corpus Galley cache file. */
+export type GalleyCachePolicy = "restore" | "none" | "refresh";
 
 /**
  * Optional correlation id. When present on an analyze command it is echoed on
@@ -136,19 +159,56 @@ export type RequestId = string;
 
 export type AnalyzeLintCommand = {
   kind: "analyzeLint";
-  scope: AnalyzeScope;
   generation: Generation;
   requestId?: RequestId;
 };
 
-export type AnalyzeSousCommand = {
-  kind: "analyzeSous";
-  scope: AnalyzeScope;
+export type AnalyzeGalleyCommand = {
+  kind: "analyzeGalley";
   generation: Generation;
   requestId?: RequestId;
+  config?: SousConfig;
+  cachePolicy: GalleyCachePolicy;
 };
 
-/** Serialize the book's dirty chapters to a backup envelope and persist it. */
+export type FormatBraidCommand = {
+  kind: "formatBraid";
+  generation: Generation;
+  requestId: RequestId;
+  scope: CorpusScope;
+  options?: FormatOptions;
+};
+
+/** Apply one snapshot-bound lint fix through the resident Braid. */
+export type ApplyBraidFixCommand = {
+  kind: "applyBraidFix";
+  generation: Generation;
+  requestId: RequestId;
+  bookCode: string;
+  fix: TokenFix;
+};
+
+/** Ask the resident Braid to emit the current corpus in document order. */
+export type PublishBraidCommand = {
+  kind: "publishBraid";
+  generation: Generation;
+  requestId: RequestId;
+};
+
+export type RestoreBraidRecord = {
+  bookCode: string;
+  sourceKey: string;
+  source: string;
+};
+
+export type RestoreBraidCommand = {
+  kind: "restoreBraid";
+  generation: Generation;
+  packed: ArrayBuffer;
+  records: RestoreBraidRecord[];
+};
+
+/** Ask the resident host to serialize the dirty book and persist its envelope. */
 export type WriteBackupCommand = {
   kind: "writeBackup";
   bookCode: string;
@@ -165,53 +225,104 @@ export type ClearBackupCommand = {
 
 export type MirrorCommand =
   | AnalyzeLintCommand
-  | AnalyzeSousCommand
+  | AnalyzeGalleyCommand
+  | FormatBraidCommand
+  | ApplyBraidFixCommand
+  | PublishBraidCommand
+  | RestoreBraidCommand
   | WriteBackupCommand
   | ClearBackupCommand;
 
 // --- Results (mirror → main): stamped with the generation they ran at. -----
 
 /**
- * Lint/sous results are the RAW engine outputs per book, unchanged from what
- * the single-thread services returned — normalization (`normalizeFindings`)
- * and the findings-store commit stay on main, so downstream consumers see the
- * exact shapes they see today.
+ * Lint results are the complete resident corpus snapshot, materialized by the
+ * host. Galley returns one complete packed workspace snapshot; the main thread
+ * owns cache validation, decoding, normalization, and findings-store
+ * publication.
  */
 export type LintResult = {
   kind: "lintResult";
-  byBook: Record<string, LintIssue[]>;
+  /** One complete resident Braid snapshot; never a per-book delta. */
+  snapshot: LintSnapshot;
   ranAtGeneration: Generation;
   /** Echoed from the command that requested this pass, when it carried one. */
   requestId?: RequestId;
 };
 
-export type SousResult = {
-  kind: "sousResult";
-  byBook: Record<string, SousAnalyzeResult>;
+export type GalleyResult = {
+  kind: "galleyResult";
+  packed: ArrayBuffer;
+  keys: string[];
+  segments: SegmentsBySid;
+  cacheState: "fresh" | "persisted";
+  expectedIdentity?: GalleyCacheIdentity;
   ranAtGeneration: Generation;
   /** Echoed from the command that requested this pass, when it carried one. */
   requestId?: RequestId;
+};
+
+export type FormatBraidResult = {
+  kind: "formatBraidResult";
+  requestId: RequestId;
+  books: Record<string, Token[]>;
+  usfm: Record<string, string>;
+  ranAtGeneration: Generation;
+  behind: boolean;
+  superseded: boolean;
+};
+
+export type ApplyBraidFixResult = {
+  kind: "applyBraidFixResult";
+  requestId: RequestId;
+  books: Record<string, Token[]>;
+  usfm: Record<string, string>;
+  ranAtGeneration: Generation;
+  behind: boolean;
+  superseded: boolean;
+};
+
+export type BraidPublication = {
+  packed: ArrayBuffer;
+  snapshotId: string;
+  books: PublishedBookInfo[];
+  /** Complete ordered source table; reused books are included. */
+  sources: RestoreBraidRecord[];
+  serializedBooks: Array<{ bookCode: string; contents: string }>;
+};
+
+export type PublishBraidResult = {
+  kind: "publishBraidResult";
+  requestId: RequestId;
+  publication?: BraidPublication;
+  ranAtGeneration: Generation;
+  behind: boolean;
+  superseded: boolean;
+};
+
+export type RestoreBraidResult = {
+  kind: "restoreBraidResult";
+  accepted: boolean;
+  ranAtGeneration: Generation;
+  error?: string;
+};
+
+/** A correlated resident-Braid operation failed before it could produce a result. */
+export type BraidCommandErrorResult = {
+  kind: "braidCommandError";
+  requestId: RequestId;
+  operation: "formatBraid" | "applyBraidFix" | "publishBraid";
+  error: string;
 };
 
 /**
- * The desktop interim backup result: a worker can't `invoke`, so it ships the
- * finished envelope bytes back and main does one dumb FS write. Web persists
- * inside the mirror and reports `{ wrote: true }` with no envelope.
+ * Backup acknowledgement. Web and desktop persist through their resident host.
  */
 export type BackupResult = {
   kind: "backupResult";
   bookCode: string;
-  /** Present only when the mirror could not persist itself (desktop). */
-  envelopeJson?: string;
   /** True when the mirror cleared the backup (book went clean). */
   cleared?: boolean;
-  /**
-   * True when the book went clean but the mirror's host could not clear the
-   * backup itself (the desktop backup worker can't `invoke` to reach Tauri FS):
-   * main must do the clear through the `DirtyBufferStore` seam. Web clears in
-   * the worker (OPFS) and leaves this unset.
-   */
-  clearOnMain?: boolean;
   ranAtGeneration: Generation;
 };
 
@@ -227,7 +338,12 @@ export type ResyncRequest = {
 
 export type MirrorResult =
   | LintResult
-  | SousResult
+  | GalleyResult
+  | FormatBraidResult
+  | ApplyBraidFixResult
+  | PublishBraidResult
+  | RestoreBraidResult
+  | BraidCommandErrorResult
   | BackupResult
   | ResyncRequest;
 
@@ -241,7 +357,7 @@ export type MirrorResult =
  */
 export interface MirrorSink {
   pushPatch(patch: MirrorPatch): void;
-  sendCommand(command: MirrorCommand): void;
+  sendCommand(command: MirrorCommand, transfer?: Transferable[]): void;
 }
 
 /** What the main side registers to consume results coming back from a mirror. */

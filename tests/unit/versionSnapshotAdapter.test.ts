@@ -77,7 +77,6 @@ function makeProject(): Project {
 function makeUsfmOnionService() {
   return {
     supportsPathIo: true,
-    getMarkerCatalog: vi.fn(async () => []),
     parseUsfmBatchFromPaths: vi.fn(async () => {
       throw new Error("snapshot parsing should not hit path I/O");
     }),

@@ -3,15 +3,10 @@ import { useRouter } from "@tanstack/react-router";
 
 import { type EditorModeSetting, shapeForSurface } from "@/app/data/editor.ts";
 import { rebuildParsedFileFromUsfm } from "@/app/domain/editor/services/rebuildParsedFileFromUsfm.ts";
-import {
-  bookLineEnding,
-  tokensToUsfm,
-} from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { formatResidentBraid } from "@/app/domain/mirror/braidHost.ts";
+import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import { withWorkingFilesDraft } from "@/app/domain/project/workingFileCommand.ts";
-import type {
-  ScriptureBookState,
-  ScriptureChapterState,
-} from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import type { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
 import {
@@ -39,6 +34,7 @@ export function useFormatOperations({
   editorMode,
   setIsProcessing,
   history,
+  mirrorFeed,
 }: {
   workingFilesStore: WorkingFilesStore;
   interactionGate: WorkspaceGateStore;
@@ -47,6 +43,7 @@ export function useFormatOperations({
   editorMode: EditorModeSetting;
   setIsProcessing: (isProcessing: boolean) => void;
   history: CustomHistoryHook;
+  mirrorFeed: MirrorFeed;
 }) {
   const { t } = useLingui();
   const { usfmOnionService } = useRouter().options.context;
@@ -54,32 +51,6 @@ export function useFormatOperations({
   type FormatScope = MatchFormattingScope;
 
   const workingShape = () => shapeForSurface("workingRebuild", editorMode);
-
-  // Write the formatted result onto a checked-out chapter (per-chapter scope).
-  // Only the canonical tokens are stored; the editor re-derives shape on read.
-  const writeFormattedChapter = (
-    chapter: ScriptureChapterState,
-    tokens: ScriptureChapterState["currentTokens"],
-  ) => {
-    chapter.currentTokens = tokens;
-    chapter.dirty =
-      tokensToUsfm(tokens, chapter.eol) !==
-      tokensToUsfm(chapter.sourceTokens, chapter.eol);
-  };
-
-  // Rebuild a checked-out book wholesale from formatted tokens (book/project
-  // scope — `rebuildParsedFileFromUsfm` replaces the chapters array).
-  const writeFormattedBook = async (
-    file: ScriptureBookState,
-    tokens: ScriptureChapterState["currentTokens"],
-  ) => {
-    await rebuildParsedFileFromUsfm({
-      targetFile: file,
-      sourceUsfm: tokensToUsfm(tokens, bookLineEnding(file)),
-      usfmOnionService,
-      shape: workingShape(),
-    });
-  };
 
   async function prettify(
     scope: FormatScope,
@@ -126,15 +97,27 @@ export function useFormatOperations({
               (c) => c.chapterNumber === targetChapterNumber,
             );
             if (!chapter) return;
-            const [result] = await usfmOnionService.formatScope([
-              { tokens: chapter.currentTokens },
-            ]);
-            if (!result.appliedChanges.length) return;
-            const writable = draft.chapterForWrite({
-              bookCode: targetBookCode,
-              chapterNum: targetChapterNumber,
+            const result = await formatResidentBraid({
+              feed: mirrorFeed,
+              generation: workingFilesStore.generation(),
+              scope: {
+                kind: "chapter",
+                target: {
+                  book: targetBookCode,
+                  label: { kind: "number", label: String(targetChapterNumber) },
+                },
+              },
             });
-            if (writable) writeFormattedChapter(writable, result.tokens);
+            const formattedUsfm = result.usfm[targetBookCode];
+            if (formattedUsfm === undefined) return;
+            const writable = draft.bookForWrite(targetBookCode);
+            if (writable)
+              await rebuildParsedFileFromUsfm({
+                targetFile: writable,
+                sourceUsfm: formattedUsfm,
+                usfmOnionService,
+                shape: workingShape(),
+              });
           },
         });
 
@@ -185,17 +168,21 @@ export function useFormatOperations({
               .read()
               .find((f) => f.bookCode === targetBookCode);
             if (!draftFile) return;
-            const [result] = await usfmOnionService.formatScope([
-              {
-                tokens: draftFile.chapters.flatMap(
-                  (chapter) => chapter.currentTokens,
-                ),
-              },
-            ]);
-            if (!result.appliedChanges.length) return;
+            const result = await formatResidentBraid({
+              feed: mirrorFeed,
+              generation: workingFilesStore.generation(),
+              scope: { kind: "book", book: targetBookCode },
+            });
+            const formattedUsfm = result.usfm[targetBookCode];
+            if (formattedUsfm === undefined) return;
             const writableFile = draft.bookForWrite(targetBookCode);
             if (writableFile)
-              await writeFormattedBook(writableFile, result.tokens);
+              await rebuildParsedFileFromUsfm({
+                targetFile: writableFile,
+                sourceUsfm: formattedUsfm,
+                usfmOnionService,
+                shape: workingShape(),
+              });
           },
         });
 
@@ -254,24 +241,29 @@ export function useFormatOperations({
           // know which books change until we see appliedChanges. Check each
           // changed book out and rebuild it wholesale.
           const books = draft.read();
-          const batchResults = await usfmOnionService.formatScope(
-            books.map((file) => ({
-              tokens: file.chapters.flatMap((chapter) => chapter.currentTokens),
-            })),
-          );
+          const result = await formatResidentBraid({
+            feed: mirrorFeed,
+            generation: workingFilesStore.generation(),
+            scope: { kind: "all" },
+          });
 
           const modifiedBookCodes = new Set<string>();
           for (let i = 0; i < books.length; i++) {
             const file = books[i];
-            const result = batchResults[i];
-            if (!result || !result.appliedChanges.length) continue;
+            const formattedUsfm = result.usfm[file.bookCode];
+            if (formattedUsfm === undefined) continue;
             updateProgressNotification(progressNotificationId, {
               title: t`Formatting Project`,
               message: t`Processing ${file.title || file.bookCode} (${i + 1}/${totalBooks})...`,
             });
             const writableFile = draft.bookForWrite(file.bookCode);
             if (!writableFile) continue;
-            await writeFormattedBook(writableFile, result.tokens);
+            await rebuildParsedFileFromUsfm({
+              targetFile: writableFile,
+              sourceUsfm: formattedUsfm,
+              usfmOnionService,
+              shape: workingShape(),
+            });
             modifiedBookCodes.add(file.bookCode);
           }
 

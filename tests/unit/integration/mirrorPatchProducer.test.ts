@@ -6,6 +6,7 @@
 // events built from fixtures.
 
 import { makeBook, makeChapter } from "@tests/helpers/workspaceFixtures.ts";
+import type { LintSnapshot } from "usfm-onion-web";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -15,13 +16,52 @@ import {
 import { makeMirrorResultRouter } from "@/app/domain/editor/pipelines/mirrorResultRouter.ts";
 import { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import type { MirrorCommand } from "@/app/domain/mirror/mirrorProtocol.ts";
-import type { DirtyBufferStore } from "@/app/state/DirtyBufferStore.ts";
 import { FindingsStore } from "@/app/state/FindingsStore.ts";
 import type { CommitEvent } from "@/app/state/types.ts";
 import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
+import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 const baselineAbsent = () => ({ kind: "absent" }) as const;
+
+const emptyLintSummary = {
+  byCategory: { document: 0, structure: 0, context: 0, numbering: 0 },
+  bySeverity: { error: 0, warning: 0 },
+  byIssueType: { usfm: 0, content: 0 },
+  totalCount: 0,
+  suppressedCount: 0,
+};
+
+function lintSnapshot(byBook: Record<string, LintIssue[]> = {}): LintSnapshot {
+  return {
+    snapshotId: "snapshot",
+    books: Object.entries(byBook).map(([book, findings]) => ({
+      sourceKey: book,
+      book,
+      sourceHash: "",
+      tokenIdentity: "",
+      findings,
+      summary: emptyLintSummary,
+    })),
+    summary: emptyLintSummary,
+  };
+}
+
+function makeLintIssue(overrides: Partial<LintIssue> = {}): LintIssue {
+  return {
+    message: "msg",
+    template: "msg",
+    code: "unknown-token",
+    category: "structure",
+    severity: "warning",
+    issueType: "usfm",
+    messageParams: {},
+    sid: "GEN 1:1",
+    tokenId: "n1",
+    span: { start: 0, end: 1 },
+    ...overrides,
+  } as LintIssue;
+}
 
 describe("patchesForCommit", () => {
   it("emits a baseline + pushChapter for a chapter-scope commit", () => {
@@ -118,6 +158,80 @@ describe("patchesForCommit", () => {
     const patches = patchesForCommit(event, baselineAbsent);
     expect(patches.map((p) => p.kind)).toContain("deleteChapter");
   });
+
+  it("emits a deleteChapter when deletion empties the book", () => {
+    const event: CommitEvent = {
+      meta: {
+        kind: "import",
+        scope: { chapters: [{ bookCode: "GEN", chapterNum: 1 }] },
+        dirtyTextContent: true,
+        generation: 10,
+      },
+      patch: { kind: "bulk", files: [] },
+      snapshot: [],
+    };
+
+    expect(patchesForCommit(event, baselineAbsent)).toEqual([
+      {
+        kind: "deleteChapter",
+        ref: { bookCode: "GEN", chapterNum: 1 },
+        generation: 10,
+      },
+    ]);
+  });
+
+  it("emits one complete updateBook for a structural book change", () => {
+    const book = makeBook({
+      bookCode: "GEN",
+      chapters: [
+        makeChapter({ bookCode: "GEN", chapterNumber: 1, text: "one" }),
+        makeChapter({ bookCode: "GEN", chapterNumber: 3, text: "three" }),
+      ],
+    });
+    const event: CommitEvent = {
+      meta: {
+        kind: "import",
+        scope: {
+          chapters: [
+            { bookCode: "GEN", chapterNum: 1 },
+            { bookCode: "GEN", chapterNum: 3 },
+          ],
+        },
+        structuralChanges: { structurallyChangedBookCodes: ["GEN"] },
+        dirtyTextContent: true,
+        generation: 12,
+      },
+      patch: { kind: "bulk", files: [book] },
+      snapshot: [book],
+    };
+
+    const patches = patchesForCommit(event, baselineAbsent);
+    expect(patches).toHaveLength(1);
+    expect(patches[0]?.kind).toBe("updateBook");
+    if (patches[0]?.kind === "updateBook") {
+      expect(
+        patches[0].book.chapters.map(({ chapterNum }) => chapterNum),
+      ).toEqual([1, 3]);
+    }
+  });
+
+  it("emits removeBook for an explicitly removed book", () => {
+    const event: CommitEvent = {
+      meta: {
+        kind: "import",
+        scope: { chapters: [{ bookCode: "MAT", chapterNum: 1 }] },
+        structuralChanges: { deletedBookCodes: ["MAT"] },
+        dirtyTextContent: true,
+        generation: 13,
+      },
+      patch: { kind: "bulk", files: [] },
+      snapshot: [],
+    };
+
+    expect(patchesForCommit(event, baselineAbsent)).toEqual([
+      { kind: "removeBook", bookCode: "MAT", generation: 13 },
+    ]);
+  });
 });
 
 describe("awaitInitialFindings — the load contract's first pass", () => {
@@ -132,15 +246,18 @@ describe("awaitInitialFindings — the load contract's first pass", () => {
         if (c.kind === "analyzeLint") {
           feed.deliverResult({
             kind: "lintResult",
-            byBook: { GEN: [] },
+            snapshot: lintSnapshot({ GEN: [] }),
             ranAtGeneration: c.generation,
             requestId: c.requestId,
           });
         }
-        if (c.kind === "analyzeSous") {
+        if (c.kind === "analyzeGalley") {
           feed.deliverResult({
-            kind: "sousResult",
-            byBook: { GEN: { segments: {}, findings: [] } },
+            kind: "galleyResult",
+            packed: new ArrayBuffer(0),
+            keys: [],
+            segments: {},
+            cacheState: "fresh",
             ranAtGeneration: c.generation,
             requestId: c.requestId,
           });
@@ -154,17 +271,22 @@ describe("awaitInitialFindings — the load contract's first pass", () => {
       reseed: () => {},
     });
 
-    expect(commands.map((c) => c.kind)).toEqual(["analyzeLint", "analyzeSous"]);
+    expect(commands.map((c) => c.kind)).toEqual([
+      "analyzeLint",
+      "analyzeGalley",
+    ]);
     for (const command of commands) {
-      // `"all"` reads every seeded book; the load generation orders it against
-      // any edit that lands while the initial pass is in flight. Each carries a
-      // correlation id so this awaiting caller matches its own result.
-      expect("scope" in command && command.scope).toBe("all");
+      expect(command).not.toHaveProperty("scope");
       expect(command.generation).toBe(12);
       expect("requestId" in command && command.requestId).toBeTruthy();
     }
-    expect(findings.lint).toEqual({ GEN: [] });
-    expect(findings.sous).toEqual({ GEN: { segments: {}, findings: [] } });
+    expect(findings.lint).toEqual(lintSnapshot({ GEN: [] }));
+    expect(findings.sous).toMatchObject({
+      packed: new ArrayBuffer(0),
+      keys: [],
+      segments: {},
+      cacheState: "fresh",
+    });
   });
 
   it("recovers a load-time resyncRequest by re-seeding once and re-issuing the pending analyses", async () => {
@@ -185,20 +307,23 @@ describe("awaitInitialFindings — the load contract's first pass", () => {
             seeded
               ? {
                   kind: "lintResult",
-                  byBook: { GEN: [] },
+                  snapshot: lintSnapshot({ GEN: [] }),
                   ranAtGeneration: c.generation,
                   requestId: c.requestId,
                 }
               : { kind: "resyncRequest", lastGeneration: c.generation },
           );
         }
-        if (c.kind === "analyzeSous") {
+        if (c.kind === "analyzeGalley") {
           analyzeCount.sous++;
           feed.deliverResult(
             seeded
               ? {
-                  kind: "sousResult",
-                  byBook: { GEN: { segments: {}, findings: [] } },
+                  kind: "galleyResult",
+                  packed: new ArrayBuffer(0),
+                  keys: [],
+                  segments: {},
+                  cacheState: "fresh",
                   ranAtGeneration: c.generation,
                   requestId: c.requestId,
                 }
@@ -223,8 +348,13 @@ describe("awaitInitialFindings — the load contract's first pass", () => {
     // resolve with real findings rather than hanging.
     expect(reseeds).toBe(1);
     expect(analyzeCount.lint + analyzeCount.sous).toBeGreaterThanOrEqual(3);
-    expect(findings.lint).toEqual({ GEN: [] });
-    expect(findings.sous).toEqual({ GEN: { segments: {}, findings: [] } });
+    expect(findings.lint).toEqual(lintSnapshot({ GEN: [] }));
+    expect(findings.sous).toMatchObject({
+      packed: new ArrayBuffer(0),
+      keys: [],
+      segments: {},
+      cacheState: "fresh",
+    });
   });
 
   it("degrades to empty findings (never hangs) when a re-seed still does not land", async () => {
@@ -235,7 +365,7 @@ describe("awaitInitialFindings — the load contract's first pass", () => {
       feed.addSink({
         pushPatch: () => {},
         sendCommand: (c) => {
-          if (c.kind === "analyzeLint" || c.kind === "analyzeSous") {
+          if (c.kind === "analyzeLint" || c.kind === "analyzeGalley") {
             feed.deliverResult({
               kind: "resyncRequest",
               lastGeneration: c.generation,
@@ -252,7 +382,7 @@ describe("awaitInitialFindings — the load contract's first pass", () => {
       await vi.runAllTimersAsync();
       const findings = await pending;
 
-      expect(findings).toEqual({ lint: {}, sous: {} });
+      expect(findings).toEqual({ lint: null, sous: null });
     } finally {
       vi.useRealTimers();
     }
@@ -263,26 +393,25 @@ describe("makeMirrorResultRouter — stale-result defence", () => {
   function setup() {
     const feed = new MirrorFeed();
     const findingsStore = new FindingsStore();
+    const workingFilesStore = new WorkingFilesStore([]);
     const router = makeMirrorResultRouter({
       feed,
-      workingFilesStore: new WorkingFilesStore([]),
+      workingFilesStore,
       workspaceBaselineStore: new WorkspaceBaselineStore({
         calculateMd5: async (t) => t,
       }),
       findingsStore,
-      dirtyBufferStore: {} as DirtyBufferStore,
-      workspaceKey: "demo",
     });
-    return { feed, findingsStore, router };
+    return { feed, findingsStore, router, workingFilesStore };
   }
 
   it("drops a lint result older than one already applied", () => {
     const { feed, findingsStore } = setup();
-    const commit = vi.spyOn(findingsStore, "commitBookFindings");
+    const commit = vi.spyOn(findingsStore, "commitBraidSnapshot");
 
     feed.deliverResult({
       kind: "lintResult",
-      byBook: { GEN: [] },
+      snapshot: lintSnapshot({ GEN: [] }),
       ranAtGeneration: 5,
     });
     expect(commit).toHaveBeenCalledTimes(1);
@@ -290,7 +419,7 @@ describe("makeMirrorResultRouter — stale-result defence", () => {
     // Stale (lower generation) — must be dropped.
     feed.deliverResult({
       kind: "lintResult",
-      byBook: { GEN: [] },
+      snapshot: lintSnapshot({ GEN: [] }),
       ranAtGeneration: 3,
     });
     expect(commit).toHaveBeenCalledTimes(1);
@@ -298,9 +427,102 @@ describe("makeMirrorResultRouter — stale-result defence", () => {
     // Newer — applied.
     feed.deliverResult({
       kind: "lintResult",
-      byBook: { GEN: [] },
+      snapshot: lintSnapshot({ GEN: [] }),
       ranAtGeneration: 6,
     });
     expect(commit).toHaveBeenCalledTimes(2);
+  });
+
+  it("drops a first-delivered result older than the current editor generation", () => {
+    const { feed, findingsStore, workingFilesStore } = setup();
+    const commit = vi.spyOn(findingsStore, "commitBraidSnapshot");
+
+    workingFilesStore.commit({
+      patch: { kind: "bulk", files: [] },
+      meta: {
+        kind: "metadataOnly",
+        action: "saveCleanMark",
+        scope: { project: true },
+        dirtyTextContent: false,
+      },
+    });
+
+    feed.deliverResult({
+      kind: "lintResult",
+      snapshot: lintSnapshot({ GEN: [] }),
+      ranAtGeneration: 0,
+    });
+
+    expect(commit).not.toHaveBeenCalled();
+  });
+
+  it("reuses unchanged Braid issues and normalized findings across snapshots", () => {
+    const { feed, findingsStore } = setup();
+    const issue = makeLintIssue();
+
+    feed.deliverResult({
+      kind: "lintResult",
+      snapshot: lintSnapshot({ GEN: [issue] }),
+      ranAtGeneration: 1,
+    });
+    const first = findingsStore.chapterFindings("onion", "GEN", 1)[0];
+
+    feed.deliverResult({
+      kind: "lintResult",
+      snapshot: lintSnapshot({ GEN: [{ ...issue }] }),
+      ranAtGeneration: 2,
+    });
+
+    expect(findingsStore.chapterFindings("onion", "GEN", 1)[0]).toBe(first);
+  });
+
+  it("rejects an invalid persisted Galley result without rewriting on load", async () => {
+    const feed = new MirrorFeed();
+    const commands: MirrorCommand[] = [];
+    feed.addSink({
+      pushPatch: () => {},
+      sendCommand: (command) => {
+        commands.push(command);
+        if (command.kind === "analyzeLint") {
+          feed.deliverResult({
+            kind: "lintResult",
+            snapshot: lintSnapshot(),
+            ranAtGeneration: command.generation,
+            requestId: command.requestId,
+          });
+        } else if (command.kind === "analyzeGalley") {
+          feed.deliverResult({
+            kind: "galleyResult",
+            packed: new ArrayBuffer(0),
+            keys: [],
+            segments: {},
+            cacheState:
+              command.cachePolicy === "restore" ? "persisted" : "fresh",
+            expectedIdentity: {
+              analysisId: "1",
+              targetContextId: "1",
+              hasReference: false,
+            },
+            ranAtGeneration: command.generation,
+            requestId: command.requestId,
+          });
+        }
+      },
+    });
+
+    await awaitInitialFindings({
+      feed,
+      generation: 4,
+      reseed: () => {},
+    });
+
+    const galleyCommands = commands.filter(
+      (command): command is Extract<MirrorCommand, { kind: "analyzeGalley" }> =>
+        command.kind === "analyzeGalley",
+    );
+    expect(galleyCommands.map((command) => command.cachePolicy)).toEqual([
+      "restore",
+      "none",
+    ]);
   });
 });

@@ -3,9 +3,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use git2::{
-    build::CheckoutBuilder, BranchType, Cred, ErrorCode, FetchOptions, IndexAddOption,
-    ObjectType, Oid, PushOptions, RemoteCallbacks, Repository, RepositoryInitOptions, Signature,
-    Sort, Tree,
+    build::CheckoutBuilder, BranchType, Cred, ErrorCode, FetchOptions, IndexAddOption, ObjectType,
+    Oid, PushOptions, RemoteCallbacks, Repository, RepositoryInitOptions, Signature, Sort, Tree,
 };
 use serde::Deserialize;
 use serde::Serialize;
@@ -274,7 +273,11 @@ pub fn git_clone_remote_repo(
         .clone(&remote_url, &repo_path_buf)
         .map_err(|e| e.message().to_string())?;
 
-    let head = repo.head().ok().and_then(|head| head.target()).map(|oid| oid.to_string());
+    let head = repo
+        .head()
+        .ok()
+        .and_then(|head| head.target())
+        .map(|oid| oid.to_string());
     Ok(head)
 }
 
@@ -619,7 +622,11 @@ pub fn git_push_current_branch(
     token: String,
 ) -> Result<GitRemotePublishResult, String> {
     let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
-    let local_head = repo.head().ok().and_then(|head| head.target()).map(|oid| oid.to_string());
+    let local_head = repo
+        .head()
+        .ok()
+        .and_then(|head| head.target())
+        .map(|oid| oid.to_string());
     let refspec = format!("refs/heads/{branch}:refs/heads/{branch}");
     let mut remote = repo
         .find_remote(&remote_name)

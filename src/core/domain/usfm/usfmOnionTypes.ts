@@ -8,14 +8,12 @@ import type {
   LintIssue as OnionLintIssue,
   LintOptions as OnionLintOptions,
   LintScope as OnionLintScope,
-  MarkerInfo as OnionMarkerInfo,
   MarkerPayload as OnionMarkerPayload,
   MergeRequest as OnionMergeRequest,
   ParagraphCategory as OnionParagraphCategory,
   ParsedUsfm as OnionParsedUsfm,
   Slot as OnionSlot,
   Token as OnionToken,
-  UsfmMarkerCatalog as OnionUsfmMarkerCatalog,
   TokenFix,
 } from "usfm-onion-web";
 
@@ -38,7 +36,6 @@ export type Token = Omit<OnionToken, "span">;
 /** USFM 3.1 character-marker attribute (`|key="value"` after `\w` etc.). */
 export type AttributeItem = OnionAttributeItem;
 export type ParsedUsfm = OnionParsedUsfm;
-export type MarkerInfo = OnionMarkerInfo;
 /**
  * Semantic/presentation class of a paragraph-kind marker, straight from
  * usfm-onion (v0.0.5+). This is the axis the app's form-mode taxonomy derives
@@ -62,7 +59,6 @@ export type MarkerPayload = OnionMarkerPayload;
  * *bytes* are whatever the lexer actually saw.
  */
 export type ClosingBehavior = OnionClosingBehavior;
-export type RawUsfmMarkerCatalog = OnionUsfmMarkerCatalog;
 export type DecisionStatus = OnionDecisionStatus;
 export type DecisionUnit = OnionDecisionUnit;
 export type DiffSkeleton = OnionDiffSkeleton;
@@ -144,18 +140,6 @@ export type ProjectedUsfmDocument = {
   lintIssues: LintIssue[] | null;
   /** md5 of the parsed source bytes; present only when `includeSourceMd5` was set. */
   sourceMd5?: string;
-};
-
-export type UsfmMarkerCatalog = {
-  raw?: RawUsfmMarkerCatalog;
-  allMarkers: string[];
-  paragraphMarkers: string[];
-  noteMarkers: string[];
-  noteSubmarkers: string[];
-  regularCharacterMarkers: string[];
-  documentMarkers: string[];
-  chapterVerseMarkers: string[];
-  infoByMarker: Record<string, MarkerInfo>;
 };
 
 export type TokenTransformChange = {

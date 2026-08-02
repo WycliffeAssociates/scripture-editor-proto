@@ -12,14 +12,16 @@ import type {
 } from "@/app/domain/mirror/mirrorProtocol.ts";
 import type { MirrorSession } from "@/app/domain/mirror/mirrorSessionFactory.ts";
 import {
-  isMirrorTraceEnabled,
-  logRelayedMirrorTrace,
-  mirrorTrace,
-} from "@/app/domain/mirror/mirrorTrace.ts";
+  endDevTimer,
+  startDevTimer,
+} from "@/app/domain/mirror/performanceTiming.ts";
 import type {
   FromWorkerMessage,
   ToWorkerMessage,
 } from "@/app/domain/mirror/workerMessages.ts";
+
+const activeGalleyCommands = new Set<number>();
+let nextTraceId = 0;
 
 export class WorkerMirrorSession implements MirrorSession {
   private readonly worker: Worker;
@@ -50,19 +52,25 @@ export class WorkerMirrorSession implements MirrorSession {
         this.resolveReady();
         return;
       }
-      if (event.data.kind === "trace") {
-        logRelayedMirrorTrace(event.data.entry);
+      if (event.data.kind === "disposed") {
+        this.worker.terminate();
         return;
       }
       if (event.data.kind === "result") {
-        const r = event.data.result;
-        mirrorTrace("session.recv.result", {
-          kind: r.kind,
-          ranAtGen: "ranAtGeneration" in r ? r.ranAtGeneration : undefined,
-          requestId: "requestId" in r ? r.requestId : undefined,
-          books: "byBook" in r ? Object.keys(r.byBook as object) : undefined,
-        });
-        args.feed.deliverResult(r);
+        const result = event.data.result;
+        if (import.meta.env.DEV && event.data.traceId !== undefined) {
+          console.timeEnd(`sous:transport.roundtrip:${event.data.traceId}`);
+        }
+        if (
+          import.meta.env.DEV &&
+          result.kind === "galleyResult" &&
+          result.requestId === undefined &&
+          activeGalleyCommands.delete(result.ranAtGeneration)
+        ) {
+          endDevTimer(`sous:command-to-result:${result.ranAtGeneration}`);
+          startDevTimer(`sous:result-to-findings:${result.ranAtGeneration}`);
+        }
+        args.feed.deliverResult(result);
       }
     };
     // A worker that fails to load or throws at top level otherwise dies
@@ -77,7 +85,6 @@ export class WorkerMirrorSession implements MirrorSession {
       kind: "init",
       workspaceKey: args.workspaceKey,
       dirtyBufferRoot: args.dirtyBufferRoot,
-      trace: isMirrorTraceEnabled(),
     });
     // Register as a sink — patches/commands the producer/pipelines write now
     // reach the worker.
@@ -98,31 +105,60 @@ export class WorkerMirrorSession implements MirrorSession {
   private pending: ToWorkerMessage[] | null = [];
 
   private post(message: ToWorkerMessage): void {
-    mirrorTrace("session.post", {
-      kind: message.kind,
-      buffered: this.pending !== null,
-      detail:
-        message.kind === "command"
-          ? message.command.kind
-          : message.kind === "patch"
-            ? message.patch.kind
-            : undefined,
-    });
+    const traceId = import.meta.env.DEV ? ++nextTraceId : undefined;
+    const tracedMessage =
+      traceId === undefined ? message : { ...message, traceId };
+    if (
+      import.meta.env.DEV &&
+      tracedMessage.kind === "command" &&
+      tracedMessage.command.kind === "analyzeGalley" &&
+      tracedMessage.command.requestId === undefined
+    ) {
+      activeGalleyCommands.add(tracedMessage.command.generation);
+      startDevTimer(
+        `sous:command-to-result:${tracedMessage.command.generation}`,
+      );
+    }
     if (this.pending) {
-      this.pending.push(message);
+      this.pending.push(tracedMessage);
       return;
     }
-    this.worker.postMessage(message);
+    this.sendToWorker(tracedMessage);
   }
 
   private flushPending(): void {
     const queued = this.pending;
     this.pending = null;
-    for (const message of queued ?? []) this.worker.postMessage(message);
+    for (const message of queued ?? []) this.sendToWorker(message);
+  }
+
+  private sendToWorker(message: ToWorkerMessage): void {
+    const expectsResult = message.kind === "command";
+    const transfer =
+      message.kind === "command" && message.command.kind === "restoreBraid"
+        ? [message.command.packed]
+        : [];
+    if (import.meta.env.DEV && message.traceId !== undefined) {
+      if (expectsResult) {
+        console.time(`sous:transport.roundtrip:${message.traceId}`);
+      }
+      console.time(`sous:transport.mainToWorker.post:${message.traceId}`);
+    }
+    try {
+      this.worker.postMessage(message, transfer);
+    } finally {
+      if (import.meta.env.DEV && message.traceId !== undefined) {
+        console.timeEnd(`sous:transport.mainToWorker.post:${message.traceId}`);
+      }
+    }
   }
 
   dispose(): void {
     this.removeSink();
-    this.worker.terminate();
+    // Let the worker release wasm-owned Braid/Galley handles before ending the
+    // worker. The timeout only covers a worker that failed before it could
+    // process the disposal message; normal shutdown is acknowledged in-order.
+    this.post({ kind: "dispose" });
+    setTimeout(() => this.worker.terminate(), 100);
   }
 }

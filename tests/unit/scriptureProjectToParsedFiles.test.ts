@@ -5,7 +5,6 @@ import { scriptureProjectToParsedFiles } from "@/app/domain/api/scriptureProject
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { ProjectedUsfmDocument } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
-import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 
 const { groupFlatTokensByChapterMock } = vi.hoisted(() => ({
   groupFlatTokensByChapterMock: vi.fn(() => ({
@@ -99,7 +98,6 @@ function makeService(args: {
 }): IUsfmOnionService {
   return {
     supportsPathIo: args.supportsPathIo,
-    getMarkerCatalog: vi.fn(async () => webUsfmOnionService.getMarkerCatalog()),
     parseUsfmBatchFromPaths:
       args.parseBatchFromPaths ?? vi.fn(async () => [emptyProjection]),
     parseUsfmBatchFromContents:

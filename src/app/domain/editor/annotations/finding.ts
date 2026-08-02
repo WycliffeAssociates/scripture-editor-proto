@@ -17,6 +17,7 @@
 // owing it a decision.
 
 import type { ReactNode } from "react";
+import type { DecodedFinding } from "scripture-sous-chef-web/findings";
 
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { Utf16Span } from "@/core/domain/usfm/vrefTypes.ts";
@@ -98,6 +99,8 @@ export type Finding =
       source: "sous-chef";
       /** sous confidence, when the rule scores; undefined for binary rules. */
       score?: number;
+      /** The official record whose identity survives reconciliation. */
+      snapshotFinding?: DecodedFinding;
     })
   // local-lint splits by code family: the numbering rules carry marching
   // params; the project-wide `\cl` rule carries the off-dominant stem + the

@@ -46,6 +46,8 @@ export interface FileSystem {
    * Generic `move()` is NOT atomic on `OpfsFileSystem` (it is copy+delete).
    */
   atomicWriteText(path: string, content: string): Promise<void>;
+  /** Atomically replace a binary file with the supplied bytes. */
+  atomicWriteBytes(path: string, content: Uint8Array): Promise<void>;
   writeBytes(path: string, content: Uint8Array): Promise<void>;
   exists(path: string): Promise<boolean>;
   list(path: string): Promise<FileSystemEntry[]>;

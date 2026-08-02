@@ -10,7 +10,6 @@ import type {
   LintIssue,
   LintOptions,
   LintScopeOptions,
-  MarkerInfo,
   MergeRequest,
   ParsedUsfm,
   ProjectedUsfmDocument,
@@ -20,7 +19,6 @@ import type {
   TokenLintOptions,
   TokenScopeItem,
   TokenTransformResult,
-  UsfmMarkerCatalog,
 } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 /**
@@ -87,44 +85,6 @@ function toWebProjectLintOptions(
   };
 }
 
-function buildMarkerCatalog(raw: onion.UsfmMarkerCatalog): UsfmMarkerCatalog {
-  const allInfo = raw.all();
-  const infoByMarker = Object.fromEntries(
-    allInfo.map((info) => [info.marker, info] satisfies [string, MarkerInfo]),
-  );
-  const allMarkers: string[] = [];
-  const paragraphMarkers: string[] = [];
-  const noteMarkers: string[] = [];
-  const noteSubmarkers: string[] = [];
-  const regularCharacterMarkers: string[] = [];
-  const documentMarkers: string[] = [];
-  const chapterVerseMarkers: string[] = [];
-  for (const info of allInfo) {
-    allMarkers.push(info.marker);
-    if (info.category === "paragraph") paragraphMarkers.push(info.marker);
-    else if (info.category === "noteContainer") noteMarkers.push(info.marker);
-    else if (info.category === "noteSubmarker")
-      noteSubmarkers.push(info.marker);
-    else if (info.category === "character")
-      regularCharacterMarkers.push(info.marker);
-    else if (info.category === "document") documentMarkers.push(info.marker);
-    else if (info.category === "chapter" || info.category === "verse")
-      chapterVerseMarkers.push(info.marker);
-  }
-
-  return {
-    raw,
-    allMarkers,
-    paragraphMarkers,
-    noteMarkers,
-    noteSubmarkers,
-    regularCharacterMarkers,
-    documentMarkers,
-    chapterVerseMarkers,
-    infoByMarker,
-  };
-}
-
 function parsedToProjectedDocument(
   parsed: ParsedUsfm,
   options: ProjectUsfmOptions,
@@ -181,10 +141,6 @@ function formatTokensToTransformResult(
 
 export class WebUsfmOnionService implements IUsfmOnionService {
   readonly supportsPathIo = false;
-
-  async getMarkerCatalog(): Promise<UsfmMarkerCatalog> {
-    return buildMarkerCatalog(onion.markerCatalog());
-  }
 
   async parseUsfm(
     source: string,

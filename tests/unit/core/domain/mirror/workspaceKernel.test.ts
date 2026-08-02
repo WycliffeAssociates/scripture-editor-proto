@@ -4,6 +4,7 @@
 // the build order (seed before ready before initial findings). The platform
 // session is faked so the build is synchronous-ish and disposal is observable.
 
+import type { LintSnapshot } from "usfm-onion-web";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { MirrorSessionFactory } from "@/app/domain/mirror/mirrorSessionFactory.ts";
@@ -12,8 +13,19 @@ import {
   acquireWorkspaceKernel,
   type WorkspaceKernelBuildArgs,
 } from "@/app/domain/mirror/workspaceKernel.ts";
-import type { DirtyBufferStore } from "@/app/state/DirtyBufferStore.ts";
 import { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
+
+const emptyLintSnapshot: LintSnapshot = {
+  snapshotId: "snapshot",
+  books: [],
+  summary: {
+    byCategory: { document: 0, structure: 0, context: 0, numbering: 0 },
+    bySeverity: { error: 0, warning: 0 },
+    byIssueType: { usfm: 0, content: 0 },
+    totalCount: 0,
+    suppressedCount: 0,
+  },
+};
 
 afterEach(() => {
   __resetWorkspaceKernelRegistryForTests();
@@ -38,15 +50,18 @@ function makeFakeFactory(log: string[]): {
         if (c.kind === "analyzeLint") {
           feed.deliverResult({
             kind: "lintResult",
-            byBook: {},
+            snapshot: emptyLintSnapshot,
             ranAtGeneration: c.generation,
             requestId: c.requestId,
           });
         }
-        if (c.kind === "analyzeSous") {
+        if (c.kind === "analyzeGalley") {
           feed.deliverResult({
-            kind: "sousResult",
-            byBook: {},
+            kind: "galleyResult",
+            packed: new ArrayBuffer(0),
+            keys: [],
+            segments: {},
+            cacheState: "fresh",
             ranAtGeneration: c.generation,
             requestId: c.requestId,
           });
@@ -78,7 +93,6 @@ function buildArgs(
     workspaceBaselineStore: new WorkspaceBaselineStore({
       calculateMd5: async (t) => t,
     }),
-    dirtyBufferStore: {} as DirtyBufferStore,
     dirtyBufferRoot: "/tmp",
     mirrorSessionFactory: factory,
     analysisDisabled,
@@ -99,7 +113,7 @@ describe("acquireWorkspaceKernel — build order", () => {
       "patch:fullSync",
       "ready",
       "command:analyzeLint",
-      "command:analyzeSous",
+      "command:analyzeGalley",
     ]);
   });
 
@@ -111,8 +125,8 @@ describe("acquireWorkspaceKernel — build order", () => {
       preload: false,
     });
     expect(handle?.initialFindings).toEqual({
-      lint: {},
-      sous: {},
+      lint: null,
+      sous: null,
       localLint: {},
     });
     expect(log).toEqual(["patch:fullSync", "ready"]);

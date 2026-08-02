@@ -338,7 +338,7 @@ A parallel subscriber to the same `WorkingFilesStore.changes` stream as
 `makeFoldedScopePipeline` substrate with a 100 ms debounce on its own
 clock, so sous traffic doesn't compound lint's cadence.
 
-Each pass drains the folded scope as one `analyzeSous` command sent to
+Each pass drains the folded scope as one `analyzeGalley` command sent to
 `MirrorFeed`. The mirror assembles each book's token replica, runs the vref
 build and sous analysis mirror-side, and returns per-book results. The result
 router commits findings plus the vref segment map into `FindingsStore`'s
@@ -565,7 +565,7 @@ File: `src/app/ui/contexts/WorkspaceContext.tsx`
   predicate (`isSearchRerunRelevant`) lives co-located with its pipeline in
   `searchRerunPipeline.ts`.
 - `src/app/state/FindingsStore.ts` — unified findings store; `FindingsState`,
-  `FindingSource`, `commitBookFindings`, `commitSousBookFindings`.
+  `FindingSource`, `commitBookFindings`, `commitSousFindings`.
 - `src/app/state/findingsSelectors.ts` — `flattenFindings`,
   `chapterFindingsAcrossSources`, `sousSegmentsForBook`.
 - `src/app/state/SaveStatusStore.ts`, `LayoutTickStore.ts`,

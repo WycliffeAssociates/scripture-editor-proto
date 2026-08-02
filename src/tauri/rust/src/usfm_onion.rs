@@ -141,22 +141,6 @@ pub struct ProjectedUsfmDocumentDto {
     pub source_md5: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MarkerCatalogDto {
-    pub all_markers: Vec<String>,
-    pub paragraph_markers: Vec<String>,
-    pub note_markers: Vec<String>,
-    pub note_submarkers: Vec<String>,
-    pub regular_character_markers: Vec<String>,
-    pub document_markers: Vec<String>,
-    pub chapter_verse_markers: Vec<String>,
-    // Per-marker info comes from the shared `usfm_onion_dto` crate — the SAME
-    // serde types the web bindings serialize, so the JSON string values match
-    // the wasm catalog by construction (no hand-mirrored enum strings to drift).
-    pub info_by_marker: BTreeMap<String, usfm_onion_dto::MarkerInfo>,
-}
-
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum SlotRoleDto {
@@ -408,6 +392,8 @@ fn map_flat_token_dto(token: FlatTokenDto) -> onion::FormatToken {
         structural: None,
         number_info: None,
         marker_profile: None,
+        attribute_source: None,
+        attributes: Vec::new(),
     }
 }
 
@@ -446,6 +432,7 @@ pub fn map_lint_options(options: Option<LintOptionsDto>) -> onion::LintOptions {
             })
             .collect(),
         allow_implicit_chapter_content_verse: options.allow_implicit_chapter_content_verse,
+        declared_book: None,
     }
 }
 
@@ -717,63 +704,6 @@ fn map_diff_skeleton(skeleton: &onion::DiffSkeleton<onion::FormatToken>) -> Diff
 }
 
 #[tauri::command]
-pub fn usfm_onion_marker_catalog() -> MarkerCatalogDto {
-    let catalog = onion::marker_catalog();
-    let all = catalog.all();
-    let all_markers = all
-        .iter()
-        .map(|info| info.marker.clone())
-        .collect::<Vec<_>>();
-    let info_by_marker = all
-        .iter()
-        .map(|info| {
-            (
-                info.marker.clone(),
-                usfm_onion_dto::map_marker_info(info.clone()),
-            )
-        })
-        .collect::<BTreeMap<_, _>>();
-
-    MarkerCatalogDto {
-        all_markers: all_markers.clone(),
-        paragraph_markers: all
-            .iter()
-            .filter(|info| info.category == onion::MarkerCategory::Paragraph)
-            .map(|info| info.marker.clone())
-            .collect(),
-        note_markers: all
-            .iter()
-            .filter(|info| info.category == onion::MarkerCategory::NoteContainer)
-            .map(|info| info.marker.clone())
-            .collect(),
-        note_submarkers: all
-            .iter()
-            .filter(|info| info.category == onion::MarkerCategory::NoteSubmarker)
-            .map(|info| info.marker.clone())
-            .collect(),
-        regular_character_markers: all
-            .iter()
-            .filter(|info| info.category == onion::MarkerCategory::Character)
-            .map(|info| info.marker.clone())
-            .collect(),
-        document_markers: all
-            .iter()
-            .filter(|info| info.category == onion::MarkerCategory::Document)
-            .map(|info| info.marker.clone())
-            .collect(),
-        chapter_verse_markers: all
-            .iter()
-            .filter(|info| {
-                info.category == onion::MarkerCategory::Chapter
-                    || info.category == onion::MarkerCategory::Verse
-            })
-            .map(|info| info.marker.clone())
-            .collect(),
-        info_by_marker,
-    }
-}
-
-#[tauri::command]
 pub fn usfm_onion_project_usfm(
     source: String,
     options: Option<ProjectUsfmOptionsDto>,
@@ -1010,26 +940,6 @@ mod tests {
             serde_json::from_str(json).expect("spanless frontend tokens deserialize");
         assert_eq!(tokens.len(), 1);
         usfm_onion_diff_tokens(tokens.clone(), tokens).expect("diff runs on spanless tokens");
-    }
-
-    // Integration guard at the command seam: the editor's `buildRegistry`
-    // (src/core/domain/usfm/onionMarkers.ts) reads `infoByMarker[m].paragraphCategory`
-    // / `.payload` and compares the strings by value. A desktop-only regression
-    // where these were absent/PascalCase collapsed form mode to just the chapter
-    // badge. This asserts the catalog the command actually emits carries the same
-    // camelCase wire strings the wasm catalog does.
-    #[test]
-    fn marker_catalog_emits_web_wire_strings() {
-        let catalog = usfm_onion_marker_catalog();
-        let json = serde_json::to_value(&catalog).expect("catalog serializes");
-        let info = &json["infoByMarker"];
-
-        assert_eq!(info["p"]["paragraphCategory"], "body");
-        assert_eq!(info["q1"]["paragraphCategory"], "poetry");
-        assert_eq!(info["s1"]["paragraphCategory"], "section");
-        assert_eq!(info["li1"]["paragraphCategory"], "list");
-        assert_eq!(info["v"]["payload"], "numberRange");
-        assert_eq!(info["id"]["payload"], "bookCode");
     }
 
     #[test]

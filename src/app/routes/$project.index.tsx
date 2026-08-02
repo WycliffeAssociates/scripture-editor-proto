@@ -8,6 +8,7 @@ import {
   acquireWorkspaceKernel,
   type WorkspaceKernelHandle,
 } from "@/app/domain/mirror/workspaceKernel.ts";
+import { galleyConfigFromSettings } from "@/app/domain/sous/galleyConfig.ts";
 import { DirtyBufferStore } from "@/app/state/DirtyBufferStore.ts";
 import { RecoveredConflictTracker } from "@/app/state/RecoveredConflictTracker.ts";
 import { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
@@ -163,10 +164,14 @@ export const Route = createFileRoute("/$project/")({
       projectKey: workspaceKey,
       projectFiles: recovery.parsedFiles,
       workspaceBaselineStore,
-      dirtyBufferStore,
       dirtyBufferRoot: dirtyBufferStore.rootDirectory(),
       mirrorSessionFactory,
       analysisDisabled: analysisDisabledInMode(editorMode),
+      proofreadingConfig: galleyConfigFromSettings(
+        settingsManager.getSettings(),
+      ),
+      fileSystem,
+      cacheRoot: storageRoots.cacheRoot,
     });
 
     return {

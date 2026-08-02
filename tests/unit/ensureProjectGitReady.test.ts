@@ -91,6 +91,7 @@ function createFileSystemMock(initialGitIgnore = ""): FileSystem {
     atomicWriteText: vi.fn(async (_path: string, next: string) => {
       contents = next;
     }),
+    atomicWriteBytes: vi.fn(async () => {}),
     writeBytes: vi.fn(async () => {}),
     exists: vi.fn(async () => true),
     list: vi.fn(async () => []),

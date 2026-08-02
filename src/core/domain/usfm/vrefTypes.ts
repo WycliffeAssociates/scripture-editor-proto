@@ -1,10 +1,10 @@
 // vrefTypes.ts
 //
-// The vref_index addressing substrate, mirrored from onion's `vref` module
-// (Segment / Utf16Span / VerseProjection). onion is the segmenter of record;
-// these are the JS-facing shapes its `vrefIndexTokens`/`tokens_to_vref_index`
-// projection serializes into, consumed here to resolve a content finding's
-// `(sid, Utf16Span)` to DOM rects (see `resolveContentRange`).
+// The vref_index addressing substrate, mirrored from Onion's resident Braid
+// projection (Segment / Utf16Span / VerseProjection). Braid is the segmenter of
+// record; these are the app-facing shapes its ordered `vrefIndex` projection
+// serializes into, consumed here to resolve a content finding's `(sid,
+// Utf16Span)` to DOM rects (see `resolveContentRange`).
 //
 // Source-agnostic on purpose: the annotation model and the editor's range
 // resolver depend on these, not on sous or onion package types directly.

@@ -24,6 +24,8 @@
 // machines must never host two worker sets / token mirrors at once. Plus at
 // most one *dying* kernel mid-grace (the outgoing project during a swap).
 
+import type { SousConfig } from "scripture-sous-chef-web";
+
 import { reduceProjectLocalLint } from "@/app/domain/editor/pipelines/localLintPipeline.ts";
 import {
   awaitInitialFindings,
@@ -32,10 +34,12 @@ import {
   seedMirror,
 } from "@/app/domain/editor/pipelines/mirrorPatchProducer.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
-import type { DirtyBufferStore } from "@/app/state/DirtyBufferStore.ts";
 import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import type { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
+import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 
+import { publishResidentBraid, restoreResidentBraid } from "./braidHost.ts";
+import { readBraidWarmCache, writeBraidWarmCache } from "./braidWarmCache.ts";
 import { MirrorFeed } from "./MirrorFeed.ts";
 import type {
   MirrorSession,
@@ -56,8 +60,6 @@ export type WorkspaceKernelBuildArgs = {
   projectFiles: ScriptureBookState[];
   /** Disk baselines the loader's recovery established (read into the seed). */
   workspaceBaselineStore: WorkspaceBaselineStore;
-  /** The dirty-buffer store the platform session writes backups through. */
-  dirtyBufferStore: DirtyBufferStore;
   dirtyBufferRoot: string;
   /** Platform mirror session factory (web worker / desktop sinks). */
   mirrorSessionFactory: MirrorSessionFactory;
@@ -67,6 +69,9 @@ export type WorkspaceKernelBuildArgs = {
    * skips the initial findings pass, matching the gated live pipelines.
    */
   analysisDisabled: boolean;
+  proofreadingConfig?: SousConfig;
+  fileSystem?: FileSystem;
+  cacheRoot?: string;
 };
 
 /** One mounted lifetime's claim on the kernel; released on unmount. */
@@ -132,6 +137,7 @@ async function buildInitialFindings(args: {
   generation: number;
   seedStore: WorkingFilesStore;
   workspaceBaselineStore: WorkspaceBaselineStore;
+  config?: SousConfig;
 }): Promise<InitialFindings> {
   const mirrorFindings = await awaitInitialFindings({
     feed: args.feed,
@@ -145,6 +151,7 @@ async function buildInitialFindings(args: {
         feed: args.feed,
         generation: args.generation,
       }),
+    config: args.config,
   });
   return {
     ...mirrorFindings,
@@ -168,7 +175,8 @@ async function buildKernel(
     feed,
     workspaceKey: args.projectKey,
     dirtyBufferRoot: args.dirtyBufferRoot,
-    dirtyBufferStore: args.dirtyBufferStore,
+    fileSystem: args.fileSystem,
+    cacheRoot: args.cacheRoot,
   });
 
   // 3. seedMirrors — full token fan-out from the loader's parsed files.
@@ -182,6 +190,30 @@ async function buildKernel(
   // 4. awaitEnginesReady — the ready ACK (wasm/engine init complete).
   await session.ready();
 
+  let restoredBraid = false;
+  if (args.fileSystem && args.cacheRoot) {
+    const cached = await readBraidWarmCache({
+      fileSystem: args.fileSystem,
+      cacheRoot: args.cacheRoot,
+      workspaceKey: args.projectKey,
+    });
+    if (cached) {
+      const restore = await restoreResidentBraid({
+        feed,
+        generation,
+        packed: cached.packed,
+        records: cached.records,
+      });
+      restoredBraid = restore.accepted;
+      if (!restore.accepted) {
+        console.info(
+          "[braid] warm cache rejected; using cold lint",
+          restore.error,
+        );
+      }
+    }
+  }
+
   // 5. initialFindings — the awaited project-wide lint + sous (off-main via the
   //    mirror) plus a synchronous main-thread local-lint reduce over the loaded
   //    tokens. Plain mode runs no analysis (empty, matching the live gates).
@@ -192,7 +224,27 @@ async function buildKernel(
         generation,
         seedStore,
         workspaceBaselineStore: args.workspaceBaselineStore,
+        config: args.proofreadingConfig,
       });
+
+  if (
+    !args.analysisDisabled &&
+    !restoredBraid &&
+    args.fileSystem &&
+    args.cacheRoot
+  ) {
+    try {
+      const publication = await publishResidentBraid({ feed, generation });
+      await writeBraidWarmCache({
+        fileSystem: args.fileSystem,
+        cacheRoot: args.cacheRoot,
+        workspaceKey: args.projectKey,
+        publication,
+      });
+    } catch (error) {
+      console.warn("[braid] cold warm-cache publication skipped", error);
+    }
+  }
 
   return {
     projectKey: args.projectKey,

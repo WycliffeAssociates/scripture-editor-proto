@@ -60,8 +60,8 @@
         "react": "19.2.7",
         "react-dom": "19.2.7",
         "react-markdown": "^10.1.0",
-        "scripture-sous-chef-web": "github:WycliffeAssociates/scripture-sous-chef#v0.0.1",
-        "usfm-onion-web": "github:WycliffeAssociates/usfm-onion#v0.0.9",
+        "scripture-sous-chef-web": "github:WycliffeAssociates/scripture-sous-chef#v0.0.5",
+        "usfm-onion-web": "github:WycliffeAssociates/usfm-onion#v0.1.1",
         "valibot": "1.4.1",
         "yaml": "2.9.0"
     },

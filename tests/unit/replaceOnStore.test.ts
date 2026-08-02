@@ -2,7 +2,7 @@
 // neither the pre-commit refusal nor the in-draft re-check (which guards a
 // chapter changing under the replace) may commit anything.
 
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   type ReplaceOnStoreDeps,
@@ -12,16 +12,11 @@ import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState
 import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
-import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
 import { normalizeTokenSids } from "@/core/domain/usfm/tokenSidNormalization.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 
 const svc = webUsfmOnionService;
-
-beforeAll(async () => {
-  initializeUsfmMarkerCatalog(await svc.getMarkerCatalog());
-});
 
 const GEN_ND = `\\id GEN
 \\c 1

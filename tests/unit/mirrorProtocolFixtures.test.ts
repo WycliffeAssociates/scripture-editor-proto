@@ -3,10 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import type {
-  AnalyzeScope,
-  MirrorPatch,
-} from "@/app/domain/mirror/mirrorProtocol.ts";
+import type { MirrorPatch } from "@/app/domain/mirror/mirrorProtocol.ts";
 
 // The canonical wire fixtures live with the Rust crate so a `cargo test` can
 // `include_str!` them; this test reads the SAME file and pins it to the TS
@@ -21,7 +18,6 @@ const fixturePath = fileURLToPath(
 );
 const fixture = JSON.parse(readFileSync(fixturePath, "utf8")) as {
   patches: MirrorPatch[];
-  scopes: AnalyzeScope[];
 };
 
 describe("mirror protocol fixtures — TS side of the cross-language contract", () => {
@@ -31,6 +27,8 @@ describe("mirror protocol fixtures — TS side of the cross-language contract", 
     const seen: Record<MirrorPatch["kind"], boolean> = {
       pushChapter: false,
       deleteChapter: false,
+      updateBook: false,
+      removeBook: false,
       pushBaseline: false,
       fullSync: false,
       syncMeta: false,
@@ -56,6 +54,15 @@ describe("mirror protocol fixtures — TS side of the cross-language contract", 
           expect(patch.ref.chapterNum).toBe(2);
           expect(patch.generation).toBe(6);
           break;
+        case "updateBook":
+          expect(patch.book.bookCode).toBe("GEN");
+          expect(patch.book.chapters[0]?.chapterNum).toBe(1);
+          expect(patch.generation).toBe(10);
+          break;
+        case "removeBook":
+          expect(patch.bookCode).toBe("MAT");
+          expect(patch.generation).toBe(11);
+          break;
         case "pushBaseline":
           expect(patch.bookCode).toBe("GEN");
           expect(patch.diskBaseline.kind).toBe("present");
@@ -77,15 +84,5 @@ describe("mirror protocol fixtures — TS side of the cross-language contract", 
         }
       }
     }
-  });
-
-  it("covers both AnalyzeScope forms", () => {
-    const hasAll = fixture.scopes.some((s) => s === "all");
-    const hasBooks = fixture.scopes.some(
-      (s): s is { books: ReadonlyArray<string> } =>
-        typeof s === "object" && Array.isArray(s.books),
-    );
-    expect(hasAll).toBe(true);
-    expect(hasBooks).toBe(true);
   });
 });

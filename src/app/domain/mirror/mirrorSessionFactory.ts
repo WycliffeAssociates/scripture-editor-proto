@@ -3,11 +3,11 @@
 // The platform seam for constructing a mirror session. The kernel builder
 // builds the platform-neutral `MirrorFeed`, then asks the injected factory to
 // attach a mirror to it. Web returns a worker-backed session; desktop returns a
-// composed session over two sinks (Rust resident mirror + backup worker). The
+// Rust resident session. The
 // kernel itself stays platform-agnostic — it only knows the feed and the
 // factory.
 
-import type { DirtyBufferStore } from "@/app/state/DirtyBufferStore.ts";
+import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 
 import type { MirrorFeed } from "./MirrorFeed.ts";
 
@@ -30,6 +30,7 @@ export type MirrorSessionFactory = (args: {
   workspaceKey: string;
   /** The managed root the dirty-buffer backups live under. */
   dirtyBufferRoot: string;
-  /** The store the desktop interim writes shipped-back envelope bytes through. */
-  dirtyBufferStore: DirtyBufferStore;
+  /** Optional platform cache seam used by native packed-findings persistence. */
+  fileSystem?: FileSystem;
+  cacheRoot?: string;
 }) => MirrorSession;

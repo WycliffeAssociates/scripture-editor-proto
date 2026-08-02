@@ -3,6 +3,7 @@
 import { createState } from "lexical";
 
 import { isUsfmTokenType, UsfmTokenTypes } from "@/app/data/editor.ts";
+import type { AttributeItem } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 /**
  * Shared Lexical NodeState definitions for USFM nodes.
@@ -55,6 +56,21 @@ const markerState = createState("marker", {
   parse: (value) => (typeof value === "string" ? value : undefined),
 });
 
+const attributesState = createState("attributes", {
+  parse: (value) =>
+    typeof value === "object" && Array.isArray(value)
+      ? (value as AttributeItem[])
+      : undefined,
+});
+
+const attributeSourceState = createState("attributeSource", {
+  parse: (value) => (typeof value === "string" ? value : undefined),
+});
+
+const attributeOffsetState = createState("attributeOffset", {
+  parse: (value) => (typeof value === "number" ? value : undefined),
+});
+
 /**
  * Defines the NodeState for 'markerText'. Stores the original text of a paragraph marker
  * (e.g., "\\p " or "\\p\n") to preserve whitespace for accurate diffing.
@@ -74,6 +90,9 @@ export {
   inCharsState,
   tokenTypeState,
   markerState,
+  attributesState,
+  attributeSourceState,
+  attributeOffsetState,
   markerTextState,
   isStructuralEmptyState,
 };

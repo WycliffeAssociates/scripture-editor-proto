@@ -1,10 +1,10 @@
 // RustMirrorSession.test.ts
 //
-// The desktop lint/sous sink. Covers the routing glue that isn't in the Rust
+// The desktop lint/Galley sink. Covers the routing glue that isn't in the Rust
 // mirror (cargo-tested) or the WorkspaceMirror (web): patches → mirror_push_patch,
-// analyze → mirror_lint/mirror_sous_analyze with result delivery, the `behind`
+// analyze → mirror_lint/mirror_galley_analyze with result delivery, the `behind`
 // branch → resyncRequest (NOT findings, which would clear the stores), and
-// backup commands ignored (they belong to the backup worker sink).
+// resident-native backup command routing.
 
 import { describe, expect, it, vi } from "vitest";
 
@@ -46,10 +46,9 @@ describe("RustMirrorSession", () => {
       ranAtGeneration: 7,
       behind: false,
     });
-    feed.sendCommand({ kind: "analyzeLint", scope: "all", generation: 7 });
+    feed.sendCommand({ kind: "analyzeLint", generation: 7 });
     await vi.waitFor(() => expect(results).toHaveLength(1));
     expect(invokeMock).toHaveBeenCalledWith("mirror_lint", {
-      scope: "all",
       generation: 7,
     });
     expect(results[0]).toMatchObject({
@@ -64,20 +63,22 @@ describe("RustMirrorSession", () => {
     invokeMock
       .mockResolvedValueOnce({ byBook: {}, ranAtGeneration: 9, behind: true })
       .mockResolvedValueOnce({ byBook: {}, ranAtGeneration: 9, behind: true })
-      .mockResolvedValue({
+      .mockResolvedValueOnce({
         byBook: { GEN: [] },
         ranAtGeneration: 9,
         behind: false,
-      });
+      })
+      // The packed payload is a separate binary IPC response.
+      .mockResolvedValueOnce(new ArrayBuffer(0));
     feed.sendCommand({
-      kind: "analyzeSous",
-      scope: { books: ["GEN"] },
+      kind: "analyzeGalley",
       generation: 9,
+      cachePolicy: "none",
     });
     await vi.waitFor(() => expect(results).toHaveLength(1));
-    expect(invokeMock).toHaveBeenCalledTimes(3);
+    expect(invokeMock).toHaveBeenCalledTimes(4);
     expect(results[0]).toMatchObject({
-      kind: "sousResult",
+      kind: "galleyResult",
       ranAtGeneration: 9,
     });
   });
@@ -91,9 +92,9 @@ describe("RustMirrorSession", () => {
       behind: true,
     });
     feed.sendCommand({
-      kind: "analyzeSous",
-      scope: { books: ["GEN"] },
+      kind: "analyzeGalley",
       generation: 9,
+      cachePolicy: "none",
     });
     await vi.waitFor(() => expect(results).toHaveLength(1));
     // Initial attempt + the two bounded retries before falling back.
@@ -101,8 +102,75 @@ describe("RustMirrorSession", () => {
     expect(results[0]).toEqual({ kind: "resyncRequest", lastGeneration: 9 });
   });
 
-  it("ignores backup commands (the backup worker owns them)", () => {
-    const { feed } = setup();
+  it("delivers native persisted findings before starting fresh analysis", async () => {
+    invokeMock.mockReset();
+    const feed = new MirrorFeed();
+    const results: MirrorResult[] = [];
+    feed.onResult((result) => results.push(result));
+    new RustMirrorSession({
+      feed,
+      workspaceKey: "workspace",
+      cacheRoot: "/cache",
+    });
+    invokeMock
+      .mockResolvedValueOnce({
+        packedId: 1,
+        keys: [],
+        segments: {},
+        cacheState: "persisted",
+        expectedIdentity: {
+          analysisId: "1",
+          targetContextId: "1",
+          hasReference: false,
+        },
+        ranAtGeneration: 4,
+        behind: false,
+      })
+      .mockResolvedValueOnce(new ArrayBuffer(1))
+      .mockResolvedValueOnce({
+        packedId: 2,
+        keys: [],
+        segments: {},
+        cacheState: "fresh",
+        ranAtGeneration: 4,
+        behind: false,
+      })
+      .mockResolvedValueOnce(new ArrayBuffer(2));
+
+    feed.sendCommand({
+      kind: "analyzeGalley",
+      generation: 4,
+      cachePolicy: "restore",
+    });
+
+    await vi.waitFor(() => expect(results).toHaveLength(2));
+    expect(
+      results.map(
+        (result) => result.kind === "galleyResult" && result.cacheState,
+      ),
+    ).toEqual(["persisted", "fresh"]);
+    expect(invokeMock.mock.calls.map(([command]) => command)).toEqual([
+      "mirror_galley_load",
+      "mirror_galley_packed",
+      "mirror_galley_analyze",
+      "mirror_galley_packed",
+    ]);
+  });
+
+  it("routes backup commands to the native resident", async () => {
+    const feed = new MirrorFeed();
+    const results: MirrorResult[] = [];
+    feed.onResult((result) => results.push(result));
+    new RustMirrorSession({
+      feed,
+      workspaceKey: "workspace",
+      dirtyBufferRoot: "/backups",
+    });
+    invokeMock.mockResolvedValue({
+      bookCode: "GEN",
+      cleared: true,
+      ranAtGeneration: 1,
+    });
     feed.sendCommand({
       kind: "writeBackup",
       bookCode: "GEN",
@@ -110,6 +178,14 @@ describe("RustMirrorSession", () => {
       generation: 1,
     });
     feed.sendCommand({ kind: "clearBackup", bookCode: "GEN", generation: 1 });
-    expect(invokeMock).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(results).toHaveLength(2));
+    expect(invokeMock).toHaveBeenCalledWith("mirror_backup", {
+      bookCode: "GEN",
+      appVersion: "1",
+      generation: 1,
+      dirtyBufferRoot: "/backups",
+      workspaceKey: "workspace",
+      clear: false,
+    });
   });
 });

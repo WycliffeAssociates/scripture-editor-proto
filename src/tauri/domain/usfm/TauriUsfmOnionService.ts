@@ -16,7 +16,6 @@ import type {
   TokenLintOptions,
   TokenScopeItem,
   TokenTransformResult,
-  UsfmMarkerCatalog,
 } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 /**
@@ -100,10 +99,6 @@ function withFormatChangeFlag(
 
 export class TauriUsfmOnionService implements IUsfmOnionService {
   readonly supportsPathIo = true;
-
-  async getMarkerCatalog(): Promise<UsfmMarkerCatalog> {
-    return invoke("usfm_onion_marker_catalog");
-  }
 
   private async lintBatchFromPaths(
     paths: string[],

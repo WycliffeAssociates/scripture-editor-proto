@@ -1,5 +1,5 @@
 {
-  "_comment": "Canonical wire examples for the mirror protocol — ONE per MirrorPatch kind plus both AnalyzeScope forms. The TS test (tests/unit/mirrorProtocolFixtures.test.ts) pins these to the TS types; the Rust test (mirror.rs mod tests) deserializes them into the Rust DTOs. If either side's wire shape drifts, its test fails. Adding a patch kind must add a fixture here (the TS Record<MirrorPatch['kind']> coverage check forces it).",
+  "_comment": "Canonical wire examples for the mirror protocol — ONE per MirrorPatch kind. The TS test (tests/unit/mirrorProtocolFixtures.test.ts) pins these to the TS types; the Rust test (mirror.rs mod tests) deserializes them into the Rust DTOs. If either side's wire shape drifts, its test fails. Adding a patch kind must add a fixture here (the TS Record<MirrorPatch['kind']> coverage check forces it).",
   "patches": [
     {
       "kind": "pushChapter",
@@ -28,6 +28,7 @@
       "kind": "pushBaseline",
       "bookCode": "GEN",
       "diskBaseline": { "kind": "present", "md5": "abc123" },
+      "baselineTokens": [],
       "generation": 7
     },
     {
@@ -36,6 +37,7 @@
         {
           "bookCode": "EXO",
           "diskBaseline": { "kind": "absent" },
+          "baselineTokens": [],
           "chapters": [
             {
               "chapterNum": 1,
@@ -52,11 +54,35 @@
         {
           "bookCode": "GEN",
           "diskBaseline": { "kind": "present", "md5": "def456" },
+          "baselineTokens": [],
           "chapterDirty": [{ "chapterNum": 1, "dirty": false }]
         }
       ],
       "generation": 9
+    },
+    {
+      "kind": "updateBook",
+      "book": {
+        "bookCode": "GEN",
+        "diskBaseline": { "kind": "present", "md5": "ghi789" },
+        "baselineTokens": [],
+        "chapters": [
+          {
+            "chapterNum": 1,
+            "chapter": {
+              "tokens": [],
+              "eol": "\n",
+              "dirty": true
+            }
+          }
+        ]
+      },
+      "generation": 10
+    },
+    {
+      "kind": "removeBook",
+      "bookCode": "MAT",
+      "generation": 11
     }
-  ],
-  "scopes": [{ "books": ["GEN", "EXO"] }, "all"]
+  ]
 }

@@ -212,7 +212,8 @@ time and aren't obvious from the code:
   and drops stale results by a high-water mark, so nothing depends on ordered
   delivery. Don't "fix" an out-of-order symptom by forcing ordering — check the
   generation handling first.
-- **Tracing is gated standing infra, not scaffolding.** `localStorage.mirrorTrace
-= "1"` turns on per-boundary tracing (zero cost off); workers relay entries to
-  the main console (worker logs aren't Playwright-captured). Reach for it before
-  instrumenting by hand.
+- **Mirror performance diagnostics are focused timers, not standing tracing.**
+  Development builds time resident Galley updates, analysis, main-thread
+  findings reconciliation, and the commit-to-findings path. Keep the labels
+  narrow enough to compare against the frame budget without reintroducing a
+  per-boundary event stream.

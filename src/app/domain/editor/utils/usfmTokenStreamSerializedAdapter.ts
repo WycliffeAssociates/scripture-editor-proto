@@ -115,8 +115,8 @@ const EDITOR_TYPE_BY_ONION_KIND = {
   optBreak: UsfmTokenTypes.text,
   marker: UsfmTokenTypes.marker,
   endMarker: UsfmTokenTypes.endMarker,
-  milestone: UsfmTokenTypes.marker,
-  milestoneEnd: UsfmTokenTypes.endMarker,
+  milestone: UsfmTokenTypes.milestone,
+  milestoneEnd: UsfmTokenTypes.milestoneEnd,
   bookCode: UsfmTokenTypes.bookCode,
   number: UsfmTokenTypes.numberRange,
   text: UsfmTokenTypes.text,
@@ -124,6 +124,13 @@ const EDITOR_TYPE_BY_ONION_KIND = {
 
 function flatTokenKindToLexicalTokenType(kind: Token["kind"]): UsfmTokenType {
   return EDITOR_TYPE_BY_ONION_KIND[kind];
+}
+
+function tokenToLexicalType(token: Token): UsfmTokenType {
+  if (token.kind === "marker" && token.markerMetadata?.kind === "milestone") {
+    return UsfmTokenTypes.milestone;
+  }
+  return flatTokenKindToLexicalTokenType(token.kind);
 }
 
 export function lexicalRootChildrenToUsfmTokenStream(
@@ -306,6 +313,8 @@ export function lexicalToTokens(
       // Round-tripped via `tokensToUsfm` upstream — without this
       // the attribute slice silently drops on save.
       attributes: node.attributes,
+      attributeSource: node.attributeSource,
+      attributeOffset: node.attributeOffset,
     });
     if (sid) lastSid = sid;
   }
@@ -350,9 +359,11 @@ export function tokensToLexical(args: {
                   text: token.source,
                   id: token.id ?? guidGenerator(),
                   sid: token.sid ?? "",
-                  tokenType: flatTokenKindToLexicalTokenType(token.kind),
+                  tokenType: tokenToLexicalType(token),
                   marker: token.marker ?? undefined,
                   attributes: token.attributes,
+                  attributeSource: token.attributeSource,
+                  attributeOffset: token.attributeOffset,
                 }) as SerializedLexicalNode),
           ),
           args.direction,
@@ -400,7 +411,9 @@ function lexicalNodeToPrettifyToken(
       sid: node.sid,
       inPara: node.inPara,
       inChars: node.inChars,
-      attributes: node.attributes,
+      attributes: node.attributes as unknown as
+        | Record<string, string>
+        | undefined,
       content: nestedTokens,
       __serialized: node,
       __nestedDirection: nestedDirection,
@@ -416,6 +429,11 @@ function lexicalNodeToPrettifyToken(
       sid: node.sid,
       inPara: node.inPara,
       inChars: node.inChars,
+      attributes: node.attributes as unknown as
+        | Record<string, string>
+        | undefined,
+      attributeSource: node.attributeSource,
+      attributeOffset: node.attributeOffset,
       __serialized: node,
     };
   }
@@ -523,6 +541,10 @@ function prettifyTokenToLexicalNode(
       id: token.id ?? (original as { id?: string }).id,
       inPara: token.inPara,
       inChars: token.inChars,
+      attributes:
+        token.attributes as unknown as SerializedUSFMTextNode["attributes"],
+      attributeSource: token.attributeSource,
+      attributeOffset: token.attributeOffset,
     } as SerializedLexicalNode;
   }
 
@@ -535,6 +557,10 @@ function prettifyTokenToLexicalNode(
     sid: token.sid ?? "",
     inPara: token.inPara,
     inChars: token.inChars,
+    attributes:
+      token.attributes as unknown as SerializedUSFMTextNode["attributes"],
+    attributeSource: token.attributeSource,
+    attributeOffset: token.attributeOffset,
     id:
       token.id ??
       (typeof crypto !== "undefined"

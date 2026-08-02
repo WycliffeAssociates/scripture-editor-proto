@@ -6,9 +6,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { analysisDisabledInMode, shapeForSurface } from "@/app/data/editor.ts";
 import type { Settings, SettingsManager } from "@/app/data/settings.ts";
 import type { RecoveryReportEntry } from "@/app/domain/api/recoverDirtyBuffers.ts";
+import { decodeGalleyAnalysis } from "@/app/domain/editor/annotations/decodeGalleyFindings.ts";
 import {
-  groupFindingsByChapter,
-  onionFindingsByChapter,
+  groupFindingsByBook,
+  onionSnapshotByBook,
   sousFindingsToFindings,
 } from "@/app/domain/editor/annotations/normalizeFindings.ts";
 import { makeDirtyBufferPipeline } from "@/app/domain/editor/pipelines/dirtyBufferPipeline.ts";
@@ -23,12 +24,13 @@ import { makeSaveStatusPipeline } from "@/app/domain/editor/pipelines/saveStatus
 import { makeSousPipeline } from "@/app/domain/editor/pipelines/sousPipeline.ts";
 import { makeStructureMaintenancePipeline } from "@/app/domain/editor/pipelines/structureMaintenancePipeline.ts";
 import { makeTokenFixpointPipeline } from "@/app/domain/editor/pipelines/tokenFixpointPipeline.ts";
+import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import type { WorkspaceKernelHandle } from "@/app/domain/mirror/workspaceKernel.ts";
 import { bookCodeToTitle } from "@/app/domain/project/bookTitle.ts";
 import { revertChapterToLoadedState } from "@/app/domain/project/saveAndRevertService.ts";
 import { withWorkingFilesDraftSync } from "@/app/domain/project/workingFileCommand.ts";
+import { galleyConfigFromSettings } from "@/app/domain/sous/galleyConfig.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
-import type { DirtyBufferStore } from "@/app/state/DirtyBufferStore.ts";
 import { FindingsStore } from "@/app/state/FindingsStore.ts";
 import { LayoutTickStore } from "@/app/state/LayoutTickStore.ts";
 import type { RecoveredConflictTracker } from "@/app/state/RecoveredConflictTracker.ts";
@@ -151,6 +153,8 @@ export interface WorkSpaceContextType {
    * the lint + sous pipelines; read via `useSyncExternalStore` selectors.
    */
   findingsStore: FindingsStore;
+  /** Transport-neutral resident Braid/Galley command feed. */
+  mirrorFeed: MirrorFeed;
   /**
    * Workspace modal outlet: decorator actions (and future command surfaces)
    * open modals here via `openModal(Component, props)`; the provider mounts
@@ -198,8 +202,6 @@ type ProjectProviderProps = {
   loadedProject: Project;
   workspaceBaselineStore: WorkspaceBaselineStore;
   recoveredConflictTracker: RecoveredConflictTracker;
-  dirtyBufferStore: DirtyBufferStore;
-  workspaceKey: string;
   restoredBookCodes: string[];
   conflictedBookCodes: string[];
   recoveryReportEntries: RecoveryReportEntry[];
@@ -231,8 +233,6 @@ export const ProjectProvider = ({
   loadedProject,
   workspaceBaselineStore,
   recoveredConflictTracker,
-  dirtyBufferStore,
-  workspaceKey,
   restoredBookCodes,
   conflictedBookCodes,
   recoveryReportEntries,
@@ -278,23 +278,21 @@ export const ProjectProvider = ({
   // the provider on project change (`key={workspaceKey}` in $project.index.tsx).
   const findingsStore = useStableInstance(() => {
     const store = new FindingsStore();
-    for (const [bookCode, issues] of Object.entries(
-      kernel.initialFindings.lint,
-    )) {
-      store.commitBookFindings(
-        "onion",
-        bookCode,
-        onionFindingsByChapter(issues),
+    if (kernel.initialFindings.lint) {
+      store.commitBraidSnapshot(
+        onionSnapshotByBook(kernel.initialFindings.lint),
       );
     }
-    for (const [bookCode, analysis] of Object.entries(
-      kernel.initialFindings.sous,
-    )) {
-      store.commitSousBookFindings(
-        bookCode,
-        groupFindingsByChapter(sousFindingsToFindings(analysis.findings)),
-        analysis.segments,
-      );
+    if (kernel.initialFindings.sous) {
+      try {
+        const analysis = decodeGalleyAnalysis(kernel.initialFindings.sous);
+        store.commitSousFindings(
+          groupFindingsByBook(sousFindingsToFindings(analysis.findings)),
+          analysis.segments,
+        );
+      } catch (error: unknown) {
+        console.warn("[mirror] persisted Galley snapshot rejected", error);
+      }
     }
     // local-lint findings are already normalized (the kernel's sync reduce
     // produced FindingsByChapter directly), so they commit as-is.
@@ -376,8 +374,6 @@ export const ProjectProvider = ({
       workingFilesStore,
       workspaceBaselineStore,
       findingsStore,
-      dirtyBufferStore,
-      workspaceKey,
     });
     return () => {
       stopRouter();
@@ -386,9 +382,7 @@ export const ProjectProvider = ({
   }, [
     kernel,
     mirrorFeed,
-    workspaceKey,
     projectFiles,
-    dirtyBufferStore,
     workingFilesStore,
     workspaceBaselineStore,
     findingsStore,
@@ -576,6 +570,7 @@ export const ProjectProvider = ({
         : makeSousPipeline({
             workingFilesStore,
             feed: mirrorFeed,
+            config: () => galleyConfigFromSettings(appSettingsRef.current),
           }),
     [analysisDisabled, workingFilesStore, mirrorFeed],
   );
@@ -624,7 +619,26 @@ export const ProjectProvider = ({
     editorMode: project.appSettings.editorMode,
     allProjects: projects,
     currentProjectRoute,
+    mirrorFeed,
     onGitRemoteStatusChanged: (status) => remoteStatusSetterRef.current(status),
+    onSuccessfulDiskSave: (receipt) => {
+      if (analysisDisabled) return;
+      // The save clean-mark commits synchronously, while the mirror patch
+      // producer consumes the commit stream on its own Effect fiber. Let that
+      // patch reach the resident Galley before requesting the post-save cache
+      // refresh; otherwise the refresh could analyze the pre-save corpus.
+      setTimeout(() => {
+        // A later edit means the exact saved snapshot is no longer current;
+        // never write that newer unsaved corpus into the cache.
+        if (workingFilesStore.generation() !== receipt.editorGeneration) return;
+        mirrorFeed.sendCommand({
+          kind: "analyzeGalley",
+          generation: receipt.editorGeneration,
+          config: galleyConfigFromSettings(appSettingsRef.current),
+          cachePolicy: "refresh",
+        });
+      }, 0);
+    },
   });
   const remote = useRemoteSync({
     loadedProject,
@@ -679,6 +693,7 @@ export const ProjectProvider = ({
     setIsFormatMatchSuggestionsOpen: project.setIsFormatMatchSuggestionsOpen,
     targetMarkerPreservationMode: project.targetMarkerPreservationMode,
     history,
+    mirrorFeed,
   });
   const search = useProjectSearch({
     workingFilesStore,
@@ -822,6 +837,7 @@ export const ProjectProvider = ({
         layoutTickStore,
         searchHighlightStore,
         findingsStore,
+        mirrorFeed,
         workspaceModalStore,
       }}
     >

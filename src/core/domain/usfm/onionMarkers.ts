@@ -1,16 +1,18 @@
+import * as onion from "usfm-onion-web";
+
 import type {
   ClosingBehavior,
   MarkerPayload,
   ParagraphCategory,
-  UsfmMarkerCatalog,
 } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 /**
  * Marker registry used by editor/import/prettify code that needs fast membership
  * checks without repeatedly carrying the whole marker catalog around.
  *
- * The registry is initialized from the USFM Onion marker catalog and then exposes
- * readonly marker sets for the rest of the application.
+ * The registry is built directly from Onion's immutable upstream catalog at
+ * module load. This keeps marker facts available synchronously to transforms,
+ * rendering, workers, and tests without a startup registration race.
  */
 // Markers we accept at the editor boundary that the upstream catalog does not
 // enumerate. `s5` is USFM 2.x legacy: a chunk-delimiter used heavily in WA
@@ -42,7 +44,7 @@ type MarkerRegistry = {
   chapterMarkers: Set<string>;
 };
 
-let registry: MarkerRegistry | null = null;
+const registry = buildRegistry();
 
 function createReadonlySet(getter: () => Set<string>): ReadonlySet<string> {
   return {
@@ -70,114 +72,116 @@ function createReadonlySet(getter: () => Set<string>): ReadonlySet<string> {
   } satisfies ReadonlySet<string>;
 }
 
-function requireRegistry() {
-  if (!registry) {
-    throw new Error(
-      "USFM marker registry not initialized. Initialize it from IUsfmOnionService before using marker helpers.",
+function buildRegistry(): MarkerRegistry {
+  const catalog = onion.markerCatalog();
+  const infos = catalog.all();
+  try {
+    const validNoteMarkers = new Set(
+      infos
+        .filter((info) => info.category === "noteContainer")
+        .map((info) => info.marker),
     );
+    const validCharMarkers = new Set([
+      ...infos
+        .filter((info) => info.category === "character")
+        .map((info) => info.marker),
+      ...LOCAL_ONLY_REGULAR_CHARACTER_MARKERS,
+    ]);
+    const validParaMarkers = new Set([
+      ...infos
+        .filter((info) => info.category === "paragraph")
+        .map((info) => info.marker),
+      ...LOCAL_ONLY_PARAGRAPH_MARKERS,
+    ]);
+    const allCharMarkers = new Set([
+      ...validNoteMarkers,
+      ...validCharMarkers,
+      ...infos
+        .filter((info) => info.category === "noteSubmarker")
+        .map((info) => info.marker),
+      ...LOCAL_ONLY_CHARACTER_MARKERS,
+    ]);
+    const allUsfmMarkers = new Set([
+      ...infos.map((info) => info.marker),
+      ...LOCAL_ONLY_MARKERS,
+    ]);
+
+    const paragraphCategoryByMarker = new Map<string, ParagraphCategory>();
+    const payloadByMarker = new Map<string, MarkerPayload>();
+    const closingBehaviorByMarker = new Map<string, ClosingBehavior>();
+    const chapterMarkers = new Set<string>();
+    const chapterVerseMarkers = new Set<string>();
+    const documentMarkers = new Set<string>();
+    for (const info of infos) {
+      if (info.paragraphCategory) {
+        paragraphCategoryByMarker.set(info.marker, info.paragraphCategory);
+      }
+      if (info.payload) payloadByMarker.set(info.marker, info.payload);
+      if (info.closingBehavior) {
+        closingBehaviorByMarker.set(info.marker, info.closingBehavior);
+      }
+      if (info.category === "chapter") chapterMarkers.add(info.marker);
+      if (info.category === "chapter" || info.category === "verse") {
+        chapterVerseMarkers.add(info.marker);
+      }
+      if (info.category === "document") documentMarkers.add(info.marker);
+    }
+
+    return {
+      validNoteMarkers,
+      validCharMarkers,
+      validParaMarkers,
+      allCharMarkers,
+      allUsfmMarkers,
+      chapterVerseMarkers,
+      documentMarkers,
+      paragraphCategoryByMarker,
+      payloadByMarker,
+      closingBehaviorByMarker,
+      chapterMarkers,
+    };
+  } finally {
+    catalog.free();
   }
-  return registry;
-}
-
-function buildRegistry(catalog: UsfmMarkerCatalog): MarkerRegistry {
-  const validNoteMarkers = new Set(catalog.noteMarkers);
-  const validCharMarkers = new Set([
-    ...catalog.regularCharacterMarkers,
-    ...LOCAL_ONLY_REGULAR_CHARACTER_MARKERS,
-  ]);
-  const validParaMarkers = new Set([
-    ...catalog.paragraphMarkers,
-    ...LOCAL_ONLY_PARAGRAPH_MARKERS,
-  ]);
-  const allCharMarkers = new Set([
-    ...validNoteMarkers,
-    ...validCharMarkers,
-    ...catalog.noteSubmarkers,
-    ...LOCAL_ONLY_CHARACTER_MARKERS,
-  ]);
-  const allUsfmMarkers = new Set([
-    ...catalog.allMarkers,
-    ...LOCAL_ONLY_MARKERS,
-  ]);
-
-  const paragraphCategoryByMarker = new Map<string, ParagraphCategory>();
-  const payloadByMarker = new Map<string, MarkerPayload>();
-  const closingBehaviorByMarker = new Map<string, ClosingBehavior>();
-  const chapterMarkers = new Set<string>();
-  for (const [marker, info] of Object.entries(catalog.infoByMarker)) {
-    if (info.paragraphCategory) {
-      paragraphCategoryByMarker.set(marker, info.paragraphCategory);
-    }
-    if (info.payload) {
-      payloadByMarker.set(marker, info.payload);
-    }
-    if (info.closingBehavior) {
-      closingBehaviorByMarker.set(marker, info.closingBehavior);
-    }
-    if (info.category === "chapter") {
-      chapterMarkers.add(marker);
-    }
-  }
-
-  return {
-    validNoteMarkers,
-    validCharMarkers,
-    validParaMarkers,
-    allCharMarkers,
-    allUsfmMarkers,
-    chapterVerseMarkers: new Set(catalog.chapterVerseMarkers),
-    documentMarkers: new Set(catalog.documentMarkers),
-    paragraphCategoryByMarker,
-    payloadByMarker,
-    closingBehaviorByMarker,
-    chapterMarkers,
-  };
-}
-
-export function initializeUsfmMarkerCatalog(catalog: UsfmMarkerCatalog) {
-  registry = buildRegistry(catalog);
 }
 
 export const VALID_NOTE_MARKERS = createReadonlySet(
-  () => requireRegistry().validNoteMarkers,
+  () => registry.validNoteMarkers,
 );
 
 export const VALID_CHAR_MARKERS = createReadonlySet(
-  () => requireRegistry().validCharMarkers,
+  () => registry.validCharMarkers,
 );
 
 export const VALID_PARA_MARKERS = createReadonlySet(
-  () => requireRegistry().validParaMarkers,
+  () => registry.validParaMarkers,
 );
 
 export const ALL_CHAR_MARKERS = createReadonlySet(
-  () => requireRegistry().allCharMarkers,
+  () => registry.allCharMarkers,
 );
 
 export const ALL_USFM_MARKERS = createReadonlySet(
-  () => requireRegistry().allUsfmMarkers,
+  () => registry.allUsfmMarkers,
 );
 
 export const CHAPTER_VERSE_MARKERS = createReadonlySet(
-  () => requireRegistry().chapterVerseMarkers,
+  () => registry.chapterVerseMarkers,
 );
 
 export function isDocumentMarker(marker: string) {
-  return requireRegistry().documentMarkers.has(marker);
+  return registry.documentMarkers.has(marker);
 }
 
 /**
  * The marker's semantic paragraph category from the USFM Onion catalog
  * (`"section"` / `"poetry"` / `"list"` / `"body"` / …), or `undefined` for a
- * non-paragraph marker, a marker the catalog does not enumerate, OR before the
- * catalog is initialized. Unlike the other helpers this does NOT throw when
- * uninitialized: it is read on the per-token render path, where a graceful
- * `undefined` (caller falls back to its local allow-list) is safer than a throw.
+ * non-paragraph marker or a marker the catalog does not enumerate.
  */
 export function getParagraphCategory(
   marker: string,
 ): ParagraphCategory | undefined {
-  return registry?.paragraphCategoryByMarker.get(marker);
+  return registry.paragraphCategoryByMarker.get(marker);
 }
 
 export function isValidParaMarker(marker: string) {
@@ -186,23 +190,21 @@ export function isValidParaMarker(marker: string) {
 
 /**
  * The marker's tag-argument payload (`"numberRange"` / `"bookCode"`), or
- * `undefined` for markers without one OR before the catalog is initialized.
- * Graceful like `getParagraphCategory` — read on load/serialize paths where
- * falling back to flat-token behavior is safer than a throw.
+ * `undefined` for markers without one.
  */
 function getMarkerPayload(marker: string): MarkerPayload | undefined {
-  return registry?.payloadByMarker.get(marker);
+  return registry.payloadByMarker.get(marker);
 }
 
 /**
  * The marker's close expectation from the catalog, or `undefined` when the
- * catalog doesn't enumerate it / isn't initialized. Expectation only — the
+ * catalog doesn't enumerate it. Expectation only — the
  * bytes a close actually arrived with live on tokens/nodes.
  */
 export function getClosingBehavior(
   marker: string,
 ): ClosingBehavior | undefined {
-  return registry?.closingBehaviorByMarker.get(marker);
+  return registry.closingBehaviorByMarker.get(marker);
 }
 
 /**
@@ -225,8 +227,7 @@ export function markerExpectsNumber(marker: string): boolean {
  */
 export function isEnabledNumberedMarker(marker: string): boolean {
   return (
-    markerExpectsNumber(marker) &&
-    (registry?.chapterVerseMarkers.has(marker) ?? false)
+    markerExpectsNumber(marker) && registry.chapterVerseMarkers.has(marker)
   );
 }
 
@@ -236,5 +237,5 @@ export function isEnabledNumberedMarker(marker: string): boolean {
  * line container.
  */
 export function isChapterMarker(marker: string): boolean {
-  return registry?.chapterMarkers.has(marker) ?? false;
+  return registry.chapterMarkers.has(marker);
 }

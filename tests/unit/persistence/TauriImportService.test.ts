@@ -86,6 +86,7 @@ describe("TauriImportService", () => {
       readBytes: vi.fn(),
       writeText: vi.fn(),
       atomicWriteText: vi.fn(),
+      atomicWriteBytes: vi.fn(),
       writeBytes: vi.fn(),
       exists: vi.fn(),
       list: vi.fn(),

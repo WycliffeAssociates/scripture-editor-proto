@@ -1,18 +1,9 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   classifyParagraphMarker,
   isSectionMarker,
 } from "@/app/domain/editor/markerTaxonomy.ts";
-import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
-import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
-
-// classifyParagraphMarker / isSectionMarker now DERIVE from the usfm-onion
-// catalog's `paragraphCategory` (v0.0.5+), so the registry must be initialized.
-beforeAll(async () => {
-  initializeUsfmMarkerCatalog(await webUsfmOnionService.getMarkerCatalog());
-});
-
 describe("classifyParagraphMarker (catalog-derived)", () => {
   it.each([
     // poetry — paragraphCategory: "poetry"

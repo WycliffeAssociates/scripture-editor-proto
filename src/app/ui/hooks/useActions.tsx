@@ -4,6 +4,7 @@ import type { Dispatch, SetStateAction } from "react";
 
 import { type EditorModeSetting, shapeForSurface } from "@/app/data/editor.ts";
 import type { Settings } from "@/app/data/settings.ts";
+import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import type {
   ScriptureBookState,
   ScriptureChapterState,
@@ -55,6 +56,7 @@ type Props = {
   setIsFormatMatchSuggestionsOpen: (open: boolean) => void;
   targetMarkerPreservationMode: TargetMarkerPreservationMode;
   history: CustomHistoryHook;
+  mirrorFeed: MirrorFeed;
 };
 
 /**
@@ -88,6 +90,7 @@ export const useWorkspaceActions = ({
   setIsFormatMatchSuggestionsOpen,
   targetMarkerPreservationMode,
   history,
+  mirrorFeed,
 }: Props) => {
   const setColorScheme = (value: "light" | "dark") => {
     updateAppSettings({ colorScheme: value });
@@ -171,6 +174,7 @@ export const useWorkspaceActions = ({
     editorMode: appSettings.editorMode,
     setIsProcessing,
     history,
+    mirrorFeed,
   });
 
   const formatMatching = useFormatMatching({

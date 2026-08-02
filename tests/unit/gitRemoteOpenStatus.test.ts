@@ -59,6 +59,7 @@ function createSettingsManager(autoSyncOnOpen: boolean): SettingsManager {
     autoAcceptOwnWorkOnSave: false,
     autoAcceptIncomingWork: false,
     diffViewModeDefault: "list" as const,
+    proofreading: { depth: 50, rules: {} },
     referenceByProject: {},
   };
   return {
