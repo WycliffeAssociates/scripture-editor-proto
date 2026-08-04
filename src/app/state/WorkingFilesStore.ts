@@ -327,6 +327,7 @@ function applyPatch(
             // on read. Direction is a chapter property and doesn't change here.
             const currentTokens = lexicalToTokens(lexicalState, {
               bookCode,
+              chapterNumber: chapter,
             });
             // Content-derived dirty: matches legacy
             // updateChapterLexical so undo-to-clean still flips

@@ -124,6 +124,14 @@ export class WebBraidHost {
       : "lf";
   }
 
+  /** Whether Braid currently holds this book at all. */
+  hasBook(bookCode: string): boolean {
+    const wanted = bookCode.toUpperCase();
+    return this.ensureBraid()
+      .books()
+      .some((book) => book.book === wanted);
+  }
+
   isDirty(bookCode: string): boolean {
     return unwrapBraid(
       this.ensureBraid().isDirty({

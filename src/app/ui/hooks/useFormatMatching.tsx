@@ -197,7 +197,10 @@ export function useFormatMatching({
     nextLexical: SerializedEditorState,
     bookCode: string,
   ) => {
-    chapter.currentTokens = lexicalToTokens(nextLexical, { bookCode });
+    chapter.currentTokens = lexicalToTokens(nextLexical, {
+      bookCode,
+      chapterNumber: chapter.chapterNumber,
+    });
     chapter.dirty =
       tokensToUsfm(chapter.currentTokens, chapter.eol) !==
       tokensToUsfm(chapter.sourceTokens, chapter.eol);

@@ -1235,6 +1235,17 @@ impl NativeMirrorState {
         }
     }
 
+    /// Whether Braid currently holds this book at all.
+    fn braid_has_book(&mut self, book_code: &str) -> bool {
+        let Ok(braid) = self.ensure_braid() else {
+            return false;
+        };
+        braid
+            .books()
+            .into_iter()
+            .any(|book| book.book.to_string() == book_code)
+    }
+
     fn braid_is_dirty(&mut self, book_code: &str) -> Result<bool, String> {
         let book = usfm_onion::token::BookId::from_str(book_code)
             .ok_or_else(|| format!("invalid Braid book id: {book_code}"))?;
@@ -2037,14 +2048,25 @@ pub fn mirror_backup(
         });
     }
     let path = dirty_buffer_path(&dirty_buffer_root, &workspace_key, &book_code);
+    // A book the editor knows about but Braid does not is a residency gap — an
+    // atomic corpus mutation that was rejected, say. Leave any existing backup
+    // ALONE rather than treating "no resident content" as "nothing to save":
+    // clearing here would delete the user's unsaved work at exactly the moment
+    // the resident state is the thing that is wrong. An explicit `clear` still
+    // clears; that one is the caller's decision, not an inference.
+    if !clear && !mirror.braid_has_book(&book_code) {
+        eprintln!("[native:braid] no resident book; backup left as-is book={book_code}");
+        return Ok(MirrorBackupResultDto {
+            book_code,
+            cleared: false,
+            ran_at_generation: generation,
+            behind: false,
+        });
+    }
     let is_dirty = if clear {
         false
     } else {
-        if !mirror.books.contains_key(&book_code) {
-            false
-        } else {
-            mirror.braid_is_dirty(&book_code).unwrap_or(true)
-        }
+        mirror.braid_is_dirty(&book_code).unwrap_or(true)
     };
     if !is_dirty {
         match std::fs::remove_file(&path) {

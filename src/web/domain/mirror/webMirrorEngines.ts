@@ -339,6 +339,21 @@ export function makeWebMirrorEngines(args: HostOptions): WebMirrorEngines {
   async function writeBackup(
     command: Extract<MirrorCommand, { kind: "writeBackup" }>,
   ): Promise<MirrorResult> {
+    // A book the editor knows about but Braid does not is a residency gap —
+    // an atomic corpus mutation that was rejected, say. Report it and leave
+    // any existing backup ALONE: with no resident content there is nothing to
+    // serialize, and clearing on this path would delete the user's unsaved
+    // work precisely when the resident state is the thing that is wrong.
+    if (!braid.hasBook(command.bookCode)) {
+      console.warn("[worker:braid] no resident book; backup left as-is", {
+        bookCode: command.bookCode,
+      });
+      return {
+        kind: "backupResult",
+        bookCode: command.bookCode,
+        ranAtGeneration: command.generation,
+      };
+    }
     if (!braid.isDirty(command.bookCode))
       return clearBackup(command.bookCode).then(() => ({
         kind: "backupResult",

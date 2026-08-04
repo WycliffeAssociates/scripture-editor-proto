@@ -200,6 +200,14 @@ export function usfmTokenStreamToLexicalRootChildren(
 export type LexicalToTokensOptions = {
   structuralParagraphBreaks?: boolean;
   bookCode?: string;
+  /**
+   * The chapter being flattened. Token ids must be unique within a BOOK — that
+   * is Braid's validation grain — but this function only ever sees one
+   * chapter, so a purely positional id collides with the same position in
+   * every sibling chapter. Supply this and newline ids stay stable across
+   * edits AND unique across the book; omit it and they are minted instead.
+   */
+  chapterNumber?: number;
 };
 
 function shouldInsertStructuralLinebreakAfterSyntheticParaMarker(
@@ -277,11 +285,17 @@ export function lexicalToTokens(
   let lastSid = "";
   let linebreakId = 0;
   const tokens: Token[] = [];
+  // Lexical's built-in LineBreakNode carries no id of its own, so every
+  // newline token's id is minted here.
+  const newlineId = (): string =>
+    options.chapterNumber === undefined
+      ? guidGenerator()
+      : `linebreak-${options.chapterNumber}-${linebreakId++}`;
 
   for (const node of nodes) {
     if (node.type === "linebreak") {
       tokens.push({
-        id: `linebreak-${linebreakId++}`,
+        id: newlineId(),
         kind: "newline",
         sid: lastSid,
         source: "\n",
