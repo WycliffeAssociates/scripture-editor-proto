@@ -82,8 +82,8 @@ export function useSaveAndRevert(args: {
   // (instead of in the parent) keeps the dirty-aware UI honest without
   // depending on parent re-renders.
   const files = useSyncExternalStore(
-    args.workingFilesStore.subscribe.bind(args.workingFilesStore),
-    args.workingFilesStore.getSnapshot.bind(args.workingFilesStore),
+    args.workingFilesStore.subscribe,
+    args.workingFilesStore.getSnapshot,
   );
   const hasUnsavedChanges =
     files.some((file) => file.chapters.some((chapter) => chapter.dirty)) ||

@@ -242,15 +242,16 @@ export class WorkingFilesStore {
     this.pendingStructurallyChangedBooks.clear();
   }
 
-  /** React-side `useSyncExternalStore` subscribe (used by `useSave`). */
-  subscribe(listener: Listener): () => void {
+  // Bound, like `FindingsStore`'s: these are handed to
+  // `useSyncExternalStore` as bare references, and an unbound method loses
+  // `this` at that call site.
+  /** React-side `useSyncExternalStore` subscribe. */
+  subscribe = (listener: Listener): (() => void) => {
     this.tickListeners.add(listener);
     return () => this.tickListeners.delete(listener);
-  }
+  };
 
-  getSnapshot(): ScriptureBookState[] {
-    return this.state;
-  }
+  getSnapshot = (): ScriptureBookState[] => this.state;
 
   /** Effect-side commit stream — pipe with `Stream.filter` / `debounce` /
    * `switchMap`; `Effect.runFork(Stream.runDrain(...))` to start a fiber. */
