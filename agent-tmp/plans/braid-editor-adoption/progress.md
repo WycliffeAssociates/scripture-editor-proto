@@ -382,3 +382,75 @@ Append-only execution record tied to `plan.md` sections.
   integration, resident baseline diff wiring, and the larger generic mirror/native
   DTO deletion pass. The current app serializers remain only where a synchronous
   function-color boundary or no-resident test path still requires them.
+
+## 2026-08-04 — Review remediation: load lifecycle, ownership, exact bytes
+
+Addresses the standards + lifecycle review of the 2026-08-02/03 implementation.
+
+- **[P1] Kernel arbitration now precedes any resident load.** `acquireWorkspaceKernel`
+  is replaced by `reserveWorkspaceSlot`, which the route calls before it creates a
+  session or reads a byte. `reuse` serves the kernel's own loader payload (the
+  same store instances the still-mounted provider holds) and loads nothing;
+  `declined` is the preload-while-occupied case and loads nothing; `granted`
+  disposes the outgoing kernel FIRST, then the caller loads and `install`s.
+  Previously a same-project reopen and a preload each prepared a second session
+  and ran a full load — on desktop, against the live workspace's process-wide
+  resident state — and then disposed it, globally resetting the survivor.
+- **[P1] Native ownership is epoch-scoped.** Each `RustMirrorSession` takes an
+  epoch. `mirror_load_project` adopts it and resets the state it takes over (a
+  load is by definition a complete replacement); `mirror_dispose(epoch)` no-ops
+  unless it still owns the state. The old `generation != high_water` guard, which
+  rejected a new project's generation-0 load whenever the previous workspace had
+  a nonzero high-water mark, is gone.
+- **[P1] Structural patches are generation-guarded.** `FullSync`/`ResidentSeed`
+  drop when older than the corpus high-water mark; `UpdateBook`/`RemoveBook` drop
+  per book (a newer patch for a DIFFERENT book says nothing about this one, and
+  dropping on that basis would lose its edit). `SyncMeta`'s Braid baseline moved
+  under the same guard as the disk baseline it accompanies. Four Rust tests.
+- **[P1] Exact disk bytes end to end.** Both hosts cold-seed Braid with the
+  source form of `BookInput`, never a token round trip, so every hash Braid
+  publishes binds to the file on disk. The load returns each book's exact bytes
+  (one concatenated buffer + offsets) and its md5, hashed by the host that read
+  them. This fixes three things at once: crash-recovery baselines hashed
+  reconstructed USFM; the warm cache could never validate (its manifest held
+  round-tripped text compared against disk); and main re-encoded the whole corpus
+  to hash it. A native test pins it with a source whose round trip is NOT
+  byte-identical.
+- **[P1] One load restores both arms.** `loadProject` returns Braid's packed
+  container, the source bytes, and Galley's packed analysis; main verifies and
+  materializes both, and takes the verifier's Rust-materialized findings as the
+  initial lint. The kernel no longer issues `analyzeLint`/`analyzeGalley` on a
+  clean open. Crash recovery remains the exception and now republishes only the
+  recovered books (`updateBook`) instead of a whole-corpus resync, analyzing with
+  `cachePolicy: "none"`.
+- **[P1] Transfer, not clone.** `transferablesOf` covers the packed corpus, the
+  source bytes, and Galley's packed findings; `RestoreBraidRecord[]` (a
+  whole-corpus string DTO) is gone from the load result. Native returns the same
+  three payloads over the binary response path, so no part of the corpus is
+  JSON-encoded across IPC.
+- **[P1] The sidecar self-heals.** Both hosts dropped their `exists()` guard; a
+  cold rebuild always atomically replaces the entry, including one a previous
+  open rejected. The `sources.json` manifest is deleted outright — Braid's own
+  restore verification against the disk bytes IS the validity check, so the app
+  no longer double-validates. Native test: corrupt sidecar → cold → warm reopen.
+- **[P2] Main materialization stopped deep-cloning.** `structuredClone` per
+  chapter is a shallow array copy (tokens are immutable), and the whole-corpus
+  `tokensToLexical` projection was dead — `ScriptureChapterState` has had no
+  `lexicalState` field since shape-on-read landed, so it was computed and
+  discarded for every chapter at load. Removing it drops `shape` from the
+  parsed-files seam.
+- **Logging.** `startupLog.ts` prints one ordered `[startup]` line per phase with
+  timings, cache hit/miss, byte counts, and warm-vs-cold. Hosts record rather
+  than print; main replays their phases into the same sequence (marked `↳`).
+  Sidecar writes report as `[startup:cache-write]`. Not DEV-gated.
+- **Naming.** `WebBraidHost` moved out of `src/web/domain/sous/` (the Galley
+  subsystem) to `src/web/domain/braid/`.
+- **Docs.** `product-docs/specs/workspace-mirror.md` reconciled: arbitration
+  order, the one-load contract, the exact-bytes rule, the warm cache, and the
+  startup trace. No reference to the deleted `WorkspaceMirror` remains.
+- **Verification:** `pnpm check`, `pnpm lint`, `pnpm knip`, 168 unit files /
+  1129 tests, `cargo test` 22 tests, `cargo fmt --check`, `git diff --check`.
+- **Still owed:** a live in-app pass on both platforms (the trace is designed to
+  make that read at a glance); web-side load-path integration coverage is blocked
+  on `makeWebMirrorEngines` constructing its own OPFS filesystem rather than
+  taking one — worth an injection seam when that test is written.

@@ -5,6 +5,7 @@ import { useEffect } from "react";
 
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import { $captureCurrentSelection } from "@/app/domain/history/historySelection.ts";
+import { beginEditTrace } from "@/app/domain/mirror/editTrace.ts";
 import type { CommitKind } from "@/app/state/types.ts";
 import { requireGateOpen } from "@/app/state/WorkspaceInteractionGate.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
@@ -79,11 +80,13 @@ export function WorkingFilesBridgePlugin() {
       ? Effect.runFork(
           Stream.runForEach(workingFilesStore.changes, (event) =>
             Effect.sync(() => {
-              console.log("[workingFilesStore commit]", {
-                generation: event.meta.generation,
+              beginEditTrace(event.meta.generation, {
                 kind: event.meta.kind,
-                scope: event.meta.scope,
-                dirtyTextContent: event.meta.dirtyTextContent,
+                scope:
+                  "project" in event.meta.scope
+                    ? "project"
+                    : `${event.meta.scope.chapters.length} chapter(s)`,
+                dirtyText: event.meta.dirtyTextContent,
               });
             }),
           ),

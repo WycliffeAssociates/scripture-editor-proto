@@ -1,41 +1,33 @@
 // workspaceKernel.test.ts
 //
-// Registry semantics: single slot, refcount + grace, preload-never-evicts, and
-// the build order (seed before ready before initial findings). The platform
-// session is faked so the build is synchronous-ish and disposal is observable.
+// Registry semantics: arbitration BEFORE any load, single slot, refcount +
+// grace, preload-never-evicts, and the build order (metadata seed, no follow-up
+// analysis on a clean open). The platform session is faked so the build is
+// synchronous-ish and disposal is observable.
 
-import type { LintSnapshot } from "usfm-onion-web";
+import type { LintIssue } from "usfm-onion-web";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import type { MirrorSessionFactory } from "@/app/domain/mirror/mirrorSessionFactory.ts";
 import {
   __resetWorkspaceKernelRegistryForTests,
-  acquireWorkspaceKernel,
+  reserveWorkspaceSlot,
   type WorkspaceKernelBuildArgs,
+  type WorkspaceKernelHandle,
 } from "@/app/domain/mirror/workspaceKernel.ts";
 import { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
-
-const emptyLintSnapshot: LintSnapshot = {
-  snapshotId: "snapshot",
-  books: [],
-  summary: {
-    byCategory: { document: 0, structure: 0, context: 0, numbering: 0 },
-    bySeverity: { error: 0, warning: 0 },
-    byIssueType: { usfm: 0, content: 0 },
-    totalCount: 0,
-    suppressedCount: 0,
-  },
-};
 
 afterEach(() => {
   __resetWorkspaceKernelRegistryForTests();
   vi.useRealTimers();
 });
 
-// A fake session: records lifecycle, answers analyze commands so the load
-// contract's `awaitInitialFindings` resolves. `ready()` resolves on a
-// microtask; the order of events (seed patch, ready, analyze command) is
-// recorded for the build-order assertion.
+/**
+ * A fake session recording lifecycle and every patch/command that reaches the
+ * feed. Analyze commands are answered so a recovery-path build can settle; a
+ * clean open must never send them, which is what the build-order test asserts.
+ */
 function makeFakeFactory(log: string[]): {
   factory: MirrorSessionFactory;
   disposed: () => number;
@@ -43,27 +35,41 @@ function makeFakeFactory(log: string[]): {
   let disposeCount = 0;
   const factory: MirrorSessionFactory = ({ feed }) => {
     feed.addSink({
-      pushPatch: (p) => log.push(`patch:${p.kind}`),
-      sendCommand: (c) => {
-        log.push(`command:${c.kind}`);
-        // Echo a matching result so awaitInitialFindings resolves.
-        if (c.kind === "analyzeLint") {
+      pushPatch: (patch) => log.push(`patch:${patch.kind}`),
+      sendCommand: (command) => {
+        log.push(`command:${command.kind}`);
+        if (command.kind === "analyzeLint") {
           feed.deliverResult({
             kind: "lintResult",
-            snapshot: emptyLintSnapshot,
-            ranAtGeneration: c.generation,
-            requestId: c.requestId,
+            snapshot: {
+              snapshotId: "snapshot",
+              books: [],
+              summary: {
+                byCategory: {
+                  document: 0,
+                  structure: 0,
+                  context: 0,
+                  numbering: 0,
+                },
+                bySeverity: { error: 0, warning: 0 },
+                byIssueType: { usfm: 0, content: 0 },
+                totalCount: 0,
+                suppressedCount: 0,
+              },
+            },
+            ranAtGeneration: command.generation,
+            requestId: command.requestId,
           });
         }
-        if (c.kind === "analyzeGalley") {
+        if (command.kind === "analyzeGalley") {
           feed.deliverResult({
             kind: "galleyResult",
             packed: new ArrayBuffer(0),
             keys: [],
             segments: {},
             cacheState: "fresh",
-            ranAtGeneration: c.generation,
-            requestId: c.requestId,
+            ranAtGeneration: command.generation,
+            requestId: command.requestId,
           });
         }
       },
@@ -72,6 +78,18 @@ function makeFakeFactory(log: string[]): {
       ready: () => {
         log.push("ready");
         return Promise.resolve();
+      },
+      loadProject: async (request) => {
+        log.push("load");
+        return {
+          kind: "loadProjectResult",
+          state: "cold",
+          ranAtGeneration: request.generation,
+          projectPath: request.projectPath,
+          packed: new ArrayBuffer(0),
+          sources: new ArrayBuffer(0),
+          books: [],
+        };
       },
       dispose: () => {
         disposeCount++;
@@ -85,111 +103,192 @@ function makeFakeFactory(log: string[]): {
 function buildArgs(
   projectKey: string,
   factory: MirrorSessionFactory,
-  analysisDisabled = false,
-): WorkspaceKernelBuildArgs {
+  overrides: Partial<WorkspaceKernelBuildArgs> = {},
+): Omit<WorkspaceKernelBuildArgs, "projectKey"> {
+  const feed = new MirrorFeed();
   return {
-    projectKey,
     projectFiles: [],
     workspaceBaselineStore: new WorkspaceBaselineStore({
-      calculateMd5: async (t) => t,
+      calculateMd5: async (text) => text,
     }),
-    dirtyBufferRoot: "/tmp",
-    mirrorSessionFactory: factory,
-    analysisDisabled,
+    analysisDisabled: false,
+    feed,
+    session: factory({
+      feed,
+      workspaceKey: projectKey,
+      dirtyBufferRoot: "/tmp",
+    }),
+    braidFindings: new Map<string, readonly LintIssue[]>(),
+    galley: null,
+    recoveredBookCodes: [],
+    load: emptyLoad(),
+    ...overrides,
   };
 }
 
-describe("acquireWorkspaceKernel — build order", () => {
-  it("seeds before awaiting ready, then runs the initial analyze", async () => {
+function emptyLoad(): WorkspaceKernelBuildArgs["load"] {
+  return {
+    projectFiles: [],
+    workspaceBaselineStore: new WorkspaceBaselineStore({
+      calculateMd5: async (text) => text,
+    }),
+    recoveredConflictTracker: null as never,
+    dirtyBufferStore: null as never,
+    restoredBookCodes: [],
+    conflictedBookCodes: [],
+    recoveryReportEntries: [],
+  };
+}
+
+/** Reserve, then (when granted) load + install, mirroring the route's order. */
+async function openWorkspace(
+  projectKey: string,
+  factory: MirrorSessionFactory,
+  options: {
+    preload?: boolean;
+    overrides?: Partial<WorkspaceKernelBuildArgs>;
+  } = {},
+): Promise<WorkspaceKernelHandle | null> {
+  const reservation = await reserveWorkspaceSlot({
+    projectKey,
+    preload: options.preload ?? false,
+  });
+  if (reservation.kind === "declined") return null;
+  if (reservation.kind === "reuse") return reservation.handle;
+  const args = buildArgs(projectKey, factory, options.overrides);
+  await args.session.ready();
+  await args.session.loadProject({
+    generation: 0,
+    projectPath: `/${projectKey}`,
+    workspaceKey: projectKey,
+    books: [],
+    analysisDisabled: args.analysisDisabled,
+  });
+  return reservation.install(args);
+}
+
+describe("workspace kernel — build order", () => {
+  it("seeds resident metadata and runs NO follow-up analysis on a clean open", async () => {
     const log: string[] = [];
     const { factory } = makeFakeFactory(log);
-    const handle = await acquireWorkspaceKernel({
-      ...buildArgs("p1", factory),
-      preload: false,
-    });
+    const handle = await openWorkspace("p1", factory);
     expect(handle).not.toBeNull();
-    // fullSync seed precedes ready precedes the analyze commands.
+    // The load already restored both arms and returned their results, so the
+    // kernel publishes them rather than asking the host to analyze again.
+    expect(log).toEqual(["ready", "load", "patch:residentSeed"]);
+  });
+
+  it("republishes only the recovered books, then re-analyzes once", async () => {
+    const log: string[] = [];
+    const { factory } = makeFakeFactory(log);
+    await openWorkspace("p1", factory, {
+      overrides: {
+        projectFiles: [bookState("MAT"), bookState("MRK")],
+        recoveredBookCodes: ["MRK"],
+      },
+    });
+    // One updateBook — for MRK alone, not a whole-corpus fullSync.
     expect(log).toEqual([
-      "patch:fullSync",
       "ready",
+      "load",
+      "patch:residentSeed",
+      "patch:updateBook",
       "command:analyzeLint",
       "command:analyzeGalley",
     ]);
   });
 
-  it("skips the initial analyze in plain mode (analysisDisabled)", async () => {
+  it("publishes no findings in plain mode (analysisDisabled)", async () => {
     const log: string[] = [];
     const { factory } = makeFakeFactory(log);
-    const handle = await acquireWorkspaceKernel({
-      ...buildArgs("p1", factory, true),
-      preload: false,
+    const handle = await openWorkspace("p1", factory, {
+      overrides: { analysisDisabled: true },
     });
     expect(handle?.initialFindings).toEqual({
       lint: null,
       sous: null,
       localLint: {},
     });
-    expect(log).toEqual(["patch:fullSync", "ready"]);
+    expect(log).toEqual(["ready", "load", "patch:residentSeed"]);
   });
 });
 
-describe("acquireWorkspaceKernel — single slot + refcount", () => {
-  it("reuses the live kernel for the same key (no second build/dispose)", async () => {
+describe("workspace kernel — arbitration precedes the load", () => {
+  it("reuses the live kernel WITHOUT loading the project again", async () => {
     const log: string[] = [];
     const { factory, disposed } = makeFakeFactory(log);
-    const a = await acquireWorkspaceKernel({
-      ...buildArgs("p1", factory),
-      preload: false,
-    });
-    const b = await acquireWorkspaceKernel({
-      ...buildArgs("p1", factory),
-      preload: false,
-    });
-    // One build (one fullSync), shared feed, no dispose yet.
-    expect(log.filter((e) => e === "patch:fullSync")).toHaveLength(1);
+    const a = await openWorkspace("p1", factory);
+    const b = await openWorkspace("p1", factory);
+    // The second open never created a session and never loaded: on desktop
+    // that load would have run against the live workspace's own resident state.
+    expect(log.filter((entry) => entry === "load")).toHaveLength(1);
     expect(a?.feed).toBe(b?.feed);
     expect(disposed()).toBe(0);
+    // It is served the kernel's own loader payload, not a second set of stores.
+    expect(b?.load).toBe(a?.load);
   });
 
-  it("disposes the old kernel when a different key navigates in", async () => {
+  it("disposes the outgoing kernel BEFORE the incoming project loads", async () => {
     const log: string[] = [];
     const { factory, disposed } = makeFakeFactory(log);
-    await acquireWorkspaceKernel({
-      ...buildArgs("p1", factory),
-      preload: false,
-    });
-    await acquireWorkspaceKernel({
-      ...buildArgs("p2", factory),
-      preload: false,
-    });
+    await openWorkspace("p1", factory);
+    await openWorkspace("p2", factory);
     expect(disposed()).toBe(1);
-    expect(log.filter((e) => e === "patch:fullSync")).toHaveLength(2);
+    // Order matters: the old session's teardown completes before the new load
+    // touches the shared resident state it is taking over.
+    expect(log.indexOf("dispose")).toBeLessThan(log.lastIndexOf("load"));
+  });
+
+  it("declines a preload that would evict the live workspace, loading nothing", async () => {
+    const log: string[] = [];
+    const { factory, disposed } = makeFakeFactory(log);
+    await openWorkspace("open", factory);
+    const warmed = await openWorkspace("hovered", factory, { preload: true });
+    expect(warmed).toBeNull();
+    expect(disposed()).toBe(0);
+    expect(log.filter((entry) => entry === "load")).toHaveLength(1);
+  });
+
+  it("warms a cold slot on preload (the open-with-findings-ready feature)", async () => {
+    const log: string[] = [];
+    const { factory } = makeFakeFactory(log);
+    const warmed = await openWorkspace("hovered", factory, { preload: true });
+    expect(warmed).not.toBeNull();
+    const navigated = await openWorkspace("hovered", factory);
+    expect(navigated?.feed).toBe(warmed?.feed);
+    expect(log.filter((entry) => entry === "load")).toHaveLength(1);
+  });
+
+  it("releases the reservation when a load fails, so the next open proceeds", async () => {
+    const log: string[] = [];
+    const { factory } = makeFakeFactory(log);
+    const reservation = await reserveWorkspaceSlot({
+      projectKey: "p1",
+      preload: false,
+    });
+    expect(reservation.kind).toBe("granted");
+    if (reservation.kind !== "granted") return;
+    reservation.abort();
+    const retried = await openWorkspace("p1", factory);
+    expect(retried).not.toBeNull();
   });
 });
 
-describe("acquireWorkspaceKernel — dispose grace", () => {
+describe("workspace kernel — dispose grace", () => {
   it("does not dispose immediately at refcount 0; re-claim cancels the grace", async () => {
     vi.useFakeTimers();
     const log: string[] = [];
     const { factory, disposed } = makeFakeFactory(log);
-    const a = await acquireWorkspaceKernel({
-      ...buildArgs("p1", factory),
-      preload: false,
-    });
-    const claimA = a?.claim();
-    claimA?.release();
-    // Within the grace window: not yet disposed.
+    const a = await openWorkspace("p1", factory);
+    a?.claim().release();
     vi.advanceTimersByTime(1_000);
     expect(disposed()).toBe(0);
     // Re-claim (StrictMode remount) cancels the pending disposal and reuses it.
-    const b = await acquireWorkspaceKernel({
-      ...buildArgs("p1", factory),
-      preload: false,
-    });
+    const b = await openWorkspace("p1", factory);
     const claimB = b?.claim();
     vi.advanceTimersByTime(10_000);
     expect(disposed()).toBe(0);
-    expect(log.filter((e) => e === "patch:fullSync")).toHaveLength(1);
+    expect(log.filter((entry) => entry === "load")).toHaveLength(1);
     claimB?.release();
     vi.advanceTimersByTime(10_000);
     expect(disposed()).toBe(1);
@@ -199,12 +298,7 @@ describe("acquireWorkspaceKernel — dispose grace", () => {
     vi.useFakeTimers();
     const log: string[] = [];
     const { factory, disposed } = makeFakeFactory(log);
-    // Loader warms the slot but the component never mounts (aborted nav /
-    // preload that goes nowhere): the grace reaps it.
-    await acquireWorkspaceKernel({
-      ...buildArgs("p1", factory),
-      preload: false,
-    });
+    await openWorkspace("p1", factory);
     vi.advanceTimersByTime(1_000);
     expect(disposed()).toBe(0);
     vi.advanceTimersByTime(10_000);
@@ -212,39 +306,24 @@ describe("acquireWorkspaceKernel — dispose grace", () => {
   });
 });
 
-describe("acquireWorkspaceKernel — preload never evicts", () => {
-  it("returns null on preload when a different key occupies the slot", async () => {
-    const log: string[] = [];
-    const { factory, disposed } = makeFakeFactory(log);
-    await acquireWorkspaceKernel({
-      ...buildArgs("open", factory),
-      preload: false,
-    });
-    const warmed = await acquireWorkspaceKernel({
-      ...buildArgs("hovered", factory),
-      preload: true,
-    });
-    // The live workspace is untouched; the preload built nothing.
-    expect(warmed).toBeNull();
-    expect(disposed()).toBe(0);
-    expect(log.filter((e) => e === "patch:fullSync")).toHaveLength(1);
-  });
-
-  it("warms a cold slot on preload (the open-with-findings-ready feature)", async () => {
-    const log: string[] = [];
-    const { factory } = makeFakeFactory(log);
-    const warmed = await acquireWorkspaceKernel({
-      ...buildArgs("hovered", factory),
-      preload: true,
-    });
-    expect(warmed).not.toBeNull();
-    expect(log).toContain("patch:fullSync");
-    // A subsequent navigation to that same key reuses the warmed kernel.
-    const navigated = await acquireWorkspaceKernel({
-      ...buildArgs("hovered", factory),
-      preload: false,
-    });
-    expect(navigated?.feed).toBe(warmed?.feed);
-    expect(log.filter((e) => e === "patch:fullSync")).toHaveLength(1);
-  });
-});
+function bookState(
+  bookCode: string,
+): WorkspaceKernelBuildArgs["projectFiles"][number] {
+  return {
+    path: `/${bookCode}.usfm`,
+    nextBookId: null,
+    prevBookId: null,
+    title: bookCode,
+    bookCode,
+    chapters: [
+      {
+        sourceTokens: [],
+        currentTokens: [],
+        direction: "ltr",
+        chapterNumber: 1,
+        dirty: false,
+        eol: "\n",
+      },
+    ],
+  };
+}

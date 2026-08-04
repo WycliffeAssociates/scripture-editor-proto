@@ -31,6 +31,7 @@ describe("mirror protocol fixtures — TS side of the cross-language contract", 
       removeBook: false,
       pushBaseline: false,
       fullSync: false,
+      residentSeed: false,
       syncMeta: false,
     };
     for (const patch of fixture.patches) seen[patch.kind] = true;
@@ -71,6 +72,11 @@ describe("mirror protocol fixtures — TS side of the cross-language contract", 
           expect(patch.books[0].bookCode).toBe("EXO");
           expect(patch.books[0].chapters[0].chapterNum).toBe(1);
           expect(patch.books[0].diskBaseline.kind).toBe("absent");
+          break;
+        case "residentSeed":
+          expect(patch.books[0].bookCode).toBe("EXO");
+          expect(patch.books[0].chapters[0].chapterNum).toBe(1);
+          expect(patch.books[0].chapters[0].eol).toBe("\n");
           break;
         case "syncMeta":
           expect(patch.books[0].chapterDirty[0].dirty).toBe(false);

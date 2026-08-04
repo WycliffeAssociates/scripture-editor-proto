@@ -50,7 +50,7 @@ function identDefaults(opts: TokenIdent | undefined, fallbackId: string) {
  * shape-aware consumers have a paragraph-class block to build from).
  * Default sid `"GEN 1:1"`.
  */
-export function makeTokens(
+function makeTokens(
   text: string,
   opts?: TokenIdent & { withParagraphMarker?: boolean },
 ): Token[] {

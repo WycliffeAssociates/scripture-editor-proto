@@ -24,7 +24,7 @@ import { describe, expect, it } from "vitest";
 
 import { makeLintPipeline } from "@/app/domain/editor/pipelines/lintPipeline.ts";
 import { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
-import type { MirrorCommand } from "@/app/domain/mirror/mirrorProtocol.ts";
+import type { HostCommand } from "@/app/domain/mirror/mirrorProtocol.ts";
 import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 
 const DEBOUNCE_MS = 100;
@@ -39,12 +39,12 @@ function runWithTestClock<E>(
 
 function captureFeed() {
   const feed = new MirrorFeed();
-  const commands: MirrorCommand[] = [];
+  const commands: HostCommand[] = [];
   feed.addSink({ pushPatch: () => {}, sendCommand: (c) => commands.push(c) });
   return { feed, commands };
 }
 
-function lintCommands(commands: MirrorCommand[]) {
+function lintCommands(commands: HostCommand[]) {
   return commands.filter((c) => c.kind === "analyzeLint");
 }
 

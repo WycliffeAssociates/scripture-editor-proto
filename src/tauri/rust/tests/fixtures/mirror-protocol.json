@@ -61,6 +61,17 @@
       "generation": 9
     },
     {
+      "kind": "residentSeed",
+      "books": [
+        {
+          "bookCode": "EXO",
+          "diskBaseline": { "kind": "absent" },
+          "chapters": [{ "chapterNum": 1, "eol": "\n", "dirty": false }]
+        }
+      ],
+      "generation": 9
+    },
+    {
       "kind": "updateBook",
       "book": {
         "bookCode": "GEN",

@@ -252,19 +252,6 @@ export class ScriptureBurritoProjectLoader {
         : null;
       const remoteSource = packedMetadata?.remoteSource;
 
-      console.debug(
-        `[ScriptureBurritoProjectLoader] Classified ${args.folderName} as ${itemType}.`,
-      );
-      if (remoteSource) {
-        console.debug(
-          `[ScriptureBurritoProjectLoader] Remote source metadata detected for ${args.folderName}; sync capability will be attached.`,
-        );
-      } else {
-        console.debug(
-          `[ScriptureBurritoProjectLoader] No remote source metadata found for ${args.folderName}.`,
-        );
-      }
-
       if (packedTranslationNoteBookCodes.length > 0) {
         console.debug(
           `[ScriptureBurritoProjectLoader] Packed TN book files detected for ${args.folderName}: ${packedTranslationNoteBookCodes.join(", ")}.`,

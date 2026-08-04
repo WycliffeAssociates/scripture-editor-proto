@@ -432,6 +432,7 @@ export const ProjectProvider = ({
     () =>
       makeDirtyBufferPipeline({
         workingFilesStore,
+        workspaceBaselineStore,
         feed: mirrorFeed,
         appVersion: DIRTY_BUFFER_APP_VERSION,
       }),

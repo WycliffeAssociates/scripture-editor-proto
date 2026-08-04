@@ -5,27 +5,27 @@
 // results delivered back into the `MirrorFeed`. The worker is a Vite module
 // worker so its imports (wasm onion/sous, OPFS) bundle like the rest of the app.
 
+import { loadProjectResident } from "@/app/domain/mirror/braidHost.ts";
+import { markEditWire } from "@/app/domain/mirror/editTrace.ts";
 import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import type {
-  MirrorCommand,
+  HostCommand,
+  LoadProjectResult,
   MirrorPatch,
 } from "@/app/domain/mirror/mirrorProtocol.ts";
-import type { MirrorSession } from "@/app/domain/mirror/mirrorSessionFactory.ts";
-import {
-  endDevTimer,
-  startDevTimer,
-} from "@/app/domain/mirror/performanceTiming.ts";
+import type {
+  LoadProjectRequest,
+  MirrorSession,
+} from "@/app/domain/mirror/mirrorSessionFactory.ts";
 import type {
   FromWorkerMessage,
   ToWorkerMessage,
 } from "@/app/domain/mirror/workerMessages.ts";
 
-const activeGalleyCommands = new Set<number>();
-let nextTraceId = 0;
-
 export class WorkerMirrorSession implements MirrorSession {
   private readonly worker: Worker;
   private readonly removeSink: () => void;
+  private readonly feed: MirrorFeed;
   // Resolved when the worker posts its `ready` ACK (wasm init complete). The
   // load contract awaits this before posting the seed + initial analyze.
   private readonly readyPromise: Promise<void>;
@@ -36,6 +36,7 @@ export class WorkerMirrorSession implements MirrorSession {
     workspaceKey: string;
     dirtyBufferRoot: string;
   }) {
+    this.feed = args.feed;
     this.readyPromise = new Promise((resolve) => {
       this.resolveReady = resolve;
     });
@@ -58,17 +59,13 @@ export class WorkerMirrorSession implements MirrorSession {
       }
       if (event.data.kind === "result") {
         const result = event.data.result;
-        if (import.meta.env.DEV && event.data.traceId !== undefined) {
-          console.timeEnd(`sous:transport.roundtrip:${event.data.traceId}`);
-        }
-        if (
-          import.meta.env.DEV &&
-          result.kind === "galleyResult" &&
-          result.requestId === undefined &&
-          activeGalleyCommands.delete(result.ranAtGeneration)
-        ) {
-          endDevTimer(`sous:command-to-result:${result.ranAtGeneration}`);
-          startDevTimer(`sous:result-to-findings:${result.ranAtGeneration}`);
+        const wire = event.data.wire;
+        if (wire && "ranAtGeneration" in result) {
+          markEditWire(
+            result.ranAtGeneration,
+            performance.timeOrigin + performance.now() - wire.postedAt,
+            wire.shape,
+          );
         }
         args.feed.deliverResult(result);
       }
@@ -90,7 +87,7 @@ export class WorkerMirrorSession implements MirrorSession {
     // reach the worker.
     this.removeSink = args.feed.addSink({
       pushPatch: (patch: MirrorPatch) => this.post({ kind: "patch", patch }),
-      sendCommand: (command: MirrorCommand) =>
+      sendCommand: (command: HostCommand) =>
         this.post({ kind: "command", command }),
     });
   }
@@ -99,31 +96,21 @@ export class WorkerMirrorSession implements MirrorSession {
     return this.readyPromise;
   }
 
+  loadProject(request: LoadProjectRequest): Promise<LoadProjectResult> {
+    return loadProjectResident({ feed: this.feed, ...request });
+  }
+
   // Outgoing messages buffer until the worker's `hello` (channel-open ACK)
   // arrives — posts before the worker's module graph finishes evaluating can
   // be silently dropped (see workerMessages.ts).
   private pending: ToWorkerMessage[] | null = [];
 
   private post(message: ToWorkerMessage): void {
-    const traceId = import.meta.env.DEV ? ++nextTraceId : undefined;
-    const tracedMessage =
-      traceId === undefined ? message : { ...message, traceId };
-    if (
-      import.meta.env.DEV &&
-      tracedMessage.kind === "command" &&
-      tracedMessage.command.kind === "analyzeGalley" &&
-      tracedMessage.command.requestId === undefined
-    ) {
-      activeGalleyCommands.add(tracedMessage.command.generation);
-      startDevTimer(
-        `sous:command-to-result:${tracedMessage.command.generation}`,
-      );
-    }
     if (this.pending) {
-      this.pending.push(tracedMessage);
+      this.pending.push(message);
       return;
     }
-    this.sendToWorker(tracedMessage);
+    this.sendToWorker(message);
   }
 
   private flushPending(): void {
@@ -133,24 +120,7 @@ export class WorkerMirrorSession implements MirrorSession {
   }
 
   private sendToWorker(message: ToWorkerMessage): void {
-    const expectsResult = message.kind === "command";
-    const transfer =
-      message.kind === "command" && message.command.kind === "restoreBraid"
-        ? [message.command.packed]
-        : [];
-    if (import.meta.env.DEV && message.traceId !== undefined) {
-      if (expectsResult) {
-        console.time(`sous:transport.roundtrip:${message.traceId}`);
-      }
-      console.time(`sous:transport.mainToWorker.post:${message.traceId}`);
-    }
-    try {
-      this.worker.postMessage(message, transfer);
-    } finally {
-      if (import.meta.env.DEV && message.traceId !== undefined) {
-        console.timeEnd(`sous:transport.mainToWorker.post:${message.traceId}`);
-      }
-    }
+    this.worker.postMessage(message);
   }
 
   dispose(): void {

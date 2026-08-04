@@ -28,19 +28,19 @@ git2 = { version = "0.20.2", features = ["https", "ssh"] }
 tauri-plugin-os = "2"
 md-5 = "0.10.0"
 tauri-plugin-dialog = "2"
-# Content findings: onion's `vref` module projects per-verse text; ssc-core
-# analyzes it (see src/sous.rs). Pinned to the v0.1.0 tag, kept in lockstep
-# with the npm `usfm-onion-web` dep in package.json.
-usfm_onion = { git = "https://github.com/WycliffeAssociates/usfm-onion.git", tag = "v0.1.1" }
+# Stateless editor commands still use Onion directly; resident ownership and
+# packed publication/restore now come from the direct native Braid handle.
+usfm_onion = { git = "https://github.com/WycliffeAssociates/usfm-onion.git", tag = "v0.1.4" }
 ssc-core = { git = "https://github.com/WycliffeAssociates/scripture-sous-chef.git", tag = "v0.0.5" }
-ssc-galley = { git = "https://github.com/WycliffeAssociates/scripture-sous-chef.git", tag = "v0.0.5", features = ["parallel"] }
+ssc-galley = { git = "https://github.com/WycliffeAssociates/scripture-sous-chef.git", tag = "v0.0.5", features = [
+  "parallel",
+] }
 ssc-wire = { git = "https://github.com/WycliffeAssociates/scripture-sous-chef.git", tag = "v0.0.5" }
 rayon = "1.10.0"
-# Resident USFM state for desktop mirror lint and serialization. The older
-# Onion dependency remains for unrelated stateless editor commands during the
-# caller migration; the resident mirror itself uses Braid only.
-braid = { git = "https://github.com/WycliffeAssociates/usfm-onion.git", tag = "v0.1.1", package = "braid" }
-usfm_onion_wire = { git = "https://github.com/WycliffeAssociates/usfm-onion.git", tag = "v0.1.1", package = "usfm_onion_wire" }
+# Braid is the sole native resident engine and owns its packed publication
+# reuse cache and restore composition; no app-owned host/envelope is needed.
+braid = { git = "https://github.com/WycliffeAssociates/usfm-onion.git", tag = "v0.1.4", package = "braid" }
+usfm_onion_wire = { git = "https://github.com/WycliffeAssociates/usfm-onion.git", tag = "v0.1.4", package = "usfm_onion_wire" }
 zip = "2.4.2"
 reqwest = { version = "0.12.23", default-features = false, features = [
   "blocking",

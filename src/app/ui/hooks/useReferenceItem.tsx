@@ -51,7 +51,6 @@ async function loadReferenceScriptureByPath(args: {
   resourcePath: string;
   fileSystem: FileSystem;
   gitProvider: GitProvider;
-  shape: EditorShape;
   usfmOnionService: IUsfmOnionService;
 }) {
   const item = await loadReferenceResourceByPath({
@@ -68,7 +67,6 @@ async function loadReferenceScriptureByPath(args: {
     project: args.resourcePath,
     fileSystem: args.fileSystem,
     gitProvider: args.gitProvider,
-    shape: args.shape,
     usfmOnionService: args.usfmOnionService,
   });
 }
@@ -109,7 +107,6 @@ function useReferenceScriptureQuery(args: {
         resourcePath: args.activeReferenceResourcePath ?? "",
         fileSystem: args.fileSystem,
         gitProvider: args.gitProvider,
-        shape: args.shape,
         usfmOnionService: args.usfmOnionService,
       }),
     enabled: Boolean(
@@ -547,7 +544,6 @@ export const useReferenceItem = ({
           resourcePath,
           fileSystem,
           gitProvider,
-          shape: referenceShape,
           usfmOnionService: usfmOnionService as IUsfmOnionService,
         }),
     });

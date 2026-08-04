@@ -1,9 +1,5 @@
-import type { EditorShape } from "@/app/data/editor.ts";
 import { groupFlatTokensByChapter } from "@/app/domain/editor/serialization/flatTokensByChapter.ts";
-import {
-  detectLineEnding,
-  tokensToLexical,
-} from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { detectLineEnding } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import {
   getBookSlug,
@@ -14,6 +10,7 @@ import { normalizeTokenSids } from "@/core/domain/usfm/tokenSidNormalization.ts"
 import type {
   ProjectedUsfmDocument,
   ProjectUsfmOptions,
+  Token,
 } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
 
@@ -23,6 +20,59 @@ type LoadedBookEntry = {
   name: string;
   path: string;
 };
+
+function buildParsedFilesFromTokens(args: {
+  loadedProject: Project;
+  entries: LoadedBookEntry[];
+  tokensByBook: ReadonlyMap<string, readonly Token[]>;
+}): ScriptureBookState[] {
+  const sorted = sortUsfmFilesByCanonicalOrder(args.entries, "code");
+  const parsed: ScriptureBookState[] = [];
+  for (let i = 0; i < sorted.length; i++) {
+    const book = sorted[i];
+    const bookCode = getBookSlug(book.code);
+    const tokens = args.tokensByBook.get(bookCode);
+    if (!tokens) continue;
+    const normalizedTokens = normalizeTokenSids([...tokens], bookCode);
+    const sourceTokensByChapter = groupFlatTokensByChapter(normalizedTokens);
+    parsed.push({
+      path: book.path,
+      nextBookId:
+        i === sorted.length - 1 ? null : getBookSlug(sorted[i + 1]?.code ?? ""),
+      prevBookId: i === 0 ? null : getBookSlug(sorted[i - 1]?.code ?? ""),
+      title: book.name,
+      bookCode,
+      chapters: Object.entries(sourceTokensByChapter).map(
+        ([chapter, sourceTokens]) => ({
+          sourceTokens,
+          // A distinct array, but the SAME token objects. Tokens are immutable
+          // — a commit replaces the array rather than editing entries — so
+          // deep-copying the whole corpus here would buy nothing and cost a
+          // second allocation of every token in the project.
+          currentTokens: [...sourceTokens],
+          direction: args.loadedProject.language.direction,
+          chapterNumber: Number(chapter),
+          dirty: false,
+          eol: detectLineEnding(sourceTokens),
+        }),
+      ),
+    });
+  }
+  return parsed;
+}
+
+export function materializePublishedTokensToParsedFiles(args: {
+  loadedProject: Project;
+  tokensByBook: ReadonlyMap<string, readonly Token[]>;
+}): ScriptureBookState[] {
+  const entries = args.loadedProject.books.map((entry) => ({
+    code: entry.bookCode,
+    text: null,
+    name: entry.title,
+    path: entry.path,
+  }));
+  return buildParsedFilesFromTokens({ ...args, entries });
+}
 
 /**
  * Materialize scripture books for environments where the parser cannot read
@@ -111,8 +161,6 @@ async function projectEntriesForApp(args: {
  */
 export async function scriptureProjectToParsedFiles(args: {
   loadedProject: Project;
-  /** Surface-resolved shape for `lexicalState` (see `shapeForSurface`). */
-  shape: EditorShape;
   usfmOnionService: IUsfmOnionService;
   /**
    * When true, the parser also returns each book's source md5 (hashed where
@@ -153,8 +201,8 @@ export async function scriptureProjectToParsedFiles(args: {
         usfmOnionService: args.usfmOnionService,
         projectionOptions,
       });
-  const parsed: ScriptureBookState[] = [];
   const diskMd5ByBook = new Map<string, string>();
+  const tokensByBook = new Map<string, readonly Token[]>();
   for (let i = 0; i < sorted.length; i++) {
     const book = sorted[i];
     const projection = projections[i] ?? null;
@@ -164,41 +212,13 @@ export async function scriptureProjectToParsedFiles(args: {
     if (projection.sourceMd5 !== undefined) {
       diskMd5ByBook.set(bookCode, projection.sourceMd5);
     }
-    const normalizedTokens = normalizeTokenSids(mergedTokens, bookCode);
-    const sourceTokensByChapter = groupFlatTokensByChapter(normalizedTokens);
-    const nextBookCode =
-      i === sorted.length - 1 ? null : getBookSlug(sorted[i + 1]?.code ?? "");
-    const prevBookCode =
-      i === 0 ? null : getBookSlug(sorted[i - 1]?.code ?? "");
-    parsed.push({
-      path: book.path,
-      nextBookId: nextBookCode,
-      prevBookId: prevBookCode,
-      title: book.name,
-      bookCode: bookCode,
-      chapters: Object.entries(sourceTokensByChapter).map(
-        ([chapter, sourceTokens]) => {
-          const chapterNum = Number(chapter);
-          const direction = args.loadedProject.language.direction;
-          const lexicalState = tokensToLexical({
-            tokens: sourceTokens,
-            direction,
-            mode: args.shape,
-          });
-
-          return {
-            lexicalState,
-            sourceTokens,
-            currentTokens: structuredClone(sourceTokens),
-            direction,
-            chapterNumber: chapterNum,
-            dirty: false,
-            eol: detectLineEnding(sourceTokens),
-          };
-        },
-      ),
-    });
+    tokensByBook.set(bookCode, mergedTokens);
   }
+  const parsed = buildParsedFilesFromTokens({
+    loadedProject: args.loadedProject,
+    entries: sorted,
+    tokensByBook,
+  });
   return {
     parsedFiles: parsed,
     diskMd5ByBook,

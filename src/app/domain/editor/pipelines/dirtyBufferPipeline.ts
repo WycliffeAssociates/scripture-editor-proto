@@ -22,6 +22,7 @@ import { Duration, Effect, Stream } from "effect";
 import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import type { CommitEvent } from "@/app/state/types.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
+import type { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
 
 const DEFAULT_IDLE_MS = 500;
 const DEFAULT_CEILING_MS = 10000;
@@ -112,6 +113,7 @@ function debounceWithMaxWait(idleMs: number, ceilingMs: number) {
  */
 export function makeDirtyBufferPipeline(args: {
   workingFilesStore: WorkingFilesStore;
+  workspaceBaselineStore: WorkspaceBaselineStore;
   feed: MirrorFeed;
   appVersion: string;
   idleMs?: number;
@@ -125,6 +127,7 @@ export function makeDirtyBufferPipeline(args: {
       args.feed.sendCommand({
         kind: "writeBackup",
         bookCode,
+        diskBaseline: args.workspaceBaselineStore.getBaseline(bookCode),
         appVersion: args.appVersion,
         generation: args.workingFilesStore.generation(),
       });

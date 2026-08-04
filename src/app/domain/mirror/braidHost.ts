@@ -3,7 +3,8 @@ import type { CorpusScope, FormatOptions, Token } from "usfm-onion-web";
 import type { TokenFix } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 import type { MirrorFeed } from "./MirrorFeed.ts";
-import type { BraidPublication } from "./mirrorProtocol.ts";
+import type { BraidPublication, LoadProjectResult } from "./mirrorProtocol.ts";
+import type { LoadProjectRequest } from "./mirrorSessionFactory.ts";
 
 type ResidentBraidBooks = {
   books: Record<string, Token[]>;
@@ -134,32 +135,31 @@ export function publishResidentBraid(args: {
   });
 }
 
-export function restoreResidentBraid(args: {
-  feed: MirrorFeed;
-  generation: number;
-  packed: ArrayBuffer;
-  records: Array<{ bookCode: string; sourceKey: string; source: string }>;
-}): Promise<{ accepted: boolean; error?: string }> {
+export function loadProjectResident(
+  args: LoadProjectRequest & { feed: MirrorFeed },
+): Promise<LoadProjectResult> {
+  // No timer here: the startup trace measures this span as `main:host:load`.
   return new Promise((resolve) => {
     let off = () => {};
     off = args.feed.onResult((result) => {
       if (
-        result.kind === "restoreBraidResult" &&
-        result.ranAtGeneration === args.generation
+        result.kind === "loadProjectResult" &&
+        result.ranAtGeneration === args.generation &&
+        result.projectPath === args.projectPath
       ) {
         off();
-        resolve({ accepted: result.accepted, error: result.error });
+        resolve(result);
       }
     });
-    args.feed.sendCommand(
-      {
-        kind: "restoreBraid",
-        generation: args.generation,
-        packed: args.packed,
-        records: args.records,
-      },
-      [args.packed],
-    );
+    args.feed.sendCommand({
+      kind: "loadProject",
+      generation: args.generation,
+      projectPath: args.projectPath,
+      workspaceKey: args.workspaceKey,
+      books: args.books,
+      config: args.config,
+      analysisDisabled: args.analysisDisabled,
+    });
   });
 }
 

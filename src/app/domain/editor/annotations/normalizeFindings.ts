@@ -24,8 +24,6 @@
 // pass regardless of engine output order. Twins are interchangeable, so which
 // twin gets which suffix is unobservable; only determinism matters.
 
-import type { LintSnapshot } from "usfm-onion-web";
-
 import type { FindingsByScope } from "@/app/state/FindingsStore.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
 import type { SousFinding } from "@/core/domain/sous/sousTypes.ts";
@@ -153,12 +151,14 @@ export function onionFindingsByChapter(
   return groupFindingsByChapter(lintIssuesToFindings(issues));
 }
 
-/** Materialize a complete Braid snapshot for the initial store transaction. */
-export function onionSnapshotByBook(snapshot: LintSnapshot): FindingsByScope {
+/** Materialize Braid's complete corpus findings for one store transaction. */
+export function onionSnapshotByBook(
+  findingsByBook: ReadonlyMap<string, readonly LintIssue[]>,
+): FindingsByScope {
   return Object.fromEntries(
-    snapshot.books.map((book) => [
-      book.book,
-      onionFindingsByChapter(book.findings),
+    [...findingsByBook].map(([book, findings]) => [
+      book,
+      onionFindingsByChapter(findings),
     ]),
   );
 }

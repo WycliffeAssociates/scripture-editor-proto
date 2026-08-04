@@ -6,7 +6,6 @@ import {
   makeFoldedScopePipeline,
 } from "@/app/domain/editor/pipelines/foldedScopePipeline.ts";
 import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
-import { endDevTimer } from "@/app/domain/mirror/performanceTiming.ts";
 import {
   type ConsumerBookScope,
   NO_BOOKS,
@@ -61,13 +60,10 @@ export function makeSousPipeline(args: {
   debounceMs?: number;
   config?: () => SousConfig;
 }): Effect.Effect<void> {
-  const sousPass = (scope: FoldedBookScope): Effect.Effect<void> =>
+  const sousPass = (_scope: FoldedBookScope): Effect.Effect<void> =>
     Effect.sync(() => {
       const generation = args.workingFilesStore.generation();
       const config = args.config?.();
-      if (import.meta.env.DEV && !scope.all) {
-        endDevTimer(`sous:chapter-to-command:${generation}`);
-      }
       args.feed.sendCommand({
         kind: "analyzeGalley",
         generation,

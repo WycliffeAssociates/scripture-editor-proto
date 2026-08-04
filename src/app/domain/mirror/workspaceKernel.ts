@@ -2,56 +2,63 @@
 //
 // The workspace kernel and its single-slot, refcounted registry. A "kernel" is
 // the off-React, per-project machinery a workspace needs alive before the
-// editor paints: the multicast `MirrorFeed`, the platform mirror session(s)
-// attached to it, the seeded mirror state, and the awaited initial findings.
-// It is NOT the Effect pipelines (those stay forked in the provider) and NOT
-// the React stores (those are still provider-born). The provider CLAIMS a
-// kernel from loader data and RELEASES it on unmount — ownership lives here in
-// the registry, not in an effect that constructs-then-disposes.
+// editor paints: the multicast `MirrorFeed`, the platform mirror session
+// attached to it, the seeded mirror state, and the first-paint findings. It is
+// NOT the Effect pipelines (those stay forked in the provider) and NOT the React
+// stores (those are still provider-born). The provider CLAIMS a kernel from
+// loader data and RELEASES it on unmount — ownership lives here in the registry,
+// not in an effect that constructs-then-disposes.
 //
 // Why a module-level registry rather than provider-scoped construction:
 //   - TanStack preloads a route (hover a project in the picker) by running the
 //     loader without mounting. The loader builds the kernel; on an empty slot
 //     that warms the worker set + findings so the project opens instantly —
 //     that is the preload feature. On an OCCUPIED slot, preload must NOT evict
-//     the live workspace (the user is still editing the open project), so the
-//     loader skips kernel work entirely.
+//     the live workspace (the user is still editing the open project).
 //   - StrictMode double-mounts, HMR remounts, and preload-then-navigate all
 //     acquire/release in quick succession. Refcounting + a short dispose grace
 //     absorb that churn so we don't tear the worker set down and rebuild it.
 //
 // HARD CONSTRAINT: at most ONE live kernel (single slot) — low-end field
-// machines must never host two worker sets / token mirrors at once. Plus at
-// most one *dying* kernel mid-grace (the outgoing project during a swap).
+// machines must never host two worker sets / token mirrors at once.
+//
+// ARBITRATION COMES FIRST. `reserveWorkspaceSlot` decides who owns the slot
+// BEFORE the caller creates a session or loads anything, because loading is not
+// a private act: desktop's resident Braid/Galley live in one process-wide Tauri
+// state, so preparing a second session and then discovering the slot was taken
+// would already have overwritten the live workspace's corpus — and disposing
+// that "spare" session would reset the survivor's state as well. A reservation
+// also means a same-project reopen serves the load it already did rather than
+// re-reading and re-parsing the corpus to throw the result away.
 
 import type { SousConfig } from "scripture-sous-chef-web";
+import type { LintIssue } from "usfm-onion-web";
 
+import type { RecoveryReportEntry } from "@/app/domain/api/recoverDirtyBuffers.ts";
 import { reduceProjectLocalLint } from "@/app/domain/editor/pipelines/localLintPipeline.ts";
 import {
   awaitInitialFindings,
   type InitialFindings,
   NO_INITIAL_FINDINGS,
   seedMirror,
+  seedResidentMirror,
 } from "@/app/domain/editor/pipelines/mirrorPatchProducer.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { DirtyBufferStore } from "@/app/state/DirtyBufferStore.ts";
+import type { RecoveredConflictTracker } from "@/app/state/RecoveredConflictTracker.ts";
 import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import type { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
-import type { FileSystem } from "@/core/persistence/FileSystem.ts";
+import type { GalleyAnalysis } from "@/core/domain/sous/galleyTypes.ts";
 
-import { publishResidentBraid, restoreResidentBraid } from "./braidHost.ts";
-import { readBraidWarmCache, writeBraidWarmCache } from "./braidWarmCache.ts";
-import { MirrorFeed } from "./MirrorFeed.ts";
-import type {
-  MirrorSession,
-  MirrorSessionFactory,
-} from "./mirrorSessionFactory.ts";
+import type { MirrorFeed } from "./MirrorFeed.ts";
+import type { MirrorSession } from "./mirrorSessionFactory.ts";
+import { logStartupPhase, startupElapsed } from "./startupLog.ts";
 
 /**
- * Everything the loader must hand the kernel builder to spin up a project's
- * mirror. The stores listed here are the load-time, kernel-internal seed
- * sources (a transient `WorkingFilesStore` the kernel builds from `projectFiles`
- * — the kernel seeds from loader data, NOT the provider's store) plus the
- * already-recovered baseline store. The factory is the platform seam.
+ * Everything the loader must hand the kernel builder after the resident host
+ * has loaded the project. `braidFindings`/`galley` are the load's OWN results,
+ * materialized on main — the load is the initial analysis, so a clean open runs
+ * no follow-up lint or Galley pass.
  */
 export type WorkspaceKernelBuildArgs = {
   /** Stable identity of the project this kernel serves (the workspace key). */
@@ -60,18 +67,44 @@ export type WorkspaceKernelBuildArgs = {
   projectFiles: ScriptureBookState[];
   /** Disk baselines the loader's recovery established (read into the seed). */
   workspaceBaselineStore: WorkspaceBaselineStore;
-  dirtyBufferRoot: string;
-  /** Platform mirror session factory (web worker / desktop sinks). */
-  mirrorSessionFactory: MirrorSessionFactory;
   /**
    * True when the mode disables analysis (plain mode — bytes-only). The kernel
-   * still spawns + seeds the mirror (the backup sink needs resident tokens) but
-   * skips the initial findings pass, matching the gated live pipelines.
+   * still seeds the mirror (the backup sink needs resident metadata) but
+   * publishes no findings, matching the gated live pipelines.
    */
   analysisDisabled: boolean;
   proofreadingConfig?: SousConfig;
-  fileSystem?: FileSystem;
-  cacheRoot?: string;
+  feed: MirrorFeed;
+  session: MirrorSession;
+  /** Braid findings for the loaded corpus, by book code. */
+  braidFindings: ReadonlyMap<string, readonly LintIssue[]> | null;
+  /** Galley's analysis of the same corpus. */
+  galley: GalleyAnalysis | null;
+  /**
+   * Books whose working content came from a crash backup rather than disk. The
+   * resident corpus was loaded from disk, so these — and only these — have to
+   * be republished and re-analyzed.
+   */
+  recoveredBookCodes: readonly string[];
+  /** The loader payload a same-project reopen should be served, unchanged. */
+  load: WorkspaceKernelLoad;
+};
+
+/**
+ * The loader result the kernel owns for the lifetime of the open project. A
+ * reopen of the same project returns these exact objects: the provider is not
+ * remounted across a same-project reopen, so handing it a second set of
+ * workspace stores — or a re-read of a corpus it has since edited — would
+ * silently split its state.
+ */
+export type WorkspaceKernelLoad = {
+  projectFiles: ScriptureBookState[];
+  workspaceBaselineStore: WorkspaceBaselineStore;
+  recoveredConflictTracker: RecoveredConflictTracker;
+  dirtyBufferStore: DirtyBufferStore;
+  restoredBookCodes: string[];
+  conflictedBookCodes: string[];
+  recoveryReportEntries: RecoveryReportEntry[];
 };
 
 /** One mounted lifetime's claim on the kernel; released on unmount. */
@@ -99,6 +132,7 @@ export type WorkspaceKernelHandle = {
   feed: MirrorFeed;
   initialFindings: InitialFindings;
   generation: number;
+  load: WorkspaceKernelLoad;
   claim(): WorkspaceKernelClaim;
 };
 
@@ -110,151 +144,128 @@ type LiveKernel = {
   session: MirrorSession;
   initialFindings: InitialFindings;
   generation: number;
+  load: WorkspaceKernelLoad;
   refcount: number;
   /** Set while a disposal grace timer is pending; cleared if re-claimed. */
   graceTimer: ReturnType<typeof setTimeout> | null;
 };
 
-// The single slot. At most one live kernel; `building` guards against a second
-// concurrent build for the same key (StrictMode double-invoke of the loader).
+type Reservation = {
+  projectKey: string;
+  settled: Promise<LiveKernel | null>;
+  resolve: (kernel: LiveKernel | null) => void;
+  /** Set when a later navigation took the slot while this load was in flight. */
+  superseded: boolean;
+};
+
+// The single slot, plus at most one reservation held across an in-flight load.
 let slot: LiveKernel | null = null;
-let building: { projectKey: string; promise: Promise<LiveKernel> } | null =
-  null;
+let reservation: Reservation | null = null;
 
 // Absorbs StrictMode double-mount, HMR remount, and preload-then-navigate: a
 // release that drops the count to 0 waits this long before disposing, so a
 // re-claim in the window reuses the live kernel instead of rebuilding it.
 const DISPOSE_GRACE_MS = 5_000;
 
-/**
- * Assemble the project's initial findings: the mirror-awaited lint + sous pass
- * merged with a synchronous main-thread local-lint reduce over the same loaded
- * tokens (no mirror round-trip — it never runs off-main). Called only when
- * analysis is enabled; plain mode uses `NO_INITIAL_FINDINGS`.
- */
-async function buildInitialFindings(args: {
-  feed: MirrorFeed;
-  generation: number;
-  seedStore: WorkingFilesStore;
-  workspaceBaselineStore: WorkspaceBaselineStore;
-  config?: SousConfig;
-}): Promise<InitialFindings> {
-  const mirrorFindings = await awaitInitialFindings({
-    feed: args.feed,
-    generation: args.generation,
-    // Recovery for a load-time `resyncRequest`: re-push the seed exactly as the
-    // kernel's step 3 did. No router is mounted yet to service the resync.
-    reseed: () =>
-      seedMirror({
-        workingFilesStore: args.seedStore,
-        workspaceBaselineStore: args.workspaceBaselineStore,
-        feed: args.feed,
-        generation: args.generation,
-      }),
-    config: args.config,
-  });
-  return {
-    ...mirrorFindings,
-    localLint: reduceProjectLocalLint(args.seedStore.read()),
-  };
-}
-
 async function buildKernel(
   args: WorkspaceKernelBuildArgs,
 ): Promise<LiveKernel> {
-  const feed = new MirrorFeed();
+  const feed = args.feed;
   // The kernel seeds from loader data, not the provider's store. A transient
-  // store wraps `projectFiles` purely so the existing `seedMirror` tokenization
-  // path produces seed bytes identical to the store-driven path. Its generation
-  // starts at 0 (a fresh store); that is the load generation the provider keeps
-  // its own store reset coherent with (see the provider's store reset note).
+  // store wraps `projectFiles` purely so the existing seed path produces the
+  // same bytes the store-driven path would. Its generation starts at 0 (a fresh
+  // store); that is the load generation the provider keeps its own store reset
+  // coherent with (see the provider's store reset note).
   const seedStore = new WorkingFilesStore(args.projectFiles);
   const generation = seedStore.generation();
 
-  const session = args.mirrorSessionFactory({
-    feed,
-    workspaceKey: args.projectKey,
-    dirtyBufferRoot: args.dirtyBufferRoot,
-    fileSystem: args.fileSystem,
-    cacheRoot: args.cacheRoot,
-  });
-
-  // 3. seedMirrors — full token fan-out from the loader's parsed files.
-  seedMirror({
+  // The resident host already owns the token corpus, so a clean open sends
+  // metadata only. Crash-recovered books are the exception: their working
+  // content is the backup, not the disk bytes the host loaded, so each is
+  // republished as a complete book.
+  const seedStartedAt = startupElapsed();
+  seedResidentMirror({
     workingFilesStore: seedStore,
     workspaceBaselineStore: args.workspaceBaselineStore,
     feed,
     generation,
+    recoveredBookCodes: args.recoveredBookCodes,
   });
+  logStartupPhase(
+    "main:resident-seed",
+    {
+      books: args.projectFiles.length,
+      recovered: args.recoveredBookCodes.length,
+    },
+    { startedAt: seedStartedAt, durationMs: startupElapsed() - seedStartedAt },
+  );
 
-  // 4. awaitEnginesReady — the ready ACK (wasm/engine init complete).
-  await session.ready();
-
-  let restoredBraid = false;
-  if (args.fileSystem && args.cacheRoot) {
-    const cached = await readBraidWarmCache({
-      fileSystem: args.fileSystem,
-      cacheRoot: args.cacheRoot,
-      workspaceKey: args.projectKey,
-    });
-    if (cached) {
-      const restore = await restoreResidentBraid({
-        feed,
-        generation,
-        packed: cached.packed,
-        records: cached.records,
-      });
-      restoredBraid = restore.accepted;
-      if (!restore.accepted) {
-        console.info(
-          "[braid] warm cache rejected; using cold lint",
-          restore.error,
-        );
-      }
-    }
-  }
-
-  // 5. initialFindings — the awaited project-wide lint + sous (off-main via the
-  //    mirror) plus a synchronous main-thread local-lint reduce over the loaded
-  //    tokens. Plain mode runs no analysis (empty, matching the live gates).
+  const findingsStartedAt = startupElapsed();
   const initialFindings = args.analysisDisabled
     ? NO_INITIAL_FINDINGS
-    : await buildInitialFindings({
-        feed,
-        generation,
-        seedStore,
-        workspaceBaselineStore: args.workspaceBaselineStore,
-        config: args.proofreadingConfig,
-      });
-
-  if (
-    !args.analysisDisabled &&
-    !restoredBraid &&
-    args.fileSystem &&
-    args.cacheRoot
-  ) {
-    try {
-      const publication = await publishResidentBraid({ feed, generation });
-      await writeBraidWarmCache({
-        fileSystem: args.fileSystem,
-        cacheRoot: args.cacheRoot,
-        workspaceKey: args.projectKey,
-        publication,
-      });
-    } catch (error) {
-      console.warn("[braid] cold warm-cache publication skipped", error);
-    }
-  }
+    : {
+        ...(await residentFindings(args, feed, generation, seedStore)),
+        localLint: reduceProjectLocalLint(seedStore.read()),
+      };
+  logStartupPhase(
+    "main:initial-findings",
+    {
+      source:
+        args.recoveredBookCodes.length > 0 ? "recovery-reanalysis" : "load",
+      braid: initialFindings.lint?.size ?? 0,
+      galley: initialFindings.sous?.cacheState ?? "none",
+      localLint: Object.keys(initialFindings.localLint).length,
+    },
+    {
+      startedAt: findingsStartedAt,
+      durationMs: startupElapsed() - findingsStartedAt,
+    },
+  );
 
   return {
     projectKey: args.projectKey,
     feed,
-    session,
+    session: args.session,
     initialFindings,
     generation,
+    load: args.load,
     refcount: 0,
     graceTimer: null,
   };
+}
+
+/**
+ * First-paint findings. A clean open already has them: the load verified and
+ * materialized Braid's published container and answered Galley in the same
+ * pass. Only a crash-recovered open has to analyze, because the books it
+ * restored differ from the corpus the host loaded from disk — and it analyzes
+ * with `cachePolicy: "none"`, since unsaved recovered content must never be
+ * written into a cache that claims to describe what is on disk.
+ */
+async function residentFindings(
+  args: WorkspaceKernelBuildArgs,
+  feed: MirrorFeed,
+  generation: number,
+  seedStore: WorkingFilesStore,
+): Promise<Pick<InitialFindings, "lint" | "sous">> {
+  if (args.recoveredBookCodes.length === 0) {
+    return { lint: args.braidFindings, sous: args.galley };
+  }
+  return awaitInitialFindings({
+    feed,
+    generation,
+    cachePolicy: "none",
+    // Recovery for a load-time `resyncRequest`: no router is mounted yet to
+    // service one, so re-push the complete corpus here.
+    reseed: () =>
+      seedMirror({
+        workingFilesStore: seedStore,
+        workspaceBaselineStore: args.workspaceBaselineStore,
+        feed,
+        generation,
+      }),
+    config: args.proofreadingConfig,
+  });
 }
 
 function disposeKernel(kernel: LiveKernel): void {
@@ -278,17 +289,12 @@ function armGraceIfIdle(kernel: LiveKernel): void {
   }, DISPOSE_GRACE_MS);
 }
 
-/**
- * The loader's reference to the slot. Reads ride the warm slot directly; a
- * `claim()` takes a refcount for one mounted lifetime and cancels any pending
- * grace dispose, so a remount reuses the worker set instead of racing its
- * teardown.
- */
 function makeHandle(kernel: LiveKernel): WorkspaceKernelHandle {
   return {
     feed: kernel.feed,
     initialFindings: kernel.initialFindings,
     generation: kernel.generation,
+    load: kernel.load,
     claim(): WorkspaceKernelClaim {
       kernel.refcount++;
       if (kernel.graceTimer) {
@@ -308,85 +314,137 @@ function makeHandle(kernel: LiveKernel): WorkspaceKernelHandle {
   };
 }
 
+/** The slot is already serving this project; the caller loads nothing. */
+export type WorkspaceSlotReuse = {
+  kind: "reuse";
+  handle: WorkspaceKernelHandle;
+};
+
+/** A preload that would have evicted the live workspace. The caller stops. */
+export type WorkspaceSlotDeclined = { kind: "declined" };
+
 /**
- * Acquire the kernel for `projectKey`, building it if needed.
- *
- *   - Same key, live (or grace-pending): reuse it, refcount++.
- *   - Same key, currently building: await that build, then claim.
- *   - Different key, slot occupied:
- *       · `preload: true`  → DO NOT evict the live workspace; return null so the
- *         loader skips kernel work (parse-only). Preload never evicts.
- *       · `preload: false` → an actual navigation: dispose the old kernel and
- *         build the new one (single slot).
- *   - Empty slot: build and warm (a `preload` here warms the slot — the
- *     feature: hover a project → it opens with findings ready).
- *
- * Returns a handle the caller READS from and `claim()`s per mount; the slot is
- * held warm by the dispose grace, not by acquiring. Returns null ONLY for the
- * preload-while-occupied case; every navigation (preload false) resolves to a
- * handle.
+ * The caller owns the slot and may now create its session and load. It must
+ * finish with exactly one of `install` (success) or `abort` (failure), or the
+ * registry stays reserved and the next open blocks behind it.
  */
-export async function acquireWorkspaceKernel(
-  args: WorkspaceKernelBuildArgs & { preload: boolean },
-): Promise<WorkspaceKernelHandle | null> {
+export type WorkspaceSlotGrant = {
+  kind: "granted";
+  /**
+   * Build and install the kernel. Returns null when a later navigation took the
+   * slot mid-load: this open is moot, its session is disposed, and the caller
+   * returns a kernel-less loader result (the route renders its pending state).
+   */
+  install(
+    args: Omit<WorkspaceKernelBuildArgs, "projectKey">,
+  ): Promise<WorkspaceKernelHandle | null>;
+  /** Release the reservation after a failed load. */
+  abort(): void;
+};
+
+export type WorkspaceSlotReservation =
+  | WorkspaceSlotReuse
+  | WorkspaceSlotDeclined
+  | WorkspaceSlotGrant;
+
+/**
+ * Decide who owns the single kernel slot, before any resident state is touched.
+ *
+ *   - Same key, live (or grace-pending): reuse it; the caller loads nothing.
+ *   - Same key, currently loading: await that load and reuse its kernel.
+ *   - Different key, slot occupied:
+ *       · `preload: true`  → decline. Preload never evicts.
+ *       · `preload: false` → dispose the outgoing kernel NOW and grant the slot,
+ *         so the incoming load never runs against another project's resident
+ *         state and the outgoing teardown never lands on top of it.
+ *   - Empty slot: grant (a `preload` here warms the slot — the feature).
+ */
+export async function reserveWorkspaceSlot(args: {
+  projectKey: string;
+  preload: boolean;
+}): Promise<WorkspaceSlotReservation> {
   const { projectKey, preload } = args;
 
-  // Same key already live (or in its grace window): reuse.
+  const startedAt = startupElapsed();
+  const decided = (state: string): void =>
+    logStartupPhase(
+      "main:slot",
+      { workspace: projectKey, state },
+      { startedAt, durationMs: startupElapsed() - startedAt },
+    );
+
   if (slot && slot.projectKey === projectKey) {
     armGraceIfIdle(slot);
-    return makeHandle(slot);
+    decided("reuse");
+    return { kind: "reuse", handle: makeHandle(slot) };
   }
 
-  // Same key currently building (StrictMode double loader invoke, or a
-  // preload then a navigation racing): join that build.
-  if (building && building.projectKey === projectKey) {
-    const kernel = await building.promise;
-    armGraceIfIdle(kernel);
-    return makeHandle(kernel);
+  // A load for this same key is already in flight (StrictMode double loader
+  // invoke, or preload racing a navigation): join it rather than loading twice.
+  if (reservation && reservation.projectKey === projectKey) {
+    const kernel = await reservation.settled;
+    if (kernel) {
+      armGraceIfIdle(kernel);
+      decided("joined");
+      return { kind: "reuse", handle: makeHandle(kernel) };
+    }
+    // That attempt failed or was superseded; fall through and try again.
   }
 
-  // A DIFFERENT key wants the slot.
-  if (slot || (building && building.projectKey !== projectKey)) {
-    // Preload must never evict the occupied/building slot — the open project
-    // keeps its single worker set. The loader proceeds parse-only.
-    if (preload) return null;
-    // A real navigation: dispose the outgoing kernel (single slot, and the
-    // grace would otherwise leave a second kernel briefly alive).
+  if (slot || reservation) {
+    if (preload) {
+      decided("declined");
+      return { kind: "declined" };
+    }
+    // A real navigation. Take the slot down before granting it, so the incoming
+    // load is the only thing touching resident state.
     if (slot) disposeKernel(slot);
-    // If a build for a different key is in flight, let it settle then dispose
-    // it before taking the slot — we never keep two live worker sets.
-    if (building) {
-      const stale = building.promise;
-      building = null;
-      void stale.then((k) => {
-        if (k !== slot) disposeKernel(k);
-      });
-    }
+    if (reservation) reservation.superseded = true;
   }
 
-  // Build for this key, guarding against a concurrent second build.
-  const promise = buildKernel(args);
-  building = { projectKey, promise };
-  let kernel: LiveKernel;
-  try {
-    kernel = await promise;
-  } finally {
-    if (building?.promise === promise) building = null;
-  }
-  // A navigation to a *different* key could have landed while we built; if the
-  // slot was taken by someone else, dispose ours rather than overwrite.
-  if (slot && slot.projectKey !== projectKey) {
-    disposeKernel(kernel);
-    // Fall through to reuse whatever now occupies the slot only if it matches;
-    // otherwise the caller (loader) will have its own handle from that path.
-    if (slot.projectKey === projectKey) {
-      armGraceIfIdle(slot);
-      return makeHandle(slot);
-    }
-  }
-  slot = kernel;
-  armGraceIfIdle(kernel);
-  return makeHandle(kernel);
+  let resolve: (kernel: LiveKernel | null) => void = () => {};
+  const settled = new Promise<LiveKernel | null>((resolveSettled) => {
+    resolve = resolveSettled;
+  });
+  const granted: Reservation = {
+    projectKey,
+    settled,
+    resolve,
+    superseded: false,
+  };
+  reservation = granted;
+  decided("granted");
+
+  const finish = (kernel: LiveKernel | null): void => {
+    granted.resolve(kernel);
+    if (reservation === granted) reservation = null;
+  };
+
+  return {
+    kind: "granted",
+    async install(buildArgs) {
+      let kernel: LiveKernel;
+      try {
+        kernel = await buildKernel({ ...buildArgs, projectKey });
+      } catch (error) {
+        buildArgs.session.dispose();
+        finish(null);
+        throw error;
+      }
+      if (granted.superseded || (slot && slot.projectKey !== projectKey)) {
+        disposeKernel(kernel);
+        finish(null);
+        return null;
+      }
+      slot = kernel;
+      armGraceIfIdle(kernel);
+      finish(kernel);
+      return makeHandle(kernel);
+    },
+    abort() {
+      finish(null);
+    },
+  };
 }
 
 /** Test-only: tear the slot down so each test starts from an empty registry. */
@@ -396,5 +454,5 @@ export function __resetWorkspaceKernelRegistryForTests(): void {
     slot.session.dispose();
   }
   slot = null;
-  building = null;
+  reservation = null;
 }

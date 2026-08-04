@@ -347,11 +347,12 @@ dependencies = [
 
 [[package]]
 name = "braid"
-version = "0.1.1"
-source = "git+https://github.com/WycliffeAssociates/usfm-onion.git?tag=v0.1.1#7ff7fe970bf2f9bb5960ffbf6fcf29288549c220"
+version = "0.1.4"
+source = "git+https://github.com/WycliffeAssociates/usfm-onion.git?tag=v0.1.4#b6a1fcda8f1e54b1e5aef16227ea2853e4e7d21d"
 dependencies = [
  "rustc-hash",
  "usfm_onion",
+ "usfm_onion_wire",
  "xxhash-rust",
 ]
 
@@ -5214,8 +5215,8 @@ dependencies = [
 
 [[package]]
 name = "usfm_onion"
-version = "0.1.1"
-source = "git+https://github.com/WycliffeAssociates/usfm-onion.git?tag=v0.1.1#7ff7fe970bf2f9bb5960ffbf6fcf29288549c220"
+version = "0.1.4"
+source = "git+https://github.com/WycliffeAssociates/usfm-onion.git?tag=v0.1.4#b6a1fcda8f1e54b1e5aef16227ea2853e4e7d21d"
 dependencies = [
  "logos",
  "memchr",
@@ -5230,8 +5231,8 @@ dependencies = [
 
 [[package]]
 name = "usfm_onion_wire"
-version = "0.1.1"
-source = "git+https://github.com/WycliffeAssociates/usfm-onion.git?tag=v0.1.1#7ff7fe970bf2f9bb5960ffbf6fcf29288549c220"
+version = "0.1.4"
+source = "git+https://github.com/WycliffeAssociates/usfm-onion.git?tag=v0.1.4#b6a1fcda8f1e54b1e5aef16227ea2853e4e7d21d"
 dependencies = [
  "serde",
  "usfm_onion",

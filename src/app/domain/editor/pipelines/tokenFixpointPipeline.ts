@@ -140,8 +140,15 @@ export function makeTokenFixpointPipeline(args: {
           (chapter) => chapter.currentTokens,
         );
         const source = editorTokens.map((token) => token.source).join("");
+        const startedAt = performance.now();
         const projected = yield* Effect.tryPromise(() =>
           args.usfmOnionService.parseUsfm(source),
+        );
+        // Say what this is, next to the whole-book parse it costs. An
+        // unattributed 20ms parse per commit reads as production work; this is
+        // a DEV assertion that does not exist in a built app.
+        console.info(
+          `[edit:assert] tokenFixpoint book=${file.bookCode} chars=${source.length} (${Math.round(performance.now() - startedAt)}ms)`,
         );
         const divergence = compareTokenFixpoint(editorTokens, projected.tokens);
         if (divergence) {

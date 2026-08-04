@@ -29,9 +29,9 @@ pub fn run() {
             .plugin(tauri_plugin_process::init());
     }
     builder
-        // The resident token mirror: seeded by the frontend's load-time
-        // `fullSync` patch and maintained by `mirror_push_patch`; lint/sous read
-        // it via the generation-aware analyze commands.
+        // The native resident state: Braid is loaded once by the project-load
+        // command and then receives generation-aware resident mutations; the
+        // lint/Sous commands read that same handle.
         .manage(mirror::MirrorState::default())
         .invoke_handler(tauri::generate_handler![
             md5::calculate_md5,
@@ -52,7 +52,7 @@ pub fn run() {
             mirror::mirror_apply_braid_fix,
             mirror::mirror_publish_braid,
             mirror::mirror_braid_packed,
-            mirror::mirror_restore_braid,
+            mirror::mirror_load_project,
             mirror::mirror_backup,
             mirror::mirror_galley_analyze,
             mirror::mirror_galley_load,

@@ -98,6 +98,9 @@ const mirrorSessionFactory: MirrorSessionFactory = ({
   });
   const session: MirrorSession = {
     ready: async () => {},
+    loadProject(args) {
+      return rust.loadProject(args);
+    },
     dispose() {
       rust.dispose();
     },

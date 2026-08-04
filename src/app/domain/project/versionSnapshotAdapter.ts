@@ -1,4 +1,3 @@
-import { shapeForSurface } from "@/app/data/editor.ts";
 import { scriptureProjectToParsedFiles } from "@/app/domain/api/scriptureProjectToParsedFiles.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
@@ -110,7 +109,6 @@ export async function snapshotToScriptureBookStates(args: {
   // lexical state is never rendered, so they materialize as compare sources.
   const parsed = await scriptureProjectToParsedFiles({
     loadedProject: virtualProject,
-    shape: shapeForSurface("compareSource"),
     usfmOnionService: contentOnlyUsfmOnionService,
   });
 

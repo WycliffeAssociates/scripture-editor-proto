@@ -5,24 +5,16 @@ import type {
   SousConfig,
   VrefCorpus,
 } from "scripture-sous-chef-web";
-import type { CorpusScope, FormatOptions } from "usfm-onion-web";
 
 import type { GalleyCachePolicy } from "@/app/domain/mirror/mirrorProtocol.ts";
-import type { ResidentBraidBook } from "@/app/domain/mirror/WorkspaceMirror.ts";
-import { devTimer } from "@/app/ui/hooks/utils/domUtils.ts";
+import type { PhaseRecorder } from "@/app/domain/mirror/traceLog.ts";
 import type {
   GalleyAnalysis,
   GalleyCacheIdentity,
   GalleyMutationEffect,
 } from "@/core/domain/sous/galleyTypes.ts";
-import type { Token, TokenFix } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
-
-import {
-  type BraidProjection,
-  type WebBraidPublication,
-  WebBraidHost,
-} from "./WebBraidHost.ts";
+import type { BraidProjection } from "@/web/domain/braid/WebBraidHost.ts";
 
 type CacheOptions = {
   fileSystem: FileSystem;
@@ -41,10 +33,10 @@ type Projection = BraidProjection & { target: VrefCorpus };
 export class WebGalleyService {
   private galley: Galley | null = null;
   private projection: Projection | null = null;
-  private readonly braid: WebBraidHost;
+  /** Set by host load so Braid and Galley cache IO can overlap. */
+  private prefetchedCache: ArrayBuffer | null | undefined;
 
-  constructor(args?: Partial<CacheOptions> & { braid?: WebBraidHost }) {
-    this.braid = args?.braid ?? new WebBraidHost();
+  constructor(args?: Partial<CacheOptions>) {
     this.cache =
       args?.fileSystem && args.root && args.workspaceKey
         ? {
@@ -61,171 +53,86 @@ export class WebGalleyService {
     workspaceKey: string;
   };
 
-  seed(books: ResidentBraidBook[], config?: SousConfig): GalleyMutationEffect {
-    const next = withTarget(this.braid.seed(books).projection);
+  seed(projection: BraidProjection, config?: SousConfig): GalleyMutationEffect {
+    const next = withTarget(projection);
     if (this.galley === null) {
       this.galley = new Galley(
         config ? { target: next.target, config } : { target: next.target },
       );
       this.projection = next;
-      this.installBaselines(books);
       return "changed";
     }
     const effect = this.galley.replaceCorpus(next.target);
     if (config) this.galley.updateConfig(config);
     this.projection = next;
-    this.installBaselines(books);
     return effect;
-  }
-
-  setBraidBaseline(
-    bookCode: string,
-    tokens: Token[],
-    lineEnding: "lf" | "crlf",
-  ): void {
-    this.braid.setBaseline(bookCode, tokens, lineEnding);
-  }
-
-  clearBraidBaseline(bookCode: string): void {
-    this.braid.clearBaseline(bookCode);
-  }
-
-  isBraidDirty(bookCode: string): boolean {
-    return this.braid.isDirty(bookCode);
-  }
-
-  braidUsfm(bookCode: string): string {
-    return this.braid.toUsfm(bookCode);
-  }
-
-  publishBraid(): WebBraidPublication {
-    return this.braid.publish();
-  }
-
-  restoreBraid(
-    packed: ArrayBuffer,
-    records: Array<{ bookCode: string; sourceKey: string; source: string }>,
-  ): { accepted: boolean; error?: string } {
-    return this.braid.restorePublishedCorpus(packed, records);
-  }
-
-  formatBraid(
-    scope: CorpusScope,
-    options: FormatOptions = { insertStructuralLinebreaks: false },
-  ): { books: Record<string, Token[]>; usfm: Record<string, string> } {
-    const formatted = this.braid.format(scope, options);
-    for (const bookCode of Object.keys(formatted.books)) {
-      const next = withTarget(
-        this.braid.projection({ kind: "book", book: bookCode }),
-      );
-      this.replaceBookProjection(bookCode, next);
-      this.requireGalley().updateBook({
-        slug: bookCode,
-        keys: next.keys,
-        texts: next.texts,
-      });
-    }
-    return formatted;
-  }
-
-  applyBraidFix(
-    bookCode: string,
-    fix: TokenFix,
-  ): { books: Record<string, Token[]>; usfm: Record<string, string> } {
-    const normalizedBook = bookCode.toUpperCase();
-    const result = this.braid.applyFix(normalizedBook, fix);
-    if (!result.books[normalizedBook]) return result;
-    const projection = withTarget(
-      this.braid.projection({ kind: "book", book: normalizedBook }),
-    );
-    this.replaceBookProjection(normalizedBook, projection);
-    this.requireGalley().updateBook({
-      slug: normalizedBook,
-      keys: projection.keys,
-      texts: projection.texts,
-    });
-    return result;
   }
 
   updateChapter(
     bookCode: string,
     chapterNum: number,
-    tokens: Token[],
+    projection: BraidProjection,
+    /**
+     * Widening path only, and a thunk deliberately: the ambiguous-chapter case
+     * is rare, while projecting a whole book out of wasm as JS objects is not
+     * cheap. Computing it eagerly meant every keystroke paid for a fallback it
+     * almost never used.
+     */
+    fallbackBookProjection: () => BraidProjection | null,
   ): GalleyMutationEffect {
     const galley = this.requireGalley();
-    const mutation = this.braid.updateChapter(bookCode, chapterNum, tokens);
-    if (mutation.effect === "unchanged" || !mutation.projection)
-      return "unchanged";
-    const next = withTarget(mutation.projection);
+    const next = withTarget(projection);
     const block: ChapterUpdateIn = {
       slug: bookCode.toUpperCase(),
       chapter: String(chapterNum),
       keys: next.keys,
       texts: next.texts,
     };
-    const label = `sous:galley.updateChapter:${bookCode}:${chapterNum}`;
-    if (import.meta.env.DEV) console.time(label);
     try {
-      try {
-        const effect = galley.updateChapter(block);
-        if (effect === "changed")
-          this.replaceChapterProjection(bookCode, chapterNum, next);
-        return effect;
-      } catch {
-        // A chapter address can become ambiguous after a structural edit. The
-        // resident Braid already owns the authoritative book, so widen only
-        // the Galley projection here; callers do not keep a second token book.
-        const bookProjection = withTarget(
-          this.braid.projection({
-            kind: "book",
-            book: bookCode.toUpperCase(),
-          }),
-        );
-        const effect = galley.updateBook({
-          slug: bookCode.toUpperCase(),
-          keys: bookProjection.keys,
-          texts: bookProjection.texts,
-        });
-        if (effect === "changed")
-          this.replaceBookProjection(bookCode, bookProjection);
-        return effect;
-      }
-    } finally {
-      if (import.meta.env.DEV) console.timeEnd(label);
+      const effect = galley.updateChapter(block);
+      if (effect === "changed")
+        this.replaceChapterProjection(bookCode, chapterNum, next);
+      return effect;
+    } catch {
+      // A chapter address can become ambiguous after a structural edit. The
+      // resident Braid already owns the authoritative book, so widen only
+      // the Galley projection here; callers do not keep a second token book.
+      const fallback = fallbackBookProjection();
+      if (!fallback) throw new Error("Missing book projection");
+      const bookProjection = withTarget(fallback);
+      const effect = galley.updateBook({
+        slug: bookCode.toUpperCase(),
+        keys: bookProjection.keys,
+        texts: bookProjection.texts,
+      });
+      if (effect === "changed")
+        this.replaceBookProjection(bookCode, bookProjection);
+      return effect;
     }
   }
 
   updateBook(
     bookCode: string,
-    tokens: Token[],
-    lineEnding: "lf" | "crlf" = "lf",
+    projection: BraidProjection,
   ): GalleyMutationEffect {
     const galley = this.requireGalley();
-    const mutation = this.braid.updateBook(bookCode, tokens, lineEnding);
-    if (mutation.effect === "unchanged" || !mutation.projection)
-      return "unchanged";
-    const next = withTarget(mutation.projection);
+    const next = withTarget(projection);
     const block: BookUpdateIn = {
       slug: bookCode.toUpperCase(),
       keys: next.keys,
       texts: next.texts,
     };
-    const label = `sous:galley.updateBook:${bookCode}`;
-    if (import.meta.env.DEV) console.time(label);
-    try {
-      const effect = galley.updateBook(block);
-      if (effect === "changed") this.replaceBookProjection(bookCode, next);
-      return effect;
-    } finally {
-      if (import.meta.env.DEV) console.timeEnd(label);
-    }
+    const effect = galley.updateBook(block);
+    if (effect === "changed") this.replaceBookProjection(bookCode, next);
+    return effect;
   }
 
-  removeChapter(bookCode: string, chapterNum: number): GalleyMutationEffect {
+  removeChapter(
+    bookCode: string,
+    nextProjection: BraidProjection | null,
+  ): GalleyMutationEffect {
     const galley = this.requireGalley();
-    const mutation = this.braid.removeChapter(bookCode, chapterNum);
-    if (mutation.effect === "unchanged") return "unchanged";
-    const next = mutation.projection ? withTarget(mutation.projection) : null;
+    const next = nextProjection ? withTarget(nextProjection) : null;
     if (!next || next.keys.length === 0) {
       const effect =
         galley.removeBooks([bookCode.toUpperCase()]) > 0
@@ -245,7 +152,6 @@ export class WebGalleyService {
 
   removeBook(bookCode: string): GalleyMutationEffect {
     const galley = this.requireGalley();
-    this.braid.removeBook(bookCode);
     const effect =
       galley.removeBooks([bookCode.toUpperCase()]) > 0
         ? "changed"
@@ -261,11 +167,10 @@ export class WebGalleyService {
   async analyzePacked(
     config?: SousConfig,
     cachePolicy: GalleyCachePolicy = "none",
+    phases?: PhaseRecorder,
   ): Promise<GalleyAnalysis> {
-    const endTimer = devTimer("web:galleyAnalyze workspace");
     const projection = this.projection;
     if (!projection || projection.keys.length === 0) {
-      endTimer();
       return {
         packed: new ArrayBuffer(0),
         keys: [],
@@ -275,24 +180,22 @@ export class WebGalleyService {
     }
     if (config) this.requireGalley().updateConfig(config);
 
-    const analyzeLabel = "sous:galley.analyze";
-    if (import.meta.env.DEV) console.time(analyzeLabel);
-    let bytes: Uint8Array;
-    try {
-      bytes = this.requireGalley().analyze();
-    } finally {
-      if (import.meta.env.DEV) console.timeEnd(analyzeLabel);
-    }
+    const run = () => this.requireGalley().analyze();
+    const bytes = phases
+      ? phases.timeSync("worker:galley:analyze", run, (value) => ({
+          verses: projection.keys.length,
+          bytes: value.byteLength,
+        }))
+      : run();
     const packed = new Uint8Array(bytes).slice().buffer;
     if (cachePolicy !== "none") {
-      try {
-        await this.writeCache(bytes, cachePolicy);
-      } catch (error: unknown) {
-        // Findings are still valid when the optional app cache is unavailable.
-        console.error("[mirror] Galley cache write failed", { error });
-      }
+      // The live finding result is ready now. Cache persistence is a warm-up
+      // side effect and must never hold the initial-result gate or reject a
+      // valid analysis when OPFS is unavailable.
+      void this.writeCache(bytes, cachePolicy).catch((error: unknown) => {
+        console.error("[worker:sous] Galley cache write failed", { error });
+      });
     }
-    endTimer();
     return {
       packed,
       keys: projection.keys,
@@ -305,11 +208,16 @@ export class WebGalleyService {
     if (!this.cache || !this.projection || this.projection.keys.length === 0)
       return null;
     if (config) this.requireGalley().updateConfig(config);
+    const prefetched = this.prefetchedCache;
+    this.prefetchedCache = undefined;
     try {
-      const cacheLabel = "sous:galley.cacheRead";
-      if (import.meta.env.DEV) console.time(cacheLabel);
-      const bytes = await this.cache.fileSystem.readBytes(this.cachePath());
-      if (import.meta.env.DEV) console.timeEnd(cacheLabel);
+      const bytes =
+        prefetched === undefined
+          ? await this.readCacheBytes()
+          : prefetched === null
+            ? null
+            : new Uint8Array(prefetched);
+      if (!bytes) return null;
       return {
         packed: new Uint8Array(bytes).slice().buffer,
         keys: this.projection.keys,
@@ -318,8 +226,21 @@ export class WebGalleyService {
         expectedIdentity: this.expectedIdentity(),
       };
     } catch {
-      if (import.meta.env.DEV) console.timeEnd("sous:galley.cacheRead");
+      console.info("worker:sous:galley:cache", {
+        workspace: this.cache.workspaceKey,
+        state: "miss",
+      });
       return null;
+    }
+  }
+
+  async prefetchCache(): Promise<void> {
+    if (!this.cache) return;
+    try {
+      const bytes = await this.readCacheBytes();
+      this.prefetchedCache = bytes ? bytes.slice().buffer : null;
+    } catch {
+      this.prefetchedCache = null;
     }
   }
 
@@ -329,13 +250,26 @@ export class WebGalleyService {
     return this.galley;
   }
 
-  private installBaselines(books: ResidentBraidBook[]): void {
-    for (const book of books) {
-      this.setBraidBaseline(
-        book.bookCode,
-        book.baselineTokens,
-        book.lineEnding,
-      );
+  private async readCacheBytes(): Promise<Uint8Array | null> {
+    if (!this.cache) return null;
+    const cacheLabel = "worker:sous:galley:cache-read";
+    if (import.meta.env.DEV) console.time(cacheLabel);
+    try {
+      const bytes = await this.cache.fileSystem.readBytes(this.cachePath());
+      console.info("worker:sous:galley:cache", {
+        workspace: this.cache.workspaceKey,
+        state: "hit",
+        bytes: bytes.byteLength,
+      });
+      return new Uint8Array(bytes);
+    } catch {
+      console.info("worker:sous:galley:cache", {
+        workspace: this.cache.workspaceKey,
+        state: "miss",
+      });
+      return null;
+    } finally {
+      if (import.meta.env.DEV) console.timeEnd(cacheLabel);
     }
   }
 
@@ -449,7 +383,7 @@ export class WebGalleyService {
     if (!this.cache) return;
     const path = this.cachePath();
     if (cachePolicy === "restore") {
-      const restoreCheckLabel = "sous:galley.cacheRestoreCheck";
+      const restoreCheckLabel = "worker:sous:galley:cache-restore-check";
       if (import.meta.env.DEV) console.time(restoreCheckLabel);
       try {
         if (await this.cache.fileSystem.exists(path)) return;
@@ -457,7 +391,7 @@ export class WebGalleyService {
         if (import.meta.env.DEV) console.timeEnd(restoreCheckLabel);
       }
     }
-    const cacheWriteLabel = "sous:galley.cacheWrite";
+    const cacheWriteLabel = "worker:sous:galley:cache-write";
     if (import.meta.env.DEV) console.time(cacheWriteLabel);
     try {
       await this.cache.fileSystem.mkdir(path.slice(0, path.lastIndexOf("/")), {
@@ -471,7 +405,6 @@ export class WebGalleyService {
 
   dispose(): void {
     this.galley?.free();
-    this.braid.dispose();
     this.galley = null;
     this.projection = null;
   }

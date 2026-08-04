@@ -1,6 +1,5 @@
 import { type Unzipped, unzip } from "fflate";
 
-import { shapeForSurface } from "@/app/data/editor.ts";
 import { scriptureProjectToParsedFiles } from "@/app/domain/api/scriptureProjectToParsedFiles.ts";
 import { buildRemoteLatestCompareSource } from "@/app/domain/project/compare/remoteCompareSource.ts";
 import { snapshotToScriptureBookStates } from "@/app/domain/project/versionSnapshotAdapter.ts";
@@ -77,7 +76,6 @@ export class CompareSourceLoader {
     }
     const parsed = await scriptureProjectToParsedFiles({
       loadedProject: opened,
-      shape: shapeForSurface("compareSource"),
       usfmOnionService: this.usfmOnionService,
     });
     return {
@@ -114,7 +112,6 @@ export class CompareSourceLoader {
       const loaded = await this.loadProjectFromDirectory(projectRoot);
       const parsed = await scriptureProjectToParsedFiles({
         loadedProject: loaded,
-        shape: shapeForSurface("compareSource"),
         usfmOnionService: this.usfmOnionService,
       });
 
@@ -162,7 +159,6 @@ export class CompareSourceLoader {
       const loaded = await this.loadProjectFromDirectory(projectRoot);
       const parsed = await scriptureProjectToParsedFiles({
         loadedProject: loaded,
-        shape: shapeForSurface("compareSource"),
         usfmOnionService: this.usfmOnionService,
       });
       return {

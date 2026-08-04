@@ -15,7 +15,7 @@ import {
 } from "@/app/domain/editor/pipelines/mirrorPatchProducer.ts";
 import { makeMirrorResultRouter } from "@/app/domain/editor/pipelines/mirrorResultRouter.ts";
 import { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
-import type { MirrorCommand } from "@/app/domain/mirror/mirrorProtocol.ts";
+import type { HostCommand } from "@/app/domain/mirror/mirrorProtocol.ts";
 import { FindingsStore } from "@/app/state/FindingsStore.ts";
 import type { CommitEvent } from "@/app/state/types.ts";
 import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
@@ -64,7 +64,7 @@ function makeLintIssue(overrides: Partial<LintIssue> = {}): LintIssue {
 }
 
 describe("patchesForCommit", () => {
-  it("emits a baseline + pushChapter for a chapter-scope commit", () => {
+  it("emits only pushChapter for a chapter-scope commit — no baseline restatement", () => {
     const book = makeBook({
       bookCode: "GEN",
       chapters: [
@@ -82,8 +82,11 @@ describe("patchesForCommit", () => {
       snapshot: [book],
     };
 
+    // A saved baseline moves only at load and on save, and each of those
+    // carries it. Restating it here shipped the whole book's saved tokens and
+    // forced a host re-ingest on every keystroke.
     const patches = patchesForCommit(event, baselineAbsent);
-    expect(patches.map((p) => p.kind)).toEqual(["pushBaseline", "pushChapter"]);
+    expect(patches.map((p) => p.kind)).toEqual(["pushChapter"]);
     expect(patches.every((p) => p.generation === 7)).toBe(true);
   });
 
@@ -237,7 +240,7 @@ describe("patchesForCommit", () => {
 describe("awaitInitialFindings — the load contract's first pass", () => {
   it("sends requestId-correlated lint + sous at the load generation and resolves on the matching results", async () => {
     const feed = new MirrorFeed();
-    const commands: MirrorCommand[] = [];
+    const commands: HostCommand[] = [];
     // A fake mirror sink that answers each analyze with a matching result.
     feed.addSink({
       pushPatch: () => {},
@@ -280,7 +283,7 @@ describe("awaitInitialFindings — the load contract's first pass", () => {
       expect(command.generation).toBe(12);
       expect("requestId" in command && command.requestId).toBeTruthy();
     }
-    expect(findings.lint).toEqual(lintSnapshot({ GEN: [] }));
+    expect(findings.lint).toEqual(new Map([["GEN", []]]));
     expect(findings.sous).toMatchObject({
       packed: new ArrayBuffer(0),
       keys: [],
@@ -348,7 +351,7 @@ describe("awaitInitialFindings — the load contract's first pass", () => {
     // resolve with real findings rather than hanging.
     expect(reseeds).toBe(1);
     expect(analyzeCount.lint + analyzeCount.sous).toBeGreaterThanOrEqual(3);
-    expect(findings.lint).toEqual(lintSnapshot({ GEN: [] }));
+    expect(findings.lint).toEqual(new Map([["GEN", []]]));
     expect(findings.sous).toMatchObject({
       packed: new ArrayBuffer(0),
       keys: [],
@@ -476,9 +479,9 @@ describe("makeMirrorResultRouter — stale-result defence", () => {
     expect(findingsStore.chapterFindings("onion", "GEN", 1)[0]).toBe(first);
   });
 
-  it("rejects an invalid persisted Galley result without rewriting on load", async () => {
+  it("rejects an invalid persisted Galley result and requests a repair", async () => {
     const feed = new MirrorFeed();
-    const commands: MirrorCommand[] = [];
+    const commands: HostCommand[] = [];
     feed.addSink({
       pushPatch: () => {},
       sendCommand: (command) => {
@@ -517,12 +520,12 @@ describe("makeMirrorResultRouter — stale-result defence", () => {
     });
 
     const galleyCommands = commands.filter(
-      (command): command is Extract<MirrorCommand, { kind: "analyzeGalley" }> =>
+      (command): command is Extract<HostCommand, { kind: "analyzeGalley" }> =>
         command.kind === "analyzeGalley",
     );
     expect(galleyCommands.map((command) => command.cachePolicy)).toEqual([
       "restore",
-      "none",
+      "refresh",
     ]);
   });
 });

@@ -13,25 +13,35 @@
 // (`dirtyTextContent === false`, e.g. the save clean-mark: flags clear and disk
 // baselines advance, tokens unchanged) takes the cheap `syncMeta` path instead,
 // which carries flags + baselines but no tokens. Chapter-scope commits become
-// per-chapter `pushChapter` patches. Baselines ride alongside so the mirror's
-// backup envelope always has the book's current `diskBaseline`.
+// per-chapter `pushChapter` patches.
+//
+// BASELINES ARE ANNOUNCED BY WHOEVER CHANGES THEM, not re-announced by every
+// commit. A book's saved baseline moves in exactly two places — the initial
+// load and a successful save — and each already carries it (`residentSeed` /
+// `fullSync`, and `syncMeta` after `setPresent`); a structural edit carries it
+// on `updateBook`. Emitting it per chapter commit as well meant every keystroke
+// shipped the whole book's saved token stream across the boundary and made the
+// host re-ingest it, to restate something that had not changed. A future path
+// that moves a baseline must emit its own patch.
 
 import { Effect, Stream } from "effect";
 import type { SousConfig } from "scripture-sous-chef-web";
-import type { LintSnapshot } from "usfm-onion-web";
+import type { LintIssue, LintSnapshot } from "usfm-onion-web";
 
 import { decodeGalleyAnalysis } from "@/app/domain/editor/annotations/decodeGalleyFindings.ts";
 import type { FindingsByChapter } from "@/app/domain/editor/annotations/finding.ts";
 import { isDirtyBufferRelevant } from "@/app/domain/editor/pipelines/dirtyBufferPipeline.ts";
+import { timeEditPhase } from "@/app/domain/mirror/editTrace.ts";
 import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import type {
   FullSyncBook,
+  GalleyCachePolicy,
   Generation,
   MirrorChapter,
   MirrorPatch,
+  ResidentSeedBook,
   SyncMetaBook,
 } from "@/app/domain/mirror/mirrorProtocol.ts";
-import { startDevTimer } from "@/app/domain/mirror/performanceTiming.ts";
 import type {
   ScriptureBookState,
   ScriptureChapterState,
@@ -113,7 +123,6 @@ export function patchesForCommit(
   }
 
   const patches: MirrorPatch[] = [];
-  const baselinePushed = new Set<string>();
   const structuralBooks = new Set(
     event.meta.structuralChanges?.structurallyChangedBookCodes ?? [],
   );
@@ -160,18 +169,6 @@ export function patchesForCommit(
       patches.push({ kind: "deleteChapter", ref, generation });
       continue;
     }
-    if (!baselinePushed.has(ref.bookCode)) {
-      baselinePushed.add(ref.bookCode);
-      patches.push({
-        kind: "pushBaseline",
-        bookCode: ref.bookCode,
-        diskBaseline: baselineFor(ref.bookCode),
-        baselineTokens: book.chapters.flatMap(
-          (chapter) => chapter.sourceTokens,
-        ),
-        generation,
-      });
-    }
     const chapter = book.chapters.find(
       (c) => c.chapterNumber === ref.chapterNum,
     );
@@ -212,10 +209,70 @@ export function seedMirror(args: {
   });
 }
 
-/** The one complete Galley snapshot awaited before first paint. */
+/**
+ * Seed the mirror after a resident load. The host already owns the token
+ * corpus, so this carries metadata only — per-book disk baselines and per-
+ * chapter eol/dirty flags the backup envelope needs.
+ *
+ * `recoveredBookCodes` are the exception: their working content came from a
+ * crash backup, not the bytes the host read, so each is republished in full as
+ * an `updateBook`. Only those books; a whole-corpus resync would re-tokenize
+ * and re-ingest every book to correct one.
+ */
+export function seedResidentMirror(args: {
+  workingFilesStore: WorkingFilesStore;
+  workspaceBaselineStore: WorkspaceBaselineStore;
+  feed: MirrorFeed;
+  generation: Generation;
+  recoveredBookCodes?: readonly string[];
+}): void {
+  const baselineFor = (bookCode: string): DiskBaseline =>
+    args.workspaceBaselineStore.getBaseline(bookCode);
+  const snapshot = args.workingFilesStore.read();
+  const books: ResidentSeedBook[] = snapshot.map((book) => ({
+    bookCode: book.bookCode,
+    diskBaseline: baselineFor(book.bookCode),
+    chapters: book.chapters.map((chapter) => ({
+      chapterNum: chapter.chapterNumber,
+      eol: chapter.eol,
+      dirty: chapter.dirty,
+    })),
+  }));
+  args.feed.pushPatch({
+    kind: "residentSeed",
+    books,
+    generation: args.generation,
+  });
+  const recovered = new Set(args.recoveredBookCodes ?? []);
+  for (const book of snapshot) {
+    if (!recovered.has(book.bookCode)) continue;
+    args.feed.pushPatch({
+      kind: "updateBook",
+      book: {
+        bookCode: book.bookCode,
+        diskBaseline: baselineFor(book.bookCode),
+        baselineTokens: book.chapters.flatMap(
+          (chapter) => chapter.sourceTokens,
+        ),
+        chapters: book.chapters.map((chapter) => ({
+          chapterNum: chapter.chapterNumber,
+          chapter: tokenizeChapter(chapter),
+        })),
+      },
+      generation: args.generation,
+    });
+  }
+}
+
+/** The findings committed before first paint. */
 export type InitialFindings = {
-  /** Complete resident Braid snapshot; null means no analysis result. */
-  lint: LintSnapshot | null;
+  /**
+   * Braid's complete corpus findings, by book code. The two sources — the
+   * load's own published container, materialized on main, and a live
+   * `lint()` — carry the same public findings, so they converge on this shape
+   * rather than forcing the consumer to know which produced them.
+   */
+  lint: ReadonlyMap<string, readonly LintIssue[]> | null;
   sous: GalleyAnalysis | null;
   /**
    * Already-normalized per-book findings from the main-thread `local-lint`
@@ -235,6 +292,13 @@ export const NO_INITIAL_FINDINGS: InitialFindings = {
   localLint: {},
 };
 
+/** A live `lint()` snapshot in the shape {@link InitialFindings} publishes. */
+function braidFindingsByBook(
+  snapshot: LintSnapshot,
+): ReadonlyMap<string, readonly LintIssue[]> {
+  return new Map(snapshot.books.map((book) => [book.book, book.findings]));
+}
+
 // Backstop for the load-time resync recovery below: if a re-seed still doesn't
 // let the analyses land, resolve with whatever findings arrived (empty for the
 // stragglers) rather than block the loading gate forever. Generous against the
@@ -245,8 +309,9 @@ const INITIAL_FINDINGS_GIVE_UP_MS = 2_000;
 /**
  * Run an initial project-wide lint + sous against the freshly seeded mirror AND
  * await both results. This is the load contract's "initial analyze through the
- * mirror at load": the seed `fullSync` has populated the mirror, so analyzing
- * `"all"` reads resident tokens for every book; the results flow back through
+ * mirror at load": the resident seed has populated the mirror metadata while
+ * the host owns the token corpus, so analyzing `"all"` reads resident tokens
+ * for every book; the results flow back through
  * the same result router that handles every later pass (so live wiring is
  * unchanged) AND are correlated by `requestId` so this load-time caller can
  * await its two specific passes before the loading gate releases. This is the
@@ -269,15 +334,21 @@ const INITIAL_FINDINGS_GIVE_UP_MS = 2_000;
 export async function awaitInitialFindings(args: {
   feed: MirrorFeed;
   generation: Generation;
-  /** Re-push the seed `fullSync` — caller-supplied so this stays decoupled from the store. */
+  /** Re-push the load seed — caller-supplied so this stays decoupled from the store. */
   reseed: () => void;
   config?: SousConfig;
+  /**
+   * Galley cache ownership for this pass. Recovery analyzes content that is
+   * NOT what is on disk, so it passes `"none"`: a cache written from it would
+   * claim to describe files it does not match.
+   */
+  cachePolicy?: GalleyCachePolicy;
 }): Promise<MirrorInitialFindings> {
   const lintRequestId = `initial-lint-${args.generation}`;
   const sousRequestId = `initial-sous-${args.generation}`;
 
   return new Promise<MirrorInitialFindings>((resolveAll) => {
-    let lint: LintSnapshot | null = null;
+    let lint: ReadonlyMap<string, readonly LintIssue[]> | null = null;
     let sous: GalleyAnalysis | null = null;
     let cacheRejected = false;
     // Coalesce the resync burst (one per analyze class, same trailing
@@ -310,14 +381,17 @@ export async function awaitInitialFindings(args: {
           generation: args.generation,
           requestId: sousRequestId,
           config: args.config,
-          cachePolicy: cacheRejected ? "none" : "restore",
+          // A rejected persisted snapshot must be replaceable by the fresh
+          // result; otherwise a corrupt cache suppresses its own repair.
+          cachePolicy:
+            args.cachePolicy ?? (cacheRejected ? "refresh" : "restore"),
         });
       }
     };
 
     off = args.feed.onResult((result) => {
       if (result.kind === "lintResult" && result.requestId === lintRequestId) {
-        lint = result.snapshot;
+        lint = braidFindingsByBook(result.snapshot);
         settleIfBothIn();
       } else if (
         result.kind === "galleyResult" &&
@@ -380,14 +454,19 @@ export function makeMirrorPatchProducer(args: {
     Stream.filter(isDirtyBufferRelevant),
     Stream.runForEach((event) =>
       Effect.sync(() => {
-        const patches = patchesForCommit(event, baselineFor);
-        if (import.meta.env.DEV && event.meta.dirtyTextContent) {
-          startDevTimer(`sous:chapter-to-findings:${event.meta.generation}`);
-          startDevTimer(`sous:chapter-to-command:${event.meta.generation}`);
-        }
-        for (const patch of patches) {
-          args.feed.pushPatch(patch);
-        }
+        timeEditPhase(
+          event.meta.generation,
+          "main:publish-patches",
+          () => {
+            const patches = patchesForCommit(event, baselineFor);
+            for (const patch of patches) args.feed.pushPatch(patch);
+            return patches;
+          },
+          (patches) => ({
+            patches: patches.length,
+            kinds: [...new Set(patches.map((patch) => patch.kind))].join(","),
+          }),
+        );
       }),
     ),
   );

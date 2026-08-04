@@ -16,41 +16,22 @@
 // token shape to drift from the generated TypeScript contract; Braid receives
 // the same owned token fields that cross the web boundary.
 
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::sous::{GalleyConfigDto, Projection, ResidentGalley, SegmentDto, Utf16SpanDto};
 use crate::usfm_onion::{LintIssueDto, TokenFixDto};
-use braid::{LintConfigFingerprint, LintEngineStamp};
 use usfm_onion::lint::{LintOptions as BraidLintOptions, LintScope as BraidLintScope};
-use usfm_onion_wire::corpus_codec::{
-    encode_corpus, CorpusSection, CorpusSectionInput, CorpusSectionTokens, EncodedCorpus,
-    LintStamps, PublishedBook,
-};
 use usfm_onion_wire::dto::{owned_token_from_dto, Token as WireToken};
 
 // --- Token DTO (owned by Onion's wire crate) -------------------------------
 
 type MirrorTokenDto = WireToken;
-
-/// The resident Braid API owns its minter as a non-`Send` callback even though
-/// this host serializes every access behind `MirrorState`'s mutex. The callback
-/// below is non-capturing; this wrapper makes that host invariant explicit at
-/// the Tauri state boundary until upstream can expose a `Send` minter bound.
-struct BraidResident(braid::Braid);
-
-unsafe impl Send for BraidResident {}
-unsafe impl Sync for BraidResident {}
-
-struct NativeCachedBraidBook {
-    source_hash: u64,
-    token_identity: u64,
-    stamps: LintStamps,
-    published: PublishedBook,
-}
 
 fn token_to_owned(
     token: &MirrorTokenDto,
@@ -123,6 +104,22 @@ pub struct SyncMetaBookDto {
     pub chapter_dirty: Vec<SyncMetaChapterDto>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ResidentSeedChapterDto {
+    pub chapter_num: i64,
+    pub eol: String,
+    pub dirty: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ResidentSeedBookDto {
+    pub book_code: String,
+    pub disk_baseline: DiskBaselineDto,
+    pub chapters: Vec<ResidentSeedChapterDto>,
+}
+
 /// The patch vocabulary, matching the TS `MirrorPatch` union by `kind`. Backup
 /// patches (`pushBaseline`) carry no tokens but keep the resident baseline
 /// generation current.
@@ -160,6 +157,10 @@ pub enum MirrorPatchDto {
     },
     FullSync {
         books: Vec<FullSyncBookDto>,
+        generation: i64,
+    },
+    ResidentSeed {
+        books: Vec<ResidentSeedBookDto>,
         generation: i64,
     },
     SyncMeta {
@@ -287,25 +288,35 @@ fn braid_format_options(
 }
 
 #[derive(Default)]
-pub struct WorkspaceTokenMirror {
+pub struct NativeMirrorState {
     books: BTreeMap<String, ResidentBook>,
     // BTreeMap keeps lookup deterministic, while this order preserves the
     // editor/document order that Galley uses for corpus keys.
     book_order: Vec<String>,
     galley: Option<ResidentGalley>,
-    braid: Option<BraidResident>,
+    galley_cache_prefetched: Option<Vec<u8>>,
+    braid: Option<braid::Braid>,
     galley_packed: BTreeMap<u64, Vec<u8>>,
     next_galley_pack_id: u64,
     braid_packed: BTreeMap<u64, Vec<u8>>,
     next_braid_pack_id: u64,
-    braid_publication_cache: Vec<NativeCachedBraidBook>,
     // High-water mark across all applied patches — a command requesting a
     // generation strictly greater than this is "behind" (the mirror hasn't seen
-    // the patch yet on this unordered transport).
+    // the patch yet on this unordered transport). A patch older than it is a
+    // straggler from a superseded state and is dropped rather than applied.
     high_water: i64,
+    // Which session owns this state. See `mirror_load_project`.
+    epoch: u64,
 }
 
-impl WorkspaceTokenMirror {
+// Tauri requires managed state to be Send + Sync. Braid's minter is a
+// handle-owned callback and is intentionally not typed Send by the upstream
+// native API; this state is only ever accessed through `MirrorState`'s mutex,
+// so the callback and the resident handle never cross threads independently.
+unsafe impl Send for NativeMirrorState {}
+unsafe impl Sync for NativeMirrorState {}
+
+impl NativeMirrorState {
     fn book_mut(&mut self, book_code: &str) -> &mut ResidentBook {
         if !self.books.contains_key(book_code) {
             self.book_order.push(book_code.to_string());
@@ -325,16 +336,40 @@ impl WorkspaceTokenMirror {
         }
     }
 
+    /// A whole-corpus patch older than anything already applied describes a
+    /// state the corpus has moved past. Tauri invokes are unordered, so this is
+    /// an ordinary arrival, not an error — but applying it would replace newer
+    /// resident content with older content.
+    fn corpus_patch_is_stale(&self, generation: i64) -> bool {
+        generation < self.high_water
+    }
+
+    /// The per-book counterpart. Corpus-wide staleness cannot be used here: a
+    /// newer patch for a DIFFERENT book says nothing about this one, and
+    /// dropping this patch on that basis would lose its edit outright.
+    fn book_patch_is_stale(&self, book_code: &str, generation: i64) -> bool {
+        self.books.get(book_code).is_some_and(|book| {
+            book.baseline_generation > generation
+                || book
+                    .chapters
+                    .iter()
+                    .any(|(_, chapter)| chapter.generation > generation)
+        })
+    }
+
     fn apply_patch(&mut self, patch: MirrorPatchDto) -> Result<(), String> {
         match patch {
             MirrorPatchDto::FullSync { books, generation } => {
+                if self.corpus_patch_is_stale(generation) {
+                    return Ok(());
+                }
                 self.replace_braid_corpus(&books)?;
                 self.books.clear();
                 self.book_order.clear();
                 self.galley = None;
+                self.galley_cache_prefetched = None;
                 self.galley_packed.clear();
                 self.braid_packed.clear();
-                self.braid_publication_cache.clear();
                 for book in books {
                     self.book_order.push(book.book_code.clone());
                     let mut chapters = Vec::new();
@@ -360,14 +395,50 @@ impl WorkspaceTokenMirror {
                 self.bump_high_water(generation);
                 self.galley = None;
             }
+            MirrorPatchDto::ResidentSeed { books, generation } => {
+                if self.corpus_patch_is_stale(generation) {
+                    return Ok(());
+                }
+                self.books.clear();
+                self.book_order.clear();
+                self.galley = None;
+                self.galley_cache_prefetched = None;
+                for book in books {
+                    self.book_order.push(book.book_code.clone());
+                    self.books.insert(
+                        book.book_code,
+                        ResidentBook {
+                            disk_baseline: book.disk_baseline,
+                            baseline_generation: generation,
+                            chapters: book
+                                .chapters
+                                .into_iter()
+                                .map(|chapter| {
+                                    (
+                                        chapter.chapter_num,
+                                        ResidentChapter {
+                                            eol: chapter.eol,
+                                            dirty: chapter.dirty,
+                                            generation,
+                                        },
+                                    )
+                                })
+                                .collect(),
+                        },
+                    );
+                }
+                self.bump_high_water(generation);
+            }
             MirrorPatchDto::SyncMeta { books, generation } => {
                 for meta in books {
                     let book_code = meta.book_code.clone();
+                    let advances_baseline;
                     {
                         let Some(book) = self.books.get_mut(&book_code) else {
                             continue;
                         };
-                        if book.baseline_generation <= generation {
+                        advances_baseline = book.baseline_generation <= generation;
+                        if advances_baseline {
                             book.disk_baseline = meta.disk_baseline;
                             book.baseline_generation = generation;
                         }
@@ -384,7 +455,12 @@ impl WorkspaceTokenMirror {
                             }
                         }
                     }
-                    self.set_braid_baseline(&book_code, meta.baseline_tokens)?;
+                    // Under the SAME guard as the disk baseline above: a stale
+                    // syncMeta must not roll Braid's baseline back to the
+                    // snapshot a newer save already advanced past.
+                    if advances_baseline {
+                        self.set_braid_baseline(&book_code, meta.baseline_tokens)?;
+                    }
                 }
                 self.bump_high_water(generation);
             }
@@ -481,6 +557,10 @@ impl WorkspaceTokenMirror {
                 self.bump_high_water(generation);
             }
             MirrorPatchDto::UpdateBook { book, generation } => {
+                if self.book_patch_is_stale(&book.book_code, generation) {
+                    self.bump_high_water(generation);
+                    return Ok(());
+                }
                 self.update_braid_book(&book)?;
                 let book_code = book.book_code.clone();
                 self.books.insert(
@@ -519,6 +599,10 @@ impl WorkspaceTokenMirror {
                 book_code,
                 generation,
             } => {
+                if self.book_patch_is_stale(&book_code, generation) {
+                    self.bump_high_water(generation);
+                    return Ok(());
+                }
                 let existed = self.books.remove(&book_code).is_some();
                 if existed {
                     self.book_order.retain(|code| code != &book_code);
@@ -595,79 +679,15 @@ impl WorkspaceTokenMirror {
     fn ensure_braid(&mut self) -> Result<&mut braid::Braid, String> {
         self.braid
             .as_mut()
-            .map(|resident| &mut resident.0)
-            .ok_or_else(|| "Braid resident must be seeded by fullSync".to_string())
+            .ok_or_else(|| "Braid resident must be loaded or seeded by a sync".to_string())
     }
 
     fn publish_braid(&mut self) -> Result<NativeBraidPublication, String> {
-        let previous_cache = std::mem::take(&mut self.braid_publication_cache);
+        let publication = self
+            .ensure_braid()?
+            .publish()
+            .map_err(|error| format!("Braid publication failed: {error:?}"))?;
         let braid = self.ensure_braid()?;
-        let stamps = LintStamps {
-            config_fingerprint: LintConfigFingerprint::of(&braid.config().lint).0,
-            engine_stamp: LintEngineStamp::current().0,
-        };
-        let (encoded_bytes, snapshot_id, book_metadata, next_cache) = {
-            let snapshot = braid.lint();
-            let mut encoded_flags = BTreeMap::new();
-            let sections = snapshot
-                .books
-                .iter()
-                .map(|book| {
-                    if let Some(cached) = previous_cache.iter().find(|cached| {
-                        cached.published.book == book.book
-                            && cached.source_hash == book.source_hash.0
-                            && cached.token_identity == book.token_identity.0
-                            && cached.stamps == stamps
-                    }) {
-                        encoded_flags.insert(book.book.to_string(), false);
-                        CorpusSection::Cached(cached.published.as_cached())
-                    } else {
-                        encoded_flags.insert(book.book.to_string(), true);
-                        CorpusSection::Fresh(CorpusSectionInput {
-                            book: book.book,
-                            tokens: CorpusSectionTokens::Owned {
-                                tokens: book.tokens,
-                            },
-                            findings: Some(book.result),
-                        })
-                    }
-                })
-                .collect::<Vec<_>>();
-            let EncodedCorpus {
-                bytes,
-                books: published_books,
-                ..
-            } = encode_corpus(snapshot.id.0, Some(stamps), &sections)
-                .map_err(|error| format!("Braid publication failed: {error:?}"))?;
-            let metadata = snapshot
-                .books
-                .iter()
-                .map(|book| {
-                    (
-                        book.book.to_string(),
-                        format!("{:016x}", book.source_hash.0),
-                        *encoded_flags.get(&book.book.to_string()).unwrap_or(&true),
-                    )
-                })
-                .collect::<Vec<_>>();
-            let next_cache = snapshot
-                .books
-                .iter()
-                .zip(published_books)
-                .map(|(book, published)| NativeCachedBraidBook {
-                    source_hash: book.source_hash.0,
-                    token_identity: book.token_identity.0,
-                    stamps,
-                    published,
-                })
-                .collect::<Vec<_>>();
-            (
-                bytes,
-                format!("{:016x}", snapshot.id.0),
-                metadata,
-                next_cache,
-            )
-        };
         let serialized_books = match braid
             .to_usfm(braid::CorpusScope::All)
             .map_err(|error| format!("Braid corpus USFM serialization failed: {error:?}"))?
@@ -683,139 +703,311 @@ impl WorkspaceTokenMirror {
                 })
                 .collect::<Vec<_>>(),
         };
+        let source_key_by_book = braid
+            .books()
+            .into_iter()
+            .map(|book| (book.book.to_string(), book.source_key.as_str().to_string()))
+            .collect::<BTreeMap<_, _>>();
         let source_by_book = serialized_books
             .iter()
             .map(|book| (book.book_code.clone(), book.contents.clone()))
             .collect::<BTreeMap<_, _>>();
-        let books = book_metadata
+        let books = publication
+            .books
             .into_iter()
-            .map(
-                |(book_code, source_hash, encoded)| MirrorPublishedBraidBookDto {
-                    book_code: book_code.clone(),
-                    source_hash,
-                    encoded,
-                    source: source_by_book.get(&book_code).cloned(),
-                },
-            )
+            .map(|book| MirrorPublishedBraidBookDto {
+                book_code: book.book.clone(),
+                source_hash: book.source_hash,
+                encoded: book.encoded,
+                source: book
+                    .source
+                    .or_else(|| source_by_book.get(&book.book).cloned()),
+            })
             .collect::<Vec<_>>();
         let sources = serialized_books
             .iter()
             .map(|book| MirrorPublishedBraidSourceDto {
                 book_code: book.book_code.clone(),
-                source_key: book.book_code.clone(),
+                source_key: source_key_by_book
+                    .get(&book.book_code)
+                    .cloned()
+                    .unwrap_or_else(|| book.book_code.clone()),
                 source: book.contents.clone(),
             })
             .collect::<Vec<_>>();
         let packed_id = self.next_braid_pack_id;
         self.next_braid_pack_id = self.next_braid_pack_id.saturating_add(1);
-        self.braid_publication_cache = next_cache;
-        self.braid_packed.insert(packed_id, encoded_bytes);
+        self.braid_packed.insert(packed_id, publication.bytes);
         Ok(NativeBraidPublication {
             packed_id,
-            snapshot_id,
+            snapshot_id: publication.snapshot_id,
             books,
             sources,
             serialized_books,
         })
     }
 
-    fn restore_braid(
+    /// Bring BOTH resident arms up for one project and hand the frontend the
+    /// bytes it needs to materialize them.
+    ///
+    /// Braid is seeded from each book's exact disk bytes — `BookInput::Usfm`,
+    /// never a token round trip — so every hash it publishes binds to the file
+    /// on disk. That is what lets the sidecar be validated by Braid itself on
+    /// the next open, lets the frontend verify the same container against the
+    /// same bytes, and makes the crash-recovery md5 a hash of real disk content.
+    fn load_project(
+        &mut self,
+        cache_root: &str,
+        workspace_key: &str,
+        books: &[MirrorLoadProjectBookDto],
+        config: Option<&GalleyConfigDto>,
+        analysis_disabled: bool,
+    ) -> Result<MirrorLoadProjectResultDto, String> {
+        let mut phases = HostPhases::default();
+        let cache_dir = PathBuf::from(cache_root).join("braid").join(workspace_key);
+        let corpus_path = cache_dir.join("corpus.bin");
+        self.galley_cache_prefetched = None;
+        let galley_cache_path = PathBuf::from(cache_root)
+            .join("sous-chef-findings")
+            .join(workspace_key)
+            .join("corpus.bin");
+
+        let ((sidecar, disk_sources), galley_cache) = phases.timed(
+            "native:load:read",
+            || {
+                rayon::join(
+                    || {
+                        let disk_sources = books
+                            .par_iter()
+                            .map(|book| {
+                                std::fs::read_to_string(&book.path)
+                                    .map(|source| DiskBookSource {
+                                        book_code: book.book_code.clone(),
+                                        source_key: book.source_key.clone(),
+                                        source,
+                                    })
+                                    .map_err(|error| {
+                                        format!("failed to read {}: {error}", book.path)
+                                    })
+                            })
+                            .collect::<Result<Vec<_>, _>>();
+                        (std::fs::read(&corpus_path).ok(), disk_sources)
+                    },
+                    || std::fs::read(galley_cache_path).ok(),
+                )
+            },
+            |((sidecar, _), galley_cache)| {
+                vec![
+                    ("braidCache", cache_state(sidecar.is_some())),
+                    ("galleyCache", cache_state(galley_cache.is_some())),
+                ]
+            },
+        );
+        let disk_sources = disk_sources?;
+        self.galley_cache_prefetched = galley_cache;
+
+        let (sources_blob, catalog) = phases.timed(
+            "native:load:hash-sources",
+            || {
+                let mut blob =
+                    Vec::with_capacity(disk_sources.iter().map(|book| book.source.len()).sum());
+                let digests = disk_sources
+                    .par_iter()
+                    .map(|book| crate::md5::md5_hex(&book.source))
+                    .collect::<Vec<_>>();
+                let mut catalog = Vec::with_capacity(disk_sources.len());
+                for (book, source_md5) in disk_sources.iter().zip(digests) {
+                    let bytes = book.source.as_bytes();
+                    catalog.push(MirrorLoadedBookDto {
+                        book_code: book.book_code.clone(),
+                        source_key: book.source_key.clone(),
+                        byte_offset: blob.len(),
+                        byte_length: bytes.len(),
+                        source_md5,
+                    });
+                    blob.extend_from_slice(bytes);
+                }
+                (blob, catalog)
+            },
+            |(blob, catalog)| {
+                vec![
+                    ("books", catalog.len().to_string()),
+                    ("bytes", blob.len().to_string()),
+                ]
+            },
+        );
+
+        let restored = match sidecar {
+            None => None,
+            Some(sidecar) => {
+                let accepted = phases.timed(
+                    "native:braid:restore",
+                    || self.restore_published_corpus(&sidecar, &disk_sources),
+                    |outcome| vec![("state", restore_state(outcome))],
+                );
+                accepted.ok().map(|()| sidecar)
+            }
+        };
+
+        let (state, packed_id) = match restored {
+            Some(sidecar) => ("warm", self.store_braid_packed(sidecar)),
+            None => {
+                phases.timed(
+                    "native:braid:cold-seed",
+                    || self.cold_seed_braid(&disk_sources),
+                    no_detail,
+                )?;
+                let publication =
+                    phases.timed("native:braid:publish", || self.publish_packed(), no_detail)?;
+                if let Some(packed) = self.braid_packed.get(&publication).cloned() {
+                    let offset_ms = phases.since();
+                    phases.push(
+                        "native:braid:cache-write",
+                        offset_ms,
+                        vec![
+                            ("state", "queued".to_string()),
+                            ("bytes", packed.len().to_string()),
+                        ],
+                    );
+                    // Existence is never validity: an entry a previous open
+                    // rejected is replaced here, which is the only way a corrupt
+                    // sidecar ever heals. Best-effort and off the load path — a
+                    // failure only costs the next open its warm start.
+                    std::thread::spawn(move || {
+                        if std::fs::create_dir_all(&cache_dir).is_ok() {
+                            if let Err(error) = atomic_write_file(&corpus_path, &packed) {
+                                eprintln!("[startup:cache-write] arm=braid state=failed {error}");
+                            } else {
+                                eprintln!(
+                                    "[startup:cache-write] arm=braid origin=load state=written bytes={}",
+                                    packed.len()
+                                );
+                            }
+                        }
+                    });
+                }
+                ("cold", publication)
+            }
+        };
+
+        let galley = if analysis_disabled {
+            None
+        } else {
+            Some(self.load_galley(config, &mut phases)?)
+        };
+
+        Ok(MirrorLoadProjectResultDto {
+            state: state.to_string(),
+            packed_id,
+            sources_id: self.store_braid_packed(sources_blob),
+            books: catalog,
+            galley,
+            host_phases: phases.phases,
+            error: None,
+        })
+    }
+
+    /// Galley's half of the load: seeded from the freshly resident Braid
+    /// projection, then answered from its own cache when one is present.
+    fn load_galley(
+        &mut self,
+        config: Option<&GalleyConfigDto>,
+        phases: &mut HostPhases,
+    ) -> Result<MirrorLoadGalleyDto, String> {
+        let projection = phases.timed(
+            "native:galley:seed",
+            || self.braid_projection(braid::CorpusScope::All),
+            no_detail,
+        )?;
+        let mut galley = ResidentGalley::new(projection, config)?;
+        let cached = self.galley_cache_prefetched.take();
+        let result = match cached {
+            Some(packed) => phases.timed(
+                "native:galley:restore",
+                || galley.load_cached(packed),
+                no_detail,
+            ),
+            None => phases.timed("native:galley:analyze", || galley.analyze(), no_detail)?,
+        };
+        self.galley = Some(galley);
+        Ok(MirrorLoadGalleyDto {
+            packed_id: self.store_galley_packed(result.packed),
+            keys: result.keys,
+            segments: result.segments,
+            cache_state: result.cache_state,
+            expected_identity: result.expected_identity,
+        })
+    }
+
+    fn cold_seed_braid(&mut self, disk_sources: &[DiskBookSource]) -> Result<(), String> {
+        let mut braid = new_braid();
+        let inputs = disk_sources
+            .iter()
+            .map(|book| book.braid_input())
+            .collect::<Result<Vec<_>, _>>()?;
+        braid
+            .replace_corpus(braid::CorpusInput::new(inputs))
+            .map_err(|error| format!("Braid cold seed failed: {error:?}"))?;
+        self.braid = Some(braid);
+        for book in disk_sources {
+            self.ensure_braid()?
+                .set_baseline(book.braid_input()?)
+                .map_err(|error| format!("Braid cold baseline failed: {error:?}"))?;
+        }
+        Ok(())
+    }
+
+    /// Pack the resident corpus for the sidecar. Unlike `publish_braid` this
+    /// skips the whole-corpus `to_usfm` pass a save receipt needs: a load only
+    /// wants the container's bytes.
+    fn publish_packed(&mut self) -> Result<u64, String> {
+        let publication = self
+            .ensure_braid()?
+            .publish()
+            .map_err(|error| format!("Braid publication failed: {error:?}"))?;
+        Ok(self.store_braid_packed(publication.bytes))
+    }
+
+    fn store_braid_packed(&mut self, bytes: Vec<u8>) -> u64 {
+        let packed_id = self.next_braid_pack_id.max(1);
+        self.next_braid_pack_id = packed_id.wrapping_add(1).max(1);
+        self.braid_packed.insert(packed_id, bytes);
+        packed_id
+    }
+
+    /// Seed the resident corpus from the sidecar plus the exact disk bytes it
+    /// must be bound to. Braid performs the whole trust boundary, so a rejection
+    /// here IS the cache-validity answer.
+    fn restore_published_corpus(
         &mut self,
         packed: &[u8],
-        records: &[MirrorRestoreBraidRecordDto],
+        records: &[DiskBookSource],
     ) -> Result<(), String> {
         let sources = records
             .iter()
-            .map(|record| {
-                let book = usfm_onion::token::BookId::from_str(&record.book_code)
-                    .ok_or_else(|| format!("invalid Braid book id: {}", record.book_code))?;
-                Ok((book, record.source.as_str()))
-            })
-            .collect::<Result<Vec<_>, String>>()?;
-        let verified = usfm_onion_wire::corpus_codec::verify_corpus(packed, &sources)
-            .map_err(|error| format!("Braid warm cache verification failed: {error:?}"))?;
-        let materialized = verified
-            .materialize_owned_tokens(packed, &sources)
-            .map_err(|error| format!("Braid warm cache materialization failed: {error:?}"))?;
-        let summary_unknowable = self.ensure_braid()?.config().lint.suppressed.len() > 0;
-        let stamps = verified.lint_stamps.unwrap_or(LintStamps {
-            config_fingerprint: 0,
-            engine_stamp: 0,
-        });
-        let mut books = Vec::with_capacity(verified.books.len());
-        for verified_book in verified.books {
-            let book = usfm_onion::token::BookId::from_str(&verified_book.receipt.book)
-                .ok_or_else(|| format!("invalid Braid book id: {}", verified_book.receipt.book))?;
-            let record = records
-                .iter()
-                .find(|record| record.book_code == verified_book.receipt.book)
-                .ok_or_else(|| format!("missing Braid source: {}", verified_book.receipt.book))?;
-            let source_key = braid::SourceKey::new(record.source_key.clone())
-                .ok_or_else(|| format!("invalid Braid source key: {}", record.source_key))?;
-            let (_, tokens) = materialized
-                .iter()
-                .find(|(candidate, _)| *candidate == book)
-                .ok_or_else(|| format!("missing materialized Braid book: {book}"))?;
-            let lint = (!summary_unknowable)
-                .then_some(())
-                .and(verified_book.lint_stamps)
-                .map(|_| braid::BookLintPrime {
-                    book,
-                    source_hash: braid::SourceHash(
-                        u64::from_str_radix(&verified_book.receipt.source_hash, 16)
-                            .unwrap_or_default(),
-                    ),
-                    result: usfm_onion::lint::LintResult {
-                        summary: summarize_braid_findings(&verified_book.findings),
-                        issues: verified_book.findings,
-                    },
-                });
-            books.push(braid::BookRestoreInput {
-                source_key,
-                book,
-                source: record.source.clone(),
-                tokens: tokens.clone(),
-                line_ending: usfm_onion::token::LineEnding::detect(&record.source),
-                lint,
-            });
-        }
-        let baselines = books
-            .iter()
-            .map(|book| {
-                (
-                    book.source_key.clone(),
-                    book.book,
-                    book.tokens.clone(),
-                    book.line_ending,
-                )
+            .map(|record| braid::PublishedCorpusSource {
+                book: record.book_code.clone(),
+                source_key: record.source_key.clone(),
+                source: record.source.as_bytes().to_vec(),
             })
             .collect::<Vec<_>>();
+        if self.braid.is_none() {
+            self.braid = Some(new_braid());
+        }
         self.ensure_braid()?
-            .restore_corpus(braid::CorpusRestoreInput::new(
-                braid::LintConfigFingerprint(stamps.config_fingerprint),
-                braid::LintEngineStamp(stamps.engine_stamp),
-                books,
-            ))
-            .map_err(|error| format!("Braid warm restore failed: {error:?}"))?;
-        let braid = self.ensure_braid()?;
-        for (source_key, book, tokens, line_ending) in baselines {
-            braid
-                .set_baseline(braid::BookInput::Tokens(braid::BookTokensInput {
-                    source_key,
-                    book,
-                    tokens,
-                    line_ending,
-                }))
+            .restore_published_corpus(packed, &sources)
+            .map_err(|error| format!("Braid warm restore failed: {error}"))?;
+        for record in records {
+            let input = record.braid_input()?;
+            self.ensure_braid()?
+                .set_baseline(input)
                 .map_err(|error| format!("Braid warm baseline restore failed: {error:?}"))?;
         }
         Ok(())
     }
 
     fn replace_braid_corpus(&mut self, books: &[FullSyncBookDto]) -> Result<(), String> {
-        let mut braid = braid::Braid::new(
-            braid::BraidConfig::new(BraidLintOptions::scoped(BraidLintScope::Book)),
-            || "sefer-braid-generated-token".to_string(),
-        );
+        let mut braid = new_braid();
         let inputs = books
             .iter()
             .filter_map(|book| {
@@ -864,7 +1056,7 @@ impl WorkspaceTokenMirror {
                 .set_baseline(input)
                 .map_err(|error| format!("Braid baseline seed failed: {error:?}"))?;
         }
-        self.braid = Some(BraidResident(braid));
+        self.braid = Some(braid);
         Ok(())
     }
 
@@ -915,6 +1107,16 @@ impl WorkspaceTokenMirror {
         tokens: Vec<MirrorTokenDto>,
         eol: &str,
     ) -> Result<Option<braid::BookInput>, String> {
+        self.braid_input_with_source_key(book_code, book_code, tokens, eol)
+    }
+
+    fn braid_input_with_source_key(
+        &self,
+        book_code: &str,
+        source_key: &str,
+        tokens: Vec<MirrorTokenDto>,
+        eol: &str,
+    ) -> Result<Option<braid::BookInput>, String> {
         let book = usfm_onion::token::BookId::from_str(book_code)
             .ok_or_else(|| format!("invalid Braid book id: {book_code}"))?;
         let owned = tokens
@@ -922,7 +1124,7 @@ impl WorkspaceTokenMirror {
             .enumerate()
             .map(|(index, token)| token_to_owned(token, index as u32))
             .collect::<Result<Vec<_>, _>>()?;
-        let source_key = braid::SourceKey::new(book_code.to_string())
+        let source_key = braid::SourceKey::new(source_key.to_string())
             .ok_or_else(|| format!("invalid Braid source key: {book_code}"))?;
         let line_ending = if eol == "\r\n" {
             usfm_onion::token::LineEnding::CrLf
@@ -942,8 +1144,8 @@ impl WorkspaceTokenMirror {
         book_code: &str,
         baseline_tokens: Vec<MirrorTokenDto>,
     ) -> Result<(), String> {
-        let Some(BraidResident(mut braid)) = self.braid.take() else {
-            return Err("Braid resident must be seeded by fullSync".to_string());
+        let Some(mut braid) = self.braid.take() else {
+            return Err("Braid resident must be loaded or seeded by a sync".to_string());
         };
         let result = (|| {
             if baseline_tokens.is_empty() {
@@ -966,11 +1168,7 @@ impl WorkspaceTokenMirror {
                 .map_err(|error| format!("Braid baseline update failed: {error:?}"))?;
             Ok::<(), String>(())
         })();
-        self.braid = if result.is_ok() {
-            Some(BraidResident(braid))
-        } else {
-            None
-        };
+        self.braid = if result.is_ok() { Some(braid) } else { None };
         result
     }
 
@@ -980,8 +1178,8 @@ impl WorkspaceTokenMirror {
         chapter_num: i64,
         chapter_tokens: Vec<MirrorTokenDto>,
     ) -> Result<(), String> {
-        let Some(BraidResident(mut braid)) = self.braid.take() else {
-            return Err("Braid resident must be seeded by fullSync".to_string());
+        let Some(mut braid) = self.braid.take() else {
+            return Err("Braid resident must be loaded or seeded by a sync".to_string());
         };
         let result = (|| {
             let book = usfm_onion::token::BookId::from_str(book_code)
@@ -1000,7 +1198,7 @@ impl WorkspaceTokenMirror {
                 .map_err(|error| format!("Braid chapter update failed: {error:?}"))?;
             Ok::<(), String>(())
         })();
-        self.braid = Some(BraidResident(braid));
+        self.braid = Some(braid);
         result
     }
 
@@ -1038,12 +1236,12 @@ impl WorkspaceTokenMirror {
     }
 
     fn remove_braid_book(&mut self, book_code: &str) {
-        let Some(BraidResident(mut braid)) = self.braid.take() else {
+        let Some(mut braid) = self.braid.take() else {
             return;
         };
         if let Some(book) = usfm_onion::token::BookId::from_str(book_code) {
             braid.remove_book(book);
-            self.braid = Some(BraidResident(braid));
+            self.braid = Some(braid);
         }
     }
 
@@ -1088,7 +1286,6 @@ impl WorkspaceTokenMirror {
             .braid
             .as_mut()
             .ok_or_else(|| "Braid resident was not initialized".to_string())?;
-        let braid = &mut braid.0;
         let changed_books: Vec<String> = match preparation {
             braid::PatchPreparation::Unchanged => Vec::new(),
             braid::PatchPreparation::Ready(id) => braid
@@ -1215,6 +1412,19 @@ impl WorkspaceTokenMirror {
         self.galley_packed.insert(id, packed);
         id
     }
+}
+
+fn new_braid() -> braid::Braid {
+    static NEXT_GENERATED_TOKEN_ID: AtomicU64 = AtomicU64::new(1);
+    braid::Braid::new(
+        braid::BraidConfig::new(BraidLintOptions::scoped(BraidLintScope::Book)),
+        || {
+            format!(
+                "sefer-braid-generated-token-{}",
+                NEXT_GENERATED_TOKEN_ID.fetch_add(1, Ordering::Relaxed)
+            )
+        },
+    )
 }
 
 fn token_fix_identity(fix: &TokenFixDto) -> (&str, &str, &BTreeMap<String, String>, &str) {
@@ -1356,10 +1566,158 @@ pub struct MirrorPublishBraidResultDto {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct MirrorRestoreBraidRecordDto {
+pub struct MirrorLoadProjectBookDto {
     pub book_code: String,
     pub source_key: String,
-    pub source: String,
+    pub path: String,
+}
+
+/// One loaded book, addressing its exact disk bytes inside the single sources
+/// buffer the frontend fetches over the binary response path.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MirrorLoadedBookDto {
+    pub book_code: String,
+    pub source_key: String,
+    pub byte_offset: usize,
+    pub byte_length: usize,
+    pub source_md5: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MirrorLoadGalleyDto {
+    pub packed_id: u64,
+    pub keys: Vec<String>,
+    pub segments: BTreeMap<String, Vec<crate::sous::SegmentDto>>,
+    pub cache_state: String,
+    pub expected_identity: Option<crate::sous::GalleyCacheIdentityDto>,
+}
+
+/// A phase this host measured, replayed into the frontend's startup trace so
+/// native and main costs read as one ordered sequence.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MirrorHostPhaseDto {
+    pub phase: String,
+    /// Start, relative to this load's own recorder — rebased onto the trace.
+    pub offset_ms: f64,
+    pub duration_ms: f64,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub detail: BTreeMap<String, String>,
+}
+
+/// Bookkeeping only. Every large payload is a handle the frontend redeems
+/// through `mirror_braid_packed`/`mirror_galley_packed`, so no part of the
+/// corpus is JSON-encoded across the IPC boundary.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MirrorLoadProjectResultDto {
+    pub state: String,
+    pub packed_id: u64,
+    pub sources_id: u64,
+    pub books: Vec<MirrorLoadedBookDto>,
+    pub galley: Option<MirrorLoadGalleyDto>,
+    pub host_phases: Vec<MirrorHostPhaseDto>,
+    pub error: Option<String>,
+}
+
+/// Collects host phase timings without printing: the frontend owns the trace.
+struct HostPhases {
+    created_at: std::time::Instant,
+    phases: Vec<MirrorHostPhaseDto>,
+}
+
+impl Default for HostPhases {
+    fn default() -> Self {
+        Self {
+            created_at: std::time::Instant::now(),
+            phases: Vec::new(),
+        }
+    }
+}
+
+impl HostPhases {
+    fn since(&self) -> f64 {
+        self.created_at.elapsed().as_secs_f64() * 1000.0
+    }
+
+    fn push(&mut self, phase: &str, offset_ms: f64, detail: Vec<(&'static str, String)>) {
+        self.phases.push(MirrorHostPhaseDto {
+            phase: phase.to_string(),
+            offset_ms,
+            duration_ms: self.since() - offset_ms,
+            detail: detail
+                .into_iter()
+                .map(|(key, value)| (key.to_string(), value))
+                .collect(),
+        });
+    }
+
+    fn timed<T>(
+        &mut self,
+        phase: &str,
+        operation: impl FnOnce() -> T,
+        detail: impl FnOnce(&T) -> Vec<(&'static str, String)>,
+    ) -> T {
+        let offset_ms = self.since();
+        let value = operation();
+        self.push(phase, offset_ms, detail(&value));
+        value
+    }
+}
+
+fn no_detail<T>(_: &T) -> Vec<(&'static str, String)> {
+    Vec::new()
+}
+
+fn cache_state(present: bool) -> String {
+    if present { "hit" } else { "miss" }.to_string()
+}
+
+fn restore_state(outcome: &Result<(), String>) -> String {
+    match outcome {
+        Ok(()) => "accepted".to_string(),
+        Err(error) => format!("rejected: {error}"),
+    }
+}
+
+/// One book's exact bytes as read from disk, with the key the corpus addresses
+/// it by. The source form of `BookInput` keeps those bytes verbatim, so this is
+/// the only thing the load path ever hands Braid.
+struct DiskBookSource {
+    book_code: String,
+    source_key: String,
+    source: String,
+}
+
+impl DiskBookSource {
+    fn braid_input(&self) -> Result<braid::BookInput, String> {
+        Ok(braid::BookInput::Usfm {
+            source_key: braid::SourceKey::new(self.source_key.clone())
+                .ok_or_else(|| format!("invalid Braid source key: {}", self.source_key))?,
+            book: usfm_onion::token::BookId::from_str(&self.book_code)
+                .ok_or_else(|| format!("invalid Braid book id: {}", self.book_code))?,
+            source: self.source.clone(),
+        })
+    }
+}
+
+/// Install `bytes` at `path`, replacing whatever is there. A sidecar the last
+/// open rejected must be overwritten, never preserved because it exists.
+fn atomic_write_file(path: &std::path::Path, bytes: &[u8]) -> Result<(), String> {
+    let file_name = path
+        .file_name()
+        .ok_or_else(|| "cache path has no file name".to_string())?
+        .to_string_lossy();
+    let temporary = path.with_file_name(format!(".{file_name}.tmp-{}", std::process::id()));
+    std::fs::write(&temporary, bytes)
+        .map_err(|error| format!("failed to write cache temporary file: {error}"))?;
+    if let Err(error) = std::fs::rename(&temporary, path) {
+        let _ = std::fs::remove_file(&temporary);
+        return Err(format!("failed to install cache file: {error}"));
+    }
+    Ok(())
 }
 
 struct NativeBraidPublication {
@@ -1409,33 +1767,78 @@ pub fn mirror_braid_packed(
     Ok(tauri::ipc::Response::new(packed))
 }
 
+/// Take ownership of the process-wide resident state for `epoch` and load the
+/// project into it.
+///
+/// A load is by definition a complete replacement, so it resets first rather
+/// than negotiating with whatever the previous workspace left behind. `epoch` is
+/// what makes that safe on an unordered transport: a stale session's load or
+/// teardown carries an older epoch and is refused, so it cannot reach in and
+/// wipe the workspace that replaced it.
 #[tauri::command]
-pub fn mirror_restore_braid(
+pub fn mirror_load_project(
     state: tauri::State<'_, MirrorState>,
-    packed: Vec<u8>,
-    records: Vec<MirrorRestoreBraidRecordDto>,
+    epoch: u64,
+    project_path: String,
+    workspace_key: String,
+    cache_root: String,
+    books: Vec<MirrorLoadProjectBookDto>,
     generation: i64,
-) -> Result<bool, String> {
+    config: Option<GalleyConfigDto>,
+    analysis_disabled: bool,
+) -> Result<MirrorLoadProjectResultDto, String> {
     let mut mirror = state
         .lock()
         .map_err(|_| "mirror lock poisoned".to_string())?;
-    if generation != mirror.high_water {
-        return Ok(false);
+    if epoch < mirror.epoch {
+        return Ok(MirrorLoadProjectResultDto {
+            state: "rejected".to_string(),
+            packed_id: 0,
+            sources_id: 0,
+            books: Vec::new(),
+            galley: None,
+            host_phases: Vec::new(),
+            error: Some(format!(
+                "load for epoch {epoch} was superseded by epoch {}",
+                mirror.epoch
+            )),
+        });
     }
-    mirror.restore_braid(&packed, &records)?;
-    Ok(true)
+    *mirror = NativeMirrorState {
+        epoch,
+        high_water: generation,
+        ..NativeMirrorState::default()
+    };
+    let result = mirror.load_project(
+        &cache_root,
+        &workspace_key,
+        &books,
+        config.as_ref(),
+        analysis_disabled,
+    )?;
+    eprintln!(
+        "native:braid:load-project path={project_path} state={}",
+        result.state
+    );
+    Ok(result)
 }
 
 // --- Commands (tauri) ------------------------------------------------------
 
-pub type MirrorState = Mutex<WorkspaceTokenMirror>;
+pub type MirrorState = Mutex<NativeMirrorState>;
 
+/// Reset the resident state, but only if this session still owns it. Tauri
+/// invokes are unordered, so a superseded session's teardown can otherwise land
+/// after its successor's load.
 #[tauri::command]
-pub fn mirror_dispose(state: tauri::State<'_, MirrorState>) -> Result<(), String> {
+pub fn mirror_dispose(state: tauri::State<'_, MirrorState>, epoch: u64) -> Result<(), String> {
     let mut mirror = state
         .lock()
         .map_err(|_| "mirror lock poisoned".to_string())?;
-    *mirror = WorkspaceTokenMirror::default();
+    if mirror.epoch != epoch {
+        return Ok(());
+    }
+    *mirror = NativeMirrorState::default();
     Ok(())
 }
 
@@ -1727,26 +2130,6 @@ fn empty_lint_summary() -> MirrorLintSummaryDto {
     }
 }
 
-fn summarize_braid_findings(
-    findings: &[usfm_onion::lint::LintIssue],
-) -> usfm_onion::lint::LintSummary {
-    let mut by_category = BTreeMap::new();
-    let mut by_severity = BTreeMap::new();
-    let mut by_issue_type = BTreeMap::new();
-    for issue in findings {
-        *by_category.entry(issue.category).or_insert(0) += 1;
-        *by_severity.entry(issue.severity).or_insert(0) += 1;
-        *by_issue_type.entry(issue.issue_type).or_insert(0) += 1;
-    }
-    usfm_onion::lint::LintSummary {
-        by_category,
-        by_severity,
-        by_issue_type,
-        total_count: findings.len(),
-        suppressed_count: 0,
-    }
-}
-
 fn map_braid_lint_summary(
     summary: &usfm_onion::lint::LintSummary,
 ) -> Result<MirrorLintSummaryDto, String> {
@@ -1862,8 +2245,11 @@ pub fn mirror_galley_load(
             behind: false,
         });
     };
-    let path = format!("{cache_root}/sous-chef-findings/{workspace_key}/corpus.bin");
-    let Ok(packed) = std::fs::read(path) else {
+    let packed = mirror.galley_cache_prefetched.take().or_else(|| {
+        let path = format!("{cache_root}/sous-chef-findings/{workspace_key}/corpus.bin");
+        std::fs::read(path).ok()
+    });
+    let Some(packed) = packed else {
         return Ok(MirrorGalleyResultDto {
             packed_id: 0,
             keys: Vec::new(),
@@ -1899,7 +2285,7 @@ mod tests {
     use super::*;
 
     fn push_chapter(
-        mirror: &mut WorkspaceTokenMirror,
+        mirror: &mut NativeMirrorState,
         book: &str,
         chapter: i64,
         source: &str,
@@ -1970,7 +2356,7 @@ mod tests {
 
     #[test]
     fn push_chapter_is_idempotent_by_generation() {
-        let mut mirror = WorkspaceTokenMirror::default();
+        let mut mirror = NativeMirrorState::default();
         push_chapter(&mut mirror, "GEN", 1, "new", 5);
         // An older-generation patch for the same chapter is a no-op.
         push_chapter(&mut mirror, "GEN", 1, "stale", 2);
@@ -1980,7 +2366,7 @@ mod tests {
 
     #[test]
     fn book_tokens_preserve_editor_order() {
-        let mut mirror = WorkspaceTokenMirror::default();
+        let mut mirror = NativeMirrorState::default();
         mirror
             .apply_patch(MirrorPatchDto::FullSync {
                 books: vec![FullSyncBookDto {
@@ -2021,7 +2407,7 @@ mod tests {
 
     #[test]
     fn delete_chapter_removes_empty_book() {
-        let mut mirror = WorkspaceTokenMirror::default();
+        let mut mirror = NativeMirrorState::default();
         push_chapter(&mut mirror, "GEN", 1, "one", 1);
         mirror
             .apply_patch(MirrorPatchDto::DeleteChapter {
@@ -2037,7 +2423,7 @@ mod tests {
 
     #[test]
     fn full_sync_replaces_all_books() {
-        let mut mirror = WorkspaceTokenMirror::default();
+        let mut mirror = NativeMirrorState::default();
         push_chapter(&mut mirror, "GEN", 1, "old", 1);
         mirror
             .apply_patch(MirrorPatchDto::FullSync {
@@ -2061,6 +2447,216 @@ mod tests {
         assert!(mirror.books.contains_key("EXO"));
     }
 
+    // --- Ordering: Tauri invokes are unordered, so an older patch can arrive
+    // after a newer one. Structural patches replace whole books or the whole
+    // corpus, so applying a stale one unconditionally would discard newer
+    // resident content outright.
+
+    #[test]
+    fn stale_full_sync_does_not_replace_newer_resident_content() {
+        let mut mirror = NativeMirrorState::default();
+        push_chapter(&mut mirror, "GEN", 1, "current", 5);
+        mirror
+            .apply_patch(MirrorPatchDto::FullSync {
+                books: vec![FullSyncBookDto {
+                    book_code: "EXO".to_string(),
+                    disk_baseline: DiskBaselineDto::Absent,
+                    baseline_tokens: vec![],
+                    chapters: vec![FullSyncChapterDto {
+                        chapter_num: 1,
+                        chapter: MirrorChapterDto {
+                            tokens: vec![],
+                            eol: "\n".to_string(),
+                            dirty: false,
+                        },
+                    }],
+                }],
+                generation: 2,
+            })
+            .expect("stale full sync is dropped, not an error");
+        assert!(mirror.books.contains_key("GEN"));
+        assert!(!mirror.books.contains_key("EXO"));
+    }
+
+    #[test]
+    fn stale_update_book_does_not_replace_a_newer_book() {
+        let mut mirror = NativeMirrorState::default();
+        push_chapter(&mut mirror, "GEN", 1, "one", 1);
+        push_chapter(&mut mirror, "GEN", 1, "edited", 6);
+        mirror
+            .apply_patch(MirrorPatchDto::UpdateBook {
+                book: FullSyncBookDto {
+                    book_code: "GEN".to_string(),
+                    disk_baseline: DiskBaselineDto::Absent,
+                    baseline_tokens: vec![],
+                    chapters: vec![FullSyncChapterDto {
+                        chapter_num: 1,
+                        chapter: MirrorChapterDto {
+                            tokens: test_book_tokens("GEN", 1, "one"),
+                            eol: "\n".to_string(),
+                            dirty: false,
+                        },
+                    }],
+                },
+                generation: 3,
+            })
+            .expect("stale book update is dropped, not an error");
+        // The generation-3 book never saw the generation-6 edit, so applying it
+        // would silently roll the chapter back.
+        assert_eq!(mirror.books["GEN"].chapters[0].1.generation, 6);
+        assert!(mirror
+            .braid_usfm("GEN")
+            .expect("resident usfm")
+            .contains("edited"));
+    }
+
+    #[test]
+    fn stale_remove_book_does_not_delete_a_newer_book() {
+        let mut mirror = NativeMirrorState::default();
+        push_chapter(&mut mirror, "GEN", 1, "recreated", 9);
+        mirror
+            .apply_patch(MirrorPatchDto::RemoveBook {
+                book_code: "GEN".to_string(),
+                generation: 4,
+            })
+            .expect("stale removal is dropped, not an error");
+        assert!(mirror.books.contains_key("GEN"));
+    }
+
+    #[test]
+    fn a_book_patch_is_not_stale_merely_because_another_book_is_newer() {
+        let mut mirror = NativeMirrorState::default();
+        push_chapter(&mut mirror, "MRK", 1, "newer", 8);
+        mirror
+            .apply_patch(MirrorPatchDto::UpdateBook {
+                book: FullSyncBookDto {
+                    book_code: "GEN".to_string(),
+                    disk_baseline: DiskBaselineDto::Absent,
+                    baseline_tokens: vec![],
+                    chapters: vec![FullSyncChapterDto {
+                        chapter_num: 1,
+                        chapter: MirrorChapterDto {
+                            tokens: test_book_tokens("GEN", 1, "kept"),
+                            eol: "\n".to_string(),
+                            dirty: false,
+                        },
+                    }],
+                },
+                generation: 3,
+            })
+            .expect("book update");
+        // Corpus-wide staleness would have dropped this and lost GEN's edit:
+        // MRK's newer generation says nothing about GEN.
+        assert!(mirror.books.contains_key("GEN"));
+    }
+
+    // --- The load's byte contract -------------------------------------------
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("sefer-mirror-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        dir
+    }
+
+    /// A source whose Braid round trip is NOT byte-identical: the `\p` sits on
+    /// the same line as `\c`, which serialization would normalize. Hashing or
+    /// caching the round trip instead of the file would silently disagree with
+    /// disk, so this is the fixture that distinguishes the two.
+    const UNNORMALIZED_SOURCE: &str = "\\id GEN\n\\c 1 \\p\n\\v 1 In the beginning\n";
+
+    #[test]
+    fn cold_load_binds_hashes_and_sources_to_the_exact_disk_bytes() {
+        let dir = temp_dir("cold-load");
+        let book_path = dir.join("GEN.usfm");
+        std::fs::write(&book_path, UNNORMALIZED_SOURCE).expect("write book");
+
+        let mut mirror = NativeMirrorState::default();
+        let result = mirror
+            .load_project(
+                dir.join("cache").to_str().expect("cache root"),
+                "workspace",
+                &[MirrorLoadProjectBookDto {
+                    book_code: "GEN".to_string(),
+                    source_key: "GEN".to_string(),
+                    path: book_path.to_string_lossy().to_string(),
+                }],
+                None,
+                true,
+            )
+            .expect("cold load");
+
+        assert_eq!(result.state, "cold");
+        let book = &result.books[0];
+        // The md5 crash recovery compares against must be the file's own bytes.
+        assert_eq!(book.source_md5, crate::md5::md5_hex(UNNORMALIZED_SOURCE));
+        assert_eq!(book.byte_length, UNNORMALIZED_SOURCE.len());
+        let sources = mirror
+            .braid_packed
+            .get(&result.sources_id)
+            .expect("sources blob");
+        assert_eq!(
+            &sources[book.byte_offset..book.byte_offset + book.byte_length],
+            UNNORMALIZED_SOURCE.as_bytes()
+        );
+        // And the seed kept those bytes verbatim rather than a normalized
+        // re-serialization of them.
+        assert_eq!(
+            mirror.braid_usfm("GEN").expect("resident usfm"),
+            UNNORMALIZED_SOURCE
+        );
+        assert!(!mirror.braid_is_dirty("GEN").expect("dirty check"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_rejected_sidecar_is_replaced_and_the_next_open_is_warm() {
+        let dir = temp_dir("sidecar-heal");
+        let book_path = dir.join("GEN.usfm");
+        std::fs::write(&book_path, UNNORMALIZED_SOURCE).expect("write book");
+        let cache_root = dir.join("cache");
+        let sidecar = cache_root
+            .join("braid")
+            .join("workspace")
+            .join("corpus.bin");
+        std::fs::create_dir_all(sidecar.parent().expect("cache dir")).expect("cache dir");
+        std::fs::write(&sidecar, b"not a packed corpus").expect("corrupt sidecar");
+
+        let books = [MirrorLoadProjectBookDto {
+            book_code: "GEN".to_string(),
+            source_key: "GEN".to_string(),
+            path: book_path.to_string_lossy().to_string(),
+        }];
+        let load = |mirror: &mut NativeMirrorState| {
+            mirror
+                .load_project(
+                    cache_root.to_str().expect("cache root"),
+                    "workspace",
+                    &books,
+                    None,
+                    true,
+                )
+                .expect("load")
+        };
+
+        let first = load(&mut NativeMirrorState::default());
+        assert_eq!(first.state, "cold");
+        // The sidecar write is best-effort and happens off-thread; wait for the
+        // corrupt bytes to be replaced rather than assuming a duration.
+        for _ in 0..200 {
+            if std::fs::read(&sidecar).expect("sidecar") != b"not a packed corpus" {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+
+        // Existence never healed a bad entry before this: the second open would
+        // have read the same corrupt file and gone cold again, forever.
+        let second = load(&mut NativeMirrorState::default());
+        assert_eq!(second.state, "warm");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     // --- Cross-language protocol contract (TS <-> Rust) ---------------------
     //
     // The fixture below is the SAME file the TS test pins to its types
@@ -2082,7 +2678,7 @@ mod tests {
         let fixtures: ProtocolFixtures =
             serde_json::from_str(PROTOCOL_FIXTURE_JSON).expect("fixture must deserialize");
         // One per MirrorPatch kind.
-        assert_eq!(fixtures.patches.len(), 7);
+        assert_eq!(fixtures.patches.len(), 8);
         // Spot-check decoded shapes so a wrong-but-parseable mapping (e.g. a
         // generation that silently defaulted to 0) still fails.
         assert!(matches!(

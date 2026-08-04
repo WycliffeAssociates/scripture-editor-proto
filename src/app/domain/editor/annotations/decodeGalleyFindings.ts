@@ -34,7 +34,7 @@ export function decodeGalleyAnalysis(
     if (!identity) {
       throw new Error("Persisted Galley findings are missing cache identity");
     }
-    snapshot = timed("sous:findings.decode:persisted", () =>
+    snapshot = timed("worker:sous:findings:decode:persisted", () =>
       decodePersistedFindings(bytes, analysis.keys, {
         analysisId: BigInt(identity.analysisId),
         targetContextId: BigInt(identity.targetContextId),
@@ -43,7 +43,7 @@ export function decodeGalleyAnalysis(
     );
   } else {
     const reconciled = timed(
-      `sous:findings.${previousSnapshot ? "reconcile" : "decode"}:fresh`,
+      `worker:sous:findings:${previousSnapshot ? "reconcile" : "decode"}:fresh`,
       () =>
         previousSnapshot
           ? reconcileFindings(previousSnapshot, bytes, analysis.keys)

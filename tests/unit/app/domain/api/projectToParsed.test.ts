@@ -108,7 +108,6 @@ describe("projectParamToParsedFiles", () => {
       project: "ref",
       fileSystem: mockFileSystem,
       gitProvider: mockGitProvider,
-      shape: "regular",
       usfmOnionService: mockUsfmOnionService,
     });
 
@@ -124,22 +123,24 @@ describe("projectParamToParsedFiles", () => {
       loadedProject: mockProject,
       rejectionReason: null,
       diskMd5ByBook: new Map<string, string>(),
+      preparedMirror: undefined,
     });
   });
 
-  test("keeps editable loading on the git-ready path by default", async () => {
+  test("requires the resident host for editable loading", async () => {
     const libraryService = {
       openItem: vi.fn(async () => mockEditableItem),
     } as Pick<LibraryService, "openItem"> as LibraryService;
 
-    await projectParamToParsedScripture({
-      libraryService,
-      project: "ref",
-      fileSystem: mockFileSystem,
-      gitProvider: mockGitProvider,
-      shape: "regular",
-      usfmOnionService: mockUsfmOnionService,
-    });
+    await expect(
+      projectParamToParsedScripture({
+        libraryService,
+        project: "ref",
+        fileSystem: mockFileSystem,
+        gitProvider: mockGitProvider,
+        usfmOnionService: mockUsfmOnionService,
+      }),
+    ).rejects.toThrow("resident mirror host");
 
     expect(libraryService.openItem).toHaveBeenCalledWith("ref");
     expect(ensureProjectGitReady).toHaveBeenCalledWith({
@@ -159,7 +160,6 @@ describe("projectParamToParsedFiles", () => {
       project: "ref",
       fileSystem: mockFileSystem,
       gitProvider: mockGitProvider,
-      shape: "regular",
       usfmOnionService: mockUsfmOnionService,
     });
 
@@ -171,6 +171,7 @@ describe("projectParamToParsedFiles", () => {
       loadedProject: null,
       rejectionReason: "not-found",
       diskMd5ByBook: new Map<string, string>(),
+      preparedMirror: undefined,
     });
   });
 });

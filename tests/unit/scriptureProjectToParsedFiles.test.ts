@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { EditorShape } from "@/app/data/editor.ts";
 import { scriptureProjectToParsedFiles } from "@/app/domain/api/scriptureProjectToParsedFiles.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { ProjectedUsfmDocument } from "@/core/domain/usfm/usfmOnionTypes.ts";
@@ -119,7 +118,6 @@ describe("scriptureProjectToParsedFiles", () => {
 
     await scriptureProjectToParsedFiles({
       loadedProject: project,
-      shape: "regular" as EditorShape,
       usfmOnionService: service,
     });
 
@@ -147,7 +145,6 @@ describe("scriptureProjectToParsedFiles", () => {
 
     await scriptureProjectToParsedFiles({
       loadedProject: project,
-      shape: "regular" as EditorShape,
       usfmOnionService: service,
     });
 

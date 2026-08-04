@@ -1,21 +1,30 @@
 // workspaceMirror.worker.ts
 //
-// The web workspace-mirror worker. Holds ONE `WorkspaceMirror` in module scope:
-// the resident token mirror plus lint wasm, resident Galley, and the OPFS dirty-buffer
-// backup write — all off the main thread. It is a thin pump: patches/commands
-// in on the FIFO channel, results out. The behavior lives in `WorkspaceMirror`
-// (testable without a Worker); this file only wires the engines and marshals
-// messages.
+// The web worker is a transport pump around the resident Braid/Galley host.
 
+import type {
+  LoadProjectResult,
+  MirrorResult,
+} from "@/app/domain/mirror/mirrorProtocol.ts";
+import {
+  describeResultPayload,
+  transferablesOf,
+} from "@/app/domain/mirror/resultTransferables.ts";
+import {
+  createPhaseRecorder,
+  type PhaseRecorder,
+} from "@/app/domain/mirror/traceLog.ts";
 import type {
   FromWorkerMessage,
   ToWorkerMessage,
 } from "@/app/domain/mirror/workerMessages.ts";
-import { WorkspaceMirror } from "@/app/domain/mirror/WorkspaceMirror.ts";
 
-import { makeWebMirrorEngines } from "./webMirrorEngines.ts";
+import {
+  makeWebMirrorEngines,
+  type WebMirrorEngines,
+} from "./webMirrorEngines.ts";
 
-let mirror: WorkspaceMirror | null = null;
+let engines: WebMirrorEngines | null = null;
 
 function post(message: FromWorkerMessage, transfer: Transferable[] = []): void {
   (
@@ -25,21 +34,22 @@ function post(message: FromWorkerMessage, transfer: Transferable[] = []): void {
   ).postMessage(message, transfer);
 }
 
-function postTraced(
-  message: FromWorkerMessage,
-  transfer: Transferable[],
-  traceId: number | undefined,
-): void {
-  const label =
-    traceId === undefined
-      ? null
-      : `sous:transport.workerToMain.post:${traceId}`;
-  if (import.meta.env.DEV && label) console.time(label);
-  try {
-    post({ ...message, traceId }, transfer);
-  } finally {
-    if (import.meta.env.DEV && label) console.timeEnd(label);
-  }
+/** Post a result, stamped so main can price the crossing. See `wire`. */
+function postResult(result: MirrorResult): void {
+  const transfer = transferablesOf(result);
+  post(
+    {
+      kind: "result",
+      result,
+      wire: import.meta.env.DEV
+        ? {
+            postedAt: performance.timeOrigin + performance.now(),
+            shape: describeResultPayload(result),
+          }
+        : undefined,
+    },
+    transfer,
+  );
 }
 
 // State-changing patches and analysis commands share one chain so each
@@ -52,6 +62,18 @@ let stateChain: Promise<void> = Promise.resolve();
 let backupChain: Promise<void> = Promise.resolve();
 
 self.onmessage = (event: MessageEvent<ToWorkerMessage>) => {
+  // Open this generation's recorder NOW, at arrival, not when work starts:
+  // there is one worker, so the gap between the two IS the queue wait, and it
+  // shows up as the first phase's offset rather than going unmeasured.
+  if (import.meta.env.DEV && event.data.kind !== "init") {
+    const generation =
+      event.data.kind === "patch"
+        ? event.data.patch.generation
+        : event.data.kind === "command"
+          ? event.data.command.generation
+          : undefined;
+    if (generation !== undefined) phasesFor(generation);
+  }
   const isBackupCommand =
     event.data.kind === "command" &&
     (event.data.command.kind === "writeBackup" ||
@@ -59,10 +81,6 @@ self.onmessage = (event: MessageEvent<ToWorkerMessage>) => {
 
   const run = (): Promise<void> =>
     (async () => {
-      const traceId = event.data.traceId;
-      const queueLabel =
-        traceId === undefined ? null : `sous:worker.queueWait:${traceId}`;
-      if (import.meta.env.DEV && queueLabel) console.timeEnd(queueLabel);
       try {
         await handleMessage(event.data);
       } catch (error: unknown) {
@@ -81,31 +99,16 @@ self.onmessage = (event: MessageEvent<ToWorkerMessage>) => {
   } else {
     stateChain = stateChain.then(run);
   }
-
-  if (import.meta.env.DEV && event.data.traceId !== undefined) {
-    console.time(`sous:worker.queueWait:${event.data.traceId}`);
-  }
 };
 
 async function handleMessage(message: ToWorkerMessage): Promise<void> {
   switch (message.kind) {
     case "init": {
-      mirror = new WorkspaceMirror(
-        makeWebMirrorEngines({
-          workspaceKey: message.workspaceKey,
-          dirtyBufferRoot: message.dirtyBufferRoot,
-        }),
-        (result) =>
-          postTraced(
-            { kind: "result", result },
-            result.kind === "galleyResult"
-              ? [result.packed]
-              : result.kind === "publishBraidResult" && result.publication
-                ? [result.publication.packed]
-                : [],
-            undefined,
-          ),
-      );
+      engines = makeWebMirrorEngines({
+        workspaceKey: message.workspaceKey,
+        dirtyBufferRoot: message.dirtyBufferRoot,
+        backgroundResult: (result) => postResult(result),
+      });
       console.info("[mirror.worker] initialized (wasm engines ready)");
       // ACK init so the main side's load contract can await readiness (and the
       // seed + initial analyze it posts behind this) deterministically.
@@ -113,70 +116,112 @@ async function handleMessage(message: ToWorkerMessage): Promise<void> {
       return;
     }
     case "patch": {
-      const traceId = message.traceId;
-      const label =
-        traceId === undefined
-          ? null
-          : `sous:worker.patch:${message.patch.kind}:${message.patch.generation}:${traceId}`;
-      if (import.meta.env.DEV && label) console.time(label);
-      try {
-        mirror?.applyPatch(message.patch);
-      } finally {
-        if (import.meta.env.DEV && label) console.timeEnd(label);
-      }
+      // Patches are fire-and-forget, so their cost rides home on the next
+      // result for the same generation — see `drainWorkerPhases`.
+      const phases = phasesFor(message.patch.generation);
+      phases.timeSync(`worker:braid:${message.patch.kind}`, () =>
+        engines?.applyPatch(message.patch),
+      );
       return;
     }
     case "command": {
-      if (!mirror) return;
-      const suffix = message.traceId === undefined ? "na" : message.traceId;
-      const label = `sous:worker.command:${message.command.kind}:${message.command.generation}:${suffix}`;
-      if (import.meta.env.DEV) console.time(label);
+      if (!engines) return;
+      const command = message.command;
       try {
-        const result = await mirror.runCommand(message.command);
-        postTraced(
-          { kind: "result", result },
-          result.kind === "galleyResult"
-            ? [result.packed]
-            : result.kind === "publishBraidResult" && result.publication
-              ? [result.publication.packed]
-              : [],
-          message.traceId,
-        );
+        // No wrapper phase here: a command that does one thing would record
+        // the same span twice, and the pair is indistinguishable once timer
+        // resolution rounds it. Commands record their own work.
+        const phases = phasesFor(command.generation);
+        const result: MirrorResult =
+          command.kind === "loadProject"
+            ? await loadProject(engines, command)
+            : await engines.runCommand(command, phases);
+        postResult(withWorkerPhases(result));
       } catch (error: unknown) {
-        const command = message.command;
         if (
           command.kind === "formatBraid" ||
           command.kind === "applyBraidFix" ||
           command.kind === "publishBraid"
         ) {
-          postTraced(
-            {
-              kind: "result",
-              result: {
-                kind: "braidCommandError",
-                requestId: command.requestId,
-                operation: command.kind,
-                error: error instanceof Error ? error.message : String(error),
-              },
-            },
-            [],
-            message.traceId,
-          );
+          postResult({
+            kind: "braidCommandError",
+            requestId: command.requestId,
+            operation: command.kind,
+            error: error instanceof Error ? error.message : String(error),
+          });
           return;
         }
         throw error;
-      } finally {
-        if (import.meta.env.DEV) console.timeEnd(label);
       }
       return;
     }
     case "dispose": {
-      mirror?.dispose();
-      mirror = null;
+      engines?.dispose();
+      engines = null;
       post({ kind: "disposed" });
       return;
     }
   }
+}
+
+async function loadProject(
+  host: WebMirrorEngines,
+  command: Extract<ToWorkerMessage, { kind: "command" }>["command"] & {
+    kind: "loadProject";
+  },
+): Promise<LoadProjectResult> {
+  try {
+    return {
+      kind: "loadProjectResult",
+      ...(await host.loadProject(command)),
+      ranAtGeneration: command.generation,
+      projectPath: command.projectPath,
+    };
+  } catch (error) {
+    return {
+      kind: "loadProjectResult",
+      state: "rejected",
+      ranAtGeneration: command.generation,
+      projectPath: command.projectPath,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+// --- Edit-trace phases ------------------------------------------------------
+//
+// The worker cannot print into main's trace, so it records what it did per
+// store generation and the next result for that generation carries it home.
+// Patches have no result of their own, which is exactly why this is keyed by
+// generation rather than by request.
+
+const phasesByGeneration = new Map<number, PhaseRecorder>();
+/** Generations retained; a generation whose result never lands must not leak. */
+const MAX_TRACKED_GENERATIONS = 8;
+
+function phasesFor(generation: number): PhaseRecorder {
+  const existing = phasesByGeneration.get(generation);
+  if (existing) return existing;
+  const created = createPhaseRecorder();
+  phasesByGeneration.set(generation, created);
+  while (phasesByGeneration.size > MAX_TRACKED_GENERATIONS) {
+    const oldest = phasesByGeneration.keys().next().value;
+    if (oldest === undefined) break;
+    phasesByGeneration.delete(oldest);
+  }
+  return created;
+}
+
+/** Attach and clear this generation's phases, for results that carry them. */
+function withWorkerPhases(result: MirrorResult): MirrorResult {
+  if (!import.meta.env.DEV) return result;
+  if (result.kind !== "lintResult" && result.kind !== "galleyResult") {
+    return result;
+  }
+  const recorder = phasesByGeneration.get(result.ranAtGeneration);
+  if (!recorder || recorder.phases.length === 0) return result;
+  phasesByGeneration.delete(result.ranAtGeneration);
+  return { ...result, hostPhases: recorder.phases };
 }
 
 // Channel-open ACK, posted from the module's synchronous tail (the handler

@@ -20,7 +20,7 @@ import { describe, expect, it } from "vitest";
 
 import { makeDirtyBufferPipeline } from "@/app/domain/editor/pipelines/dirtyBufferPipeline.ts";
 import { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
-import type { MirrorCommand } from "@/app/domain/mirror/mirrorProtocol.ts";
+import type { HostCommand } from "@/app/domain/mirror/mirrorProtocol.ts";
 import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 
 const IDLE_MS = 100;
@@ -34,7 +34,7 @@ function runWithTestClock<E>(
   );
 }
 
-function backupBooks(commands: MirrorCommand[]): string[] {
+function backupBooks(commands: HostCommand[]): string[] {
   return commands
     .filter((c) => c.kind === "writeBackup")
     .map((c) => (c.kind === "writeBackup" ? c.bookCode : ""));
@@ -46,10 +46,13 @@ function setup(
 ) {
   const wf = new WorkingFilesStore(books);
   const feed = new MirrorFeed();
-  const commands: MirrorCommand[] = [];
+  const commands: HostCommand[] = [];
   feed.addSink({ pushPatch: () => {}, sendCommand: (c) => commands.push(c) });
   const pipeline = makeDirtyBufferPipeline({
     workingFilesStore: wf,
+    workspaceBaselineStore: {
+      getBaseline: () => ({ kind: "absent" }),
+    } as never,
     feed,
     appVersion: "test",
     idleMs: overrides?.idleMs ?? IDLE_MS,

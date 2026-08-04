@@ -20,12 +20,17 @@
 
 import { invoke } from "@tauri-apps/api/core";
 
+import { loadProjectResident } from "@/app/domain/mirror/braidHost.ts";
 import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import type {
   GalleyCachePolicy,
-  MirrorCommand,
+  HostCommand,
+  LoadedProjectBook,
+  LoadProjectResult,
   MirrorPatch,
 } from "@/app/domain/mirror/mirrorProtocol.ts";
+import type { LoadProjectRequest } from "@/app/domain/mirror/mirrorSessionFactory.ts";
+import type { TracedPhase } from "@/app/domain/mirror/traceLog.ts";
 import type { GalleyCacheIdentity } from "@/core/domain/sous/galleyTypes.ts";
 import type { LintIssue, Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { SegmentsBySid } from "@/core/domain/usfm/vrefTypes.ts";
@@ -103,6 +108,23 @@ type MirrorBackupResultDto = {
   behind: boolean;
 };
 
+type MirrorLoadProjectResultDto = {
+  state: "warm" | "cold" | "rejected";
+  packedId: number;
+  /** Handle for the concatenated exact disk bytes of every loaded book. */
+  sourcesId: number;
+  books: LoadedProjectBook[];
+  galley?: {
+    packedId: number;
+    keys: string[];
+    segments: SegmentsBySid;
+    cacheState: "fresh" | "persisted";
+    expectedIdentity?: GalleyCacheIdentity;
+  };
+  hostPhases: TracedPhase[];
+  error?: string;
+};
+
 // A `behind` result means the patch for this generation is still in flight on
 // the unordered transport. Retry the same analyze this many times, sleeping the
 // matching delay before each retry, before falling back to a full resync.
@@ -158,8 +180,17 @@ async function runAnalyze<R extends BehindResultDto>(args: {
   }
 }
 
+// Desktop's resident Braid/Galley live in ONE process-wide Tauri state, so
+// "which session owns it" has to be an explicit fact rather than an assumption
+// about call order. Each session takes the next epoch; a load adopts it and
+// resets the state it is taking over, and every teardown names the epoch it
+// believes it is tearing down.
+let nextHostEpoch = 0;
+
 export class RustMirrorSession {
+  private readonly epoch = ++nextHostEpoch;
   private readonly removeSink: () => void;
+  private readonly feed: MirrorFeed;
   private readonly workspaceKey?: string;
   private readonly fileSystem?: FileSystem;
   private readonly cacheRoot?: string;
@@ -175,6 +206,7 @@ export class RustMirrorSession {
     cacheRoot?: string;
     dirtyBufferRoot?: string;
   }) {
+    this.feed = args.feed;
     this.workspaceKey = args.workspaceKey;
     this.fileSystem = args.fileSystem;
     this.cacheRoot = args.cacheRoot;
@@ -185,7 +217,7 @@ export class RustMirrorSession {
           console.error("[mirror] mirror_push_patch failed", { error });
         });
       },
-      sendCommand: (command: MirrorCommand) => {
+      sendCommand: (command: HostCommand) => {
         switch (command.kind) {
           case "analyzeLint":
             this.runLint(args.feed, command);
@@ -202,8 +234,8 @@ export class RustMirrorSession {
           case "publishBraid":
             this.runPublishBraid(args.feed, command);
             return;
-          case "restoreBraid":
-            this.runRestoreBraid(args.feed, command);
+          case "loadProject":
+            this.runLoadProject(args.feed, command);
             return;
           case "writeBackup":
             this.runBackup(
@@ -230,9 +262,13 @@ export class RustMirrorSession {
     });
   }
 
+  loadProject(request: LoadProjectRequest): Promise<LoadProjectResult> {
+    return loadProjectResident({ feed: this.feed, ...request });
+  }
+
   private runLint(
     feed: MirrorFeed,
-    command: Extract<MirrorCommand, { kind: "analyzeLint" }>,
+    command: Extract<HostCommand, { kind: "analyzeLint" }>,
   ): void {
     void runAnalyze<MirrorLintResultDto>({
       feed,
@@ -252,7 +288,7 @@ export class RustMirrorSession {
 
   private runFormatBraid(
     feed: MirrorFeed,
-    command: Extract<MirrorCommand, { kind: "formatBraid" }>,
+    command: Extract<HostCommand, { kind: "formatBraid" }>,
   ): void {
     void invoke<MirrorFormatBraidResultDto>("mirror_format_braid", {
       generation: command.generation,
@@ -282,7 +318,7 @@ export class RustMirrorSession {
 
   private runApplyBraidFix(
     feed: MirrorFeed,
-    command: Extract<MirrorCommand, { kind: "applyBraidFix" }>,
+    command: Extract<HostCommand, { kind: "applyBraidFix" }>,
   ): void {
     void invoke<MirrorApplyBraidFixResultDto>("mirror_apply_braid_fix", {
       generation: command.generation,
@@ -312,7 +348,7 @@ export class RustMirrorSession {
 
   private runPublishBraid(
     feed: MirrorFeed,
-    command: Extract<MirrorCommand, { kind: "publishBraid" }>,
+    command: Extract<HostCommand, { kind: "publishBraid" }>,
   ): void {
     void invoke<MirrorPublishBraidResultDto>("mirror_publish_braid", {
       generation: command.generation,
@@ -361,27 +397,76 @@ export class RustMirrorSession {
       );
   }
 
-  private runRestoreBraid(
+  /**
+   * The native load. `mirror_load_project` adopts this session's epoch as the
+   * resident state's owner and returns only bookkeeping; the three large
+   * payloads — the packed corpus, every book's exact disk bytes, Galley's packed
+   * findings — come back over Tauri's binary response path so no part of the
+   * corpus is JSON-encoded across the IPC boundary.
+   */
+  private runLoadProject(
     feed: MirrorFeed,
-    command: Extract<MirrorCommand, { kind: "restoreBraid" }>,
+    command: Extract<HostCommand, { kind: "loadProject" }>,
   ): void {
-    void invoke<boolean>("mirror_restore_braid", {
+    void invoke<MirrorLoadProjectResultDto>("mirror_load_project", {
+      epoch: this.epoch,
       generation: command.generation,
-      packed: Array.from(new Uint8Array(command.packed)),
-      records: command.records,
+      projectPath: command.projectPath,
+      workspaceKey: encodeURIComponent(command.workspaceKey),
+      cacheRoot: this.cacheRoot ?? "",
+      books: command.books,
+      config: command.config,
+      analysisDisabled: command.analysisDisabled,
     })
-      .then((accepted) =>
+      .then(async (result) => {
+        if (result.state === "rejected") {
+          feed.deliverResult({
+            kind: "loadProjectResult",
+            state: "rejected",
+            ranAtGeneration: command.generation,
+            projectPath: command.projectPath,
+            hostPhases: result.hostPhases,
+            error: result.error,
+          });
+          return;
+        }
+        const [packed, sources, galleyPacked] = await Promise.all([
+          this.readPackedBuffer("mirror_braid_packed", result.packedId),
+          this.readPackedBuffer("mirror_braid_packed", result.sourcesId),
+          result.galley
+            ? this.readPackedBuffer(
+                "mirror_galley_packed",
+                result.galley.packedId,
+              )
+            : Promise.resolve(undefined),
+        ]);
         feed.deliverResult({
-          kind: "restoreBraidResult",
-          accepted,
+          kind: "loadProjectResult",
+          state: result.state,
           ranAtGeneration: command.generation,
-        }),
-      )
+          projectPath: command.projectPath,
+          packed,
+          sources,
+          books: result.books,
+          galley:
+            result.galley && galleyPacked
+              ? {
+                  packed: galleyPacked,
+                  keys: result.galley.keys,
+                  segments: result.galley.segments,
+                  cacheState: result.galley.cacheState,
+                  expectedIdentity: result.galley.expectedIdentity,
+                }
+              : undefined,
+          hostPhases: result.hostPhases,
+        });
+      })
       .catch((error: unknown) =>
         feed.deliverResult({
-          kind: "restoreBraidResult",
-          accepted: false,
+          kind: "loadProjectResult",
+          state: "rejected",
           ranAtGeneration: command.generation,
+          projectPath: command.projectPath,
           error: error instanceof Error ? error.message : String(error),
         }),
       );
@@ -432,14 +517,14 @@ export class RustMirrorSession {
 
   private runGalley(
     feed: MirrorFeed,
-    command: Extract<MirrorCommand, { kind: "analyzeGalley" }>,
+    command: Extract<HostCommand, { kind: "analyzeGalley" }>,
   ): void {
     void this.runGalleyOrdered(feed, command);
   }
 
   private async runGalleyOrdered(
     feed: MirrorFeed,
-    command: Extract<MirrorCommand, { kind: "analyzeGalley" }>,
+    command: Extract<HostCommand, { kind: "analyzeGalley" }>,
   ): Promise<void> {
     if (command.cachePolicy === "restore") {
       // Restore must win the race with fresh analysis. Otherwise fresh
@@ -484,7 +569,7 @@ export class RustMirrorSession {
 
   private async runCachedGalley(
     feed: MirrorFeed,
-    command: Extract<MirrorCommand, { kind: "analyzeGalley" }>,
+    command: Extract<HostCommand, { kind: "analyzeGalley" }>,
   ): Promise<void> {
     if (!this.cacheRoot || !this.workspaceKey) return;
     try {
@@ -529,15 +614,27 @@ export class RustMirrorSession {
   }
 
   private readPacked(packedId: number): Promise<ArrayBuffer> {
-    return invoke<ArrayBuffer>("mirror_galley_packed", { packedId }).then(
-      asArrayBuffer,
-    );
+    return this.readPackedBuffer("mirror_galley_packed", packedId);
   }
 
+  private readPackedBuffer(
+    command: "mirror_braid_packed" | "mirror_galley_packed",
+    packedId: number,
+  ): Promise<ArrayBuffer> {
+    if (packedId === 0) return Promise.resolve(new ArrayBuffer(0));
+    return invoke<ArrayBuffer>(command, { packedId }).then(asArrayBuffer);
+  }
+
+  /**
+   * Tear down only if this session still owns the resident state. Tauri invokes
+   * are unordered, so a superseded session's teardown can otherwise land after
+   * its successor's load and reset the workspace that replaced it.
+   */
   dispose(): void {
     this.removeSink();
-    void invoke("mirror_dispose").catch((error: unknown) =>
-      console.error("[mirror] mirror_dispose failed", { error }),
+    void invoke("mirror_dispose", { epoch: this.epoch }).catch(
+      (error: unknown) =>
+        console.error("[mirror] mirror_dispose failed", { error }),
     );
   }
 }

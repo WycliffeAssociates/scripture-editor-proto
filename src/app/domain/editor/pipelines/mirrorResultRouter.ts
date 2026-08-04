@@ -27,9 +27,9 @@ import {
   sousFindingsToFindings,
 } from "@/app/domain/editor/annotations/normalizeFindings.ts";
 import { seedMirror } from "@/app/domain/editor/pipelines/mirrorPatchProducer.ts";
+import { traceEditCommandResult } from "@/app/domain/mirror/editTrace.ts";
 import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import type { MirrorResult } from "@/app/domain/mirror/mirrorProtocol.ts";
-import { endDevTimer } from "@/app/domain/mirror/performanceTiming.ts";
 import type { FindingsStore } from "@/app/state/FindingsStore.ts";
 import type { FindingsByScope } from "@/app/state/FindingsStore.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
@@ -106,6 +106,15 @@ export function makeMirrorResultRouter(args: {
         onionSnapshotFindings = reconciledSnapshotFindings;
         onionIssuesByBook = nextIssuesByBook;
         args.findingsStore.commitBraidSnapshot(byBook);
+        traceEditCommandResult(
+          result.ranAtGeneration,
+          "analyzeLint",
+          {
+            books: Object.keys(byBook).length,
+            findings: reconciledSnapshotFindings.length,
+          },
+          result.hostPhases,
+        );
         return;
       }
       case "galleyResult": {
@@ -152,13 +161,19 @@ export function makeMirrorResultRouter(args: {
           groupFindingsByBook(findings),
           result.segments,
         );
-        if (import.meta.env.DEV && result.cacheState === "fresh") {
-          endDevTimer(`sous:result-to-findings:${result.ranAtGeneration}`);
-          endDevTimer(`sous:chapter-to-findings:${result.ranAtGeneration}`);
-        }
+        traceEditCommandResult(
+          result.ranAtGeneration,
+          "analyzeGalley",
+          { cache: result.cacheState, findings: findings.length },
+          result.hostPhases,
+        );
         return;
       }
       case "backupResult": {
+        traceEditCommandResult(result.ranAtGeneration, "writeBackup", {
+          book: result.bookCode,
+          cleared: result.cleared ?? false,
+        });
         return;
       }
       case "applyBraidFixResult": {

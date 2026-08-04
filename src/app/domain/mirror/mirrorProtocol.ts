@@ -26,8 +26,12 @@ import type {
   PublishedBookInfo,
 } from "usfm-onion-web";
 
+import type { TracedPhase } from "@/app/domain/mirror/traceLog.ts";
 import type { DiskBaseline } from "@/app/state/DirtyBufferStore.ts";
-import type { GalleyCacheIdentity } from "@/core/domain/sous/galleyTypes.ts";
+import type {
+  GalleyAnalysis,
+  GalleyCacheIdentity,
+} from "@/core/domain/sous/galleyTypes.ts";
 import type { LineEnding } from "@/core/domain/usfm/usfmBytes.ts";
 import type { Token, TokenFix } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { SegmentsBySid } from "@/core/domain/usfm/vrefTypes.ts";
@@ -111,6 +115,19 @@ export type FullSyncBook = {
   chapters: Array<{ chapterNum: number; chapter: MirrorChapter }>;
 };
 
+/** Load-time metadata only; the resident host already owns the token corpus. */
+export type ResidentSeedPatch = {
+  kind: "residentSeed";
+  books: ResidentSeedBook[];
+  generation: Generation;
+};
+
+export type ResidentSeedBook = {
+  bookCode: string;
+  diskBaseline: DiskBaseline;
+  chapters: Array<{ chapterNum: number; eol: LineEnding; dirty: boolean }>;
+};
+
 /**
  * Sync per-book disk baselines + per-chapter dirty flags WITHOUT touching
  * tokens — the cheap path for a project-scope commit that moved only metadata
@@ -141,6 +158,7 @@ export type MirrorPatch =
   | RemoveBookPatch
   | PushBaselinePatch
   | FullSyncPatch
+  | ResidentSeedPatch
   | SyncMetaPatch;
 
 // --- Commands (main → mirror): read resident state, produce a result. ------
@@ -201,17 +219,29 @@ export type RestoreBraidRecord = {
   source: string;
 };
 
-export type RestoreBraidCommand = {
-  kind: "restoreBraid";
+export type LoadProjectBook = {
+  bookCode: string;
+  sourceKey: string;
+  path: string;
+};
+
+export type LoadProjectCommand = {
+  kind: "loadProject";
   generation: Generation;
-  packed: ArrayBuffer;
-  records: RestoreBraidRecord[];
+  projectPath: string;
+  workspaceKey: string;
+  books: LoadProjectBook[];
+  /** Galley's analysis config; the host restores that arm in the same load. */
+  config?: SousConfig;
+  /** Plain mode: seed the corpus, but run no content analysis. */
+  analysisDisabled: boolean;
 };
 
 /** Ask the resident host to serialize the dirty book and persist its envelope. */
 export type WriteBackupCommand = {
   kind: "writeBackup";
   bookCode: string;
+  diskBaseline?: DiskBaseline;
   appVersion: string;
   generation: Generation;
 };
@@ -229,9 +259,11 @@ export type MirrorCommand =
   | FormatBraidCommand
   | ApplyBraidFixCommand
   | PublishBraidCommand
-  | RestoreBraidCommand
   | WriteBackupCommand
   | ClearBackupCommand;
+
+/** Host lifecycle command, handled before the resident mirror command lane. */
+export type HostCommand = MirrorCommand | LoadProjectCommand;
 
 // --- Results (mirror → main): stamped with the generation they ran at. -----
 
@@ -248,6 +280,8 @@ export type LintResult = {
   ranAtGeneration: Generation;
   /** Echoed from the command that requested this pass, when it carried one. */
   requestId?: RequestId;
+  /** Phases the host measured, replayed into the edit trace (DEV only). */
+  hostPhases?: TracedPhase[];
 };
 
 export type GalleyResult = {
@@ -260,6 +294,8 @@ export type GalleyResult = {
   ranAtGeneration: Generation;
   /** Echoed from the command that requested this pass, when it carried one. */
   requestId?: RequestId;
+  /** Phases the host measured, replayed into the edit trace (DEV only). */
+  hostPhases?: TracedPhase[];
 };
 
 export type FormatBraidResult = {
@@ -300,10 +336,42 @@ export type PublishBraidResult = {
   superseded: boolean;
 };
 
-export type RestoreBraidResult = {
-  kind: "restoreBraidResult";
-  accepted: boolean;
+/**
+ * One book in a resident load, addressing its exact disk bytes inside the
+ * result's single `sources` buffer. `sourceMd5` is hashed by the host where it
+ * read those bytes, so crash-recovery baselines compare against real disk
+ * content and main never re-encodes the corpus to hash it.
+ */
+export type LoadedProjectBook = {
+  bookCode: string;
+  sourceKey: string;
+  byteOffset: number;
+  byteLength: number;
+  sourceMd5: string;
+};
+
+/** Galley's half of the load: restored from its cache, or freshly analyzed. */
+export type LoadedProjectGalley = GalleyAnalysis;
+
+/**
+ * The one load result. The host restores BOTH resident arms — Braid from its
+ * warm sidecar or a cold parse, Galley from its own cache or a fresh pass — and
+ * main materializes both from these bytes. Nothing here is an object graph of
+ * the corpus: `packed` is Braid's publication container, `sources` is every
+ * book's exact disk bytes concatenated in `books` order, and both cross the
+ * boundary as transferred/binary buffers rather than cloned strings.
+ */
+export type LoadProjectResult = {
+  kind: "loadProjectResult";
+  state: "warm" | "cold" | "rejected";
   ranAtGeneration: Generation;
+  projectPath?: string;
+  packed?: ArrayBuffer;
+  sources?: ArrayBuffer;
+  books?: LoadedProjectBook[];
+  galley?: LoadedProjectGalley;
+  /** Phases the host measured on its own side, replayed into the startup log. */
+  hostPhases?: TracedPhase[];
   error?: string;
 };
 
@@ -342,7 +410,7 @@ export type MirrorResult =
   | FormatBraidResult
   | ApplyBraidFixResult
   | PublishBraidResult
-  | RestoreBraidResult
+  | LoadProjectResult
   | BraidCommandErrorResult
   | BackupResult
   | ResyncRequest;
@@ -357,7 +425,7 @@ export type MirrorResult =
  */
 export interface MirrorSink {
   pushPatch(patch: MirrorPatch): void;
-  sendCommand(command: MirrorCommand, transfer?: Transferable[]): void;
+  sendCommand(command: HostCommand, transfer?: Transferable[]): void;
 }
 
 /** What the main side registers to consume results coming back from a mirror. */

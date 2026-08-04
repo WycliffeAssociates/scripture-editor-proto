@@ -6,8 +6,9 @@
 // the only sink today, but `addSink` is N-ary so a future cold-loop mirror
 // subscribes to the same feed with no producer change.
 
+import { markEditCommand, markEditResult } from "./editTrace.ts";
 import type {
-  MirrorCommand,
+  HostCommand,
   MirrorPatch,
   MirrorResult,
   MirrorResultHandler,
@@ -35,16 +36,37 @@ export class MirrorFeed {
   }
 
   /** Fan a command to every sink. */
-  sendCommand(command: MirrorCommand, transfer?: Transferable[]): void {
+  sendCommand(command: HostCommand, transfer?: Transferable[]): void {
+    // The one place every command leaves main, on every platform — so the edit
+    // trace opens its round trip here rather than in each pipeline.
+    markEditCommand(command.generation, command.kind);
     for (const sink of this.sinks) sink.sendCommand(command, transfer);
   }
 
   /** Called by a transport when a result arrives back from its mirror. */
   deliverResult(result: MirrorResult): void {
+    const command = commandKindOf(result);
+    if (command && "ranAtGeneration" in result) {
+      markEditResult(result.ranAtGeneration, command);
+    }
     for (const handler of this.resultHandlers) handler(result);
   }
 
   get sinkCount(): number {
     return this.sinks.size;
+  }
+}
+
+/** The command a result answers, for the edit trace's round-trip bookkeeping. */
+function commandKindOf(result: MirrorResult): string | null {
+  switch (result.kind) {
+    case "lintResult":
+      return "analyzeLint";
+    case "galleyResult":
+      return "analyzeGalley";
+    case "backupResult":
+      return "writeBackup";
+    default:
+      return null;
   }
 }

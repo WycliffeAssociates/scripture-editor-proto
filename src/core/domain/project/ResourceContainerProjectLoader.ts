@@ -122,18 +122,6 @@ export class ResourceContainerProjectLoader {
         : null;
       const remoteSource = packedMetadata?.remoteSource;
 
-      console.debug(
-        `[ResourceContainerProjectLoader] Classified ${projectId} as ${itemType}.`,
-      );
-      if (remoteSource) {
-        console.debug(
-          `[ResourceContainerProjectLoader] Remote source metadata detected for ${projectId}; sync capability will be attached.`,
-        );
-      } else {
-        console.debug(
-          `[ResourceContainerProjectLoader] No remote source metadata found for ${projectId}.`,
-        );
-      }
       if (packedTranslationNoteBookCodes.length > 0) {
         console.debug(
           `[ResourceContainerProjectLoader] Packed TN book files detected for ${projectId}: ${packedTranslationNoteBookCodes.join(", ")}.`,
