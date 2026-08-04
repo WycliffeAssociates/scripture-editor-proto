@@ -34,7 +34,6 @@ import type {
 } from "@/core/domain/sous/galleyTypes.ts";
 import type { LineEnding } from "@/core/domain/usfm/usfmBytes.ts";
 import type { Token, TokenFix } from "@/core/domain/usfm/usfmOnionTypes.ts";
-import type { SegmentsBySid } from "@/core/domain/usfm/vrefTypes.ts";
 
 /** A chapter address in the mirror, mirroring the editor's `(book, chapter)`. */
 export type ChapterRef = { bookCode: string; chapterNum: number };
@@ -288,7 +287,6 @@ export type GalleyResult = {
   kind: "galleyResult";
   packed: ArrayBuffer;
   keys: string[];
-  segments: SegmentsBySid;
   cacheState: "fresh" | "persisted";
   expectedIdentity?: GalleyCacheIdentity;
   ranAtGeneration: Generation;

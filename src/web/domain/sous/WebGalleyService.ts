@@ -174,7 +174,6 @@ export class WebGalleyService {
       return {
         packed: new ArrayBuffer(0),
         keys: [],
-        segments: {},
         cacheState: "fresh",
       };
     }
@@ -199,7 +198,6 @@ export class WebGalleyService {
     return {
       packed,
       keys: projection.keys,
-      segments: projection.segments,
       cacheState: "fresh",
     };
   }
@@ -221,7 +219,6 @@ export class WebGalleyService {
       return {
         packed: new Uint8Array(bytes).slice().buffer,
         keys: this.projection.keys,
-        segments: this.projection.segments,
         cacheState: "persisted",
         expectedIdentity: this.expectedIdentity(),
       };
@@ -300,13 +297,9 @@ export class WebGalleyService {
       0,
       ...next.keys.map((sid, index) => ({ sid, text: next.texts[index] })),
     );
-    const segments = { ...projection.segments };
-    for (const sid of oldChapter) delete segments[sid];
-    Object.assign(segments, next.segments);
     this.projection = withTarget({
       keys: keep.map(({ sid }) => sid),
       texts: keep.map(({ text }) => text),
-      segments,
     });
   }
 
@@ -333,13 +326,9 @@ export class WebGalleyService {
       0,
       ...next.keys.map((sid, index) => ({ sid, text: next.texts[index] })),
     );
-    const segments = { ...projection.segments };
-    for (const sid of oldBook) delete segments[sid];
-    Object.assign(segments, next.segments);
     this.projection = withTarget({
       keys: keep.map(({ sid }) => sid),
       texts: keep.map(({ text }) => text),
-      segments,
     });
   }
 
@@ -353,12 +342,6 @@ export class WebGalleyService {
     this.projection = withTarget({
       keys: keep.map(({ sid }) => sid),
       texts: keep.map(({ index }) => projection.texts[index]),
-      segments: Object.fromEntries(
-        keep.flatMap(({ sid }) => {
-          const segment = projection.segments[sid];
-          return segment ? [[sid, segment] as const] : [];
-        }),
-      ),
     });
   }
 

@@ -24,7 +24,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::sous::{GalleyConfigDto, Projection, ResidentGalley, SegmentDto, Utf16SpanDto};
+use crate::sous::{GalleyConfigDto, Projection, ResidentGalley};
 use crate::usfm_onion::{LintIssueDto, TokenFixDto};
 use usfm_onion::lint::{LintOptions as BraidLintOptions, LintScope as BraidLintScope};
 use usfm_onion_wire::dto::{owned_token_from_dto, Token as WireToken};
@@ -933,7 +933,6 @@ impl NativeMirrorState {
         Ok(MirrorLoadGalleyDto {
             packed_id: self.store_galley_packed(result.packed),
             keys: result.keys,
-            segments: result.segments,
             cache_state: result.cache_state,
             expected_identity: result.expected_identity,
         })
@@ -1076,29 +1075,7 @@ impl NativeMirrorState {
             .iter()
             .map(|entry| entry.projection.text.clone())
             .collect();
-        let segments = entries
-            .into_iter()
-            .map(|entry| {
-                let segments = entry
-                    .projection
-                    .segments
-                    .into_iter()
-                    .map(|segment| SegmentDto {
-                        token_id: segment.token_id,
-                        text_span: Utf16SpanDto {
-                            start: segment.text_span.start as usize,
-                            end: segment.text_span.end as usize,
-                        },
-                    })
-                    .collect();
-                (entry.sid, segments)
-            })
-            .collect();
-        Ok(Projection {
-            keys,
-            texts,
-            segments,
-        })
+        Ok(Projection { keys, texts })
     }
 
     fn braid_input(
@@ -1500,7 +1477,6 @@ pub struct MirrorLintSummaryDto {
 pub struct MirrorGalleyResultDto {
     pub packed_id: u64,
     pub keys: Vec<String>,
-    pub segments: BTreeMap<String, Vec<crate::sous::SegmentDto>>,
     pub cache_state: String,
     pub expected_identity: Option<crate::sous::GalleyCacheIdentityDto>,
     pub ran_at_generation: i64,
@@ -1589,7 +1565,6 @@ pub struct MirrorLoadedBookDto {
 pub struct MirrorLoadGalleyDto {
     pub packed_id: u64,
     pub keys: Vec<String>,
-    pub segments: BTreeMap<String, Vec<crate::sous::SegmentDto>>,
     pub cache_state: String,
     pub expected_identity: Option<crate::sous::GalleyCacheIdentityDto>,
 }
@@ -2171,7 +2146,6 @@ pub fn mirror_galley_analyze(
         return Ok(MirrorGalleyResultDto {
             packed_id: 0,
             keys: Vec::new(),
-            segments: BTreeMap::new(),
             cache_state: "fresh".to_string(),
             expected_identity: None,
             ran_at_generation: generation,
@@ -2193,7 +2167,6 @@ pub fn mirror_galley_analyze(
     Ok(MirrorGalleyResultDto {
         packed_id,
         keys: result.keys,
-        segments: result.segments,
         cache_state: result.cache_state,
         expected_identity: result.expected_identity,
         ran_at_generation: generation,
@@ -2216,7 +2189,6 @@ pub fn mirror_galley_load(
         return Ok(MirrorGalleyResultDto {
             packed_id: 0,
             keys: Vec::new(),
-            segments: BTreeMap::new(),
             cache_state: "persisted".to_string(),
             expected_identity: None,
             ran_at_generation: generation,
@@ -2227,7 +2199,6 @@ pub fn mirror_galley_load(
         return Ok(MirrorGalleyResultDto {
             packed_id: 0,
             keys: Vec::new(),
-            segments: BTreeMap::new(),
             cache_state: "persisted".to_string(),
             expected_identity: None,
             ran_at_generation: generation,
@@ -2238,7 +2209,6 @@ pub fn mirror_galley_load(
         return Ok(MirrorGalleyResultDto {
             packed_id: 0,
             keys: Vec::new(),
-            segments: BTreeMap::new(),
             cache_state: "persisted".to_string(),
             expected_identity: None,
             ran_at_generation: generation,
@@ -2253,7 +2223,6 @@ pub fn mirror_galley_load(
         return Ok(MirrorGalleyResultDto {
             packed_id: 0,
             keys: Vec::new(),
-            segments: BTreeMap::new(),
             cache_state: "persisted".to_string(),
             expected_identity: None,
             ran_at_generation: generation,
@@ -2272,7 +2241,6 @@ pub fn mirror_galley_load(
     Ok(MirrorGalleyResultDto {
         packed_id: mirror.store_galley_packed(result.packed),
         keys: result.keys,
-        segments: result.segments,
         cache_state: result.cache_state,
         expected_identity: result.expected_identity,
         ran_at_generation: generation,

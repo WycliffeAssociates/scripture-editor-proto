@@ -66,7 +66,6 @@ function makeFakeFactory(log: string[]): {
             kind: "galleyResult",
             packed: new ArrayBuffer(0),
             keys: [],
-            segments: {},
             cacheState: "fresh",
             ranAtGeneration: command.generation,
             requestId: command.requestId,

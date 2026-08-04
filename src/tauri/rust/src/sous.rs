@@ -17,20 +17,6 @@ use ssc_galley::Galley;
 use ssc_wire::pack;
 use std::collections::BTreeMap;
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Utf16SpanDto {
-    pub start: usize,
-    pub end: usize,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SegmentDto {
-    pub token_id: String,
-    pub text_span: Utf16SpanDto,
-}
-
 #[derive(Debug, Clone, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GalleyConfigDto {
@@ -49,7 +35,6 @@ pub struct ReviewPolicyDto {
 pub struct GalleyPackedResultDto {
     pub packed: Vec<u8>,
     pub keys: Vec<String>,
-    pub segments: BTreeMap<String, Vec<SegmentDto>>,
     pub cache_state: String,
     pub expected_identity: Option<GalleyCacheIdentityDto>,
 }
@@ -101,7 +86,6 @@ impl ResidentGalley {
         let result = GalleyPackedResultDto {
             packed,
             keys: self.projection.keys.clone(),
-            segments: self.projection.segments.clone(),
             cache_state: "fresh".to_string(),
             expected_identity: None,
         };
@@ -180,7 +164,6 @@ impl ResidentGalley {
         GalleyPackedResultDto {
             packed,
             keys: self.projection.keys.clone(),
-            segments: self.projection.segments.clone(),
             cache_state: "persisted".to_string(),
             expected_identity: Some(self.expected_identity()),
         }
@@ -216,17 +199,16 @@ impl ResidentGalley {
             .collect();
         self.projection.keys = keep.iter().map(|(sid, _)| sid.clone()).collect();
         self.projection.texts = keep.iter().map(|(_, text)| text.clone()).collect();
-        self.projection
-            .segments
-            .retain(|sid, _| sid.starts_with(&prefix) == false);
     }
 }
 
+/// What Galley is constructed and updated from. The verse->token segment map
+/// is deliberately absent: it is the editor's addressing, not Galley's, and
+/// main derives it from the tokens it is drawing.
 #[derive(Clone)]
 pub(crate) struct Projection {
     pub(crate) keys: Vec<String>,
     pub(crate) texts: Vec<String>,
-    pub(crate) segments: BTreeMap<String, Vec<SegmentDto>>,
 }
 
 fn replace_projection_range(projection: &mut Projection, prefix: &str, next: &Projection) {
@@ -260,14 +242,6 @@ fn replace_projection_range(projection: &mut Projection, prefix: &str, next: &Pr
     combined.extend(keep[insert_at..].iter().cloned());
     projection.keys = combined.iter().map(|(sid, _)| sid.clone()).collect();
     projection.texts = combined.iter().map(|(_, text)| text.clone()).collect();
-    projection
-        .segments
-        .retain(|sid, _| !sid.starts_with(prefix));
-    projection.segments.extend(
-        next.segments
-            .iter()
-            .map(|(sid, segments)| (sid.clone(), segments.clone())),
-    );
 }
 
 fn config_to_core(config: Option<&GalleyConfigDto>) -> Result<Config, String> {

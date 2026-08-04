@@ -79,7 +79,6 @@ export function decodeGalleyAnalysis(
   }
   return {
     snapshot,
-    segments: analysis.segments,
     findings,
   };
 }

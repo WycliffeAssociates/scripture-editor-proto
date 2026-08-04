@@ -12,7 +12,6 @@ import type {
   FindingsState,
   FindingSource,
 } from "@/app/state/FindingsStore.ts";
-import type { SegmentsBySid } from "@/core/domain/usfm/vrefTypes.ts";
 
 /**
  * Every producer slice, enumerated so the selectors below stay exhaustive: the
@@ -65,17 +64,5 @@ export function chapterFindingsAcrossSources(
   const book = bookCode.toUpperCase();
   return ALL_FINDING_SOURCES.flatMap(
     (source) => state[source]?.byBook[book]?.[chapter] ?? [],
-  );
-}
-
-const EMPTY_SEGMENTS: SegmentsBySid = {};
-
-/** The sous segment sidecar a book's content anchors resolve against. */
-export function sousSegmentsForBook(
-  state: FindingsState,
-  bookCode: string,
-): SegmentsBySid {
-  return (
-    state["sous-chef"]?.segmentsByBook[bookCode.toUpperCase()] ?? EMPTY_SEGMENTS
   );
 }

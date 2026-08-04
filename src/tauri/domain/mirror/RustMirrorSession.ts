@@ -33,7 +33,6 @@ import type { LoadProjectRequest } from "@/app/domain/mirror/mirrorSessionFactor
 import type { TracedPhase } from "@/app/domain/mirror/traceLog.ts";
 import type { GalleyCacheIdentity } from "@/core/domain/sous/galleyTypes.ts";
 import type { LintIssue, Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
-import type { SegmentsBySid } from "@/core/domain/usfm/vrefTypes.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 
 type MirrorLintResultDto = {
@@ -68,7 +67,6 @@ type MirrorLintResultDto = {
 type MirrorGalleyResultDto = {
   packedId: number;
   keys: string[];
-  segments: SegmentsBySid;
   cacheState: "fresh" | "persisted";
   expectedIdentity?: GalleyCacheIdentity;
   ranAtGeneration: number;
@@ -117,7 +115,6 @@ type MirrorLoadProjectResultDto = {
   galley?: {
     packedId: number;
     keys: string[];
-    segments: SegmentsBySid;
     cacheState: "fresh" | "persisted";
     expectedIdentity?: GalleyCacheIdentity;
   };
@@ -453,7 +450,6 @@ export class RustMirrorSession {
               ? {
                   packed: galleyPacked,
                   keys: result.galley.keys,
-                  segments: result.galley.segments,
                   cacheState: result.galley.cacheState,
                   expectedIdentity: result.galley.expectedIdentity,
                 }
@@ -557,7 +553,6 @@ export class RustMirrorSession {
           kind: "galleyResult",
           packed,
           keys: result.keys,
-          segments: result.segments,
           cacheState: result.cacheState,
           expectedIdentity: result.expectedIdentity,
           ranAtGeneration: result.ranAtGeneration,
@@ -585,7 +580,6 @@ export class RustMirrorSession {
         kind: "galleyResult",
         packed,
         keys: result.keys,
-        segments: result.segments,
         cacheState: result.cacheState,
         expectedIdentity: result.expectedIdentity,
         ranAtGeneration: result.ranAtGeneration,

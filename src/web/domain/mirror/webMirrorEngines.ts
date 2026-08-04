@@ -98,7 +98,6 @@ export function makeWebMirrorEngines(args: HostOptions): WebMirrorEngines {
       ...analysis,
       packed: analysis.packed.slice(0),
       keys: [...analysis.keys],
-      segments: analysis.segments,
     };
   };
 
@@ -612,7 +611,6 @@ function cloneGalley(analysis: GalleyAnalysis): GalleyAnalysis {
     ...analysis,
     packed: analysis.packed.slice(0),
     keys: [...analysis.keys],
-    segments: analysis.segments,
   };
 }
 

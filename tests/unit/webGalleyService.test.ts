@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { decodeGalleyAnalysis } from "@/app/domain/editor/annotations/decodeGalleyFindings.ts";
 import { sousFindingsToFindings } from "@/app/domain/editor/annotations/normalizeFindings.ts";
+import { bookSegments } from "@/app/domain/editor/annotations/vrefProjection.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import { WebBraidHost } from "@/web/domain/braid/WebBraidHost.ts";
 import { WebGalleyService } from "@/web/domain/sous/WebGalleyService.ts";
@@ -38,9 +39,6 @@ describe("WebGalleyService", () => {
     const analysis = await service.analyzePacked();
 
     expect(analysis.keys).toEqual(["GEN 29:19", "GEN 29:2", "GEN 29:20"]);
-    expect(
-      analysis.keys.map((sid) => analysis.segments[sid]?.[0]?.tokenId),
-    ).toHaveLength(3);
   });
 
   it("projects verses and returns UTF-16 findings over an anomaly", async () => {
@@ -54,16 +52,6 @@ describe("WebGalleyService", () => {
     service.seed(seedProjection(tokens));
     const packed = await service.analyzePacked();
     const result = decodeGalleyAnalysis(packed);
-
-    // Segment map carries the per-token anchors the editor resolves ranges
-    // by — one entry per in-scope sid, each segment a {tokenId, textSpan}.
-    expect(Object.keys(result.segments)).toContain("GEN 1:1");
-    const segments = result.segments["GEN 1:1"];
-    expect(segments?.length).toBeGreaterThan(0);
-    expect(segments?.[0]).toMatchObject({
-      tokenId: expect.any(String),
-      textSpan: { start: expect.any(Number), end: expect.any(Number) },
-    });
 
     const whitespace = result.findings.find(
       (finding) => finding.code === "lex.excess-h-whitespace",
@@ -160,5 +148,43 @@ describe("WebGalleyService", () => {
     const mutation = braid.removeChapter("GEN", 2);
     expect(service.removeChapter("GEN", mutation.projection)).toBe("changed");
     expect((await service.analyzePacked()).keys).toEqual(["GEN 1:1"]);
+  });
+});
+
+describe("segment derivation on main", () => {
+  // The anchors a content finding resolves through. Derived from the tokens
+  // the editor is drawing rather than shipped with an analysis result, so the
+  // token ids are by construction the ones in the DOM.
+  it("maps each sid to the text tokens carrying it", async () => {
+    const usfm = "\\id GEN\n\\c 1\n\\v 1 In the beginning.\n";
+    const { tokens } = await webUsfmOnionService.parseUsfm(usfm);
+
+    const segments = bookSegments({
+      path: "/GEN.usfm",
+      nextBookId: null,
+      prevBookId: null,
+      title: "Genesis",
+      bookCode: "GEN",
+      chapters: [
+        {
+          sourceTokens: tokens,
+          currentTokens: tokens,
+          direction: "ltr",
+          chapterNumber: 1,
+          dirty: false,
+          eol: "\n",
+        },
+      ],
+    });
+
+    const verse = segments["GEN 1:1"];
+    expect(verse?.length).toBeGreaterThan(0);
+    expect(verse?.[0]).toMatchObject({
+      tokenId: expect.any(String),
+      textSpan: { start: expect.any(Number), end: expect.any(Number) },
+    });
+    // Anchors name tokens the caller handed in — that is the whole contract.
+    const ids = new Set(tokens.map((token) => token.id));
+    expect(verse?.every((segment) => ids.has(segment.tokenId))).toBe(true);
   });
 });

@@ -259,7 +259,6 @@ describe("awaitInitialFindings — the load contract's first pass", () => {
             kind: "galleyResult",
             packed: new ArrayBuffer(0),
             keys: [],
-            segments: {},
             cacheState: "fresh",
             ranAtGeneration: c.generation,
             requestId: c.requestId,
@@ -287,7 +286,6 @@ describe("awaitInitialFindings — the load contract's first pass", () => {
     expect(findings.sous).toMatchObject({
       packed: new ArrayBuffer(0),
       keys: [],
-      segments: {},
       cacheState: "fresh",
     });
   });
@@ -325,7 +323,6 @@ describe("awaitInitialFindings — the load contract's first pass", () => {
                   kind: "galleyResult",
                   packed: new ArrayBuffer(0),
                   keys: [],
-                  segments: {},
                   cacheState: "fresh",
                   ranAtGeneration: c.generation,
                   requestId: c.requestId,
@@ -355,7 +352,6 @@ describe("awaitInitialFindings — the load contract's first pass", () => {
     expect(findings.sous).toMatchObject({
       packed: new ArrayBuffer(0),
       keys: [],
-      segments: {},
       cacheState: "fresh",
     });
   });
@@ -498,7 +494,6 @@ describe("makeMirrorResultRouter — stale-result defence", () => {
             kind: "galleyResult",
             packed: new ArrayBuffer(0),
             keys: [],
-            segments: {},
             cacheState:
               command.cachePolicy === "restore" ? "persisted" : "fresh",
             expectedIdentity: {

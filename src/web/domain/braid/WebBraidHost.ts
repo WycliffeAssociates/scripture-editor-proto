@@ -10,12 +10,11 @@ import type {
 } from "usfm-onion-web";
 
 import type { TokenFix } from "@/core/domain/usfm/usfmOnionTypes.ts";
-import type { SegmentsBySid } from "@/core/domain/usfm/vrefTypes.ts";
 
+/** What Galley is constructed and updated from. Segments are not Galley's. */
 export type BraidProjection = {
   keys: string[];
   texts: string[];
-  segments: SegmentsBySid;
 };
 
 export type BraidMutation<T = BraidProjection | null> = {
@@ -407,16 +406,10 @@ export class WebBraidHost {
         ? [result.value]
         : result.books.map((book) => book.value);
     const entries = indexes.flatMap((index) => index);
-    const keys = entries.map(([sid]) => sid);
-    const texts = entries.map(([, verse]) => verse.text);
-    const segments: SegmentsBySid = {};
-    for (const [sid, verse] of entries) {
-      segments[sid] = verse.segments.map((segment) => ({
-        tokenId: segment.tokenId,
-        textSpan: segment.textSpan,
-      }));
-    }
-    return { keys, texts, segments };
+    return {
+      keys: entries.map(([sid]) => sid),
+      texts: entries.map(([, verse]) => verse.text),
+    };
   }
 
   dispose(): void {

@@ -7,8 +7,6 @@
 
 import type { DecodedFinding } from "scripture-sous-chef-web/findings";
 
-import type { SegmentsBySid } from "@/core/domain/usfm/vrefTypes.ts";
-
 /** sous severities are already lowercase and 1:1 with `Finding`. */
 export type SousSeverity = "error" | "warning" | "info";
 
@@ -31,6 +29,5 @@ export type SousFinding = {
  * pipeline: the VREF segment map plus findings decoded from packed bytes.
  */
 export type SousAnalyzeResult = {
-  segments: SegmentsBySid;
   findings: SousFinding[];
 };

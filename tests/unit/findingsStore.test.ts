@@ -55,9 +55,7 @@ describe("FindingsStore", () => {
     );
     const afterOnion = store.read();
 
-    store.commitSousFindings(groupFindingsByBook([sousFinding("GEN 1:1")]), {
-      "GEN 1:1": [],
-    });
+    store.commitSousFindings(groupFindingsByBook([sousFinding("GEN 1:1")]));
     const afterSous = store.read();
 
     // The sous commit replaced the root and its own slice — but the onion

@@ -132,7 +132,6 @@ describe("worker result transfer list", () => {
       galley: {
         packed: galleyPacked,
         keys: [],
-        segments: {},
         cacheState: "fresh",
       },
     });

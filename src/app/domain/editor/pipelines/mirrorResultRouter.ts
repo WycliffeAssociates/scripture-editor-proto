@@ -157,10 +157,7 @@ export function makeMirrorResultRouter(args: {
         sousSnapshot = analysis.snapshot;
         sousSnapshotState = result.cacheState;
         const findings = sousFindingsToFindings(analysis.findings);
-        args.findingsStore.commitSousFindings(
-          groupFindingsByBook(findings),
-          result.segments,
-        );
+        args.findingsStore.commitSousFindings(groupFindingsByBook(findings));
         traceEditCommandResult(
           result.ranAtGeneration,
           "analyzeGalley",

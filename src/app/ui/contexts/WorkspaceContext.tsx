@@ -288,7 +288,6 @@ export const ProjectProvider = ({
         const analysis = decodeGalleyAnalysis(kernel.initialFindings.sous);
         store.commitSousFindings(
           groupFindingsByBook(sousFindingsToFindings(analysis.findings)),
-          analysis.segments,
         );
       } catch (error: unknown) {
         console.warn("[mirror] persisted Galley snapshot rejected", error);
@@ -656,6 +655,7 @@ export const ProjectProvider = ({
 
   const findings = useFindings({
     findingsStore,
+    workingFilesStore,
     visibleBookCode: project.pickedFile.bookCode,
     visibleChapter:
       project.pickedChapter?.chapterNumber || project.currentChapter,

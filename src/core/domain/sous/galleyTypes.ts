@@ -1,5 +1,3 @@
-import type { SegmentsBySid } from "@/core/domain/usfm/vrefTypes.ts";
-
 export type GalleyCacheIdentity = {
   analysisId: string;
   targetContextId: string;
@@ -15,11 +13,14 @@ export type GalleyMutationEffect = "changed" | "unchanged";
  * Findings remain packed until the main thread deliberately decodes them.
  * `keys` is the exact ordered corpus key array used to construct Galley; it
  * must travel beside the bytes because the wire records address keys by index.
+ *
+ * The verse→token segment map deliberately does NOT travel: main derives it
+ * from the tokens it is drawing (`annotations/vrefProjection.ts`), which is
+ * both cheaper and the only version guaranteed to match the DOM.
  */
 export type GalleyAnalysis = {
   packed: ArrayBuffer;
   keys: string[];
-  segments: SegmentsBySid;
   cacheState: "fresh" | "persisted";
   expectedIdentity?: GalleyCacheIdentity;
 };

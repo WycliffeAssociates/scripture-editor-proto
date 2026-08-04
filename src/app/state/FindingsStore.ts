@@ -28,7 +28,6 @@ import type {
   Finding,
   FindingsByChapter,
 } from "@/app/domain/editor/annotations/finding.ts";
-import type { SegmentsBySid } from "@/core/domain/usfm/vrefTypes.ts";
 
 type Listener = () => void;
 
@@ -45,7 +44,6 @@ interface SourceSliceMap {
   "sous-chef": {
     byBook: FindingsByScope;
     /** Sidecar: the vref segment maps findings resolve against, same book grain. */
-    segmentsByBook: Record<string, SegmentsBySid>;
   };
   /**
    * Intrinsic consistency (verse/chapter monotonicity, chapter-label
@@ -144,28 +142,17 @@ export class FindingsStore {
     this.notify();
   }
 
-  /** Replace the complete Galley snapshot and its projection sidecar atomically. */
-  commitSousFindings(byBook: FindingsByScope, segments: SegmentsBySid): void {
-    const segmentsByBook: Record<string, SegmentsBySid> = {};
-    for (const [sid, value] of Object.entries(segments)) {
-      const book = sid.split(" ")[0]?.toUpperCase() ?? "?";
-      segmentsByBook[book] ??= {};
-      segmentsByBook[book][sid] = value;
-    }
+  /**
+   * Replace the complete Galley findings slice atomically.
+   *
+   * No segment sidecar: the verse→token map is derived on main from the tokens
+   * being drawn (`annotations/vrefProjection.ts`), so storing a copy here
+   * would be both redundant and, once an edit lands, wrong.
+   */
+  commitSousFindings(byBook: FindingsByScope): void {
     const current = this.state["sous-chef"];
-    if (
-      sameBookFindings(current?.byBook, byBook) &&
-      sameSegments(current?.segmentsByBook, segmentsByBook)
-    ) {
-      return;
-    }
-    this.state = {
-      ...this.state,
-      "sous-chef": {
-        byBook,
-        segmentsByBook,
-      },
-    };
+    if (sameBookFindings(current?.byBook, byBook)) return;
+    this.state = { ...this.state, "sous-chef": { byBook } };
     this.notify();
   }
 
@@ -208,22 +195,4 @@ function sameBookFindings(
   return rightKeys.every((book) =>
     sameChapterFindings(left[book], right[book]),
   );
-}
-
-function sameSegments(
-  left: Record<string, SegmentsBySid> | undefined,
-  right: Record<string, SegmentsBySid>,
-): boolean {
-  if (!left) return false;
-  const leftKeys = Object.keys(left);
-  const rightKeys = Object.keys(right);
-  if (leftKeys.length !== rightKeys.length) return false;
-  return rightKeys.every((book) => {
-    const leftSids = left[book];
-    const rightSids = right[book];
-    if (!leftSids || !rightSids) return false;
-    const sidKeys = Object.keys(rightSids);
-    if (Object.keys(leftSids).length !== sidKeys.length) return false;
-    return sidKeys.every((sid) => leftSids[sid] === rightSids[sid]);
-  });
 }

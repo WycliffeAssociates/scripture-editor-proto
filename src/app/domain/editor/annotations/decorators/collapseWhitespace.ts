@@ -14,13 +14,13 @@ import { t } from "@lingui/core/macro";
 import { type EditorModeSetting, shapeForSurface } from "@/app/data/editor.ts";
 import type { Finding } from "@/app/domain/editor/annotations/finding.ts";
 import { resolveContentTokenSlices } from "@/app/domain/editor/annotations/resolveContentRange.ts";
+import { segmentsForBook } from "@/app/domain/editor/annotations/vrefProjection.ts";
 import { rebuildParsedFileFromUsfm } from "@/app/domain/editor/services/rebuildParsedFileFromUsfm.ts";
 import {
   bookLineEnding,
   tokensToUsfm,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { withWorkingFilesDraft } from "@/app/domain/project/workingFileCommand.ts";
-import { sousSegmentsForBook } from "@/app/state/findingsSelectors.ts";
 import type { FindingsStore } from "@/app/state/FindingsStore.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import {
@@ -65,7 +65,9 @@ export async function collapseExcessWhitespace(
   const sid = parseSid(anchor.sid);
   if (!sid) return;
 
-  const segments = sousSegmentsForBook(deps.findingsStore.read(), sid.book);
+  // Derived from the tokens as they stand right now, so the token ids this
+  // resolves to are the ones the DOM is actually carrying.
+  const segments = segmentsForBook(deps.workingFilesStore.read(), sid.book);
   const slices = resolveContentTokenSlices(anchor.sid, anchor.range, segments);
   if (!slices.length) return;
 

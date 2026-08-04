@@ -29,13 +29,14 @@ import {
   type FindingUserPrefs,
   presentFinding,
 } from "@/app/domain/editor/annotations/presentFinding.ts";
+import { segmentsForBook } from "@/app/domain/editor/annotations/vrefProjection.ts";
 import {
   chapterFindingsAcrossSources,
   type FlatFinding,
   flattenFindings,
-  sousSegmentsForBook,
 } from "@/app/state/findingsSelectors.ts";
 import type { FindingsStore } from "@/app/state/FindingsStore.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 
 export type FindingCategoryFilter = "all" | FindingCategory;
 
@@ -46,6 +47,8 @@ const NO_SUPPRESSIONS: FindingSuppressions = [];
 
 type UseFindingsProps = {
   findingsStore: FindingsStore;
+  /** Content anchors resolve against the tokens currently being drawn. */
+  workingFilesStore: WorkingFilesStore;
   visibleBookCode: string;
   visibleChapter: number;
   editorMode: EditorModeSetting;
@@ -53,6 +56,7 @@ type UseFindingsProps = {
 
 export function useFindings({
   findingsStore,
+  workingFilesStore,
   visibleBookCode,
   visibleChapter,
   editorMode,
@@ -60,6 +64,10 @@ export function useFindings({
   const snapshot = useSyncExternalStore(
     findingsStore.subscribe,
     findingsStore.getSnapshot,
+  );
+  const workingFiles = useSyncExternalStore(
+    workingFilesStore.subscribe,
+    workingFilesStore.getSnapshot,
   );
 
   // The ONE flat view — lazily derived, cached on the root reference.
@@ -238,10 +246,12 @@ export function useFindings({
     [visibleChapterFindings, userPrefs, editorMode, visibleBookCode],
   );
 
-  // Segment sidecar the visible book's content anchors resolve against.
+  // The visible book's verse→token map, derived from the tokens on screen
+  // rather than shipped with an analysis result: cheaper, and it cannot
+  // describe a generation the DOM has already moved past.
   const sousSegments = useMemo(
-    () => sousSegmentsForBook(snapshot, visibleBookCode),
-    [snapshot, visibleBookCode],
+    () => segmentsForBook(workingFiles, visibleBookCode),
+    [workingFiles, visibleBookCode],
   );
 
   // Category tallies for the type select — over the policy-visible base,

@@ -59,7 +59,7 @@ function cloned(result: MirrorResult): string {
         0,
       )}`;
     case "galleyResult":
-      return `keys:${result.keys.length},segments:${Object.keys(result.segments).length}`;
+      return `keys:${result.keys.length}`;
     case "loadProjectResult":
       return `books:${result.books?.length ?? 0}`;
     case "formatBraidResult":
