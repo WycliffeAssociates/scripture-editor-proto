@@ -49,8 +49,15 @@ const open = new Map<number, OpenTrace>();
 const sentAt = new Map<string, number>();
 /** When its result landed back on main, same key. */
 const receivedAt = new Map<string, number>();
-/** What crossing the boundary cost, keyed by generation. */
-const wireCost = new Map<number, { ms: number; shape: string }>();
+/** What the far side reported about crossing the boundary, by generation. */
+const wireCost = new Map<number, WireReport>();
+
+/** What the host can honestly report about a result, on its own clock. */
+export type WireReport = {
+  /** Total the host spent on this generation. */
+  hostElapsedMs: number;
+  shape: string;
+};
 
 const enabled = (): boolean => import.meta.env.DEV;
 
@@ -115,14 +122,14 @@ function traceEditPhase(
     detail: fields,
     depth: 1,
   });
-  const traceStartEpochMs = performance.timeOrigin + trace.startedAt;
+  // Anchored at this span's start, with the host's own internal offsets
+  // preserved. The anchor is approximate — main cannot see when the host
+  // picked the work up — but every number inside the block is a real delta
+  // from one clock, and the unexplained remainder is reported as `gap`.
   for (const child of nestByContainment(children ?? [])) {
     trace.phases.push({
       ...child,
-      offsetMs:
-        child.startedAtEpochMs === undefined
-          ? offsetMs + child.offsetMs
-          : child.startedAtEpochMs - traceStartEpochMs,
+      offsetMs: offsetMs + child.offsetMs,
       depth: 1 + (child.depth ?? 1),
     });
   }
@@ -169,18 +176,12 @@ export function markEditResult(generation: number, kind: string): void {
 }
 
 /**
- * Price the boundary crossing for the result that just arrived: structured
- * clone out, transport, and rebuild in. Reported with the payload's shape,
- * because a cheap-looking result is often dominated by an object graph riding
- * beside its transferred buffer.
+ * Record what the host reported about the result that just arrived, so the
+ * round trip can be broken into work, copy, and everything else.
  */
-export function markEditWire(
-  generation: number,
-  ms: number,
-  shape: string,
-): void {
+export function markEditWire(generation: number, report: WireReport): void {
   if (!enabled() || !open.has(generation)) return;
-  wireCost.set(generation, { ms, shape });
+  wireCost.set(generation, report);
 }
 
 /**
@@ -202,11 +203,20 @@ export function traceEditCommandResult(
   receivedAt.delete(key);
   const wire = wireCost.get(generation);
   wireCost.delete(generation);
+  const roundtripMs = landedAt - startedAt;
   traceEditPhase(
     generation,
     `main:${kind}-roundtrip`,
-    { startedAt, durationMs: landedAt - startedAt },
-    wire && { wire: `${Math.round(wire.ms)}ms`, ...parseShape(wire.shape) },
+    { startedAt, durationMs: roundtripMs },
+    wire && {
+      host: `${Math.round(wire.hostElapsedMs)}ms`,
+      // What the host did not account for: queueing behind other work, the
+      // structured clone, transport, and waiting on main's event loop to
+      // deliver. Derived by subtraction, because no single clock spans it —
+      // and a busy main thread inflates it as surely as a large payload does.
+      gap: `${Math.max(0, Math.round(roundtripMs - wire.hostElapsedMs))}ms`,
+      ...parseShape(wire.shape),
+    },
     children,
   );
   traceEditPhase(

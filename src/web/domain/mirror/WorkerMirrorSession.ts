@@ -61,11 +61,7 @@ export class WorkerMirrorSession implements MirrorSession {
         const result = event.data.result;
         const wire = event.data.wire;
         if (wire && "ranAtGeneration" in result) {
-          markEditWire(
-            result.ranAtGeneration,
-            performance.timeOrigin + performance.now() - wire.postedAt,
-            wire.shape,
-          );
+          markEditWire(result.ranAtGeneration, wire);
         }
         args.feed.deliverResult(result);
       }

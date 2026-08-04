@@ -6,6 +6,7 @@
 // transport-agnostic protocol types — this module only wraps them with a
 // direction tag and the worker's init handshake.
 
+import type { WireReport } from "./editTrace.ts";
 import type {
   HostCommand,
   MirrorPatch,
@@ -45,11 +46,14 @@ export type FromWorkerMessage =
       kind: "result";
       result: MirrorResult;
       /**
-       * DEV only. Absolute epoch ms taken immediately before `postMessage`, so
-       * main can price the crossing itself — structured clone out, transport,
-       * and rebuild in — which no timer on either side can see alone. Epoch
-       * rather than `performance.now()` because a worker's time origin is its
-       * own creation, not the page's.
+       * DEV only. What the worker measured on its OWN clock about this result:
+       * how long serialising it took (`postMessage` copies synchronously in
+       * the sender, so timing that call is the copy cost), how long the worker
+       * spent on this generation in total, and what the payload is made of.
+       *
+       * Deliberately not a timestamp. Contexts do not share a clock, so main
+       * subtracting a worker instant from its own measures skew as much as
+       * duration; main pairs these with its own round trip instead.
        */
-      wire?: { postedAt: number; shape: string };
+      wire?: WireReport;
     };

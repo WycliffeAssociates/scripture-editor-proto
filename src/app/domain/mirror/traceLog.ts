@@ -26,15 +26,14 @@ export type TraceFields = Record<string, string | number | boolean | undefined>;
  */
 export type TracedPhase = {
   phase: string;
-  /** Start, relative to the recorder that captured it. */
-  offsetMs: number;
   /**
-   * Absolute epoch ms, when the recorder can supply it. A phase recorded on
-   * the far side of a boundary did not necessarily happen inside the call that
-   * carried it home — patches are applied before the command that follows them
-   * is even sent — so placing it relative to that call misreports when it ran.
+   * Start, relative to the recorder that captured it — NEVER an absolute
+   * timestamp. Two contexts do not share a clock: `performance.timeOrigin`
+   * differs per context and both are coarsened, so subtracting one side's
+   * "now" from the other's yields skew rather than duration. Every number in a
+   * trace is therefore a delta measured inside one context.
    */
-  startedAtEpochMs?: number;
+  offsetMs: number;
   durationMs: number;
   detail?: TraceFields;
   /** Nesting below the parent the phase is replayed under. Defaults to 1. */
@@ -75,6 +74,8 @@ export function formatTraceLine(line: {
  * recorder's creation.
  */
 export type PhaseRecorder = {
+  /** Elapsed inside this recorder's own context, for the caller to report. */
+  elapsedMs(): number;
   record(phase: string, detail?: TraceFields): void;
   time<T>(
     phase: string,
@@ -92,7 +93,6 @@ export type PhaseRecorder = {
 export function createPhaseRecorder(): PhaseRecorder {
   const phases: TracedPhase[] = [];
   const createdAt = performance.now();
-  const createdAtEpochMs = performance.timeOrigin + createdAt;
   const since = () => performance.now() - createdAt;
   const push = <T>(
     phase: string,
@@ -103,7 +103,6 @@ export function createPhaseRecorder(): PhaseRecorder {
     phases.push({
       phase,
       offsetMs,
-      startedAtEpochMs: createdAtEpochMs + offsetMs,
       durationMs: since() - offsetMs,
       detail: detail?.(value),
     });
@@ -111,15 +110,9 @@ export function createPhaseRecorder(): PhaseRecorder {
   };
   return {
     phases,
+    elapsedMs: since,
     record(phase, detail) {
-      const offsetMs = since();
-      phases.push({
-        phase,
-        offsetMs,
-        startedAtEpochMs: createdAtEpochMs + offsetMs,
-        durationMs: 0,
-        detail,
-      });
+      phases.push({ phase, offsetMs: since(), durationMs: 0, detail });
     },
     async time(phase, operation, detail) {
       const offsetMs = since();

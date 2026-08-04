@@ -34,21 +34,32 @@ function post(message: FromWorkerMessage, transfer: Transferable[] = []): void {
   ).postMessage(message, transfer);
 }
 
-/** Post a result, stamped so main can price the crossing. See `wire`. */
-function postResult(result: MirrorResult): void {
-  const transfer = transferablesOf(result);
+/**
+ * Post a result, reporting what this side spent on it.
+ *
+ * The report is what the worker can honestly say on its own clock: total time
+ * on this generation, and what the payload is made of. It deliberately does
+ * NOT carry a timestamp for main to subtract from — contexts have different
+ * time origins, both coarsened, so that measures skew as much as duration.
+ *
+ * The structured clone is not isolated here either: `postMessage` serialises
+ * synchronously, but the cost is only known once the call returns, by which
+ * point the message describing it has already left. Main folds it into a
+ * derived `gap` instead.
+ */
+function postResult(result: MirrorResult, phases?: PhaseRecorder): void {
   post(
     {
       kind: "result",
       result,
       wire: import.meta.env.DEV
         ? {
-            postedAt: performance.timeOrigin + performance.now(),
+            hostElapsedMs: phases?.elapsedMs() ?? 0,
             shape: describeResultPayload(result),
           }
         : undefined,
     },
-    transfer,
+    transferablesOf(result),
   );
 }
 
@@ -136,7 +147,7 @@ async function handleMessage(message: ToWorkerMessage): Promise<void> {
           command.kind === "loadProject"
             ? await loadProject(engines, command)
             : await engines.runCommand(command, phases);
-        postResult(withWorkerPhases(result));
+        postResult(withWorkerPhases(result), phases);
       } catch (error: unknown) {
         if (
           command.kind === "formatBraid" ||
