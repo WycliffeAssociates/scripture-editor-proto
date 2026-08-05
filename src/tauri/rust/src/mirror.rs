@@ -2179,8 +2179,8 @@ pub fn mirror_lint(
                 .result
                 .issues
                 .iter()
-                .map(map_braid_lint_issue)
-                .collect::<Result<Vec<_>, _>>()?;
+                .map(crate::usfm_onion::map_lint_issue)
+                .collect::<Vec<_>>();
             Ok(MirrorBookLintSnapshotDto {
                 source_key: book.source_key.as_str().to_string(),
                 book: book.book.to_string(),
@@ -2584,14 +2584,6 @@ pub fn mirror_backup(
         ran_at_generation: generation,
         behind: false,
     })
-}
-
-fn map_braid_lint_issue(issue: &usfm_onion::lint::LintIssue) -> Result<LintIssueDto, String> {
-    serde_json::from_value(
-        serde_json::to_value(issue)
-            .map_err(|error| format!("Braid lint encode failed: {error}"))?,
-    )
-    .map_err(|error| format!("Braid lint DTO conversion failed: {error}"))
 }
 
 fn empty_lint_summary() -> MirrorLintSummaryDto {
@@ -3377,6 +3369,79 @@ mod tests {
                 .join("corpus.bin")
                 .exists(),
             "a recovery open must never label unsaved work as the saved corpus"
+        );
+    }
+
+    /// Braid's findings must reach the frontend in the shape the frontend
+    /// reads: camelCase keys, canonical string values.
+    ///
+    /// Nothing in the type system enforces that. `LintIssue` in the crate
+    /// derives `Serialize` with no `rename_all`, so it emits snake_case, and
+    /// `code` serializes as its enum variant rather than the canonical code
+    /// string. A serde round-trip from one to the other therefore compiles
+    /// and fails at runtime — and only on desktop, because the web arm
+    /// consumes the wasm DTO, which is already camelCase. This test is the
+    /// only thing standing between that drift and a shipped build.
+    #[test]
+    fn braid_findings_reach_the_frontend_in_its_own_shape() {
+        let dir = temp_dir("lint-dto");
+        let book_path = dir.join("GEN.usfm");
+        std::fs::write(
+            &book_path,
+            "\\id GEN\n\\c 1 \\p\n\\v 1 First\n\\v 1 Duplicated\n",
+        )
+        .expect("write book");
+
+        let mut mirror = NativeMirrorState::default();
+        mirror
+            .load_project(
+                dir.join("cache").to_str().expect("cache root"),
+                "workspace",
+                dir.join("backups").to_str().expect("backup root"),
+                &[MirrorLoadProjectBookDto {
+                    book_code: "GEN".to_string(),
+                    source_key: "GEN".to_string(),
+                    path: book_path.to_string_lossy().to_string(),
+                }],
+                None,
+                true,
+            )
+            .expect("load");
+
+        let snapshot = mirror.ensure_braid().expect("braid").lint();
+        let findings = snapshot
+            .books
+            .iter()
+            .flat_map(|book| book.result.issues.iter())
+            .map(crate::usfm_onion::map_lint_issue)
+            .collect::<Vec<_>>();
+        assert!(
+            !findings.is_empty(),
+            "the duplicated verse must produce a finding for this test to mean anything"
+        );
+
+        let wire = serde_json::to_value(&findings[0]).expect("encode finding");
+        let fields = wire.as_object().expect("finding encodes as an object");
+        assert!(
+            fields.contains_key("issueType") && !fields.contains_key("issue_type"),
+            "camelCase on the wire, got {fields:?}"
+        );
+        assert!(
+            ["usfm", "content"].contains(&fields["issueType"].as_str().expect("string")),
+            "issueType is the canonical lowercase value, not an enum variant: {:?}",
+            fields["issueType"]
+        );
+        let code = fields["code"].as_str().expect("code is a string");
+        assert!(
+            code.chars().next().is_some_and(char::is_lowercase),
+            "code is the canonical code string, not a PascalCase variant: {code}"
+        );
+        assert!(
+            snapshot
+                .books
+                .iter()
+                .all(|book| map_braid_lint_summary(&book.result.summary).is_ok()),
+            "summary keys encode as strings"
         );
     }
 

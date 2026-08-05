@@ -446,7 +446,16 @@ fn map_lint_category(category: onion::LintCategory) -> String {
     .to_string()
 }
 
-fn map_lint_issue(issue: &onion::LintIssue) -> LintIssueDto {
+/// Map a lint issue to its wire DTO, field by field.
+///
+/// Deliberately hand-written rather than a serde round-trip through
+/// `serde_json::Value`. The crate's `LintIssue` derives `Serialize` with no
+/// `rename_all`, so it emits snake_case while every DTO on this seam is
+/// camelCase; and `code` serializes as its enum variant, not the canonical
+/// code string the frontend matches on. A round-trip therefore compiles and
+/// fails at runtime, on desktop only — the web arm consumes the wasm DTO,
+/// which is already camelCase.
+pub(crate) fn map_lint_issue(issue: &onion::LintIssue) -> LintIssueDto {
     LintIssueDto {
         code: issue.code.code().to_string(),
         category: map_lint_category(issue.category),
