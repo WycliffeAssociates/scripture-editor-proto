@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { useLoaderData, useRouter } from "@tanstack/react-router";
 import { Deferred, Effect } from "effect";
 import type { LexicalEditor } from "lexical";
@@ -5,7 +6,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { analysisDisabledInMode, shapeForSurface } from "@/app/data/editor.ts";
 import type { Settings, SettingsManager } from "@/app/data/settings.ts";
-import type { RecoveryReportEntry } from "@/app/domain/api/recoverDirtyBuffers.ts";
 import { decodeGalleyAnalysis } from "@/app/domain/editor/annotations/decodeGalleyFindings.ts";
 import {
   groupFindingsByBook,
@@ -24,10 +24,15 @@ import { makeSaveStatusPipeline } from "@/app/domain/editor/pipelines/saveStatus
 import { makeSousPipeline } from "@/app/domain/editor/pipelines/sousPipeline.ts";
 import { makeStructureMaintenancePipeline } from "@/app/domain/editor/pipelines/structureMaintenancePipeline.ts";
 import { makeTokenFixpointPipeline } from "@/app/domain/editor/pipelines/tokenFixpointPipeline.ts";
+import {
+  applyRebuiltBookTokens,
+  parseUsfmForRebuild,
+  type RebuiltBookTokens,
+} from "@/app/domain/editor/services/rebuildParsedFileFromUsfm.ts";
 import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
+import type { HostRecoveryEntry } from "@/app/domain/mirror/mirrorProtocol.ts";
 import type { WorkspaceKernelHandle } from "@/app/domain/mirror/workspaceKernel.ts";
 import { bookCodeToTitle } from "@/app/domain/project/bookTitle.ts";
-import { revertChapterToLoadedState } from "@/app/domain/project/saveAndRevertService.ts";
 import { withWorkingFilesDraftSync } from "@/app/domain/project/workingFileCommand.ts";
 import { galleyConfigFromSettings } from "@/app/domain/sous/galleyConfig.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
@@ -41,6 +46,7 @@ import type { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.
 import { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
 import { WorkspaceModalStore } from "@/app/state/WorkspaceModalStore.ts";
 import { WorkspaceModalOutlet } from "@/app/ui/components/blocks/WorkspaceModalOutlet.tsx";
+import { showErrorNotification } from "@/app/ui/components/primitives/notifications.ts";
 import { WorkspaceContext } from "@/app/ui/contexts/_workspaceContext.ts";
 import {
   type UseActionsHook,
@@ -177,7 +183,7 @@ export interface WorkSpaceContextType {
   recovery: {
     restoredBookCodes: string[];
     conflictedBookCodes: string[];
-    recoveryReportEntries: RecoveryReportEntry[];
+    recoveryReportEntries: HostRecoveryEntry[];
     isRestoredBannerOpen: boolean;
     isRecoveryReportOpen: boolean;
     dismissRecoveryReport(): void;
@@ -204,7 +210,7 @@ type ProjectProviderProps = {
   recoveredConflictTracker: RecoveredConflictTracker;
   restoredBookCodes: string[];
   conflictedBookCodes: string[];
-  recoveryReportEntries: RecoveryReportEntry[];
+  recoveryReportEntries: HostRecoveryEntry[];
   /**
    * The workspace kernel the loader built + claimed (mirror feed, platform
    * session, seeded mirror, awaited initial findings). The provider consumes
@@ -749,18 +755,55 @@ export const ProjectProvider = ({
   }, []);
 
   const discardRecoveredWork = useCallback(async () => {
-    const refs: { bookCode: string; chapterNum: number }[] = [];
-    for (const file of workingFilesStore.read()) {
-      if (!restoredBookCodes.includes(file.bookCode)) continue;
-      for (const chapter of file.chapters) {
-        if (chapter.dirty) {
-          refs.push({
+    // DISK IS THE AUTHORITY. "Discard my unsaved work" means "give me back the
+    // file", so this reads the file — it does not ask any in-memory baseline
+    // what the file said. `sourceTokens` and Braid's baseline are both mirrors
+    // of disk, and a mirror can drift (a patch that failed to apply, a
+    // baseline overwritten by a later sync); reverting to a drifted mirror
+    // silently lands somewhere that is neither the backup nor the file. Reading
+    // the bytes cannot drift, and it is cheap — discard is a deliberate click
+    // on a handful of books.
+    //
+    // Reading AND parsing both happen here, before the draft opens, because the
+    // commit below goes through the synchronous door: it measures the draft the
+    // moment `mutate` returns, so any await inside `mutate` commits the
+    // pre-write state.
+    const restored = workingFilesStore
+      .read()
+      .filter((file) => restoredBookCodes.includes(file.bookCode));
+    let diskByBook: RebuiltBookTokens[];
+    try {
+      diskByBook = await Promise.all(
+        restored.map(async (file) => {
+          const ref = loadedProject.books.find(
+            (candidate) => candidate.bookCode === file.bookCode,
+          );
+          if (!ref) {
+            throw new Error(`${file.bookCode} is not a book of this project`);
+          }
+          return parseUsfmForRebuild({
             bookCode: file.bookCode,
-            chapterNum: chapter.chapterNumber,
+            sourceUsfm: (await loadedProject.getBook(ref.storageKey)).contents,
+            usfmOnionService,
           });
-        }
-      }
+        }),
+      );
+    } catch (error) {
+      // Leave the gate closed and the banner up: the work is still on screen
+      // and still backed up, so the user can retry or keep it. Silently
+      // unlocking here would look like a successful discard.
+      console.error("[recovery] discard failed; recovered work left in place", {
+        error,
+      });
+      showErrorNotification({
+        notification: {
+          title: t`Couldn't discard the restored work`,
+          message: t`Your restored work is still here. Try again, or keep it and save when you're ready.`,
+        },
+      });
+      return;
     }
+
     const historyToken = history.captureHistory();
     const outcome = withWorkingFilesDraftSync({
       workingFilesStore,
@@ -771,18 +814,55 @@ export const ProjectProvider = ({
         dirtyTextContent: true,
       },
       mutate: (draft) => {
-        for (const ref of refs) {
-          const chapter = draft.chapterForWrite(ref);
-          if (chapter) revertChapterToLoadedState(chapter);
+        for (const rebuilt of diskByBook) {
+          const targetFile = draft.bookForWrite(rebuilt.bookCode);
+          if (!targetFile) continue;
+          applyRebuiltBookTokens({
+            targetFile,
+            rebuilt,
+            shape: shapeForSurface(
+              "workingRebuild",
+              appSettingsRef.current.editorMode,
+            ),
+          });
+          // The rebuild sets current content from the file but carries the
+          // OLD baseline forward, and that baseline is the thing we just
+          // stopped trusting. Disk is now both halves: the book is saved
+          // state, so it must read clean rather than dirty against a stale
+          // baseline. This also re-seeds the mirror correctly — the commit is
+          // project-scope with text content, so it ships a `fullSync` whose
+          // baseline tokens are these, putting Braid's current AND baseline
+          // back on disk without a second round trip.
+          for (const chapter of targetFile.chapters) {
+            chapter.sourceTokens = structuredClone(chapter.currentTokens);
+            chapter.dirty = false;
+          }
         }
       },
     });
-    if (outcome.kind === "committed") {
-      history.recordHistory(historyToken, {
-        label: "Discard recovered work",
-        affected: outcome.committedChapters,
+    // Only a COMMIT reaches the screen. The recording draft short-circuits to
+    // `unchanged` when it measures nothing affected, and no commit means no
+    // event, which means editor-sync never runs and the editor keeps showing
+    // the recovered text. Dismissing the banner on that path tells the user
+    // their work was discarded while it is still in front of them.
+    if (outcome.kind !== "committed") {
+      console.error("[recovery] discard did not commit; editor left as-is", {
+        outcome: outcome.kind,
+        restoredBookCodes,
+        booksReadFromDisk: diskByBook.map((book) => book.bookCode),
       });
+      showErrorNotification({
+        notification: {
+          title: t`Couldn't discard the restored work`,
+          message: t`Your restored work is still here. Try again, or keep it and save when you're ready.`,
+        },
+      });
+      return;
     }
+    history.recordHistory(historyToken, {
+      label: "Discard recovered work",
+      affected: outcome.committedChapters,
+    });
     recoveredConflictTracker.clearAll();
     interactionGate.set({ kind: "open" });
     setIsRestoredBannerOpen(false);
@@ -792,6 +872,8 @@ export const ProjectProvider = ({
     recoveredConflictTracker,
     interactionGate,
     history,
+    loadedProject,
+    usfmOnionService,
   ]);
 
   return (

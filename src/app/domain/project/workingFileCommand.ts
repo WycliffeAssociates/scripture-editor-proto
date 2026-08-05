@@ -168,11 +168,16 @@ export type SyncDraftResult<T> =
  *
  * `mutate` reads the draft and checks out a chapter (`chapterForWrite`) or book
  * (`bookForWrite`) only when it actually writes; no checkout ⇒ no commit.
+ *
+ * `mutate` returning a promise is a compile error, not a caveat: the draft is
+ * measured the instant `mutate` returns, so an async mutator commits whatever
+ * it had written before its first `await` — silently, reporting `committed`.
+ * Do the async part (read, parse) BEFORE the call and hand `mutate` the result.
  */
 export function withWorkingFilesDraftSync<T>(args: {
   workingFilesStore: WorkingFilesStore;
   commitMeta: CommitMetaInput;
-  mutate: (draft: RecordingDraft) => T;
+  mutate: (draft: RecordingDraft) => T extends PromiseLike<unknown> ? never : T;
 }): SyncDraftResult<T> {
   const draft = makeRecordingDraft(args.workingFilesStore.read());
   const value = args.mutate(draft);

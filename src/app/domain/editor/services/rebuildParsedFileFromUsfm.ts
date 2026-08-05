@@ -1,3 +1,5 @@
+import type { Token } from "usfm-onion-web";
+
 import type { EditorShape } from "@/app/data/editor.ts";
 import { groupFlatTokensByChapter } from "@/app/domain/editor/serialization/flatTokensByChapter.ts";
 import {
@@ -9,6 +11,39 @@ import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState
 import { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import { normalizeTokenSids } from "@/core/domain/usfm/tokenSidNormalization.ts";
+
+/** A book's USFM already parsed and grouped, ready for a synchronous rebuild. */
+export type RebuiltBookTokens = {
+  bookCode: string;
+  tokensByChapter: Record<number, Token[]>;
+};
+
+/**
+ * Parse USFM for a later rebuild.
+ *
+ * Split out from the rebuild itself so a caller on the SYNCHRONOUS commit door
+ * (`withWorkingFilesDraftSync`) can pay the parse before it opens the draft:
+ * that door measures the draft the moment `mutate` returns, so a mutator that
+ * awaits mid-write commits the pre-write state.
+ */
+export async function parseUsfmForRebuild(args: {
+  bookCode: string;
+  sourceUsfm: string;
+  usfmOnionService: IUsfmOnionService;
+}): Promise<RebuiltBookTokens> {
+  const projection = await args.usfmOnionService.parseUsfm(args.sourceUsfm, {
+    tokenOptions: {
+      mergeHorizontalWhitespace: false,
+    },
+    lintOptions: null,
+  });
+  return {
+    bookCode: args.bookCode,
+    tokensByChapter: groupFlatTokensByChapter(
+      normalizeTokenSids(projection.tokens, args.bookCode),
+    ),
+  };
+}
 
 /**
  * Rebuild one in-memory scripture book state from fresh USFM text.
@@ -25,24 +60,30 @@ export async function rebuildParsedFileFromUsfm(args: {
   usfmOnionService: IUsfmOnionService;
   shape: EditorShape;
 }) {
-  const projection = await args.usfmOnionService.parseUsfm(args.sourceUsfm, {
-    tokenOptions: {
-      mergeHorizontalWhitespace: false,
-    },
-    lintOptions: null,
+  applyRebuiltBookTokens({
+    targetFile: args.targetFile,
+    rebuilt: await parseUsfmForRebuild({
+      bookCode: args.targetFile.bookCode,
+      sourceUsfm: args.sourceUsfm,
+      usfmOnionService: args.usfmOnionService,
+    }),
+    shape: args.shape,
   });
+}
 
+/** Write already-parsed tokens over a book's chapters. Synchronous by design. */
+export function applyRebuiltBookTokens(args: {
+  targetFile: ScriptureBookState;
+  rebuilt: RebuiltBookTokens;
+  shape: EditorShape;
+}): void {
   const direction =
     (args.targetFile.chapters[0]?.direction ?? LanguageDirection.LTR) ===
     LanguageDirection.RTL
       ? LanguageDirection.RTL
       : LanguageDirection.LTR;
 
-  const normalizedTokens = normalizeTokenSids(
-    projection.tokens,
-    args.targetFile.bookCode,
-  );
-  const sourceTokensByChapter = groupFlatTokensByChapter(normalizedTokens);
+  const sourceTokensByChapter = args.rebuilt.tokensByChapter;
 
   args.targetFile.chapters = Object.entries(sourceTokensByChapter)
     .map(([chapterNum, nextCurrentTokens]) => {
