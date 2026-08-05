@@ -183,6 +183,19 @@ export function patchesForCommit(
       generation,
     });
   }
+  // A commit that changed nothing the mirror holds still has to move the
+  // mirror's watermark. The mirror decides "is this command ahead of the state
+  // I have" by the highest generation it has been PATCHED at, so a commit that
+  // emits nothing leaves it stuck one generation back forever — and every
+  // later command reports `behind`. Analyze tolerates that (it retries, then
+  // resyncs); `formatBraid` and `applyBraidFix` reject outright, so a single
+  // patch-less commit is enough to make Format Book fail permanently.
+  //
+  // `syncMeta` with no books is the existing no-payload patch: the mirror
+  // iterates its books and does nothing, so this is a pure watermark.
+  if (patches.length === 0) {
+    return [{ kind: "syncMeta", books: [], generation }];
+  }
   return patches;
 }
 
@@ -214,17 +227,16 @@ export function seedMirror(args: {
  * corpus, so this carries metadata only — per-book disk baselines and per-
  * chapter eol/dirty flags the backup envelope needs.
  *
- * `recoveredBookCodes` are the exception: their working content came from a
- * crash backup, not the bytes the host read, so each is republished in full as
- * an `updateBook`. Only those books; a whole-corpus resync would re-tokenize
- * and re-ingest every book to correct one.
+ * Crash-recovered books are NOT an exception. The host layered every usable
+ * backup over the corpus while it was establishing it, so what it holds is
+ * already the user's effective content — republishing it from main would
+ * re-tokenize and re-ingest a book to restate what the host itself produced.
  */
 export function seedResidentMirror(args: {
   workingFilesStore: WorkingFilesStore;
   workspaceBaselineStore: WorkspaceBaselineStore;
   feed: MirrorFeed;
   generation: Generation;
-  recoveredBookCodes?: readonly string[];
 }): void {
   const baselineFor = (bookCode: string): DiskBaseline =>
     args.workspaceBaselineStore.getBaseline(bookCode);
@@ -243,25 +255,6 @@ export function seedResidentMirror(args: {
     books,
     generation: args.generation,
   });
-  const recovered = new Set(args.recoveredBookCodes ?? []);
-  for (const book of snapshot) {
-    if (!recovered.has(book.bookCode)) continue;
-    args.feed.pushPatch({
-      kind: "updateBook",
-      book: {
-        bookCode: book.bookCode,
-        diskBaseline: baselineFor(book.bookCode),
-        baselineTokens: book.chapters.flatMap(
-          (chapter) => chapter.sourceTokens,
-        ),
-        chapters: book.chapters.map((chapter) => ({
-          chapterNum: chapter.chapterNumber,
-          chapter: tokenizeChapter(chapter),
-        })),
-      },
-      generation: args.generation,
-    });
-  }
 }
 
 /** The findings committed before first paint. */
@@ -451,9 +444,23 @@ export function makeMirrorPatchProducer(args: {
     args.workspaceBaselineStore.getBaseline(bookCode);
 
   return args.workingFilesStore.changes.pipe(
-    Stream.filter(isDirtyBufferRelevant),
     Stream.runForEach((event) =>
       Effect.sync(() => {
+        // Relevance decides what the mirror is TOLD, never whether it learns
+        // main advanced. The mirror answers "is this command ahead of the
+        // state I hold" from the highest generation it has been patched at, so
+        // dropping an irrelevant commit outright leaves it a generation behind
+        // for good: analyze retries then resyncs, but `formatBraid` and
+        // `applyBraidFix` reject, so one filtered commit breaks Format Book
+        // until something else happens to push a patch.
+        if (!isDirtyBufferRelevant(event)) {
+          args.feed.pushPatch({
+            kind: "syncMeta",
+            books: [],
+            generation: event.meta.generation,
+          });
+          return;
+        }
         timeEditPhase(
           event.meta.generation,
           "main:publish-patches",
