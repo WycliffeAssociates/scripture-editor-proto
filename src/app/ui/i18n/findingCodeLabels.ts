@@ -30,7 +30,7 @@ export function localizeFindingCodeLabel(code: string): string {
     case "inconsistent-chapter-label":
       return t`Inconsistent chapter label`;
 
-    // sous: content hygiene + lexing
+    // sous: content hygiene, lexing, and corpus-relative conventions
     case "lex.excess-h-whitespace":
       return t`Extra spaces`;
     case "hyg.tab-in-body":
@@ -41,6 +41,10 @@ export function localizeFindingCodeLabel(code: string): string {
       return t`Zero-width characters`;
     case "hyg.empty-verse":
       return t`Empty verse`;
+    // Same string as the engine's own card title, so the settings toggle and
+    // the filter chip name one thing.
+    case "uni.nonletter-usage-anomaly":
+      return t`Unusual nonletter usage`;
 
     // usfm-onion: structure + marker validity
     case "missing-id-marker":
