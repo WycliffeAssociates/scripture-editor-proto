@@ -30,17 +30,17 @@ md-5 = "0.10.0"
 tauri-plugin-dialog = "2"
 # Stateless editor commands still use Onion directly; resident ownership and
 # packed publication/restore now come from the direct native Braid handle.
-usfm_onion = { git = "https://github.com/WycliffeAssociates/usfm-onion.git", tag = "v0.1.4" }
-ssc-core = { git = "https://github.com/WycliffeAssociates/scripture-sous-chef.git", tag = "v0.0.5" }
-ssc-galley = { git = "https://github.com/WycliffeAssociates/scripture-sous-chef.git", tag = "v0.0.5", features = [
+usfm_onion = { git = "https://github.com/WycliffeAssociates/usfm-onion.git", tag = "v0.1.6" }
+ssc-core = { git = "https://github.com/WycliffeAssociates/scripture-sous-chef.git", tag = "v0.0.6" }
+ssc-galley = { git = "https://github.com/WycliffeAssociates/scripture-sous-chef.git", tag = "v0.0.6", features = [
   "parallel",
 ] }
-ssc-wire = { git = "https://github.com/WycliffeAssociates/scripture-sous-chef.git", tag = "v0.0.5" }
+ssc-wire = { git = "https://github.com/WycliffeAssociates/scripture-sous-chef.git", tag = "v0.0.6" }
 rayon = "1.10.0"
 # Braid is the sole native resident engine and owns its packed publication
 # reuse cache and restore composition; no app-owned host/envelope is needed.
-braid = { git = "https://github.com/WycliffeAssociates/usfm-onion.git", tag = "v0.1.4", package = "braid" }
-usfm_onion_wire = { git = "https://github.com/WycliffeAssociates/usfm-onion.git", tag = "v0.1.4", package = "usfm_onion_wire" }
+braid = { git = "https://github.com/WycliffeAssociates/usfm-onion.git", tag = "v0.1.6", package = "braid" }
+usfm_onion_wire = { git = "https://github.com/WycliffeAssociates/usfm-onion.git", tag = "v0.1.6", package = "usfm_onion_wire" }
 zip = "2.4.2"
 reqwest = { version = "0.12.23", default-features = false, features = [
   "blocking",

@@ -8,6 +8,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  dropBraidWarmCache,
   putBraidWarmCache,
   readBraidWarmCache,
   writeBraidWarmCache,
@@ -28,6 +29,9 @@ function makeFileSystem(seed: Record<string, Uint8Array> = {}) {
     },
     atomicWriteText: async () => {},
     mkdir: async () => {},
+    remove: async (path: string) => {
+      files.delete(path);
+    },
     exists: async (path: string) => files.has(path),
   } as unknown as FileSystem;
   return { fileSystem, files };
@@ -113,6 +117,56 @@ describe("Braid warm cache", () => {
 
     expect(written).toBe(false);
     expect(files.has(CACHE_PATH)).toBe(false);
+  });
+});
+
+describe("dropping a sidecar main refused", () => {
+  // A container the HOST accepted can still fail main's certification, and
+  // that failure has no fallback of its own — the load throws and the route
+  // dies. Dropping the entry turns a stale cache file back into what it is
+  // supposed to be: one slow open, not an unopenable project.
+  it("removes the entry so the next open is cold", async () => {
+    const { fileSystem, files } = makeFileSystem({
+      [CACHE_PATH]: new Uint8Array([1, 2, 3]),
+    });
+    await dropBraidWarmCache({
+      fileSystem,
+      cacheRoot: "/cache",
+      workspaceKey: "proj",
+    });
+    expect(files.has(CACHE_PATH)).toBe(false);
+    expect(
+      await readBraidWarmCache({
+        fileSystem,
+        cacheRoot: "/cache",
+        workspaceKey: "proj",
+      }),
+    ).toBeNull();
+  });
+
+  it("is a no-op when there is nothing to drop", async () => {
+    const { fileSystem } = makeFileSystem();
+    await expect(
+      dropBraidWarmCache({
+        fileSystem,
+        cacheRoot: "/cache",
+        workspaceKey: "proj",
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("swallows a delete failure — a surviving entry is only a future refusal", async () => {
+    const { fileSystem } = makeFileSystem({
+      [CACHE_PATH]: new Uint8Array([1]),
+    });
+    vi.spyOn(fileSystem, "remove").mockRejectedValue(new Error("EPERM"));
+    await expect(
+      dropBraidWarmCache({
+        fileSystem,
+        cacheRoot: "/cache",
+        workspaceKey: "proj",
+      }),
+    ).resolves.toBeUndefined();
   });
 });
 

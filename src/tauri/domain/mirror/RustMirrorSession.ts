@@ -25,6 +25,7 @@ import type { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import type {
   GalleyCachePolicy,
   HostCommand,
+  HostRecovery,
   LoadedProjectBook,
   LoadProjectResult,
   MirrorPatch,
@@ -112,6 +113,7 @@ type MirrorLoadProjectResultDto = {
   /** Handle for the concatenated exact disk bytes of every loaded book. */
   sourcesId: number;
   books: LoadedProjectBook[];
+  recovery: HostRecovery;
   galley?: {
     packedId: number;
     keys: string[];
@@ -374,7 +376,9 @@ export class RustMirrorSession {
               book: book.bookCode,
               sourceHash: book.sourceHash,
               encoded: book.encoded,
-              source: book.source,
+              // Rust's `Option<String>` reaches JS as `null` over the JSON IPC
+              // path; the shared type is wasm's, where absence is `undefined`.
+              source: book.source ?? undefined,
             })),
             sources: result.sources,
             serializedBooks: result.serializedBooks,
@@ -411,6 +415,7 @@ export class RustMirrorSession {
       projectPath: command.projectPath,
       workspaceKey: encodeURIComponent(command.workspaceKey),
       cacheRoot: this.cacheRoot ?? "",
+      dirtyBufferRoot: this.dirtyBufferRoot ?? "",
       books: command.books,
       config: command.config,
       analysisDisabled: command.analysisDisabled,
@@ -445,6 +450,7 @@ export class RustMirrorSession {
           packed,
           sources,
           books: result.books,
+          recovery: result.recovery,
           galley:
             result.galley && galleyPacked
               ? {

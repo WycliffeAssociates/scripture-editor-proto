@@ -34,15 +34,13 @@
 import type { SousConfig } from "scripture-sous-chef-web";
 import type { LintIssue } from "usfm-onion-web";
 
-import type { RecoveryReportEntry } from "@/app/domain/api/recoverDirtyBuffers.ts";
 import { reduceProjectLocalLint } from "@/app/domain/editor/pipelines/localLintPipeline.ts";
 import {
-  awaitInitialFindings,
   type InitialFindings,
   NO_INITIAL_FINDINGS,
-  seedMirror,
   seedResidentMirror,
 } from "@/app/domain/editor/pipelines/mirrorPatchProducer.ts";
+import type { HostRecoveryEntry } from "@/app/domain/mirror/mirrorProtocol.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { DirtyBufferStore } from "@/app/state/DirtyBufferStore.ts";
 import type { RecoveredConflictTracker } from "@/app/state/RecoveredConflictTracker.ts";
@@ -80,12 +78,6 @@ export type WorkspaceKernelBuildArgs = {
   braidFindings: ReadonlyMap<string, readonly LintIssue[]> | null;
   /** Galley's analysis of the same corpus. */
   galley: GalleyAnalysis | null;
-  /**
-   * Books whose working content came from a crash backup rather than disk. The
-   * resident corpus was loaded from disk, so these — and only these — have to
-   * be republished and re-analyzed.
-   */
-  recoveredBookCodes: readonly string[];
   /** The loader payload a same-project reopen should be served, unchanged. */
   load: WorkspaceKernelLoad;
 };
@@ -104,7 +96,7 @@ export type WorkspaceKernelLoad = {
   dirtyBufferStore: DirtyBufferStore;
   restoredBookCodes: string[];
   conflictedBookCodes: string[];
-  recoveryReportEntries: RecoveryReportEntry[];
+  recoveryReportEntries: HostRecoveryEntry[];
 };
 
 /** One mounted lifetime's claim on the kernel; released on unmount. */
@@ -179,39 +171,37 @@ async function buildKernel(
   const seedStore = new WorkingFilesStore(args.projectFiles);
   const generation = seedStore.generation();
 
-  // The resident host already owns the token corpus, so a clean open sends
-  // metadata only. Crash-recovered books are the exception: their working
-  // content is the backup, not the disk bytes the host loaded, so each is
-  // republished as a complete book.
+  // The resident host already owns the token corpus — including anything crash
+  // recovery layered over it, which the host did while establishing that corpus
+  // — so the seed sends metadata only.
   const seedStartedAt = startupElapsed();
   seedResidentMirror({
     workingFilesStore: seedStore,
     workspaceBaselineStore: args.workspaceBaselineStore,
     feed,
     generation,
-    recoveredBookCodes: args.recoveredBookCodes,
   });
   logStartupPhase(
     "main:resident-seed",
-    {
-      books: args.projectFiles.length,
-      recovered: args.recoveredBookCodes.length,
-    },
+    { books: args.projectFiles.length },
     { startedAt: seedStartedAt, durationMs: startupElapsed() - seedStartedAt },
   );
 
+  // First-paint findings are the load's own: it verified and materialized
+  // Braid's published container and answered Galley in the same pass, over the
+  // effective content. A recovery open is not a special case here — that is the
+  // point of layering before the analysis rather than after it.
   const findingsStartedAt = startupElapsed();
   const initialFindings = args.analysisDisabled
     ? NO_INITIAL_FINDINGS
     : {
-        ...(await residentFindings(args, feed, generation, seedStore)),
+        lint: args.braidFindings,
+        sous: args.galley,
         localLint: reduceProjectLocalLint(seedStore.read()),
       };
   logStartupPhase(
     "main:initial-findings",
     {
-      source:
-        args.recoveredBookCodes.length > 0 ? "recovery-reanalysis" : "load",
       braid: initialFindings.lint?.size ?? 0,
       galley: initialFindings.sous?.cacheState ?? "none",
       localLint: Object.keys(initialFindings.localLint).length,
@@ -232,40 +222,6 @@ async function buildKernel(
     refcount: 0,
     graceTimer: null,
   };
-}
-
-/**
- * First-paint findings. A clean open already has them: the load verified and
- * materialized Braid's published container and answered Galley in the same
- * pass. Only a crash-recovered open has to analyze, because the books it
- * restored differ from the corpus the host loaded from disk — and it analyzes
- * with `cachePolicy: "none"`, since unsaved recovered content must never be
- * written into a cache that claims to describe what is on disk.
- */
-async function residentFindings(
-  args: WorkspaceKernelBuildArgs,
-  feed: MirrorFeed,
-  generation: number,
-  seedStore: WorkingFilesStore,
-): Promise<Pick<InitialFindings, "lint" | "sous">> {
-  if (args.recoveredBookCodes.length === 0) {
-    return { lint: args.braidFindings, sous: args.galley };
-  }
-  return awaitInitialFindings({
-    feed,
-    generation,
-    cachePolicy: "none",
-    // Recovery for a load-time `resyncRequest`: no router is mounted yet to
-    // service one, so re-push the complete corpus here.
-    reseed: () =>
-      seedMirror({
-        workingFilesStore: seedStore,
-        workspaceBaselineStore: args.workspaceBaselineStore,
-        feed,
-        generation,
-      }),
-    config: args.proofreadingConfig,
-  });
 }
 
 function disposeKernel(kernel: LiveKernel): void {

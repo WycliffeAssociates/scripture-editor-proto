@@ -97,9 +97,16 @@ self.onmessage = (event: MessageEvent<ToWorkerMessage>) => {
       } catch (error: unknown) {
         // A failed init (wasm load) or command must be loud: with the mirror
         // null or stale every later message no-ops and the symptom is silence.
+        // Message FIRST, then the stack. A Firefox `Error.stack` is frames
+        // only — unlike V8's, it does not begin with the message — so
+        // preferring the stack silently drops the one part that says what
+        // went wrong, and the same failure reads as diagnosable on Chromium
+        // and as a bare frame list on Firefox.
         console.error(
           `[mirror.worker] ${event.data.kind} failed`,
-          error instanceof Error ? (error.stack ?? error.message) : error,
+          error instanceof Error
+            ? `${error.message}\n${error.stack ?? ""}`
+            : error,
         );
       }
     })();

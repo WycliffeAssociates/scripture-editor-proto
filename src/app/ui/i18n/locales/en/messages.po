@@ -14,16 +14,96 @@ msgstr ""
 "Plural-Forms: \n"
 
 #. js-lingui-explicit-id
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:91
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:93
 msgid "Failed to save settings"
 msgstr "Failed to save settings"
 
 #. js-lingui-explicit-id
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:95
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:97
 msgid "Settings could not be applied."
 msgstr "Settings could not be applied."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:163
+#: src/app/ui/i18n/sousLocalization.ts:77
+msgid "‘{glyph}’ appears in only {places} places in this translation."
+msgstr "‘{glyph}’ appears in only {places} places in this translation."
+
+#: src/app/ui/i18n/sousLocalization.ts:76
+msgid "‘{glyph}’ appears in only one place in this translation."
+msgstr "‘{glyph}’ appears in only one place in this translation."
+
+#: src/app/ui/i18n/sousLocalization.ts:93
+msgid "‘{glyph}’ is attached to a number at the end here; this translation "
+"writes it that way in {count} of {total} other places."
+msgstr "‘{glyph}’ is attached to a number at the end here; this translation "
+"writes it that way in {count} of {total} other places."
+
+#: src/app/ui/i18n/sousLocalization.ts:84
+msgid "‘{glyph}’ is attached to a number at the start here; this translation "
+"writes it that way in {count} of {total} other places."
+msgstr "‘{glyph}’ is attached to a number at the start here; this translation "
+"writes it that way in {count} of {total} other places."
+
+#: src/app/ui/i18n/sousLocalization.ts:91
+msgid "‘{glyph}’ is attached to a word at the end here; this translation writes "
+"it that way in {count} of {total} other places."
+msgstr "‘{glyph}’ is attached to a word at the end here; this translation "
+"writes it that way in {count} of {total} other places."
+
+#: src/app/ui/i18n/sousLocalization.ts:82
+msgid "‘{glyph}’ is attached to a word at the start here; this translation "
+"writes it that way in {count} of {total} other places."
+msgstr "‘{glyph}’ is attached to a word at the start here; this translation "
+"writes it that way in {count} of {total} other places."
+
+#: src/app/ui/i18n/sousLocalization.ts:100
+msgid "‘{glyph}’ is attached to text at both ends here; this translation writes "
+"it that way in {count} of {total} other places."
+msgstr "‘{glyph}’ is attached to text at both ends here; this translation "
+"writes it that way in {count} of {total} other places."
+
+#: src/app/ui/i18n/sousLocalization.ts:104
+msgid "‘{glyph}’ is attached to text at the end only here; this translation "
+"writes it that way in {count} of {total} other places."
+msgstr "‘{glyph}’ is attached to text at the end only here; this translation "
+"writes it that way in {count} of {total} other places."
+
+#: src/app/ui/i18n/sousLocalization.ts:102
+msgid "‘{glyph}’ is attached to text at the start only here; this translation "
+"writes it that way in {count} of {total} other places."
+msgstr "‘{glyph}’ is attached to text at the start only here; this translation "
+"writes it that way in {count} of {total} other places."
+
+#: src/app/ui/i18n/sousLocalization.ts:111
+msgid "‘{glyph}’ is repeated in a longer run here; this translation writes it "
+"that way in {count} of {total} other places."
+msgstr "‘{glyph}’ is repeated in a longer run here; this translation writes it "
+"that way in {count} of {total} other places."
+
+#: src/app/ui/i18n/sousLocalization.ts:95
+msgid "‘{glyph}’ is spaced away at the end here; this translation writes it "
+"that way in {count} of {total} other places."
+msgstr "‘{glyph}’ is spaced away at the end here; this translation writes it "
+"that way in {count} of {total} other places."
+
+#: src/app/ui/i18n/sousLocalization.ts:86
+msgid "‘{glyph}’ is spaced away at the start here; this translation writes it "
+"that way in {count} of {total} other places."
+msgstr "‘{glyph}’ is spaced away at the start here; this translation writes it "
+"that way in {count} of {total} other places."
+
+#: src/app/ui/i18n/sousLocalization.ts:106
+msgid "‘{glyph}’ is standing detached from the text here; this translation "
+"writes it that way in {count} of {total} other places."
+msgstr "‘{glyph}’ is standing detached from the text here; this translation "
+"writes it that way in {count} of {total} other places."
+
+#: src/app/ui/i18n/sousLocalization.ts:109
+msgid "‘{glyph}’ is written directly before ‘{partner}’ here; this translation "
+"writes that pairing in {count} of {total} other places."
+msgstr "‘{glyph}’ is written directly before ‘{partner}’ here; this translation "
+"writes that pairing in {count} of {total} other places."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:175
 msgid "'{verse}' is not a valid verse range."
 msgstr "'{verse}' is not a valid verse range."
 
@@ -130,19 +210,19 @@ msgstr "{completedBooks}/{0} books"
 msgid "{count}×"
 msgstr "{count}×"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:149
+#: src/app/ui/i18n/usfmOnionLocalization.ts:161
 msgid "{kindLabel} \\{marker} was opened but never closed before a new block "
 "began."
 msgstr "{kindLabel} \\{marker} was opened but never closed before a new block "
 "began."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:146
+#: src/app/ui/i18n/usfmOnionLocalization.ts:158
 msgid "{kindLabel} \\{marker} was opened but never closed before the file "
 "ended."
 msgstr "{kindLabel} \\{marker} was opened but never closed before the file "
 "ended."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:151
+#: src/app/ui/i18n/usfmOnionLocalization.ts:163
 msgid "{kindLabel} \\{marker} was opened but never closed."
 msgstr "{kindLabel} \\{marker} was opened but never closed."
 
@@ -164,117 +244,117 @@ msgstr "{unresolvedCount} unresolved decisions"
 #~ msgid "{visibleDiffCount} diffs"
 #~ msgstr "{visibleDiffCount} diffs"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:108
+#: src/app/ui/i18n/usfmOnionLocalization.ts:120
 msgid "\\{marker} appears before the first \\c."
 msgstr "\\{marker} appears before the first \\c."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:181
+#: src/app/ui/i18n/usfmOnionLocalization.ts:193
 msgid "\\{marker} is a blank line and takes no content; put this content in its "
 "own paragraph (\\p, \\q, …)."
 msgstr "\\{marker} is a blank line and takes no content; put this content in "
 "its own paragraph (\\p, \\q, …)."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:126
+#: src/app/ui/i18n/usfmOnionLocalization.ts:138
 msgid "\\{marker} is a milestone and needs to end with \\*."
 msgstr "\\{marker} is a milestone and needs to end with \\*."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:98
+#: src/app/ui/i18n/usfmOnionLocalization.ts:110
 msgid "\\{marker} is not a known USFM marker."
 msgstr "\\{marker} is not a known USFM marker."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:124
+#: src/app/ui/i18n/usfmOnionLocalization.ts:136
 msgid "\\{marker} is not allowed in this context."
 msgstr "\\{marker} is not allowed in this context."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:123
+#: src/app/ui/i18n/usfmOnionLocalization.ts:135
 msgid "\\{marker} is not allowed inside a {context}."
 msgstr "\\{marker} is not allowed inside a {context}."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:112
+#: src/app/ui/i18n/usfmOnionLocalization.ts:124
 msgid "\\{marker} is part of a footnote or cross-reference and must appear "
 "inside one."
 msgstr "\\{marker} is part of a footnote or cross-reference and must appear "
 "inside one."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:115
+#: src/app/ui/i18n/usfmOnionLocalization.ts:127
 msgid "\\{marker} must follow a \\c chapter marker."
 msgstr "\\{marker} must follow a \\c chapter marker."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:118
+#: src/app/ui/i18n/usfmOnionLocalization.ts:130
 msgid "\\{marker} must follow a \\v verse marker."
 msgstr "\\{marker} must follow a \\v verse marker."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:120
+#: src/app/ui/i18n/usfmOnionLocalization.ts:132
 msgid "\\{marker} must follow its target marker."
 msgstr "\\{marker} must follow its target marker."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:170
+#: src/app/ui/i18n/usfmOnionLocalization.ts:182
 msgid "\\{marker} needs a space after the marker name."
 msgstr "\\{marker} needs a space after the marker name."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:172
+#: src/app/ui/i18n/usfmOnionLocalization.ts:184
 msgid "\\{marker} needs a space before the text that follows."
 msgstr "\\{marker} needs a space before the text that follows."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:168
+#: src/app/ui/i18n/usfmOnionLocalization.ts:180
 msgid "\\{marker} needs a space or newline before it."
 msgstr "\\{marker} needs a space or newline before it."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:86
+#: src/app/ui/i18n/usfmOnionLocalization.ts:98
 msgid "\\{marker} starts an empty paragraph — the next paragraph begins right "
 "after, with no content in between."
 msgstr "\\{marker} starts an empty paragraph — the next paragraph begins right "
 "after, with no content in between."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:137
+#: src/app/ui/i18n/usfmOnionLocalization.ts:149
 msgid "\\{marker} was never closed; \\{closer}* closed it indirectly. Add an "
 "explicit \\{marker}* before \\{closer}*."
 msgstr "\\{marker} was never closed; \\{closer}* closed it indirectly. Add an "
 "explicit \\{marker}* before \\{closer}*."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:135
+#: src/app/ui/i18n/usfmOnionLocalization.ts:147
 msgid "\\{marker}* does not match the marker that is currently open."
 msgstr "\\{marker}* does not match the marker that is currently open."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:131
+#: src/app/ui/i18n/usfmOnionLocalization.ts:143
 msgid "\\{marker}* has no matching opening \\{marker}."
 msgstr "\\{marker}* has no matching opening \\{marker}."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:174
+#: src/app/ui/i18n/usfmOnionLocalization.ts:186
 msgid "\\{marker}* is directly followed by text with no space. If this is an "
 "intentional contraction (e.g. \\nd Lord\\nd*'s) you can ignore this."
 msgstr "\\{marker}* is directly followed by text with no space. If this is an "
 "intentional contraction (e.g. \\nd Lord\\nd*'s) you can ignore this."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:100
+#: src/app/ui/i18n/usfmOnionLocalization.ts:112
 msgid "\\{marker}* is not a known closing marker."
 msgstr "\\{marker}* is not a known closing marker."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:88
+#: src/app/ui/i18n/usfmOnionLocalization.ts:100
 msgid "\\c needs a chapter number after it."
 msgstr "\\c needs a chapter number after it."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:84
+#: src/app/ui/i18n/usfmOnionLocalization.ts:96
 msgid "\\id must come before any other content."
 msgstr "\\id must come before any other content."
 
-#: src/app/ui/i18n/findingCodeLabels.ts:51
+#: src/app/ui/i18n/findingCodeLabels.ts:55
 msgid "\\id not at file start"
 msgstr "\\id not at file start"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:179
+#: src/app/ui/i18n/usfmOnionLocalization.ts:191
 msgid "\\v is not allowed inside a non-content paragraph; verses must appear "
 "inside body paragraphs, lists, or tables."
 msgstr "\\v is not allowed inside a non-content paragraph; verses must appear "
 "inside body paragraphs, lists, or tables."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:177
+#: src/app/ui/i18n/usfmOnionLocalization.ts:189
 msgid "\\v is not allowed inside a section heading; verses must appear inside "
 "body paragraphs, lists, or tables."
 msgstr "\\v is not allowed inside a section heading; verses must appear inside "
 "body paragraphs, lists, or tables."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:90
+#: src/app/ui/i18n/usfmOnionLocalization.ts:102
 msgid "\\v needs a verse number after it."
 msgstr "\\v needs a verse number after it."
 
@@ -284,6 +364,10 @@ msgid "A compact, printer-friendly list of everything that changed since a "
 msgstr "A compact, printer-friendly list of everything that changed since a "
 "saved checkpoint."
 
+#: src/app/ui/i18n/sousLocalization.ts:68
+msgid "A non-letter used in a way this translation almost never uses it."
+msgstr "A non-letter used in a way this translation almost never uses it."
+
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:173
 #~ msgid "A project exported as a .zip file."
 #~ msgstr "A project exported as a .zip file."
@@ -292,7 +376,7 @@ msgstr "A compact, printer-friendly list of everything that changed since a "
 #~ msgid "A project stored in a folder on your device."
 #~ msgstr "A project stored in a folder on your device."
 
-#: src/app/ui/i18n/sousLocalization.ts:15
+#: src/app/ui/i18n/sousLocalization.ts:31
 msgid "A tab character in the text — use a space instead."
 msgstr "A tab character in the text — use a space instead."
 
@@ -328,11 +412,11 @@ msgstr "Account connected"
 msgid "Add"
 msgstr "Add"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:226
+#: src/app/ui/i18n/usfmOnionLocalization.ts:248
 msgid "Add a space after {marker}"
 msgstr "Add a space after {marker}"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:224
+#: src/app/ui/i18n/usfmOnionLocalization.ts:246
 msgid "Add a space before {marker}"
 msgstr "Add a space before {marker}"
 
@@ -345,7 +429,7 @@ msgstr "Add it"
 msgid "Add line below"
 msgstr "Add line below"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:228
+#: src/app/ui/i18n/usfmOnionLocalization.ts:250
 msgid "Add required space after {marker}"
 msgstr "Add required space after {marker}"
 
@@ -359,15 +443,15 @@ msgstr "Added"
 msgid "Added after {0}"
 msgstr "Added after {0}"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:342
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:418
 msgid "Adjust the overall application zoom when supported."
 msgstr "Adjust the overall application zoom when supported."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:330
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:406
 msgid "Adjust the reading size used for editor text."
 msgstr "Adjust the reading size used for editor text."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:147
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:149
 msgid "Advanced"
 msgstr "Advanced"
 
@@ -410,7 +494,7 @@ msgstr "Already at left edge"
 msgid "Another project"
 msgstr "Another project"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:144
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:146
 msgid "App Appearance"
 msgstr "App Appearance"
 
@@ -418,7 +502,7 @@ msgstr "App Appearance"
 msgid "App updates"
 msgstr "App updates"
 
-#: src/app/domain/editor/annotations/decorators/lintFix.ts:249
+#: src/app/domain/editor/annotations/decorators/lintFix.ts:281
 msgid "Apply Autofix ({localizedFixLabel})"
 msgstr "Apply Autofix ({localizedFixLabel})"
 
@@ -448,7 +532,7 @@ msgstr "Auto Accept Incoming Work"
 msgid "Auto Accept My Work on Save"
 msgstr "Auto Accept My Work on Save"
 
-#: src/app/domain/editor/annotations/decorators/lintFix.ts:255
+#: src/app/domain/editor/annotations/decorators/lintFix.ts:287
 msgid "Autofix applied for {localizedFixLabel}"
 msgstr "Autofix applied for {localizedFixLabel}"
 
@@ -498,7 +582,7 @@ msgstr "Book code"
 msgid "Book doesn't start at chapter 1"
 msgstr "Book doesn't start at chapter 1"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:214
+#: src/app/ui/hooks/usePrettifyOperations.tsx:201
 msgid "Book Formatted"
 msgstr "Book Formatted"
 
@@ -524,7 +608,7 @@ msgstr "Branch"
 msgid "by {0}"
 msgstr "by {0}"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:487
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:563
 msgid "By chapter"
 msgstr "By chapter"
 
@@ -533,7 +617,7 @@ msgid "By edit"
 msgstr "By edit"
 
 #: src/app/ui/components/blocks/DiffModal/PrintChangesButton.tsx:235
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:486
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:562
 msgid "By verse"
 msgstr "By verse"
 
@@ -573,7 +657,7 @@ msgstr "Changes to send"
 msgid "Chapter"
 msgstr "Chapter"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:154
+#: src/app/ui/i18n/usfmOnionLocalization.ts:166
 msgid "Chapter {chapter} appears more than once."
 msgstr "Chapter {chapter} appears more than once."
 
@@ -593,7 +677,7 @@ msgstr "Chapter decisions"
 msgid "Chapter doesn't start at verse 1"
 msgstr "Chapter doesn't start at verse 1"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:153
+#: src/app/ui/hooks/usePrettifyOperations.tsx:136
 msgid "Chapter Formatted"
 msgstr "Chapter Formatted"
 
@@ -631,7 +715,7 @@ msgstr "Character encoding"
 msgid "Character encoding scheme used for the file contents."
 msgstr "Character encoding scheme used for the file contents."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:143
+#: src/app/ui/i18n/usfmOnionLocalization.ts:155
 msgid "Character marker"
 msgstr "Character marker"
 
@@ -712,7 +796,11 @@ msgstr "Choose a version"
 msgid "Choose chapter"
 msgstr "Choose chapter"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:479
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:251
+msgid "Choose how broadly Galley should surface review-worthy findings."
+msgstr "Choose how broadly Galley should surface review-worthy findings."
+
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:555
 msgid "Choose how change review opens by default."
 msgstr "Choose how change review opens by default."
 
@@ -724,11 +812,11 @@ msgstr "Choose how change review opens by default."
 #~ msgid "Choose right source"
 #~ msgstr "Choose right source"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:260
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:336
 msgid "Choose the display language for Sefer."
 msgstr "Choose the display language for Sefer."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:288
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:364
 msgid "Choose the theme used throughout the application."
 msgstr "Choose the theme used throughout the application."
 
@@ -813,7 +901,7 @@ msgstr "Close spiritual terms evaluation"
 msgid "Close versions"
 msgstr "Close versions"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:204
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:221
 msgid "Close without Saving"
 msgstr "Close without Saving"
 
@@ -827,24 +915,24 @@ msgstr "Cloud login is not configured for this build yet."
 msgid "Code"
 msgstr "Code"
 
-#: src/app/domain/editor/annotations/decorators/collapseWhitespace.ts:137
-#: src/app/ui/i18n/usfmOnionLocalization.ts:222
+#: src/app/domain/editor/annotations/decorators/collapseWhitespace.ts:139
+#: src/app/ui/i18n/usfmOnionLocalization.ts:244
 msgid "Collapse extra spaces"
 msgstr "Collapse extra spaces"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:221
+#: src/app/ui/i18n/usfmOnionLocalization.ts:243
 msgid "Collapse spaces around {marker}"
 msgstr "Collapse spaces around {marker}"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:218
+#: src/app/ui/i18n/usfmOnionLocalization.ts:240
 msgid "Collapse to a single space"
 msgstr "Collapse to a single space"
 
-#: src/app/domain/editor/annotations/decorators/decorateFinding.tsx:139
+#: src/app/domain/editor/annotations/decorators/decorateFinding.tsx:141
 msgid "Collapse to one space"
 msgstr "Collapse to one space"
 
-#: src/app/domain/editor/annotations/decorators/collapseWhitespace.ts:143
+#: src/app/domain/editor/annotations/decorators/collapseWhitespace.ts:145
 msgid "Collapsed extra spaces to one."
 msgstr "Collapsed extra spaces to one."
 
@@ -877,7 +965,7 @@ msgstr "Comparison sources"
 msgid "Connect"
 msgstr "Connect"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:579
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:655
 msgid "Connect this project to a shared project you can edit."
 msgstr "Connect this project to a shared project you can edit."
 
@@ -895,7 +983,7 @@ msgstr "Connect to {0}to browse remote projects you can push and pull."
 #: src/app/routes/playground.lazy.tsx:332
 #: src/app/routes/playground.lazy.tsx:384
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:596
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:578
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:654
 msgid "Connect to a shared project"
 msgstr "Connect to a shared project"
 
@@ -925,11 +1013,11 @@ msgstr "Connecting…"
 msgid "Content"
 msgstr "Content"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:105
+#: src/app/ui/i18n/findingCodeLabels.ts:109
 msgid "Content after blank marker"
 msgstr "Content after blank marker"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:67
+#: src/app/ui/i18n/findingCodeLabels.ts:71
 msgid "Content before first chapter"
 msgstr "Content before first chapter"
 
@@ -1003,6 +1091,11 @@ msgstr "Couldn't connect your account."
 msgid "Couldn't create the shared project"
 msgstr "Couldn't create the shared project"
 
+#: src/app/ui/contexts/WorkspaceContext.tsx:800
+#: src/app/ui/contexts/WorkspaceContext.tsx:856
+msgid "Couldn't discard the restored work"
+msgstr "Couldn't discard the restored work"
+
 #: src/app/ui/components/blocks/SourcePicker/SourcePicker.tsx:518
 msgid "Couldn't find a public repository at this link."
 msgstr "Couldn't find a public repository at this link."
@@ -1016,7 +1109,7 @@ msgid "Couldn't load this resource."
 msgstr "Couldn't load this resource."
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:349
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:574
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:650
 msgid "Couldn't load your projects"
 msgstr "Couldn't load your projects"
 
@@ -1028,11 +1121,11 @@ msgstr "Couldn't open that project"
 msgid "Couldn't prepare the printout. Please try again."
 msgstr "Couldn't prepare the printout. Please try again."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:95
+#: src/app/ui/i18n/usfmOnionLocalization.ts:107
 msgid "Couldn't recognize \"{text}\"."
 msgstr "Couldn't recognize \"{text}\"."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:96
+#: src/app/ui/i18n/usfmOnionLocalization.ts:108
 msgid "Couldn't recognize this token."
 msgstr "Couldn't recognize this token."
 
@@ -1049,7 +1142,7 @@ msgstr "Couldn't send your changes"
 msgid "Covered by {0} on {coveringLabel}"
 msgstr "Covered by {0} on {coveringLabel}"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:534
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:610
 msgid "Create a shared project"
 msgstr "Create a shared project"
 
@@ -1062,7 +1155,7 @@ msgid "Create your first project"
 msgstr "Create your first project"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:726
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:547
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:623
 msgid "Creating..."
 msgstr "Creating..."
 
@@ -1099,7 +1192,7 @@ msgstr "Current version: v{currentVersion} ({currentChannel})"
 msgid "Cut"
 msgstr "Cut"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:306
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:382
 msgid "Dark"
 msgstr "Dark"
 
@@ -1117,7 +1210,7 @@ msgstr "Decrease zoom"
 msgid "Default replace term"
 msgstr "Default replace term"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:478
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:554
 msgid "Default review view"
 msgstr "Default review view"
 
@@ -1179,7 +1272,7 @@ msgstr "Disable USFM markers"
 msgid "Disable whole word"
 msgstr "Disable whole word"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:516
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:592
 msgid "Disabled"
 msgstr "Disabled"
 
@@ -1191,7 +1284,7 @@ msgstr "Discard"
 msgid "Dismiss"
 msgstr "Dismiss"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:287
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:363
 msgid "Display Mode"
 msgstr "Display Mode"
 
@@ -1248,11 +1341,11 @@ msgstr "Download only"
 msgid "Downloading project"
 msgstr "Downloading project"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:49
+#: src/app/ui/i18n/findingCodeLabels.ts:53
 msgid "Duplicate \\id marker"
 msgstr "Duplicate \\id marker"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:87
+#: src/app/ui/i18n/findingCodeLabels.ts:91
 msgid "Duplicate chapter number"
 msgstr "Duplicate chapter number"
 
@@ -1264,7 +1357,7 @@ msgstr "Duplicate chapter number"
 msgid "Duplicate context: {0} on {1}, {2} on {3}"
 msgstr "Duplicate context: {0} on {1}, {2} on {3}"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:89
+#: src/app/ui/i18n/findingCodeLabels.ts:93
 msgid "Duplicate verse number"
 msgstr "Duplicate verse number"
 
@@ -1295,24 +1388,24 @@ msgid "Edit your text as labeled blocks, with structured controls to adjust "
 msgstr "Edit your text as labeled blocks, with structured controls to adjust "
 "formatting."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:317
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:393
 msgid "Editor Mode"
 msgstr "Editor Mode"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:53
+#: src/app/ui/i18n/findingCodeLabels.ts:57
 msgid "Empty paragraph"
 msgstr "Empty paragraph"
 
 #: src/app/ui/i18n/findingCodeLabels.ts:43
-#: src/app/ui/i18n/findingCodeLabels.ts:59
+#: src/app/ui/i18n/findingCodeLabels.ts:63
 msgid "Empty verse"
 msgstr "Empty verse"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:516
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:592
 msgid "Enabled"
 msgstr "Enabled"
 
-#: src/app/data/settings.ts:25
+#: src/app/data/settings.ts:31
 msgid "English"
 msgstr "English"
 
@@ -1320,11 +1413,11 @@ msgstr "English"
 msgid "Enter verse text…"
 msgstr "Enter verse text…"
 
-#: src/app/data/settings.ts:29
+#: src/app/data/settings.ts:35
 msgid "Español"
 msgstr "Español"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:134
+#: src/app/ui/i18n/usfmOnionLocalization.ts:146
 msgid "Expected \\{expected}* here, but found \\{marker}*."
 msgstr "Expected \\{expected}* here, but found \\{marker}*."
 
@@ -1377,7 +1470,7 @@ msgstr "Failed to prepare download"
 msgid "File imported successfully!"
 msgstr "File imported successfully!"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:80
+#: src/app/ui/i18n/usfmOnionLocalization.ts:92
 msgid "File is missing its \\id (book identifier)."
 msgstr "File is missing its \\id (book identifier)."
 
@@ -1406,8 +1499,8 @@ msgstr "Filters"
 msgid "Find"
 msgstr "Find"
 
-#: src/app/domain/editor/annotations/decorators/collapseWhitespace.ts:142
-#: src/app/domain/editor/annotations/decorators/lintFix.ts:254
+#: src/app/domain/editor/annotations/decorators/collapseWhitespace.ts:144
+#: src/app/domain/editor/annotations/decorators/lintFix.ts:286
 msgid "Fix Applied"
 msgstr "Fix Applied"
 
@@ -1425,42 +1518,42 @@ msgstr "Footnote"
 msgid "Form mode"
 msgstr "Form mode"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:219
+#: src/app/ui/hooks/usePrettifyOperations.tsx:206
 msgid "Format Book ({targetBookCode})"
 msgstr "Format Book ({targetBookCode})"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:158
+#: src/app/ui/hooks/usePrettifyOperations.tsx:141
 msgid "Format Chapter ({targetBookCode} {targetChapterNumber})"
 msgstr "Format Chapter ({targetBookCode} {targetChapterNumber})"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:293
+#: src/app/ui/hooks/usePrettifyOperations.tsx:285
 msgid "Format Project"
 msgstr "Format Project"
 
 #. placeholder {0}: file.title || file.bookCode
-#: src/app/ui/hooks/usePrettifyOperations.tsx:215
+#: src/app/ui/hooks/usePrettifyOperations.tsx:202
 msgid "Formatted {0}"
 msgstr "Formatted {0}"
 
 #. placeholder {0}: file.title || file.bookCode
-#: src/app/ui/hooks/usePrettifyOperations.tsx:154
+#: src/app/ui/hooks/usePrettifyOperations.tsx:137
 msgid "Formatted {0} {targetChapterNumber}"
 msgstr "Formatted {0} {targetChapterNumber}"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:289
+#: src/app/ui/hooks/usePrettifyOperations.tsx:281
 msgid "Formatted {modifiedBooksCount} book(s)"
 msgstr "Formatted {modifiedBooksCount} book(s)"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:344
+#: src/app/ui/hooks/useFormatMatching.tsx:347
 msgid "Formatting Matched"
 msgstr "Formatting Matched"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:228
-#: src/app/ui/hooks/usePrettifyOperations.tsx:269
+#: src/app/ui/hooks/usePrettifyOperations.tsx:215
+#: src/app/ui/hooks/usePrettifyOperations.tsx:256
 msgid "Formatting Project"
 msgstr "Formatting Project"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:129
+#: src/app/ui/i18n/usfmOnionLocalization.ts:141
 msgid "Found \\* with no open milestone to close."
 msgstr "Found \\* with no open milestone to close."
 
@@ -1476,7 +1569,7 @@ msgstr "Group case mismatches"
 msgid "Group changes"
 msgstr "Group changes"
 
-#: src/app/ui/i18n/sousLocalization.ts:17
+#: src/app/ui/i18n/sousLocalization.ts:33
 msgid "Hidden control character(s) in this text."
 msgstr "Hidden control character(s) in this text."
 
@@ -1516,7 +1609,7 @@ msgstr "Hide whitespace-only changes"
 #~ msgid "Hide whitespace-only diffs"
 #~ msgstr "Hide whitespace-only diffs"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:83
+#: src/app/ui/i18n/findingCodeLabels.ts:87
 msgid "Implicitly closed marker"
 msgstr "Implicitly closed marker"
 
@@ -1568,7 +1661,7 @@ msgstr "Increase zoom"
 msgid "Indent"
 msgstr "Indent"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:216
+#: src/app/ui/i18n/usfmOnionLocalization.ts:238
 msgid "Insert close marker for {marker}"
 msgstr "Insert close marker for {marker}"
 
@@ -1577,7 +1670,7 @@ msgstr "Insert close marker for {marker}"
 msgid "Insert marker here"
 msgstr "Insert marker here"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:208
+#: src/app/ui/i18n/usfmOnionLocalization.ts:230
 msgid "Insert separator after {marker}"
 msgstr "Insert separator after {marker}"
 
@@ -1601,7 +1694,7 @@ msgstr "Installing…"
 msgid "Intentional line break"
 msgstr "Intentional line break"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:259
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:335
 msgid "Interface Language"
 msgstr "Interface Language"
 
@@ -1615,7 +1708,7 @@ msgstr "Intro"
 msgid "Introduction"
 msgstr "Introduction"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:91
+#: src/app/ui/i18n/findingCodeLabels.ts:95
 msgid "Invalid number range"
 msgstr "Invalid number range"
 
@@ -1656,7 +1749,7 @@ msgstr "Left"
 #~ msgid "Left version"
 #~ msgstr "Left version"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:301
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:377
 msgid "Light"
 msgstr "Light"
 
@@ -1728,12 +1821,12 @@ msgstr "Loading translation notes for {referenceBookCode} "
 "{referenceChapterNumber}..."
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:664
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:702
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:778
 msgid "Loading your projects…"
 msgstr "Loading your projects…"
 
-#: src/app/routes/$project.index.tsx:31
-#: src/app/ui/components/views/ProjectEditorRoute.tsx:48
+#: src/app/routes/$project.index.tsx:42
+#: src/app/ui/components/views/ProjectEditorRoute.tsx:47
 msgid "Loading..."
 msgstr "Loading..."
 
@@ -1786,11 +1879,11 @@ msgstr "Major title shown before the scripture text begins."
 msgid "Make a local copy to edit"
 msgstr "Make a local copy to edit"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:144
+#: src/app/ui/i18n/usfmOnionLocalization.ts:156
 msgid "Marker"
 msgstr "Marker"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:75
+#: src/app/ui/i18n/findingCodeLabels.ts:79
 msgid "Marker not valid here"
 msgstr "Marker not valid here"
 
@@ -1802,16 +1895,16 @@ msgstr "Match case"
 msgid "Match formatting"
 msgstr "Match formatting"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:249
+#: src/app/ui/hooks/useFormatMatching.tsx:252
 msgid "Match Formatting (Book {currentFileBibleIdentifier})"
 msgstr "Match Formatting (Book {currentFileBibleIdentifier})"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:237
+#: src/app/ui/hooks/useFormatMatching.tsx:240
 msgid "Match Formatting (Chapter {currentFileBibleIdentifier} {currentChapter})"
 msgstr "Match Formatting (Chapter {currentFileBibleIdentifier} "
 "{currentChapter})"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:258
+#: src/app/ui/hooks/useFormatMatching.tsx:261
 msgid "Match Formatting (Project)"
 msgstr "Match Formatting (Project)"
 
@@ -1826,16 +1919,16 @@ msgid "Match formatting to source"
 msgstr "Match formatting to source"
 
 #. placeholder {0}: modifiedBooks.size
-#: src/app/ui/hooks/useFormatMatching.tsx:342
+#: src/app/ui/hooks/useFormatMatching.tsx:345
 msgid "Matched formatting across {0} books"
 msgstr "Matched formatting across {0} books"
 
 #. placeholder {0}: file?.title || currentFileBibleIdentifier
-#: src/app/ui/hooks/useFormatMatching.tsx:341
+#: src/app/ui/hooks/useFormatMatching.tsx:344
 msgid "Matched formatting for {modifiedChaptersCount} chapters in {0}"
 msgstr "Matched formatting for {modifiedChaptersCount} chapters in {0}"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:339
+#: src/app/ui/hooks/useFormatMatching.tsx:342
 msgid "Matched formatting for Chapter {currentChapter}"
 msgstr "Matched formatting for Chapter {currentChapter}"
 
@@ -1843,39 +1936,39 @@ msgstr "Matched formatting for Chapter {currentChapter}"
 msgid "Medium"
 msgstr "Medium"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:81
+#: src/app/ui/i18n/findingCodeLabels.ts:85
 msgid "Misnested closing marker"
 msgstr "Misnested closing marker"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:73
+#: src/app/ui/i18n/findingCodeLabels.ts:77
 msgid "Misplaced metadata"
 msgstr "Misplaced metadata"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:47
+#: src/app/ui/i18n/findingCodeLabels.ts:51
 msgid "Missing \\id marker"
 msgstr "Missing \\id marker"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:55
+#: src/app/ui/i18n/findingCodeLabels.ts:59
 msgid "Missing chapter number"
 msgstr "Missing chapter number"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:99
+#: src/app/ui/i18n/findingCodeLabels.ts:103
 msgid "Missing marker end delimiter"
 msgstr "Missing marker end delimiter"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:101
+#: src/app/ui/i18n/findingCodeLabels.ts:105
 msgid "Missing space after closing marker"
 msgstr "Missing space after closing marker"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:97
+#: src/app/ui/i18n/findingCodeLabels.ts:101
 msgid "Missing space after marker"
 msgstr "Missing space after marker"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:95
+#: src/app/ui/i18n/findingCodeLabels.ts:99
 msgid "Missing space before marker"
 msgstr "Missing space before marker"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:57
+#: src/app/ui/i18n/findingCodeLabels.ts:61
 msgid "Missing verse number"
 msgstr "Missing verse number"
 
@@ -1922,7 +2015,7 @@ msgstr "Moved from here; now after {0}"
 msgid "Moved here; was after {0}"
 msgstr "Moved here; was after {0}"
 
-#: src/app/ui/i18n/sousLocalization.ts:13
+#: src/app/ui/i18n/sousLocalization.ts:29
 msgid "Multiple spaces or a stray tab here — collapse to a single space."
 msgstr "Multiple spaces or a stray tab here — collapse to a single space."
 
@@ -2046,7 +2139,7 @@ msgid "No results found for <0>{0}</0>"
 msgstr "No results found for <0>{0}</0>"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:668
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:706
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:782
 msgid "No shared projects found."
 msgstr "No shared projects found."
 
@@ -2097,11 +2190,11 @@ msgstr "Not in the frozen reference snapshot"
 msgid "Not selected"
 msgstr "Not selected"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:141
+#: src/app/ui/i18n/usfmOnionLocalization.ts:153
 msgid "Note"
 msgstr "Note"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:71
+#: src/app/ui/i18n/findingCodeLabels.ts:75
 msgid "Note marker outside a note"
 msgstr "Note marker outside a note"
 
@@ -2113,9 +2206,9 @@ msgstr "Notes"
 msgid "Nothing above to merge into"
 msgstr "Nothing above to merge into"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:144
-#: src/app/ui/hooks/usePrettifyOperations.tsx:205
-#: src/app/ui/hooks/usePrettifyOperations.tsx:299
+#: src/app/ui/hooks/usePrettifyOperations.tsx:127
+#: src/app/ui/hooks/usePrettifyOperations.tsx:192
+#: src/app/ui/hooks/usePrettifyOperations.tsx:291
 msgid "Nothing changed"
 msgstr "Nothing changed"
 
@@ -2128,7 +2221,7 @@ msgstr "Now · {nowLabel}"
 msgid "now after {0}"
 msgstr "now after {0}"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:93
+#: src/app/ui/i18n/findingCodeLabels.ts:97
 msgid "Number without a marker"
 msgstr "Number without a marker"
 
@@ -2217,7 +2310,7 @@ msgstr "Owner"
 msgid "Paragraph"
 msgstr "Paragraph"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:103
+#: src/app/ui/i18n/usfmOnionLocalization.ts:115
 msgid "Paragraph marker \\{marker} appears before the first \\c."
 msgstr "Paragraph marker \\{marker} appears before the first \\c."
 
@@ -2345,11 +2438,11 @@ msgstr "Print size"
 
 #. placeholder {0}: file.title || file.bookCode
 #. placeholder {1}: i + 1
-#: src/app/ui/hooks/usePrettifyOperations.tsx:270
+#: src/app/ui/hooks/usePrettifyOperations.tsx:257
 msgid "Processing {0} ({1}/{totalBooks})..."
 msgstr "Processing {0} ({1}/{totalBooks})..."
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:229
+#: src/app/ui/hooks/usePrettifyOperations.tsx:216
 msgid "Processing book 1 of {totalBooks}..."
 msgstr "Processing book 1 of {totalBooks}..."
 
@@ -2376,7 +2469,7 @@ msgid "Project downloaded successfully. Metadata needs review before opening "
 msgstr "Project downloaded successfully. Metadata needs review before opening "
 "it."
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:288
+#: src/app/ui/hooks/usePrettifyOperations.tsx:280
 msgid "Project Formatted"
 msgstr "Project Formatted"
 
@@ -2395,6 +2488,10 @@ msgstr "Project Sync"
 #: src/app/ui/components/views/CreateProject.tsx:370
 msgid "Projects"
 msgstr "Projects"
+
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:155
+msgid "Proofreading"
+msgstr "Proofreading"
 
 #: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:44
 msgid "Read your text without making changes."
@@ -2464,7 +2561,7 @@ msgstr "Refreshing linked cloud projects..."
 msgid "Remote login is not configured for this build yet."
 msgstr "Remote login is not configured for this build yet."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:210
+#: src/app/ui/i18n/usfmOnionLocalization.ts:232
 msgid "Remove empty {marker} paragraph"
 msgstr "Remove empty {marker} paragraph"
 
@@ -2580,6 +2677,11 @@ msgstr "Review changes"
 msgid "Review changes before sending your work."
 msgstr "Review changes before sending your work."
 
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:250
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:256
+msgid "Review depth"
+msgstr "Review depth"
+
 #: src/app/ui/components/views/CreateProject.tsx:99
 msgid "Review metadata"
 msgstr "Review metadata"
@@ -2631,14 +2733,14 @@ msgstr "Save"
 #~ msgid "Save all changes"
 #~ msgstr "Save all changes"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:192
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:209
 msgid "Save and Close"
 msgstr "Save and Close"
 
 #: src/app/domain/project/remoteSync/sharedProjectCopy.ts:116
 #: src/app/routes/playground.lazy.tsx:371
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:728
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:548
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:624
 msgid "Save as a new shared project"
 msgstr "Save as a new shared project"
 
@@ -2647,7 +2749,7 @@ msgstr "Save as a new shared project"
 msgid "Save my own copy online"
 msgstr "Save my own copy online"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:535
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:611
 msgid "Save this project as a new shared project."
 msgstr "Save this project as a new shared project."
 
@@ -2707,7 +2809,7 @@ msgid "Search or log in"
 msgstr "Search or log in"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:627
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:661
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:737
 msgid "Search or paste a project link"
 msgstr "Search or paste a project link"
 
@@ -2717,7 +2819,7 @@ msgid "Search projects"
 msgstr "Search projects"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:626
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:660
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:736
 msgid "Search projects or paste a project link"
 msgstr "Search projects or paste a project link"
 
@@ -2786,8 +2888,8 @@ msgstr "Select a resource"
 #: src/app/routes/playground.lazy.tsx:340
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:609
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:614
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:640
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:645
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:716
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:721
 msgid "Select a shared project"
 msgstr "Select a shared project"
 
@@ -2815,8 +2917,8 @@ msgstr "Select encoding"
 msgid "Select folder"
 msgstr "Select folder"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:237
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:280
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:313
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:356
 msgid "Select language"
 msgstr "Select language"
 
@@ -2828,7 +2930,7 @@ msgstr "Select language"
 #~ msgid "Select version"
 #~ msgstr "Select version"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:318
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:394
 msgid "Select which editing mode you want to use."
 msgstr "Select which editing mode you want to use."
 
@@ -2870,15 +2972,15 @@ msgstr "Set `VITE_GITEA_WEB_HOST` to enable cloud login in this web build."
 msgid "Set chapter labels to \"{targetStem}\" across {0} book(s)"
 msgstr "Set chapter labels to \"{targetStem}\" across {0} book(s)"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:212
+#: src/app/ui/i18n/usfmOnionLocalization.ts:234
 msgid "Set number to {number}"
 msgstr "Set number to {number}"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:126
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:128
 msgid "Settings"
 msgstr "Settings"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:751
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:827
 msgid "SHA"
 msgstr "SHA"
 
@@ -3046,7 +3148,7 @@ msgstr "Split paragraph"
 msgid "Split paragraph here"
 msgstr "Split paragraph here"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:214
+#: src/app/ui/i18n/usfmOnionLocalization.ts:236
 msgid "Split unknown token"
 msgstr "Split unknown token"
 
@@ -3065,7 +3167,7 @@ msgstr "Standard 3-character scripture book identifier plus optional "
 msgid "Standardize"
 msgstr "Standardize"
 
-#: src/app/domain/editor/annotations/decorators/decorateFinding.tsx:104
+#: src/app/domain/editor/annotations/decorators/decorateFinding.tsx:106
 msgid "Standardize across project…"
 msgstr "Standardize across project…"
 
@@ -3077,7 +3179,7 @@ msgstr "Standardize chapter labels"
 msgid "Standardize chapter labels to \"{targetStem}\""
 msgstr "Standardize chapter labels to \"{targetStem}\""
 
-#: src/app/ui/i18n/findingCodeLabels.ts:79
+#: src/app/ui/i18n/findingCodeLabels.ts:83
 msgid "Stray closing marker"
 msgstr "Stray closing marker"
 
@@ -3125,13 +3227,30 @@ msgstr "Tab character"
 #~ msgid "Take all changes in this chapter"
 #~ msgstr "Take all changes in this chapter"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:329
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:405
 msgid "Text Size"
 msgstr "Text Size"
 
 #: src/app/ui/components/blocks/DiffModal/PrintChangesButton.tsx:119
 msgid "That checkpoint is no longer available."
 msgstr "That checkpoint is no longer available."
+
+#. placeholder {0}: getParam(issue.messageParams, "code", text)
+#: src/app/ui/i18n/usfmOnionLocalization.ts:195
+msgid "The \\id book code \"{0}\" is not a recognized USFM book identifier."
+msgstr "The \\id book code \"{0}\" is not a recognized USFM book identifier."
+
+#. placeholder {0}: getParam(issue.messageParams, "code", text)
+#. placeholder {1}: getParam(issue.messageParams, "uppercase")
+#: src/app/ui/i18n/usfmOnionLocalization.ts:197
+msgid "The \\id book code \"{0}\" must be uppercase: {1}."
+msgstr "The \\id book code \"{0}\" must be uppercase: {1}."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:199
+msgid "The \\id book code does not match the book this file is expected to "
+"contain."
+msgstr "The \\id book code does not match the book this file is expected to "
+"contain."
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:427
 msgid "The comparison could not be prepared."
@@ -3174,7 +3293,7 @@ msgstr "There are updates to receive"
 msgid "These sources have no differences."
 msgstr "These sources have no differences."
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:206
+#: src/app/ui/hooks/usePrettifyOperations.tsx:193
 msgid "This book is already formatted"
 msgstr "This book is already formatted"
 
@@ -3190,7 +3309,7 @@ msgstr "This chapter"
 msgid "This chapter has no errors that match your filters"
 msgstr "This chapter has no errors that match your filters"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:145
+#: src/app/ui/hooks/usePrettifyOperations.tsx:128
 msgid "This chapter is already formatted"
 msgstr "This chapter is already formatted"
 
@@ -3208,7 +3327,7 @@ msgstr "This chapter starts at verse {found}, not verse 1."
 msgid "This decision removes the chapter."
 msgstr "This decision removes the chapter."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:82
+#: src/app/ui/i18n/usfmOnionLocalization.ts:94
 msgid "This file has more than one \\id; only one is allowed."
 msgstr "This file has more than one \\id; only one is allowed."
 
@@ -3224,11 +3343,15 @@ msgid "This frozen review is still visible, but it cannot be applied. Refresh "
 msgstr "This frozen review is still visible, but it cannot be applied. Refresh "
 "to compare the latest content; current decisions will be cleared."
 
+#: src/app/ui/i18n/usfmOnionLocalization.ts:176
+msgid "This is not a valid verse range."
+msgstr "This is not a valid verse range."
+
 #: src/app/ui/components/views/result-browser/ResultBrowserRow.tsx:351
 msgid "This match crosses hidden formatting — edit it in USFM mode"
 msgstr "This match crosses hidden formatting — edit it in USFM mode"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:166
+#: src/app/ui/i18n/usfmOnionLocalization.ts:178
 msgid "This number range is not preceded by a marker that expects a number "
 "(like \\c or \\v)."
 msgstr "This number range is not preceded by a marker that expects a number "
@@ -3240,7 +3363,7 @@ msgid "This project can't be worked on inside Sefer, so you can't connect to "
 msgstr "This project can't be worked on inside Sefer, so you can't connect to "
 "it."
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:300
+#: src/app/ui/hooks/usePrettifyOperations.tsx:292
 msgid "This project is already formatted"
 msgstr "This project is already formatted"
 
@@ -3260,8 +3383,8 @@ msgstr "This repository can't be imported"
 msgid "This verse has no content"
 msgstr "This verse has no content"
 
-#: src/app/ui/i18n/sousLocalization.ts:21
-#: src/app/ui/i18n/usfmOnionLocalization.ts:92
+#: src/app/ui/i18n/sousLocalization.ts:37
+#: src/app/ui/i18n/usfmOnionLocalization.ts:104
 msgid "This verse has no content."
 msgstr "This verse has no content."
 
@@ -3306,11 +3429,11 @@ msgstr "Type to start searching"
 msgid "Unchanged"
 msgstr "Unchanged"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:85
+#: src/app/ui/i18n/findingCodeLabels.ts:89
 msgid "Unclosed marker"
 msgstr "Unclosed marker"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:77
+#: src/app/ui/i18n/findingCodeLabels.ts:81
 msgid "Unclosed milestone"
 msgstr "Unclosed milestone"
 
@@ -3346,15 +3469,15 @@ msgstr "Undo — {undoLabel}"
 #~ msgid "Undo Change"
 #~ msgstr "Undo Change"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:65
+#: src/app/ui/i18n/findingCodeLabels.ts:69
 msgid "Unknown closing marker"
 msgstr "Unknown closing marker"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:63
+#: src/app/ui/i18n/findingCodeLabels.ts:67
 msgid "Unknown marker"
 msgstr "Unknown marker"
 
-#: src/app/ui/i18n/findingCodeLabels.ts:61
+#: src/app/ui/i18n/findingCodeLabels.ts:65
 msgid "Unknown token"
 msgstr "Unknown token"
 
@@ -3367,6 +3490,10 @@ msgstr "Unknown token"
 #: src/app/ui/components/blocks/RecoveryReportBanner.tsx:22
 msgid "Unsaved new book {0} cannot be auto-restored: {1}"
 msgstr "Unsaved new book {0} cannot be auto-restored: {1}"
+
+#: src/app/ui/i18n/findingCodeLabels.ts:47
+msgid "Unusual nonletter usage"
+msgstr "Unusual nonletter usage"
 
 #: src/app/domain/project/remoteSync/sharedProjectCopy.ts:70
 msgid "Up to date"
@@ -3492,15 +3619,15 @@ msgstr "Verse {0}"
 msgid "Verse {found} comes after verse {previous}."
 msgstr "Verse {found} comes after verse {previous}."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:160
+#: src/app/ui/i18n/usfmOnionLocalization.ts:172
 msgid "Verse {verse} appears more than once in chapter {chapter}."
 msgstr "Verse {verse} appears more than once in chapter {chapter}."
 
-#: src/app/ui/i18n/findingCodeLabels.ts:103
+#: src/app/ui/i18n/findingCodeLabels.ts:107
 msgid "Verse in a section or heading"
 msgstr "Verse in a section or heading"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:106
+#: src/app/ui/i18n/usfmOnionLocalization.ts:118
 msgid "Verse marker \\v appears before the first \\c."
 msgstr "Verse marker \\v appears before the first \\c."
 
@@ -3520,11 +3647,11 @@ msgstr "Verse number gap"
 msgid "Verse numbers jump from {previous} to {found} — a verse looks missing."
 msgstr "Verse numbers jump from {previous} to {found} — a verse looks missing."
 
-#: src/app/ui/i18n/findingCodeLabels.ts:69
+#: src/app/ui/i18n/findingCodeLabels.ts:73
 msgid "Verse with no paragraph"
 msgstr "Verse with no paragraph"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:110
+#: src/app/ui/i18n/usfmOnionLocalization.ts:122
 msgid "Verses must appear inside a paragraph, list, or table."
 msgstr "Verses must appear inside a paragraph, list, or table."
 
@@ -3532,7 +3659,7 @@ msgstr "Verses must appear inside a paragraph, list, or table."
 msgid "Verses out of order"
 msgstr "Verses out of order"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:744
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:820
 msgid "Version"
 msgstr "Version"
 
@@ -3669,6 +3796,13 @@ msgstr "Your project is saved on this device. Save it online to back it up and "
 msgid "Your project is up to date and safely stored locally and online."
 msgstr "Your project is up to date and safely stored locally and online."
 
+#: src/app/ui/contexts/WorkspaceContext.tsx:801
+#: src/app/ui/contexts/WorkspaceContext.tsx:857
+msgid "Your restored work is still here. Try again, or keep it and save when "
+"you're ready."
+msgstr "Your restored work is still here. Try again, or keep it and save when "
+"you're ready."
+
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:586
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:628
 msgid "Your search returned results, but none were cloud projects for this app. "
@@ -3684,7 +3818,7 @@ msgstr "Your work is saved here, but it couldn't be sent to the shared project."
 msgid "Your work is still saved here. You can send it once you're back online."
 msgstr "Your work is still saved here. You can send it once you're back online."
 
-#: src/app/ui/i18n/sousLocalization.ts:19
+#: src/app/ui/i18n/sousLocalization.ts:35
 msgid "Zero-width character(s) here that may not belong."
 msgstr "Zero-width character(s) here that may not belong."
 
@@ -3701,6 +3835,6 @@ msgstr "ZIP"
 msgid "ZIP file"
 msgstr "ZIP file"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:341
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:417
 msgid "Zoom"
 msgstr "Zoom"

@@ -1,6 +1,7 @@
 import { Braid } from "usfm-onion-web";
 import type {
   BookInput,
+  ChapterTarget,
   CorpusScope,
   FormatOptions,
   LintSnapshot,
@@ -36,14 +37,20 @@ export type WebProjectBookSource = {
   source: string;
 };
 
-/** The same book addressed by its exact bytes rather than a decoded string. */
-export type WebProjectBookBytes = {
+/**
+ * The same book addressed as an extent into one concatenated `sources` buffer.
+ *
+ * Bytes cross into wasm as buffers, never as per-book payloads: one book's
+ * source and one book's container are both a range in a buffer the caller
+ * already holds, so a whole-corpus restore is two `Uint8Array`s plus this
+ * table — not 66 of anything.
+ */
+export type WebProjectBookExtent = {
   bookCode: string;
   sourceKey: string;
-  source: Uint8Array;
+  byteOffset: number;
+  byteLength: number;
 };
-
-const decoder = new TextDecoder();
 
 type BraidResult<T> =
   | { status: "ok"; value: T }
@@ -75,9 +82,12 @@ export class WebBraidHost {
   loadSources(sources: readonly WebProjectBookSource[]): void {
     const books = sources.map((book) => sourceInput(book));
     unwrapBraid(this.ensureBraid().replaceCorpus({ books }), "cold seed");
-    for (const book of books) {
-      unwrapBraid(this.ensureBraid().setBaseline(book), "cold baseline");
-    }
+    // A cold seed IS the disk state, so declaring it as the baseline is a
+    // statement about what is already resident — not content to hand back.
+    unwrapBraid(
+      this.ensureBraid().setBaselineToCurrent({ kind: "all" }),
+      "cold baseline",
+    );
   }
 
   seed(
@@ -132,6 +142,61 @@ export class WebBraidHost {
       .some((book) => book.book === wanted);
   }
 
+  /**
+   * Layer a whole book's USFM over the resident copy WITHOUT touching its
+   * baseline — the crash-recovery shape: baseline stays disk, current becomes
+   * the backup, and Braid answers "is this dirty" for free afterwards.
+   *
+   * Ingest failure is returned, not thrown: one unparseable backup must not
+   * abort a reopen.
+   */
+  layerBookFromUsfm(
+    bookCode: string,
+    sourceKey: string,
+    source: string,
+  ): { accepted: boolean; error?: string } {
+    const outcome = this.ensureBraid().updateBook({
+      kind: "usfm",
+      sourceKey,
+      book: bookCode.toUpperCase(),
+      source,
+    });
+    if (outcome.status === "error") {
+      return { accepted: false, error: JSON.stringify(outcome.error) };
+    }
+    return { accepted: true };
+  }
+
+  /**
+   * Which of a book's chapters differ from its baseline, by chapter number.
+   *
+   * Front matter has no number and cannot be addressed as a chapter in the
+   * editor's per-chapter model, so it is reported as chapter 0 — the same
+   * front-matter bucket findings already use.
+   */
+  dirtyChapters(bookCode: string): number[] {
+    const book = bookCode.toUpperCase();
+    const labels = unwrapBraid(
+      this.ensureBraid().chapterLabels(book),
+      "chapter labels",
+    );
+    const dirty: number[] = [];
+    for (const label of labels) {
+      const isDirty = unwrapBraid(
+        this.ensureBraid().isDirty({
+          kind: "chapter",
+          target: { book, label },
+        }),
+        "chapter dirty check",
+      );
+      if (!isDirty) continue;
+      // The label is the chapter run's label EXACTLY as the source spells it,
+      // so `\c 1 \p` yields "1 " — trailing space and all.
+      dirty.push(label.kind === "number" ? Number(label.label.trim()) : 0);
+    }
+    return dirty;
+  }
+
   isDirty(bookCode: string): boolean {
     return unwrapBraid(
       this.ensureBraid().isDirty({
@@ -180,9 +245,8 @@ export class WebBraidHost {
         .books()
         .map((book) => [book.book, book.sourceKey] as const),
     );
-    const packed = Uint8Array.from(outcome.bytes).slice().buffer;
     return {
-      packed,
+      packed: ownedBuffer(outcome.bytes),
       snapshotId: outcome.snapshotId,
       books: outcome.books,
       serializedBooks,
@@ -202,18 +266,17 @@ export class WebBraidHost {
    */
   restorePublishedCorpus(
     packed: Uint8Array,
-    records: readonly WebProjectBookBytes[],
+    sources: Uint8Array,
+    records: readonly WebProjectBookExtent[],
   ): { accepted: boolean; error?: string } {
-    // `PublishedCorpusSource.source` is declared `number[]`, so every book's
-    // bytes become a JS number array on the way into wasm — the dominant cost
-    // of a warm open on a full Bible. See the `Uint8Array` item in the Braid
-    // RFC; there is no way around it from this side.
     const outcome = this.ensureBraid().restorePublishedCorpus(
       packed,
+      sources,
       records.map((record) => ({
         book: record.bookCode.toUpperCase(),
         sourceKey: record.sourceKey,
-        source: Array.from(record.source),
+        byteOffset: record.byteOffset,
+        byteLength: record.byteLength,
       })),
     );
     if (outcome.status === "error") {
@@ -226,30 +289,13 @@ export class WebBraidHost {
    * Record the restored corpus as its own baseline.
    *
    * A warm restore installs exactly the bytes the container was bound to — the
-   * files on disk — so current IS the saved state. Braid has no verb saying
-   * that, and no way to read a baseline out, so the app has to hand the same
-   * source back and let Braid re-parse all of it. That second whole-corpus
-   * parse is pure waste on the one path that exists to avoid parsing; see
-   * `setBaselineToCurrent` in the Braid RFC.
+   * files on disk — so current IS the saved state, and that is the whole fact
+   * being recorded. Nothing is handed back across the boundary to say it.
    */
-  adoptRestoredBaseline(records: readonly WebProjectBookBytes[]): {
-    accepted: boolean;
-    error?: string;
-  } {
-    for (const record of records) {
-      try {
-        unwrapBraid(
-          this.ensureBraid().setBaseline({
-            kind: "usfm",
-            sourceKey: record.sourceKey,
-            book: record.bookCode.toUpperCase(),
-            source: decoder.decode(record.source),
-          }),
-          "warm restore baseline",
-        );
-      } catch (error) {
-        return { accepted: false, error: String(error) };
-      }
+  adoptRestoredBaseline(): { accepted: boolean; error?: string } {
+    const outcome = this.ensureBraid().setBaselineToCurrent({ kind: "all" });
+    if (outcome.status === "error") {
+      return { accepted: false, error: JSON.stringify(outcome.error) };
     }
     return { accepted: true };
   }
@@ -263,7 +309,7 @@ export class WebBraidHost {
   publishPacked(): { packed: ArrayBuffer; snapshotId: string } {
     const outcome = unwrapBraid(this.ensureBraid().publish(), "publication");
     return {
-      packed: Uint8Array.from(outcome.bytes).buffer,
+      packed: ownedBuffer(outcome.bytes),
       snapshotId: outcome.snapshotId,
     };
   }
@@ -332,15 +378,49 @@ export class WebBraidHost {
     };
   }
 
+  /**
+   * Reset whole books to their declared baseline and hand back what changed.
+   *
+   * Atomic across the scope: Braid validates every named book is resident AND
+   * baselined before it mutates anything, so a missing baseline leaves resident
+   * state byte-identical rather than reverting some books and refusing others.
+   * A book already equal to its baseline is a no-op and is simply absent from
+   * the result.
+   *
+   * Books are reverted one scope at a time rather than as `all`, because
+   * Discard names the books it means; reverting the corpus would also throw
+   * away edits the user made in books they never touched with a backup.
+   */
+  revertToBaseline(bookCodes: readonly string[]): {
+    books: Record<string, Token[]>;
+    usfm: Record<string, string>;
+  } {
+    const braid = this.ensureBraid();
+    const books: Record<string, Token[]> = {};
+    const usfm: Record<string, string> = {};
+    for (const bookCode of bookCodes) {
+      const book = bookCode.toUpperCase();
+      const effect = unwrapBraid(
+        braid.revertToBaseline({ kind: "book", book }),
+        "revert to baseline",
+      );
+      if (effect.changed.length === 0) continue;
+      const hydrated = unwrapBraid(
+        braid.toTokens([{ book }]),
+        "revert hydration",
+      );
+      books[book] = hydrated.flatMap((scope) => scope.tokens);
+      usfm[book] = this.toUsfm(book);
+    }
+    return { books, usfm };
+  }
+
   updateChapter(
     bookCode: string,
     chapterNum: number,
     tokens: readonly Token[],
   ): BraidMutation {
-    const target = {
-      book: bookCode.toUpperCase(),
-      label: { kind: "number", label: String(chapterNum) } as const,
-    };
+    const target = chapterTarget(bookCode, chapterNum);
     const mutation = unwrapBraid(
       this.ensureBraid().updateChapter(target, {
         kind: "tokens",
@@ -376,10 +456,7 @@ export class WebBraidHost {
   }
 
   removeChapter(bookCode: string, chapterNum: number): BraidMutation {
-    const target = {
-      book: bookCode.toUpperCase(),
-      label: { kind: "number", label: String(chapterNum) } as const,
-    };
+    const target = chapterTarget(bookCode, chapterNum);
     const mutation = unwrapBraid(
       this.ensureBraid().removeChapter(target),
       "chapter removal",
@@ -441,6 +518,41 @@ export class WebBraidHost {
     );
     return this.braid;
   }
+}
+
+/**
+ * A container's bytes as a buffer this host can hand over.
+ *
+ * Braid returns a fresh `Uint8Array` per publication, so its buffer is already
+ * ours to transfer; the copy is only for the case where the view does not span
+ * its whole buffer, which would otherwise transfer more than the container.
+ */
+function ownedBuffer(view: Uint8Array): ArrayBuffer {
+  return view.byteOffset === 0 && view.byteLength === view.buffer.byteLength
+    ? (view.buffer as ArrayBuffer)
+    : (view.buffer.slice(
+        view.byteOffset,
+        view.byteOffset + view.byteLength,
+      ) as ArrayBuffer);
+}
+
+/**
+ * Address one chapter run the way Braid names it.
+ *
+ * Chapter 0 is the editor's address for front matter — everything before
+ * `\\c 1` — which Braid does not label with a number at all. Sending it as
+ * `{kind:"number", label:"0"}` names a run that cannot exist, so the mutation
+ * fails with `chapterNotFound`; this is the inverse of the mapping
+ * `dirtyChapters` already applies when it reports front matter as 0.
+ */
+function chapterTarget(bookCode: string, chapterNum: number): ChapterTarget {
+  return {
+    book: bookCode.toUpperCase(),
+    label:
+      chapterNum === 0
+        ? { kind: "frontMatter" }
+        : { kind: "number", label: String(chapterNum) },
+  };
 }
 
 function sourceInput(book: WebProjectBookSource): BookInput {

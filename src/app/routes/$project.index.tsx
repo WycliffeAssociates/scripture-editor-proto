@@ -1,10 +1,10 @@
 import { Trans } from "@lingui/react/macro";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { analysisDisabledInMode, shapeForSurface } from "@/app/data/editor.ts";
+import { analysisDisabledInMode } from "@/app/data/editor.ts";
 import { materializeLoadedProject } from "@/app/domain/api/materializeLoadedProject.ts";
 import { projectParamToParsedScripture } from "@/app/domain/api/projectToParsed.tsx";
-import { recoverDirtyBuffers } from "@/app/domain/api/recoverDirtyBuffers.ts";
+import { dropBraidWarmCache } from "@/app/domain/mirror/braidWarmCache.ts";
 import { MirrorFeed } from "@/app/domain/mirror/MirrorFeed.ts";
 import {
   beginStartupTrace,
@@ -82,7 +82,6 @@ export const Route = createFileRoute("/$project/")({
     // The loader is boot wiring — the one place mode is read straight off
     // the settings manager and resolved to a shape for the load.
     const editorMode = settingsManager.get("editorMode");
-    const editorShape = shapeForSurface("mainEditor", editorMode);
 
     const analysisDisabled = analysisDisabledInMode(editorMode);
     const proofreadingConfig = galleyConfigFromSettings(
@@ -165,10 +164,9 @@ export const Route = createFileRoute("/$project/")({
           fileSystem,
           cacheRoot: storageRoots.cacheRoot,
         });
-        try {
-          await timeStartupPhase("main:host:ready", () => session.ready());
-          const load = await timeStartupPhase(
-            "main:host:load",
+        const runLoad = (attempt: "first" | "retry") =>
+          timeStartupPhase(
+            attempt === "first" ? "main:host:load" : "main:host:reload",
             () =>
               session.loadProject({
                 generation: 0,
@@ -193,9 +191,41 @@ export const Route = createFileRoute("/$project/")({
             (value) => ({ state: value.state }),
             (value) => value.hostPhases,
           );
+
+        try {
+          await timeStartupPhase("main:host:ready", () => session.ready());
+          const load = await runLoad("first");
+          let materialized;
+          try {
+            materialized = materializeLoadedProject({ loadedProject, load });
+          } catch (error) {
+            // The container the host handed over did not certify here. On a
+            // warm open that is a verdict on the SIDECAR, not on the project:
+            // the host's own restore accepted bytes this side refuses (a
+            // format change across versions, a binding that has since moved).
+            // The sidecar is disposable by construction, so drop it and reload
+            // — the host then cold-parses disk and republishes. Letting this
+            // throw instead makes a stale cache file look like an unopenable
+            // project, which is the one thing a disposable cache must never do.
+            if (load.state !== "warm") throw error;
+            console.warn(
+              "[startup] warm container refused on main; dropping the sidecar and reloading cold",
+              { workspaceKey, error },
+            );
+            await dropBraidWarmCache({
+              fileSystem,
+              cacheRoot: storageRoots.cacheRoot,
+              workspaceKey,
+            });
+            const cold = await runLoad("retry");
+            materialized = materializeLoadedProject({
+              loadedProject,
+              load: cold,
+            });
+          }
           return {
             ...reservation,
-            ...materializeLoadedProject({ loadedProject, load }),
+            ...materialized,
             feed,
             session,
           };
@@ -240,58 +270,52 @@ export const Route = createFileRoute("/$project/")({
       return { ...noWorkspace(), loadedProject, rejectionReason };
     }
 
-    // 5. checkForCrashBackupFiles — restore any per-book dirty buffers and
-    // baseline disk md5s. `diskMd5ByBook` is the md5 of each book's real source
-    // bytes, hashed by the resident host where it read them — no second read,
-    // no re-serialization, no extra IPC. Recovery + the dirty-buffer pipeline
-    // compare against it to tell "disk moved underneath this backup" from
-    // "backup matches disk". A book missing from the map (read/hash failure) is
-    // simply left un-baselined, so any backup for it falls to forced review —
-    // the safe default.
+    // 5. Adopt the host's crash recovery. The host layered every usable backup
+    // over the corpus while it had disk as the baseline beside it, so the books
+    // materialized above are already the user's effective content and the
+    // restored/conflicted sets are Braid's answer, not a token comparison here.
+    // What remains on main is the state the app owns: the disk baselines the
+    // backup pipeline writes against, and the per-chapter conflict tracker that
+    // forces the first save through review.
+    // `diskMd5ByBook` is the md5 of each book's real source bytes, hashed by
+    // the resident host where it read them — no second read, no
+    // re-serialization, no extra IPC.
     // TODO(burrito-md5): when a Scripture Burrito manifest records per-file
     // checksums, prefer those over hashing — but recompute defensively,
     // since files edited outside the app may not have updated the manifest.
-    let recovery: Awaited<ReturnType<typeof recoverDirtyBuffers>>;
-    try {
-      recovery = await timeStartupPhase(
-        "main:recovery",
-        () =>
-          recoverDirtyBuffers({
-            parsedFiles: hosted.parsedFiles,
-            diskMd5ByBook: hosted.diskMd5ByBook,
-            dirtyBufferStore,
-            workspaceBaselineStore,
-            recoveredConflictTracker,
-            workspaceKey,
-            direction: loadedProject.language.direction,
-            shape: editorShape,
-            usfmOnionService,
-          }),
-        (value) => ({
-          restored: value.restoredBookCodes.length,
-          conflicted: value.conflictedBookCodes.length,
-        }),
-      );
-    } catch (error) {
-      hosted.session.dispose();
-      hosted.abort();
-      throw error;
+    const recovery = hosted.recovery;
+    for (const [bookCode, md5] of hosted.diskMd5ByBook) {
+      workspaceBaselineStore.setPresent(bookCode, md5);
     }
+    const conflicted = new Set(recovery.conflictedBookCodes);
+    for (const book of hosted.parsedFiles) {
+      if (!conflicted.has(book.bookCode)) continue;
+      for (const chapter of book.chapters) {
+        if (chapter.dirty) {
+          recoveredConflictTracker.add(book.bookCode, chapter.chapterNumber);
+        }
+      }
+    }
+    logStartupPhase("main:recovery", {
+      restored: recovery.restoredBookCodes.length,
+      conflicted: recovery.conflictedBookCodes.length,
+      reported: recovery.entries.length,
+    });
 
     const load = {
-      projectFiles: recovery.parsedFiles,
+      projectFiles: hosted.parsedFiles,
       workspaceBaselineStore,
       recoveredConflictTracker,
       dirtyBufferStore,
       restoredBookCodes: recovery.restoredBookCodes,
       conflictedBookCodes: recovery.conflictedBookCodes,
-      recoveryReportEntries: recovery.recoveryReportEntries,
+      recoveryReportEntries: recovery.entries,
     };
 
     // 6. Seed the mirror's metadata, settle first-paint findings, and take the
     // slot. Plain mode publishes no findings, matching the live gates.
     const kernel = await hosted.install({
-      projectFiles: recovery.parsedFiles,
+      projectFiles: hosted.parsedFiles,
       workspaceBaselineStore,
       analysisDisabled,
       proofreadingConfig,
@@ -299,15 +323,11 @@ export const Route = createFileRoute("/$project/")({
       session: hosted.session,
       braidFindings: hosted.braidFindings,
       galley: hosted.galley,
-      recoveredBookCodes: [
-        ...recovery.restoredBookCodes,
-        ...recovery.conflictedBookCodes,
-      ],
       load,
     });
     logStartupPhase("main:ready", {
       workspace: workspaceKey,
-      books: recovery.parsedFiles.length,
+      books: hosted.parsedFiles.length,
       kernel: kernel ? "installed" : "superseded",
       total: `${Math.round(startupElapsed())}ms`,
     });

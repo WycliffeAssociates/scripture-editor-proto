@@ -1,6 +1,6 @@
 import { t } from "@lingui/core/macro";
 
-import type { RecoveryReportEntry } from "@/app/domain/api/recoverDirtyBuffers.ts";
+import type { HostRecoveryEntry } from "@/app/domain/mirror/mirrorProtocol.ts";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import * as styles from "@/app/ui/styles/modules/UpdateBanner.css.ts";
 
@@ -11,7 +11,7 @@ import * as styles from "@/app/ui/styles/modules/UpdateBanner.css.ts";
  * project opens normally. It surfaces the file path + reason so a tech can
  * recover the work by hand if needed.
  */
-function describeEntry(entry: RecoveryReportEntry): string {
+function describeEntry(entry: HostRecoveryEntry): string {
   switch (entry.kind) {
     case "backup-unreadable":
       return t`Backup could not be read (${entry.reason}): ${entry.path}`;
@@ -28,7 +28,7 @@ export function RecoveryReportBanner({
   entries,
   onDismiss,
 }: {
-  entries: RecoveryReportEntry[];
+  entries: HostRecoveryEntry[];
   onDismiss: () => void;
 }) {
   if (entries.length === 0) return null;

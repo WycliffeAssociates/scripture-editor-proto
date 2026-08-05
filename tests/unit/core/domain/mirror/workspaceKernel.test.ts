@@ -119,7 +119,6 @@ function buildArgs(
     }),
     braidFindings: new Map<string, readonly LintIssue[]>(),
     galley: null,
-    recoveredBookCodes: [],
     load: emptyLoad(),
     ...overrides,
   };
@@ -177,24 +176,18 @@ describe("workspace kernel — build order", () => {
     expect(log).toEqual(["ready", "load", "patch:residentSeed"]);
   });
 
-  it("republishes only the recovered books, then re-analyzes once", async () => {
+  it("sends no extra traffic for a crash-recovered open — the load already layered and analyzed", async () => {
     const log: string[] = [];
     const { factory } = makeFakeFactory(log);
     await openWorkspace("p1", factory, {
       overrides: {
-        projectFiles: [bookState("MAT"), bookState("MRK")],
-        recoveredBookCodes: ["MRK"],
+        projectFiles: [bookState("MAT"), dirtyBookState("MRK")],
       },
     });
-    // One updateBook — for MRK alone, not a whole-corpus fullSync.
-    expect(log).toEqual([
-      "ready",
-      "load",
-      "patch:residentSeed",
-      "patch:updateBook",
-      "command:analyzeLint",
-      "command:analyzeGalley",
-    ]);
+    // The host layered the backup over the corpus BEFORE it linted, published
+    // and ran Galley, so a recovered open is indistinguishable from a clean one
+    // here: no republish of the recovered book, and no second analysis.
+    expect(log).toEqual(["ready", "load", "patch:residentSeed"]);
   });
 
   it("publishes no findings in plain mode (analysisDisabled)", async () => {
@@ -304,6 +297,17 @@ describe("workspace kernel — dispose grace", () => {
     expect(disposed()).toBe(1);
   });
 });
+
+/** A book as a crash-recovered open hands it over: materialized, already dirty. */
+function dirtyBookState(
+  bookCode: string,
+): WorkspaceKernelBuildArgs["projectFiles"][number] {
+  const book = bookState(bookCode);
+  return {
+    ...book,
+    chapters: book.chapters.map((chapter) => ({ ...chapter, dirty: true })),
+  };
+}
 
 function bookState(
   bookCode: string,

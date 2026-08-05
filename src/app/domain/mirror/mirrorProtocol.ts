@@ -27,7 +27,10 @@ import type {
 } from "usfm-onion-web";
 
 import type { TracedPhase } from "@/app/domain/mirror/traceLog.ts";
-import type { DiskBaseline } from "@/app/state/DirtyBufferStore.ts";
+import type {
+  DiskBaseline,
+  ReadUnreadableReason,
+} from "@/app/state/DirtyBufferStore.ts";
 import type {
   GalleyAnalysis,
   GalleyCacheIdentity,
@@ -346,6 +349,68 @@ export type LoadedProjectBook = {
   byteOffset: number;
   byteLength: number;
   sourceMd5: string;
+  /**
+   * Chapters that differ from this book's baseline, by chapter number (0 is
+   * front matter). Present only when a crash backup was layered over the book:
+   * baseline is disk, current is the backup, so this IS the recovered set as
+   * the one authority on what "same USFM" means reports it. Absent means the
+   * book is exactly disk.
+   */
+  dirtyChapters?: number[];
+};
+
+/**
+ * A backup the host could not use. The reopen continues regardless — these
+ * become the recovery report the banner shows, and a translator's unsaved work
+ * may still be in the named file.
+ */
+export type HostRecoveryEntry =
+  | {
+      kind: "backup-unreadable";
+      reason: ReadUnreadableReason;
+      message: string;
+      path: string;
+    }
+  | {
+      kind: "usfm-parse-error";
+      message: string;
+      path: string;
+      bookCode: string;
+    }
+  | {
+      kind: "manual-recovery";
+      subKind: "new-book-not-supported" | "disk-book-missing";
+      bookCode: string;
+      path: string;
+    };
+
+/**
+ * What the host's crash-recovery pass found. The host owns this because it
+ * owns both halves of the comparison: it read the backups AND it holds the
+ * corpus they were layered over.
+ */
+export type HostRecovery = {
+  /** Books whose working content came from a backup rather than disk. */
+  restoredBookCodes: string[];
+  /**
+   * Subset of `restoredBookCodes` whose recorded disk baseline no longer
+   * matches the bytes actually on disk — the file moved underneath the backup.
+   * A message, not a branch: the work is kept either way.
+   */
+  conflictedBookCodes: string[];
+  entries: HostRecoveryEntry[];
+  /**
+   * Each restored book's DISK source, by book code.
+   *
+   * `LoadProjectResult.sources` cannot serve as this. That buffer is what the
+   * packed container is BOUND to, and layering a backup rebinds the book to the
+   * backup — certification checks exact source length and content hash, so the
+   * two must agree or the whole load is refused. Disk therefore has to travel
+   * separately, and only for the books that actually need it: main holds this
+   * as the recovered book's `sourceTokens` baseline, which is what makes
+   * "dirty", Revert All, and the save payload correct afterwards.
+   */
+  diskSourceByBook: Record<string, string>;
 };
 
 /** Galley's half of the load: restored from its cache, or freshly analyzed. */
@@ -367,6 +432,8 @@ export type LoadProjectResult = {
   packed?: ArrayBuffer;
   sources?: ArrayBuffer;
   books?: LoadedProjectBook[];
+  /** Present whenever the host looked for crash backups, even if it found none. */
+  recovery?: HostRecovery;
   galley?: LoadedProjectGalley;
   /** Phases the host measured on its own side, replayed into the startup log. */
   hostPhases?: TracedPhase[];

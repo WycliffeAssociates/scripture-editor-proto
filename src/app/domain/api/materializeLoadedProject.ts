@@ -11,7 +11,7 @@
 // the decoder's entry condition. Verification also hands back Rust-materialized
 // findings for the same snapshot, so the load IS the initial lint.
 
-import type { LintIssue } from "usfm-onion-web";
+import type { LintIssue, Token } from "usfm-onion-web";
 import * as onion from "usfm-onion-web";
 import {
   materializePublished,
@@ -19,7 +19,9 @@ import {
 } from "usfm-onion-web/packed";
 
 import { materializePublishedTokensToParsedFiles } from "@/app/domain/api/scriptureProjectToParsedFiles.ts";
+import { groupFlatTokensByChapter } from "@/app/domain/editor/serialization/flatTokensByChapter.ts";
 import type {
+  HostRecovery,
   LoadedProjectBook,
   LoadProjectResult,
 } from "@/app/domain/mirror/mirrorProtocol.ts";
@@ -37,6 +39,8 @@ export type MaterializedLoadedProject = {
   diskMd5ByBook: Map<string, string>;
   braidFindings: ReadonlyMap<string, readonly LintIssue[]>;
   galley: GalleyAnalysis | null;
+  /** What the host's crash-recovery pass found while establishing the corpus. */
+  recovery: HostRecovery;
 };
 
 export function materializeLoadedProject(args: {
@@ -50,17 +54,17 @@ export function materializeLoadedProject(args: {
     );
   }
   const startedAt = startupElapsed();
-  const sources = new Uint8Array(load.sources);
+  // Two buffers and a table of extents into them — the host's `books` catalog
+  // already IS that table, so nothing is sliced, copied, or reshaped here.
   const verified = verifyPublishedPacked(
     onion,
     new Uint8Array(load.packed),
+    new Uint8Array(load.sources),
     load.books.map((book) => ({
       book: book.bookCode,
-      // A view, not a copy: the verifier slices the range it needs itself.
-      source: sources.subarray(
-        book.byteOffset,
-        book.byteOffset + book.byteLength,
-      ),
+      sourceKey: book.sourceKey,
+      byteOffset: book.byteOffset,
+      byteLength: book.byteLength,
     })),
   );
   if (!verified.ok) {
@@ -76,6 +80,11 @@ export function materializeLoadedProject(args: {
     ),
   });
   assertCorpusOrder(load.books, parsedFiles);
+  applyDiskBaselineToRecoveredBooks(
+    load.books,
+    load.recovery ?? NO_RECOVERY,
+    parsedFiles,
+  );
   logStartupPhase(
     "main:materialize",
     {
@@ -93,7 +102,77 @@ export function materializeLoadedProject(args: {
     ),
     braidFindings: verified.findings,
     galley: load.galley ?? null,
+    recovery: load.recovery ?? NO_RECOVERY,
   };
+}
+
+const NO_RECOVERY: HostRecovery = {
+  restoredBookCodes: [],
+  conflictedBookCodes: [],
+  entries: [],
+  diskSourceByBook: {},
+};
+
+/**
+ * Give a crash-recovered book its DISK content as `sourceTokens`, and mark the
+ * chapters the host says differ as dirty.
+ *
+ * The corpus main just materialized is the EFFECTIVE one — disk with the backup
+ * layered over it — so without this a recovered book's `sourceTokens` and
+ * `currentTokens` are the same tokens. That is not merely a missing banner:
+ * `sourceTokens` IS main's saved-state baseline, and main re-derives `dirty`
+ * from the pair on every chapter commit (`WorkingFilesStore`) and every
+ * find/replace (`replaceOnStore`). Leave them equal and editing a recovered
+ * chapter then undoing marks it clean while it still differs from disk — the
+ * save skips the book and the dirty-buffer pipeline clears the backup, losing
+ * exactly the work that was just recovered. `revertChapterToLoadedState` reads
+ * the same field, so Revert All would restore the backup rather than disk.
+ *
+ * The disk source arrives on `recovery.diskSourceByBook`, NOT in the `sources`
+ * buffer: that buffer is what the container is bound to, and layering a backup
+ * rebinds the book to the backup. Parsing costs one book's parse on the rare
+ * recovery path, and buys back every baseline reader unchanged.
+ *
+ * `dirty` still comes from the host rather than a comparison here, because
+ * Braid is the authority on what "same USFM" means; chapter 0 addresses front
+ * matter, matching the findings buckets.
+ */
+function applyDiskBaselineToRecoveredBooks(
+  resident: readonly LoadedProjectBook[],
+  recovery: HostRecovery,
+  parsed: readonly ScriptureBookState[],
+): void {
+  const recovered = resident.filter((book) => book.dirtyChapters?.length);
+  if (recovered.length === 0) return;
+  const byCode = new Map(parsed.map((book) => [book.bookCode, book]));
+
+  for (const entry of recovered) {
+    const book = byCode.get(entry.bookCode);
+    if (!book) continue;
+    const dirty = new Set(entry.dirtyChapters);
+    const diskUsfm = recovery.diskSourceByBook[entry.bookCode];
+    if (diskUsfm === undefined) {
+      throw new Error(
+        `Recovered book ${entry.bookCode} arrived without its disk baseline`,
+      );
+    }
+    const parsedDisk = onion.parse(diskUsfm);
+    let diskByChapter: Record<number, Token[]>;
+    try {
+      diskByChapter = groupFlatTokensByChapter(
+        onion.normalizeTokenSids(parsedDisk.tokens(), entry.bookCode),
+      );
+    } finally {
+      parsedDisk.free();
+    }
+    for (const chapter of book.chapters) {
+      chapter.dirty = dirty.has(chapter.chapterNumber);
+      const diskTokens = diskByChapter[chapter.chapterNumber];
+      // A chapter the backup ADDED has no disk counterpart. An empty baseline
+      // is the honest answer — it is new, so all of it is unsaved.
+      chapter.sourceTokens = diskTokens ?? [];
+    }
+  }
 }
 
 /**

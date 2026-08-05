@@ -46,6 +46,45 @@ export async function readBraidWarmCache(args: {
   }
 }
 
+/**
+ * Delete the sidecar so the next open is cold.
+ *
+ * The host treats its OWN restore refusal as the cache-validity answer, but the
+ * container has a second reader: main certifies it before materializing, and a
+ * container the host accepted can still fail there (a format change across
+ * versions, bytes bound to sources that have since moved). That failure has no
+ * fallback of its own — the load throws and the route dies with it — so the
+ * caller drops the sidecar and reloads. Best-effort by the same logic as the
+ * write: if the delete fails the next open simply refuses again.
+ */
+export async function dropBraidWarmCache(args: {
+  fileSystem: FileSystem;
+  cacheRoot: string;
+  workspaceKey: string;
+}): Promise<void> {
+  const path = braidWarmCachePath(args.cacheRoot, args.workspaceKey);
+  try {
+    if (await args.fileSystem.exists(path)) {
+      await args.fileSystem.remove(path);
+    }
+    logCacheWrite({
+      arm: "braid",
+      workspace: args.workspaceKey,
+      origin: "load",
+      state: "dropped",
+      reason: "main refused the container",
+    });
+  } catch (error) {
+    logCacheWrite({
+      arm: "braid",
+      workspace: args.workspaceKey,
+      origin: "load",
+      state: "failed",
+      error: String(error),
+    });
+  }
+}
+
 /** Replace the sidecar with `packed`. Best-effort: failure is a future miss. */
 export async function putBraidWarmCache(args: {
   fileSystem: FileSystem;

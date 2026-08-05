@@ -58,11 +58,11 @@ export function getDirtyFiles(
  * Layer a set of replacement chapters (keyed by chapter number) over a book's
  * existing chapters: a replacement for an existing number overrides it, a new
  * number is inserted, and the result is sorted ascending. Pure — the caller
- * wraps the returned array in a fresh book object. Shared by the incoming-
- * overlay and dirty-buffer recovery flows, which both merge a known set of
- * chapters onto a base book in chapter order.
+ * wraps the returned array in a fresh book object. Local to the incoming-
+ * overlay flow: crash recovery no longer merges chapters on main, because the
+ * host layers the backup into the corpus before main ever materializes it.
  */
-export function mergeBookChapters(
+function mergeBookChapters(
   base: readonly ScriptureChapterState[],
   replacements: ReadonlyMap<number, ScriptureChapterState>,
 ): ScriptureChapterState[] {

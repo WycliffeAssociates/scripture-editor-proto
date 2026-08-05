@@ -96,11 +96,11 @@ importers:
         specifier: ^10.1.0
         version: 10.1.0(@types/react@19.2.17)(react@19.2.7)
       scripture-sous-chef-web:
-        specifier: github:WycliffeAssociates/scripture-sous-chef#v0.0.5
-        version: https://codeload.github.com/WycliffeAssociates/scripture-sous-chef/tar.gz/70dda25161e571adb6df5fbc4ff99e43576c1c88
+        specifier: github:WycliffeAssociates/scripture-sous-chef#v0.0.6
+        version: https://codeload.github.com/WycliffeAssociates/scripture-sous-chef/tar.gz/6d69986031021d657bc06b4e96c2a3bc45c2a5bc
       usfm-onion-web:
-        specifier: github:WycliffeAssociates/usfm-onion#v0.1.4
-        version: https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/b6a1fcda8f1e54b1e5aef16227ea2853e4e7d21d
+        specifier: github:WycliffeAssociates/usfm-onion#v0.1.6
+        version: https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/614c02a4ce486faf1b1dd293e152661ceee3f49d
       valibot:
         specifier: 1.4.1
         version: 1.4.1(typescript@6.0.3)
@@ -3485,9 +3485,9 @@ packages:
   scheduler@0.27.0:
     resolution: {integrity: sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==}
 
-  scripture-sous-chef-web@https://codeload.github.com/WycliffeAssociates/scripture-sous-chef/tar.gz/70dda25161e571adb6df5fbc4ff99e43576c1c88:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/WycliffeAssociates/scripture-sous-chef/tar.gz/70dda25161e571adb6df5fbc4ff99e43576c1c88}
-    version: 0.0.5
+  scripture-sous-chef-web@https://codeload.github.com/WycliffeAssociates/scripture-sous-chef/tar.gz/6d69986031021d657bc06b4e96c2a3bc45c2a5bc:
+    resolution: {gitHosted: true, integrity: sha512-zyXYnVHu+K68hDgQ7nUtY7EALwUHvPUFrwHv2IZwX4wToj+drp6UuFWwTITTL5fn5kgQCHogYAT1A08zx31/gA==, tarball: https://codeload.github.com/WycliffeAssociates/scripture-sous-chef/tar.gz/6d69986031021d657bc06b4e96c2a3bc45c2a5bc}
+    version: 0.0.6
 
   semver@6.3.1:
     resolution: {integrity: sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==}
@@ -3761,9 +3761,9 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
-  usfm-onion-web@https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/b6a1fcda8f1e54b1e5aef16227ea2853e4e7d21d:
-    resolution: {gitHosted: true, integrity: sha512-TH08R7iw6Iefyd5iL1f7SHpNvDJkIpLRJr4uOelV2xrTLdE9HJc6hgNzZLm4Ox5IHbibc5qe0g1K+46xzOCkFA==, tarball: https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/b6a1fcda8f1e54b1e5aef16227ea2853e4e7d21d}
-    version: 0.1.4
+  usfm-onion-web@https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/614c02a4ce486faf1b1dd293e152661ceee3f49d:
+    resolution: {gitHosted: true, integrity: sha512-O1NK38bWF0VJYWrxaD18RLAxveoNx1POjyFmoVxtFlTDbwbPq/xdUpiShVlrbSqAyMSoKT2ywJckd2WIH9rJIA==, tarball: https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/614c02a4ce486faf1b1dd293e152661ceee3f49d}
+    version: 0.1.6
 
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
@@ -7105,7 +7105,7 @@ snapshots:
 
   scheduler@0.27.0: {}
 
-  scripture-sous-chef-web@https://codeload.github.com/WycliffeAssociates/scripture-sous-chef/tar.gz/70dda25161e571adb6df5fbc4ff99e43576c1c88: {}
+  scripture-sous-chef-web@https://codeload.github.com/WycliffeAssociates/scripture-sous-chef/tar.gz/6d69986031021d657bc06b4e96c2a3bc45c2a5bc: {}
 
   semver@6.3.1: {}
 
@@ -7364,7 +7364,7 @@ snapshots:
     dependencies:
       react: 19.2.7
 
-  usfm-onion-web@https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/b6a1fcda8f1e54b1e5aef16227ea2853e4e7d21d: {}
+  usfm-onion-web@https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/614c02a4ce486faf1b1dd293e152661ceee3f49d: {}
 
   util-deprecate@1.0.2: {}
 

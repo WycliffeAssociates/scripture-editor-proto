@@ -503,9 +503,7 @@ impl NativeMirrorState {
                         braid::ChapterTarget::new(
                             usfm_onion::token::BookId::from_str(&ref_.book_code)
                                 .unwrap_or(usfm_onion::token::BookId::UNKNOWN),
-                            braid::ChapterLabel::Number(
-                                ref_.chapter_num.to_string().into_boxed_str(),
-                            ),
+                            chapter_label(ref_.chapter_num),
                         ),
                     )) {
                         self.update_resident_chapter(&ref_.book_code, ref_.chapter_num, projection);
@@ -759,6 +757,7 @@ impl NativeMirrorState {
         &mut self,
         cache_root: &str,
         workspace_key: &str,
+        dirty_buffer_root: &str,
         books: &[MirrorLoadProjectBookDto],
         config: Option<&GalleyConfigDto>,
         analysis_disabled: bool,
@@ -806,7 +805,7 @@ impl NativeMirrorState {
         let disk_sources = disk_sources?;
         self.galley_cache_prefetched = galley_cache;
 
-        let (sources_blob, catalog) = phases.timed(
+        let (sources_blob, mut catalog) = phases.timed(
             "native:load:hash-sources",
             || {
                 let mut blob =
@@ -824,6 +823,7 @@ impl NativeMirrorState {
                         byte_offset: blob.len(),
                         byte_length: bytes.len(),
                         source_md5,
+                        dirty_chapters: None,
                     });
                     blob.extend_from_slice(bytes);
                 }
@@ -849,46 +849,104 @@ impl NativeMirrorState {
             }
         };
 
-        let (state, packed_id) = match restored {
-            Some(sidecar) => ("warm", self.store_braid_packed(sidecar)),
-            None => {
-                phases.timed(
-                    "native:braid:cold-seed",
-                    || self.cold_seed_braid(&disk_sources),
-                    no_detail,
-                )?;
-                let publication =
-                    phases.timed("native:braid:publish", || self.publish_packed(), no_detail)?;
-                if let Some(packed) = self.braid_packed.get(&publication).cloned() {
-                    let offset_ms = phases.since();
-                    phases.push(
-                        "native:braid:cache-write",
-                        offset_ms,
-                        vec![
-                            ("state", "queued".to_string()),
-                            ("bytes", packed.len().to_string()),
-                        ],
-                    );
-                    // Existence is never validity: an entry a previous open
-                    // rejected is replaced here, which is the only way a corrupt
-                    // sidecar ever heals. Best-effort and off the load path — a
-                    // failure only costs the next open its warm start.
-                    std::thread::spawn(move || {
-                        if std::fs::create_dir_all(&cache_dir).is_ok() {
-                            if let Err(error) = atomic_write_file(&corpus_path, &packed) {
-                                eprintln!("[startup:cache-write] arm=braid state=failed {error}");
-                            } else {
-                                eprintln!(
-                                    "[startup:cache-write] arm=braid origin=load state=written bytes={}",
-                                    packed.len()
-                                );
-                            }
-                        }
-                    });
-                }
-                ("cold", publication)
-            }
+        let state = if restored.is_some() { "warm" } else { "cold" };
+        if restored.is_none() {
+            phases.timed(
+                "native:braid:cold-seed",
+                || self.cold_seed_braid(&disk_sources),
+                no_detail,
+            )?;
+        }
+
+        // Crash recovery, as a layer over the corpus just established: baseline
+        // is disk, current becomes the backup. Everything downstream — lint,
+        // publish, Galley — then runs ONCE, on the effective content.
+        let mut layered: BTreeMap<String, String> = BTreeMap::new();
+        let recovery = {
+            let started_ms = phases.since();
+            let recovery = self.layer_dirty_buffers(
+                &dirty_buffer_root,
+                &workspace_key,
+                &mut catalog,
+                &sources_blob,
+                &mut layered,
+            );
+            phases.push(
+                "native:braid:recover",
+                started_ms,
+                vec![
+                    ("restored", recovery.restored_book_codes.len().to_string()),
+                    (
+                        "conflicted",
+                        recovery.conflicted_book_codes.len().to_string(),
+                    ),
+                    ("reported", recovery.entries.len().to_string()),
+                ],
+            );
+            recovery
         };
+        let recovered = !recovery.restored_book_codes.is_empty();
+        // What main certifies the container against has to be what the
+        // container is BOUND to, book for book: layering rebound the recovered
+        // books, so their bytes (and every later extent) move with them.
+        let sources_blob = if layered.is_empty() {
+            sources_blob
+        } else {
+            rebind_sources(&mut catalog, &sources_blob, &layered)
+        };
+
+        let packed_id = match restored {
+            // A warm open that layered nothing already holds the exact bytes
+            // main needs; anything else has to republish so main can
+            // materialize the effective corpus from a container.
+            Some(sidecar) if !recovered => self.store_braid_packed(sidecar),
+            _ => phases.timed("native:braid:publish", || self.publish_packed(), no_detail)?,
+        };
+
+        // THE SIDECAR MEANS "THIS IS WHAT IS ON DISK". A recovery open holds
+        // unsaved work, so republishing it here would label the user's backup as
+        // the saved corpus and the next open would restore it as clean. Same
+        // rule Galley follows with `cachePolicy: "none"`. Only a cold open —
+        // which by definition just parsed disk and layered nothing — may write.
+        if state == "cold" && !recovered {
+            if let Some(packed) = self.braid_packed.get(&packed_id).cloned() {
+                let offset_ms = phases.since();
+                phases.push(
+                    "native:braid:cache-write",
+                    offset_ms,
+                    vec![
+                        ("state", "queued".to_string()),
+                        ("bytes", packed.len().to_string()),
+                    ],
+                );
+                // Existence is never validity: an entry a previous open
+                // rejected is replaced here, which is the only way a corrupt
+                // sidecar ever heals. Best-effort and off the load path — a
+                // failure only costs the next open its warm start.
+                std::thread::spawn(move || {
+                    if std::fs::create_dir_all(&cache_dir).is_ok() {
+                        if let Err(error) = atomic_write_file(&corpus_path, &packed) {
+                            eprintln!("[startup:cache-write] arm=braid state=failed {error}");
+                        } else {
+                            eprintln!(
+                                "[startup:cache-write] arm=braid origin=load state=written bytes={}",
+                                packed.len()
+                            );
+                        }
+                    }
+                });
+            }
+        } else if recovered {
+            let offset_ms = phases.since();
+            phases.push(
+                "native:braid:cache-write",
+                offset_ms,
+                vec![
+                    ("state", "skipped".to_string()),
+                    ("reason", "recovered".to_string()),
+                ],
+            );
+        }
 
         let galley = if analysis_disabled {
             None
@@ -901,6 +959,7 @@ impl NativeMirrorState {
             packed_id,
             sources_id: self.store_braid_packed(sources_blob),
             books: catalog,
+            recovery,
             galley,
             host_phases: phases.phases,
             error: None,
@@ -948,11 +1007,11 @@ impl NativeMirrorState {
             .replace_corpus(braid::CorpusInput::new(inputs))
             .map_err(|error| format!("Braid cold seed failed: {error:?}"))?;
         self.braid = Some(braid);
-        for book in disk_sources {
-            self.ensure_braid()?
-                .set_baseline(book.braid_input()?)
-                .map_err(|error| format!("Braid cold baseline failed: {error:?}"))?;
-        }
+        // A cold seed IS the disk state, so declaring it as the baseline is a
+        // statement about what is already resident — not content to hand back.
+        self.ensure_braid()?
+            .set_baseline_to_current(braid::CorpusScope::All)
+            .map_err(|error| format!("Braid cold baseline failed: {error:?}"))?;
         Ok(())
     }
 
@@ -996,13 +1055,200 @@ impl NativeMirrorState {
         self.ensure_braid()?
             .restore_published_corpus(packed, &sources)
             .map_err(|error| format!("Braid warm restore failed: {error}"))?;
-        for record in records {
-            let input = record.braid_input()?;
-            self.ensure_braid()?
-                .set_baseline(input)
-                .map_err(|error| format!("Braid warm baseline restore failed: {error:?}"))?;
-        }
+        // A warm restore installs exactly the bytes the container was bound to
+        // — the files on disk — so current IS the saved state, and that is the
+        // whole fact being recorded.
+        self.ensure_braid()?
+            .set_baseline_to_current(braid::CorpusScope::All)
+            .map_err(|error| format!("Braid warm baseline restore failed: {error:?}"))?;
         Ok(())
+    }
+
+    /// Layer every usable crash backup over the corpus just established.
+    ///
+    /// Baseline is disk at this point, so `update_book` makes current the backup
+    /// and leaves the comparison intact — which is what lets Braid, rather than
+    /// a token diff on main, answer both "is this stale residue" and "which
+    /// chapters did the user actually change".
+    ///
+    /// Nothing here fails the load: a backup that cannot be read, parsed, or
+    /// matched to a resident book becomes a report entry and the reopen
+    /// continues. The named file may still hold the translator's only copy.
+    fn layer_dirty_buffers(
+        &mut self,
+        dirty_buffer_root: &str,
+        workspace_key: &str,
+        catalog: &mut [MirrorLoadedBookDto],
+        sources: &[u8],
+        // `layered` receives each layered book's backup source — its new bound
+        // source, which `rebind_sources` then writes into the blob.
+        layered: &mut BTreeMap<String, String>,
+    ) -> MirrorRecoveryDto {
+        let mut recovery = MirrorRecoveryDto::default();
+        for item in list_dirty_buffers(dirty_buffer_root, workspace_key) {
+            let (disk_baseline, content) = match item.result {
+                DirtyBufferRead::Missing => continue,
+                DirtyBufferRead::Unreadable { reason, message } => {
+                    recovery
+                        .entries
+                        .push(MirrorRecoveryEntryDto::BackupUnreadable {
+                            reason: reason.as_str().to_string(),
+                            message,
+                            path: item.path,
+                        });
+                    continue;
+                }
+                DirtyBufferRead::Valid {
+                    disk_baseline,
+                    content,
+                } => (disk_baseline, content),
+            };
+
+            let Some(index) = catalog
+                .iter()
+                .position(|book| book.book_code == item.book_code)
+            else {
+                // Not in the project at all. Distinct from "we have no baseline
+                // for it": a loaded book whose md5 is unknown is still on disk
+                // and still restores.
+                recovery
+                    .entries
+                    .push(MirrorRecoveryEntryDto::ManualRecovery {
+                        sub_kind: match disk_baseline {
+                            DiskBaselineDto::Absent => "new-book-not-supported",
+                            DiskBaselineDto::Present { .. } => "disk-book-missing",
+                        }
+                        .to_string(),
+                        book_code: item.book_code,
+                        path: item.path,
+                    });
+                continue;
+            };
+
+            let book_code = catalog[index].book_code.clone();
+            let disk_source = String::from_utf8_lossy(
+                &sources[catalog[index].byte_offset
+                    ..catalog[index].byte_offset + catalog[index].byte_length],
+            )
+            .into_owned();
+            let content_for_binding = content.clone();
+            let input = braid::SourceKey::new(catalog[index].source_key.clone())
+                .zip(usfm_onion::token::BookId::from_str(&book_code))
+                .map(|(source_key, book)| braid::BookInput::Usfm {
+                    source_key,
+                    book,
+                    source: content,
+                });
+            if let Err(error) = match input {
+                None => Err(format!("invalid Braid address for {book_code}")),
+                Some(input) => self.ensure_braid().and_then(|braid| {
+                    braid
+                        .update_book(input)
+                        .map(|_| ())
+                        .map_err(|error| format!("{error:?}"))
+                }),
+            } {
+                recovery
+                    .entries
+                    .push(MirrorRecoveryEntryDto::UsfmParseError {
+                        message: error,
+                        path: item.path,
+                        book_code,
+                    });
+                continue;
+            }
+
+            // Residue, decided by the one authority on what "same USFM" means:
+            // a save that failed to clear its backup leaves a file equal to
+            // disk, and after layering it Braid simply reports the book clean.
+            let dirty_chapters = match self.braid_dirty_chapters(&book_code) {
+                Ok(dirty_chapters) => dirty_chapters,
+                Err(error) => {
+                    // Unanswerable, so the backup stays: see the verb's own doc.
+                    recovery
+                        .entries
+                        .push(MirrorRecoveryEntryDto::UsfmParseError {
+                            message: error,
+                            path: item.path,
+                            book_code,
+                        });
+                    continue;
+                }
+            };
+            if dirty_chapters.is_empty() {
+                // Residue — but layering ALREADY rebound this book's source to
+                // the backup, and `layered` is what the sources blob is rebuilt
+                // from. A book reported clean must be bound to disk, or the
+                // container gets published against backup bytes main will
+                // certify against disk bytes.
+                if let Some(book) = usfm_onion::token::BookId::from_str(&book_code) {
+                    let _ = self
+                        .ensure_braid()
+                        .map(|braid| braid.revert_to_baseline(braid::CorpusScope::Book(book)));
+                }
+                let _ = std::fs::remove_file(dirty_buffer_path(
+                    dirty_buffer_root,
+                    workspace_key,
+                    &book_code,
+                ));
+                continue;
+            }
+            // Disk moved underneath the backup. A message, never a branch — the
+            // work is kept either way; an unknown baseline counts as moved.
+            let conflicted = match &disk_baseline {
+                DiskBaselineDto::Absent => true,
+                DiskBaselineDto::Present { md5 } => *md5 != catalog[index].source_md5,
+            };
+            catalog[index].dirty_chapters = Some(dirty_chapters);
+            // Disk, before the backup replaced it as this book's bound source.
+            recovery
+                .disk_source_by_book
+                .insert(book_code.clone(), disk_source);
+            layered.insert(book_code.clone(), content_for_binding);
+            recovery.restored_book_codes.push(book_code.clone());
+            if conflicted {
+                recovery.conflicted_book_codes.push(book_code);
+            }
+        }
+        recovery
+    }
+
+    /// Which of a book's chapters differ from its baseline, by chapter number.
+    /// Front matter has no number and is reported as 0, the same front-matter
+    /// bucket findings already use.
+    /// Errors are NOT swallowed into "clean". An empty result means Braid
+    /// affirmatively reported every chapter equal to its baseline, and the
+    /// caller deletes the backup on the strength of that — so an unanswerable
+    /// scope has to surface as a failure, not as permission to delete a
+    /// translator's only copy of their work.
+    fn braid_dirty_chapters(&mut self, book_code: &str) -> Result<Vec<i64>, String> {
+        let book = usfm_onion::token::BookId::from_str(book_code)
+            .ok_or_else(|| format!("invalid Braid book id: {book_code}"))?;
+        let braid = self.ensure_braid()?;
+        let labels = braid
+            .chapter_labels(book)
+            .map_err(|error| format!("Braid chapter labels failed: {error:?}"))?;
+        let mut dirty = Vec::new();
+        for label in labels {
+            let number = match &label {
+                braid::ChapterLabel::FrontMatter => 0,
+                // The label is the chapter run's label EXACTLY as the source
+                // spells it, so `\c 1 \p` yields "1 " — trailing space and
+                // all. Trim before reading it as a number.
+                braid::ChapterLabel::Number(text) => text
+                    .trim()
+                    .parse::<i64>()
+                    .map_err(|error| format!("non-numeric chapter label {text:?}: {error}"))?,
+            };
+            let target = braid::ChapterTarget::new(book, label);
+            if braid
+                .is_dirty(braid::CorpusScope::Chapter(target))
+                .map_err(|error| format!("Braid chapter dirty check failed: {error:?}"))?
+            {
+                dirty.push(number);
+            }
+        }
+        Ok(dirty)
     }
 
     fn replace_braid_corpus(&mut self, books: &[FullSyncBookDto]) -> Result<(), String> {
@@ -1166,10 +1412,7 @@ impl NativeMirrorState {
                 .enumerate()
                 .map(|(index, token)| token_to_owned(&token, index as u32))
                 .collect::<Result<Vec<_>, _>>()?;
-            let target = braid::ChapterTarget::new(
-                book,
-                braid::ChapterLabel::Number(chapter_num.to_string().into_boxed_str()),
-            );
+            let target = braid::ChapterTarget::new(book, chapter_label(chapter_num));
             braid
                 .update_chapter(target, braid::ChapterInput::Tokens(tokens))
                 .map_err(|error| format!("Braid chapter update failed: {error:?}"))?;
@@ -1204,10 +1447,7 @@ impl NativeMirrorState {
         let book = usfm_onion::token::BookId::from_str(book_code)
             .ok_or_else(|| format!("invalid Braid book id: {book_code}"))?;
         braid
-            .remove_chapter(braid::ChapterTarget::new(
-                book,
-                braid::ChapterLabel::Number(chapter_num.to_string().into_boxed_str()),
-            ))
+            .remove_chapter(braid::ChapterTarget::new(book, chapter_label(chapter_num)))
             .map_err(|error| format!("Braid chapter removal failed: {error:?}"))?;
         Ok(())
     }
@@ -1569,6 +1809,49 @@ pub struct MirrorLoadedBookDto {
     pub byte_offset: usize,
     pub byte_length: usize,
     pub source_md5: String,
+    /// Chapters differing from this book's baseline (0 is front matter).
+    /// Present only when a crash backup was layered over the book.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dirty_chapters: Option<Vec<i64>>,
+}
+
+/// Mirrors the TS `HostRecoveryEntry` union, tag values included — the app
+/// renders these by name, so the two hosts must spell them identically.
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "kind")]
+pub enum MirrorRecoveryEntryDto {
+    #[serde(rename = "backup-unreadable", rename_all = "camelCase")]
+    BackupUnreadable {
+        reason: String,
+        message: String,
+        path: String,
+    },
+    #[serde(rename = "usfm-parse-error", rename_all = "camelCase")]
+    UsfmParseError {
+        message: String,
+        path: String,
+        book_code: String,
+    },
+    #[serde(rename = "manual-recovery", rename_all = "camelCase")]
+    ManualRecovery {
+        sub_kind: String,
+        book_code: String,
+        path: String,
+    },
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MirrorRecoveryDto {
+    pub restored_book_codes: Vec<String>,
+    pub conflicted_book_codes: Vec<String>,
+    pub entries: Vec<MirrorRecoveryEntryDto>,
+    /// Each restored book's DISK source. It cannot ride in the `sources` blob:
+    /// that blob is what the packed container is BOUND to, and layering a
+    /// backup rebinds the book to the backup — certification checks exact
+    /// source length and content hash, so the two must agree. Main holds this
+    /// as the recovered book's baseline.
+    pub disk_source_by_book: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1603,6 +1886,7 @@ pub struct MirrorLoadProjectResultDto {
     pub packed_id: u64,
     pub sources_id: u64,
     pub books: Vec<MirrorLoadedBookDto>,
+    pub recovery: MirrorRecoveryDto,
     pub galley: Option<MirrorLoadGalleyDto>,
     pub host_phases: Vec<MirrorHostPhaseDto>,
     pub error: Option<String>,
@@ -1689,6 +1973,29 @@ impl DiskBookSource {
     }
 }
 
+/// Rebuild the sources blob so it holds what the corpus is now BOUND to.
+///
+/// Extents move with the content, so the catalog is rewritten in place rather
+/// than patched. See `MirrorRecoveryDto::disk_source_by_book` for why disk
+/// cannot simply stay here.
+fn rebind_sources(
+    catalog: &mut [MirrorLoadedBookDto],
+    sources: &[u8],
+    layered: &BTreeMap<String, String>,
+) -> Vec<u8> {
+    let mut rebound = Vec::with_capacity(sources.len());
+    for book in catalog.iter_mut() {
+        let bytes: &[u8] = match layered.get(&book.book_code) {
+            Some(backup) => backup.as_bytes(),
+            None => &sources[book.byte_offset..book.byte_offset + book.byte_length],
+        };
+        book.byte_offset = rebound.len();
+        book.byte_length = bytes.len();
+        rebound.extend_from_slice(bytes);
+    }
+    rebound
+}
+
 /// Install `bytes` at `path`, replacing whatever is there. A sidecar the last
 /// open rejected must be overwritten, never preserved because it exists.
 fn atomic_write_file(path: &std::path::Path, bytes: &[u8]) -> Result<(), String> {
@@ -1768,6 +2075,7 @@ pub fn mirror_load_project(
     project_path: String,
     workspace_key: String,
     cache_root: String,
+    dirty_buffer_root: String,
     books: Vec<MirrorLoadProjectBookDto>,
     generation: i64,
     config: Option<GalleyConfigDto>,
@@ -1782,6 +2090,7 @@ pub fn mirror_load_project(
             packed_id: 0,
             sources_id: 0,
             books: Vec::new(),
+            recovery: MirrorRecoveryDto::default(),
             galley: None,
             host_phases: Vec::new(),
             error: Some(format!(
@@ -1798,6 +2107,7 @@ pub fn mirror_load_project(
     let result = mirror.load_project(
         &cache_root,
         &workspace_key,
+        &dirty_buffer_root,
         &books,
         config.as_ref(),
         analysis_disabled,
@@ -1989,6 +2299,10 @@ pub fn mirror_publish_braid(
     })
 }
 
+/// Mirrors `DIRTY_BUFFER_SCHEMA_VERSION` in `DirtyBufferStore.ts`. Both hosts
+/// write and accept the same wrapper, so the two must move together.
+const DIRTY_BUFFER_SCHEMA_VERSION: u8 = 1;
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DirtyBufferEnvelope<'a> {
@@ -2004,6 +2318,169 @@ fn dirty_buffer_path(root: &str, workspace_key: &str, book_code: &str) -> PathBu
     PathBuf::from(root)
         .join(workspace_key)
         .join(format!("{book_code}.json"))
+}
+
+/// Address one chapter run the way Braid names it.
+///
+/// Chapter 0 is the editor's address for front matter — everything before
+/// `\c 1` — which Braid does not label with a number at all. Sending it as
+/// `Number("0")` names a run that cannot exist, so the mutation fails with
+/// `chapterNotFound`; this is the inverse of the mapping `braid_dirty_chapters`
+/// already applies when it reports front matter as 0.
+fn chapter_label(chapter_num: i64) -> braid::ChapterLabel {
+    if chapter_num == 0 {
+        braid::ChapterLabel::FrontMatter
+    } else {
+        braid::ChapterLabel::Number(chapter_num.to_string().into_boxed_str())
+    }
+}
+
+fn dirty_buffer_workspace_dir(root: &str, workspace_key: &str) -> PathBuf {
+    PathBuf::from(root).join(workspace_key)
+}
+
+/// The read side of the backup envelope — the owned counterpart to
+/// [`DirtyBufferEnvelope`], which borrows because it only ever serializes.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StoredDirtyBuffer {
+    schema_version: u8,
+    disk_baseline: DiskBaselineDto,
+    body_md5: String,
+    content: String,
+}
+
+/// Why one backup could not be used. Mirrors the TS `ReadUnreadableReason`
+/// string union verbatim — the app renders these in the recovery report, so
+/// the two hosts must name the same failure the same way.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DirtyBufferUnreadable {
+    SchemaVersion,
+    BodyMd5Mismatch,
+    JsonParse,
+    IoError,
+}
+
+impl DirtyBufferUnreadable {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::SchemaVersion => "schema-version",
+            Self::BodyMd5Mismatch => "body-md5-mismatch",
+            Self::JsonParse => "json-parse",
+            Self::IoError => "io-error",
+        }
+    }
+}
+
+/// One backup, classified. Mirrors the TS `ReadResult` union.
+///
+/// `Unreadable` is a value, never an error: one bad backup must not abort a
+/// reopen, and the path is carried so a tech can go find the file by hand.
+#[derive(Debug)]
+pub(crate) enum DirtyBufferRead {
+    Missing,
+    Valid {
+        disk_baseline: DiskBaselineDto,
+        content: String,
+    },
+    Unreadable {
+        reason: DirtyBufferUnreadable,
+        message: String,
+    },
+}
+
+#[derive(Debug)]
+pub(crate) struct DirtyBufferListItem {
+    pub(crate) book_code: String,
+    pub(crate) path: String,
+    pub(crate) result: DirtyBufferRead,
+}
+
+/// Read and validate one backup file.
+///
+/// Validation order is deliberate and matches `DirtyBufferStore.readPath` on
+/// the TS side step for step: a torn or malformed file is reported with the
+/// most specific reason that can be proven, and the body-MD5 check runs last so
+/// it only sees otherwise-well-formed JSON. The JSON is parsed to a `Value`
+/// before being shaped, because "not JSON at all" and "JSON of the wrong shape
+/// or version" are different answers to the user.
+pub(crate) fn read_dirty_buffer(path: &PathBuf) -> DirtyBufferRead {
+    let raw = match std::fs::read_to_string(path) {
+        Ok(raw) => raw,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return DirtyBufferRead::Missing
+        }
+        Err(error) => {
+            return DirtyBufferRead::Unreadable {
+                reason: DirtyBufferUnreadable::IoError,
+                message: error.to_string(),
+            }
+        }
+    };
+
+    let value: serde_json::Value = match serde_json::from_str(&raw) {
+        Ok(value) => value,
+        Err(error) => {
+            return DirtyBufferRead::Unreadable {
+                reason: DirtyBufferUnreadable::JsonParse,
+                message: error.to_string(),
+            }
+        }
+    };
+
+    let stored = match serde_json::from_value::<StoredDirtyBuffer>(value) {
+        Ok(stored) if stored.schema_version == DIRTY_BUFFER_SCHEMA_VERSION => stored,
+        _ => {
+            return DirtyBufferRead::Unreadable {
+                reason: DirtyBufferUnreadable::SchemaVersion,
+                message: format!(
+                    "Unsupported or malformed dirty-buffer wrapper (expected schemaVersion {DIRTY_BUFFER_SCHEMA_VERSION})"
+                ),
+            }
+        }
+    };
+
+    if crate::md5::md5_hex(&stored.content) != stored.body_md5 {
+        return DirtyBufferRead::Unreadable {
+            reason: DirtyBufferUnreadable::BodyMd5Mismatch,
+            message: "Backup body checksum did not match (possible torn write)".to_string(),
+        };
+    }
+
+    DirtyBufferRead::Valid {
+        disk_baseline: stored.disk_baseline,
+        content: stored.content,
+    }
+}
+
+/// Every backup for a workspace, each already classified.
+///
+/// A workspace with no backup directory yet is an empty list, not an error —
+/// that is the ordinary clean-open case. Entries are returned in book-code
+/// order so a recovery open is deterministic regardless of directory order.
+pub(crate) fn list_dirty_buffers(root: &str, workspace_key: &str) -> Vec<DirtyBufferListItem> {
+    let dir = dirty_buffer_workspace_dir(root, workspace_key);
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        return Vec::new();
+    };
+    let mut items: Vec<DirtyBufferListItem> = entries
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().is_file())
+        .filter_map(|entry| {
+            let path = entry.path();
+            let book_code = path.file_stem()?.to_str()?.to_string();
+            if path.extension().and_then(|extension| extension.to_str()) != Some("json") {
+                return None;
+            }
+            Some(DirtyBufferListItem {
+                result: read_dirty_buffer(&path),
+                path: path.to_string_lossy().into_owned(),
+                book_code,
+            })
+        })
+        .collect();
+    items.sort_by(|left, right| left.book_code.cmp(&right.book_code));
+    items
 }
 
 fn atomic_write_text(path: &PathBuf, content: &str) -> Result<(), String> {
@@ -2088,7 +2565,7 @@ pub fn mirror_backup(
         .map(|book| book.disk_baseline.clone())
         .ok_or_else(|| "book disappeared during backup".to_string())?;
     let envelope = DirtyBufferEnvelope {
-        schema_version: 1,
+        schema_version: DIRTY_BUFFER_SCHEMA_VERSION,
         disk_baseline: &baseline,
         body_md5: crate::md5::md5_hex(&content),
         written_at: SystemTime::now()
@@ -2566,6 +3043,7 @@ mod tests {
             .load_project(
                 dir.join("cache").to_str().expect("cache root"),
                 "workspace",
+                dir.join("backups").to_str().expect("backup root"),
                 &[MirrorLoadProjectBookDto {
                     book_code: "GEN".to_string(),
                     source_key: "GEN".to_string(),
@@ -2605,6 +3083,7 @@ mod tests {
         let book_path = dir.join("GEN.usfm");
         std::fs::write(&book_path, UNNORMALIZED_SOURCE).expect("write book");
         let cache_root = dir.join("cache");
+        let backup_root = dir.join("backups");
         let sidecar = cache_root
             .join("braid")
             .join("workspace")
@@ -2622,6 +3101,7 @@ mod tests {
                 .load_project(
                     cache_root.to_str().expect("cache root"),
                     "workspace",
+                    backup_root.to_str().expect("backup root"),
                     &books,
                     None,
                     true,
@@ -2697,5 +3177,212 @@ mod tests {
         // an unknown field so a TS-side drift surfaces loudly here.
         let json = r#"{"bookCode":"GEN","chapterNum":1,"surprise":true}"#;
         assert!(serde_json::from_str::<ChapterRefForPatch>(json).is_err());
+    }
+
+    // --- Reading backups natively -------------------------------------------
+    //
+    // The desktop host has always WRITTEN dirty buffers and never read them:
+    // recovery ran on main. These cover the read side against the same
+    // classification `DirtyBufferStore.readPath` performs, because the two
+    // hosts have to answer a reopen identically — a backup the web host would
+    // restore must not read as unreadable on desktop, and the reasons are
+    // rendered to the user by name.
+
+    fn write_backup(root: &PathBuf, workspace: &str, book: &str, body: &str) {
+        let path = dirty_buffer_path(&root.to_string_lossy(), workspace, book);
+        std::fs::create_dir_all(path.parent().expect("parent")).expect("backup dir");
+        std::fs::write(&path, body).expect("write backup");
+    }
+
+    fn valid_envelope(content: &str) -> String {
+        format!(
+            r#"{{"schemaVersion":1,"diskBaseline":{{"kind":"present","md5":"abc"}},"bodyMd5":"{}","writtenAt":1,"appVersion":"test","content":{}}}"#,
+            crate::md5::md5_hex(content),
+            serde_json::to_string(content).expect("json string")
+        )
+    }
+
+    #[test]
+    fn a_well_formed_backup_reads_as_valid_with_its_recorded_disk_baseline() {
+        let dir = temp_dir("backup-valid");
+        let root = dir.to_string_lossy().into_owned();
+        write_backup(&dir, "ws", "GEN", &valid_envelope(UNNORMALIZED_SOURCE));
+
+        match read_dirty_buffer(&dirty_buffer_path(&root, "ws", "GEN")) {
+            DirtyBufferRead::Valid {
+                disk_baseline,
+                content,
+            } => {
+                assert_eq!(content, UNNORMALIZED_SOURCE);
+                match disk_baseline {
+                    DiskBaselineDto::Present { md5 } => assert_eq!(md5, "abc"),
+                    other => panic!("expected a present baseline, got {other:?}"),
+                }
+            }
+            other => panic!("expected valid, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn an_absent_backup_is_missing_rather_than_an_error() {
+        let dir = temp_dir("backup-missing");
+        let root = dir.to_string_lossy().into_owned();
+        assert!(matches!(
+            read_dirty_buffer(&dirty_buffer_path(&root, "ws", "GEN")),
+            DirtyBufferRead::Missing
+        ));
+    }
+
+    /// The validation ORDER is the contract here, not just the outcomes: each
+    /// malformed file must report the most specific reason provable about it,
+    /// so "this is not JSON" never surfaces as a checksum failure and a
+    /// well-formed file at the wrong version never surfaces as a parse error.
+    #[test]
+    fn each_malformed_backup_reports_its_own_most_specific_reason() {
+        let dir = temp_dir("backup-malformed");
+        let root = dir.to_string_lossy().into_owned();
+
+        let cases: Vec<(&str, String, DirtyBufferUnreadable)> = vec![
+            (
+                "NOTJSON",
+                "{not json at all".to_string(),
+                DirtyBufferUnreadable::JsonParse,
+            ),
+            (
+                "OLDVER",
+                r#"{"schemaVersion":99,"diskBaseline":{"kind":"absent"},"bodyMd5":"x","writtenAt":1,"appVersion":"t","content":"hi"}"#.to_string(),
+                DirtyBufferUnreadable::SchemaVersion,
+            ),
+            (
+                "NOBASE",
+                // Checksum-valid but the baseline union is garbage — the app
+                // dereferences `diskBaseline.kind`, so this must not pass.
+                r#"{"schemaVersion":1,"diskBaseline":null,"bodyMd5":"x","writtenAt":1,"appVersion":"t","content":"hi"}"#.to_string(),
+                DirtyBufferUnreadable::SchemaVersion,
+            ),
+            (
+                "TORN",
+                r#"{"schemaVersion":1,"diskBaseline":{"kind":"absent"},"bodyMd5":"deadbeef","writtenAt":1,"appVersion":"t","content":"hi"}"#.to_string(),
+                DirtyBufferUnreadable::BodyMd5Mismatch,
+            ),
+        ];
+
+        for (book, body, expected) in cases {
+            write_backup(&dir, "ws", book, &body);
+            match read_dirty_buffer(&dirty_buffer_path(&root, "ws", book)) {
+                DirtyBufferRead::Unreadable { reason, .. } => {
+                    assert_eq!(reason, expected, "{book} reported the wrong reason");
+                }
+                other => panic!("{book} expected unreadable, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn listing_a_workspace_yields_every_backup_in_book_order_and_skips_non_json() {
+        let dir = temp_dir("backup-list");
+        let root = dir.to_string_lossy().into_owned();
+        write_backup(&dir, "ws", "MRK", &valid_envelope("\\id MRK\n"));
+        write_backup(&dir, "ws", "GEN", &valid_envelope("\\id GEN\n"));
+        std::fs::write(
+            dirty_buffer_workspace_dir(&root, "ws").join("GEN.json.tmp-1-2"),
+            "half a write",
+        )
+        .expect("write temp");
+
+        let listed = list_dirty_buffers(&root, "ws");
+        assert_eq!(
+            listed
+                .iter()
+                .map(|item| item.book_code.as_str())
+                .collect::<Vec<_>>(),
+            vec!["GEN", "MRK"],
+            "an in-flight atomic-write temp file is not a backup"
+        );
+        assert!(listed
+            .iter()
+            .all(|item| matches!(item.result, DirtyBufferRead::Valid { .. })));
+    }
+
+    /// The bound-source contract, which is the whole reason the sources blob is
+    /// rebuilt after layering.
+    ///
+    /// A packed container is bound to the exact bytes it was built from, and
+    /// main certifies it by length + content hash per book. Layering a backup
+    /// rebinds that book, so returning disk bytes here would refuse the entire
+    /// load — a recovery open would fail to open at all. Disk still has to
+    /// reach main, which is what `disk_source_by_book` carries.
+    #[test]
+    fn a_recovery_open_returns_the_bytes_the_container_is_bound_to() {
+        let dir = temp_dir("recovery-open");
+        let book_path = dir.join("GEN.usfm");
+        std::fs::write(&book_path, UNNORMALIZED_SOURCE).expect("write book");
+        let backup_root = dir.join("backups");
+        let backup = "\\id GEN\n\\c 1 \\p\n\\v 1 In the beginning, edited\n";
+        write_backup(&backup_root, "workspace", "GEN", &valid_envelope(backup));
+
+        let mut mirror = NativeMirrorState::default();
+        let result = mirror
+            .load_project(
+                dir.join("cache").to_str().expect("cache root"),
+                "workspace",
+                backup_root.to_str().expect("backup root"),
+                &[MirrorLoadProjectBookDto {
+                    book_code: "GEN".to_string(),
+                    source_key: "GEN".to_string(),
+                    path: book_path.to_string_lossy().to_string(),
+                }],
+                None,
+                true,
+            )
+            .expect("load");
+
+        assert_eq!(
+            result.recovery.restored_book_codes,
+            vec!["GEN".to_string()],
+            "entries={:?}",
+            result.recovery.entries
+        );
+        let book = &result.books[0];
+        assert_eq!(
+            book.dirty_chapters,
+            Some(vec![1]),
+            "the edited chapter is what Braid reports dirty"
+        );
+
+        // The blob main will certify against holds the BACKUP, not disk.
+        let blob = mirror
+            .braid_packed
+            .get(&result.sources_id)
+            .expect("sources blob");
+        let bound = &blob[book.byte_offset..book.byte_offset + book.byte_length];
+        assert_eq!(std::str::from_utf8(bound).expect("utf8"), backup);
+
+        // Disk still reaches main, separately — it is the recovered book's
+        // baseline, and without it every dirty/revert reader on main is wrong.
+        assert_eq!(
+            result
+                .recovery
+                .disk_source_by_book
+                .get("GEN")
+                .map(String::as_str),
+            Some(UNNORMALIZED_SOURCE)
+        );
+
+        // And the sidecar was NOT written: `corpus.bin` means "this is disk".
+        assert!(
+            !dir.join("cache")
+                .join("braid")
+                .join("workspace")
+                .join("corpus.bin")
+                .exists(),
+            "a recovery open must never label unsaved work as the saved corpus"
+        );
+    }
+
+    #[test]
+    fn a_workspace_with_no_backup_directory_lists_empty() {
+        let dir = temp_dir("backup-none");
+        assert!(list_dirty_buffers(&dir.to_string_lossy(), "never-opened").is_empty());
     }
 }

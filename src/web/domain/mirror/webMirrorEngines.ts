@@ -17,6 +17,8 @@ import type {
   Generation,
   GalleyResult,
   HostCommand,
+  HostRecovery,
+  HostRecoveryEntry,
   LoadedProjectBook,
   LoadedProjectGalley,
   LoadProjectResult,
@@ -50,7 +52,10 @@ type ResidentBraidBook = {
 
 /** Everything one load hands back; the worker only stamps transport fields. */
 export type LoadedProject = Required<
-  Pick<LoadProjectResult, "packed" | "sources" | "books" | "hostPhases">
+  Pick<
+    LoadProjectResult,
+    "packed" | "sources" | "books" | "recovery" | "hostPhases"
+  >
 > & {
   state: "warm" | "cold";
   galley?: LoadedProjectGalley;
@@ -101,8 +106,31 @@ export function makeWebMirrorEngines(args: HostOptions): WebMirrorEngines {
     };
   };
 
+  /**
+   * Set once a patch has thrown, cleared only by a complete re-seed.
+   *
+   * A patch that failed did not apply, so the resident corpus no longer holds
+   * what main holds — and the watermark alone cannot express that, because the
+   * NEXT patch advances it right past the gap. Without this, every read of
+   * resident state looks current: `publishBraid` would happily serialize the
+   * stale corpus, and a save would write bytes that predate the user's edits.
+   * Treating the mirror as behind makes analyze resync and makes save refuse,
+   * which is the difference between a loud failure and silent data loss.
+   */
+  let desynced = false;
+
   const applyPatch = (patch: MirrorPatch): void => {
+    try {
+      applyPatchInner(patch);
+    } catch (error) {
+      desynced = true;
+      throw error;
+    }
     latestGeneration = Math.max(latestGeneration, patch.generation);
+    if (patch.kind === "fullSync") desynced = false;
+  };
+
+  const applyPatchInner = (patch: MirrorPatch): void => {
     switch (patch.kind) {
       case "fullSync": {
         const books: ResidentBraidBook[] = patch.books.map((book) => ({
@@ -200,7 +228,7 @@ export function makeWebMirrorEngines(args: HostOptions): WebMirrorEngines {
   };
 
   const behind = (generation: Generation): boolean =>
-    generation > latestGeneration;
+    desynced || generation > latestGeneration;
 
   async function runCommand(
     command: MirrorCommand,
@@ -476,62 +504,91 @@ export function makeWebMirrorEngines(args: HostOptions): WebMirrorEngines {
       return { decoded, sources, catalog };
     });
 
-    const restoreRecords = corpus.decoded.map((book) => ({
-      bookCode: book.bookCode,
-      sourceKey: book.sourceKey,
-      source: corpus.sources.subarray(
-        book.byteOffset,
-        book.byteOffset + book.bytes.byteLength,
-      ),
-    }));
+    // The catalog IS the extent table Braid restores against — same offsets
+    // main later certifies the container with, so the two cannot disagree.
     const warm =
       sidecar === null
         ? null
         : phases.timeSync(
             "worker:braid:restore",
             () =>
-              braid.restorePublishedCorpus(sidecar, restoreRecords).accepted
+              braid.restorePublishedCorpus(
+                sidecar,
+                corpus.sources,
+                corpus.catalog,
+              ).accepted
                 ? detach(sidecar)
                 : null,
             (value) => ({ state: value ? "accepted" : "rejected" }),
           );
     if (warm) {
       phases.timeSync("worker:braid:restore-baseline", () =>
-        braid.adoptRestoredBaseline(restoreRecords),
+        braid.adoptRestoredBaseline(),
       );
     }
 
-    let packed: ArrayBuffer;
-    let state: "warm" | "cold";
-    if (warm) {
-      packed = warm;
-      state = "warm";
-    } else {
-      state = "cold";
+    let packed: ArrayBuffer | null = warm;
+    const state: "warm" | "cold" = warm ? "warm" : "cold";
+    if (!warm) {
       phases.timeSync("worker:braid:cold-seed", () =>
         braid.loadSources(corpus.decoded),
       );
+    }
+
+    // Crash recovery, as a layer over the corpus that was just established:
+    // baseline is disk, current becomes the backup. Everything downstream —
+    // lint, publish, Galley — then runs ONCE, on the effective content.
+    const layered = new Map<string, string>();
+    const recovery = await phases.time(
+      "worker:braid:recover",
+      () => layerBackups(corpus.catalog, corpus.sources, layered),
+      (value) => ({
+        restored: value.restoredBookCodes.length,
+        conflicted: value.conflictedBookCodes.length,
+        reported: value.entries.length,
+      }),
+    );
+    // What main certifies the container against has to be what the container is
+    // bound to, book for book — see `rebindSources`.
+    const boundSources =
+      layered.size === 0
+        ? corpus.sources
+        : rebindSources(corpus.catalog, corpus.sources, layered);
+
+    if (recovery.restoredBookCodes.length > 0 || packed === null) {
       const publication = phases.timeSync(
         "worker:braid:publish",
         () => braid.publishPacked(),
         (value) => ({ bytes: value.packed.byteLength }),
       );
       packed = publication.packed;
-      // Copy before the result's buffer is transferred to main; the sidecar
-      // write is best-effort and outlives this load, so it reports itself
-      // (`[startup:cache-write]`) rather than riding home as a phase.
-      const forCache = new Uint8Array(packed.slice(0));
-      phases.record("worker:braid:cache-write", {
-        state: "queued",
-        bytes: forCache.byteLength,
-      });
-      void putBraidWarmCache({
-        fileSystem,
-        cacheRoot: roots.cacheRoot,
-        workspaceKey,
-        packed: forCache,
-        origin: "load",
-      });
+      // THE SIDECAR MEANS "THIS IS WHAT IS ON DISK". A recovery open holds
+      // unsaved work, so republishing it here would label the user's backup as
+      // the saved corpus and the next open would restore it as clean. Same rule
+      // Galley follows with `cachePolicy: "none"`. Only a cold open — which by
+      // definition just parsed disk and layered nothing — may write.
+      if (state === "cold" && recovery.restoredBookCodes.length === 0) {
+        // Copy before the result's buffer is transferred to main; the sidecar
+        // write is best-effort and outlives this load, so it reports itself
+        // (`[startup:cache-write]`) rather than riding home as a phase.
+        const forCache = new Uint8Array(packed.slice(0));
+        phases.record("worker:braid:cache-write", {
+          state: "queued",
+          bytes: forCache.byteLength,
+        });
+        void putBraidWarmCache({
+          fileSystem,
+          cacheRoot: roots.cacheRoot,
+          workspaceKey,
+          packed: forCache,
+          origin: "load",
+        });
+      } else {
+        phases.record("worker:braid:cache-write", {
+          state: "skipped",
+          reason: "recovered",
+        });
+      }
     }
 
     const galleyResult = command.analysisDisabled
@@ -541,11 +598,166 @@ export function makeWebMirrorEngines(args: HostOptions): WebMirrorEngines {
     return {
       state,
       packed,
-      sources: corpus.sources.buffer as ArrayBuffer,
+      sources: detach(boundSources),
       books: corpus.catalog,
+      recovery,
       galley: galleyResult,
       hostPhases: phases.phases,
     };
+  }
+
+  /**
+   * Layer every usable crash backup over the resident corpus.
+   *
+   * Baseline is already disk at this point, so `updateBook` makes current the
+   * backup and leaves the comparison intact — which is what lets Braid, rather
+   * than a token diff on main, answer both "is this stale residue" and "which
+   * chapters did the user actually change".
+   *
+   * Nothing here throws: a backup that cannot be read, parsed, or matched to a
+   * resident book becomes a report entry and the reopen continues. That is the
+   * whole point of the report — the work may still be in the named file.
+   */
+  async function layerBackups(
+    catalog: readonly LoadedProjectBook[],
+    sources: Uint8Array,
+    /** Receives each layered book's backup source — its new bound source. */
+    layered: Map<string, string>,
+  ): Promise<HostRecovery> {
+    const entries: HostRecoveryEntry[] = [];
+    const restoredBookCodes: string[] = [];
+    const conflictedBookCodes: string[] = [];
+    const diskSourceByBook: Record<string, string> = {};
+    const resident = new Map(catalog.map((book) => [book.bookCode, book]));
+
+    for (const backup of await dirtyBufferStore.list(args.workspaceKey)) {
+      const { bookCode, path, result } = backup;
+      if (result.kind === "missing") continue;
+      if (result.kind === "unreadable") {
+        entries.push({
+          kind: "backup-unreadable",
+          reason: result.reason,
+          message: result.message,
+          path: result.path,
+        });
+        continue;
+      }
+      const book = resident.get(bookCode);
+      // Not in the project at all. Distinct from "we have no baseline for it":
+      // a loaded book whose md5 is unknown is still on disk and still restores.
+      if (!book) {
+        entries.push({
+          kind: "manual-recovery",
+          subKind:
+            result.entry.diskBaseline.kind === "absent"
+              ? "new-book-not-supported"
+              : "disk-book-missing",
+          bookCode,
+          path,
+        });
+        continue;
+      }
+
+      const ingested = braid.layerBookFromUsfm(
+        bookCode,
+        book.sourceKey,
+        result.entry.content,
+      );
+      if (!ingested.accepted) {
+        entries.push({
+          kind: "usfm-parse-error",
+          message: ingested.error ?? "Braid refused the backup",
+          path,
+          bookCode,
+        });
+        continue;
+      }
+
+      // Residue, decided by the one authority on what "same USFM" means: a
+      // save that failed to clear its backup leaves a file equal to disk, and
+      // after layering it Braid simply reports the book clean.
+      //
+      // An unanswerable scope must NOT read as clean — the branch below deletes
+      // the backup on the strength of this answer, and that file can be a
+      // translator's only copy. Report it and keep both the backup and the
+      // layered content.
+      let dirtyChapters: number[];
+      try {
+        dirtyChapters = braid.dirtyChapters(bookCode);
+      } catch (error) {
+        entries.push({
+          kind: "usfm-parse-error",
+          message: String(error),
+          path,
+          bookCode,
+        });
+        continue;
+      }
+      if (dirtyChapters.length === 0) {
+        // Residue — but layering ALREADY rebound this book's source to the
+        // backup, and `layered` is what the sources blob is rebuilt from. A
+        // book reported clean must be bound to disk, or the container gets
+        // published against backup bytes main will certify against disk bytes.
+        // Reverting puts the disk binding back, which is the state the "clean"
+        // claim is about.
+        braid.revertToBaseline([bookCode]);
+        void dirtyBufferStore.clear(args.workspaceKey, bookCode);
+        continue;
+      }
+      book.dirtyChapters = dirtyChapters;
+      // Disk, before the backup replaced it as this book's bound source.
+      diskSourceByBook[bookCode] = decoder.decode(
+        sources.subarray(book.byteOffset, book.byteOffset + book.byteLength),
+      );
+      layered.set(bookCode, result.entry.content);
+      restoredBookCodes.push(bookCode);
+      // Disk moved underneath the backup. A message, never a branch — the work
+      // is kept either way; an unknown baseline counts as moved, the safe read.
+      const recorded = result.entry.diskBaseline;
+      if (recorded.kind === "absent" || recorded.md5 !== book.sourceMd5) {
+        conflictedBookCodes.push(bookCode);
+      }
+    }
+    return {
+      restoredBookCodes,
+      conflictedBookCodes,
+      entries,
+      diskSourceByBook,
+    };
+  }
+
+  /**
+   * Rebuild the sources buffer so it holds what the corpus is now BOUND to.
+   *
+   * Layering a backup rebinds that book's source, and the packed container main
+   * certifies is bound to the same thing — verification checks exact length and
+   * content hash per book, so handing main the disk bytes instead would refuse
+   * the whole load. Extents move with the content, so the catalog is rewritten
+   * in place rather than patched.
+   */
+  function rebindSources(
+    catalog: LoadedProjectBook[],
+    sources: Uint8Array,
+    layered: ReadonlyMap<string, string>,
+  ): Uint8Array {
+    const encoder = new TextEncoder();
+    const bytesByBook = catalog.map((book) => {
+      const backup = layered.get(book.bookCode);
+      return backup === undefined
+        ? sources.subarray(book.byteOffset, book.byteOffset + book.byteLength)
+        : encoder.encode(backup);
+    });
+    const total = bytesByBook.reduce((sum, bytes) => sum + bytes.byteLength, 0);
+    const rebound = new Uint8Array(total);
+    let byteOffset = 0;
+    catalog.forEach((book, index) => {
+      const bytes = bytesByBook[index];
+      rebound.set(bytes, byteOffset);
+      book.byteOffset = byteOffset;
+      book.byteLength = bytes.byteLength;
+      byteOffset += bytes.byteLength;
+    });
+    return rebound;
   }
 
   /**
