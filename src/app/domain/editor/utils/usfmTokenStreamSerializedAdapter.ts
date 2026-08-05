@@ -292,10 +292,42 @@ export function lexicalToTokens(
       ? guidGenerator()
       : `linebreak-${options.chapterNumber}-${linebreakId++}`;
 
+  // Token ids must be unique across the stream — Braid refuses a book whose
+  // tokens collide (`duplicateTokenId`) and the whole patch is lost, so one
+  // repeated id silently desyncs the mirror for the rest of the session.
+  //
+  // Lexical is where collisions come from: splitting a text node (typing at a
+  // boundary, an IME commit, a paste) yields two nodes carrying the SAME `id`,
+  // and which edits split rather than mutate differs by engine — Firefox
+  // produced a duplicate here where Chromium did not. The editor owns ids, so
+  // the honest repair is to mint a fresh one for the later occurrence rather
+  // than emit a stream we know is invalid.
+  //
+  // The replacement is DERIVED, never minted: a random id would differ on every
+  // serialization of the same content, so a stable collision would produce an
+  // unstable stream — and undo/redo, search anchors and finding anchors all key
+  // on ids. Suffixing by occurrence keeps the same input mapping to the same
+  // ids, which is the property those consumers actually need.
+  const seenIds = new Set<string>();
+  const uniqueId = (candidate: string): string => {
+    if (!seenIds.has(candidate)) {
+      seenIds.add(candidate);
+      return candidate;
+    }
+    let occurrence = 2;
+    let derived = `${candidate}__${occurrence}`;
+    while (seenIds.has(derived)) {
+      occurrence += 1;
+      derived = `${candidate}__${occurrence}`;
+    }
+    seenIds.add(derived);
+    return derived;
+  };
+
   for (const node of nodes) {
     if (node.type === "linebreak") {
       tokens.push({
-        id: newlineId(),
+        id: uniqueId(newlineId()),
         kind: "newline",
         sid: lastSid,
         source: "\n",
@@ -311,14 +343,22 @@ export function lexicalToTokens(
     const kind = lexicalTokenTypeToOnionKind(node.tokenType);
     const numberInfo =
       kind === "number" ? parseNumberInfoFromSource(text) : undefined;
+    // Every optional field is spread in only when it has a value. An own
+    // property holding `undefined` is NOT the same as an absent one at the
+    // wasm boundary: the decoder reads each field with `Reflect.get`, so it
+    // sees the property and decodes it, where an absent one takes the field's
+    // default. `attributes` decodes as a sequence, and a sequence read from
+    // `undefined` throws rather than defaulting to empty. Structured clone
+    // preserves own properties too, so a token shaped that way stays wrong all
+    // the way through the worker.
     tokens.push({
-      id: node.id,
+      id: uniqueId(node.id),
       kind,
       sid,
-      marker,
+      ...(marker === undefined ? {} : { marker }),
       // USFM 3.1 marks nested character markers with a "+" prefix;
       // upstream's linter pairs openers and closes using this flag.
-      nested: marker?.startsWith("+") || undefined,
+      ...(marker?.startsWith("+") ? { nested: true } : {}),
       // Upstream renamed `Token.text` → `Token.source` in v0.0.3; the
       // value carried is still the lexed byte slice for this token.
       source: text,
@@ -326,9 +366,13 @@ export function lexicalToTokens(
       // USFM 3.1 character-marker attribute list (`|key="value"`).
       // Round-tripped via `tokensToUsfm` upstream — without this
       // the attribute slice silently drops on save.
-      attributes: node.attributes,
-      attributeSource: node.attributeSource,
-      attributeOffset: node.attributeOffset,
+      ...(node.attributes === undefined ? {} : { attributes: node.attributes }),
+      ...(node.attributeSource === undefined
+        ? {}
+        : { attributeSource: node.attributeSource }),
+      ...(node.attributeOffset === undefined
+        ? {}
+        : { attributeOffset: node.attributeOffset }),
     });
     if (sid) lastSid = sid;
   }
