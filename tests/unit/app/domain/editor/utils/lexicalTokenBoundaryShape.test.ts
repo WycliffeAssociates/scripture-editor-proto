@@ -47,4 +47,29 @@ describe("editor-authored tokens at the wasm boundary", () => {
     );
     expect(offenders).toEqual([]);
   });
+
+  // A `bookCode` token's payload is the code plus Onion's verdict on whether
+  // it names a recognized USFM book. The editor cannot re-derive the verdict,
+  // so a round trip that drops it produces a token Braid refuses outright —
+  // `Illegal { reason: MissingPayload { kind: BookCode } }`, which kills the
+  // whole patch and desyncs the mirror for the rest of the session. Onion
+  // refuses half the payload too, so the two travel together or not at all.
+  it("carries the \\id token's payload back out intact", async () => {
+    // Parsed inline rather than from the kitchen sink: Onion only emits a
+    // `bookCode` token when the `\id` value actually parses as one, and that
+    // fixture's id line carries a trailing description, so its value comes
+    // back as plain text.
+    const { tokens } = await webUsfmOnionService.parseUsfm(
+      "\\id EXO\n\\c 1 \\p\n\\v 1 In the beginning\n",
+    );
+    const source = tokens.find((token) => token.kind === "bookCode");
+    expect(source, "the fixture must contain an \\id book code").toBeDefined();
+
+    const roundTripped = lexicalToTokens(
+      tokensToLexical({ tokens, direction: "ltr", mode: "flat" }),
+    ).find((token) => token.kind === "bookCode");
+
+    expect(roundTripped?.bookCode).toBe(source?.bookCode);
+    expect(roundTripped?.bookCodeValid).toBe(source?.bookCodeValid);
+  });
 });

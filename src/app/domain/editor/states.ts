@@ -72,6 +72,22 @@ const attributeOffsetState = createState("attributeOffset", {
 });
 
 /**
+ * The `\id` token's payload: the book code and Onion's verdict on whether it
+ * is a recognized USFM book identifier.
+ *
+ * Both or neither. A `bookCode`-kind token is refused without them, and half
+ * a book code is refused too — validity is Onion's judgement, so supplying a
+ * default here would be inventing the answer rather than carrying it.
+ */
+const bookCodeState = createState("bookCode", {
+  parse: (value) => (typeof value === "string" ? value : undefined),
+});
+
+const bookCodeValidState = createState("bookCodeValid", {
+  parse: (value) => (typeof value === "boolean" ? value : undefined),
+});
+
+/**
  * Defines the NodeState for 'markerText'. Stores the original text of a paragraph marker
  * (e.g., "\\p " or "\\p\n") to preserve whitespace for accurate diffing.
  */
@@ -93,6 +109,8 @@ export {
   attributesState,
   attributeSourceState,
   attributeOffsetState,
+  bookCodeState,
+  bookCodeValidState,
   markerTextState,
   isStructuralEmptyState,
 };

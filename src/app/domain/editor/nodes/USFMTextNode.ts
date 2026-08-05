@@ -24,6 +24,8 @@ import {
   attributeOffsetState,
   attributeSourceState,
   attributesState,
+  bookCodeState,
+  bookCodeValidState,
   markerState,
   sidState,
   tokenTypeState,
@@ -63,6 +65,13 @@ export type SerializedUSFMTextNode = SerializedTextNode & {
   /** Verbatim attribute bytes and placement for untouched round-trips. */
   attributeSource?: string;
   attributeOffset?: number;
+  /**
+   * The `\id` token's payload. Carried on the node because Onion refuses a
+   * `bookCode` token that arrives without it, and refuses half of it too —
+   * see `bookCodeState`.
+   */
+  bookCode?: string;
+  bookCodeValid?: boolean;
   [key: string]: unknown;
 };
 
@@ -98,6 +107,8 @@ export class USFMTextNode extends TextNode {
         { flat: true, stateConfig: attributesState },
         { flat: true, stateConfig: attributeSourceState },
         { flat: true, stateConfig: attributeOffsetState },
+        { flat: true, stateConfig: bookCodeState },
+        { flat: true, stateConfig: bookCodeValidState },
       ],
     });
   }
@@ -117,6 +128,8 @@ export class USFMTextNode extends TextNode {
       attributes: $getState(this.getLatest(), attributesState),
       attributeSource: $getState(this.getLatest(), attributeSourceState),
       attributeOffset: $getState(this.getLatest(), attributeOffsetState),
+      bookCode: $getState(this.getLatest(), bookCodeState),
+      bookCodeValid: $getState(this.getLatest(), bookCodeValidState),
     };
   }
   // getters and setters
@@ -283,6 +296,8 @@ export type USFMTextNodeMetadata = {
   attributes?: AttributeItem[];
   attributeSource?: string;
   attributeOffset?: number;
+  bookCode?: string;
+  bookCodeValid?: boolean;
   [key: string]: unknown;
 };
 export function $createUSFMTextNode(
@@ -308,6 +323,8 @@ export function $createUSFMTextNode(
   $setState(writable, attributesState, metadata.attributes);
   $setState(writable, attributeSourceState, metadata.attributeSource);
   $setState(writable, attributeOffsetState, metadata.attributeOffset);
+  $setState(writable, bookCodeState, metadata.bookCode);
+  $setState(writable, bookCodeValidState, metadata.bookCodeValid);
   return node;
 }
 type CreateSerializedUSFMTextNodeParams = {
@@ -326,6 +343,8 @@ type CreateSerializedUSFMTextNodeParams = {
   attributes?: AttributeItem[];
   attributeSource?: string;
   attributeOffset?: number;
+  bookCode?: string;
+  bookCodeValid?: boolean;
   [key: string]: unknown;
 };
 export function createSerializedUSFMTextNode(
@@ -344,6 +363,8 @@ export function createSerializedUSFMTextNode(
     attributes: params.attributes,
     attributeSource: params.attributeSource,
     attributeOffset: params.attributeOffset,
+    bookCode: params.bookCode,
+    bookCodeValid: params.bookCodeValid,
     version: 1,
     text: params.text,
     detail: 0,

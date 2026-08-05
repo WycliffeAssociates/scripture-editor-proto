@@ -255,12 +255,32 @@ function serializeEntry(entry: BookFrontmatterEntry): SerializedLexicalNode[] {
     ];
 
     if (code.length > 0) {
+      // A `bookCode` token carries a payload Onion refuses to receive
+      // incomplete: the code plus its verdict on whether that code is a
+      // recognized USFM book identifier. The verdict is Onion's, not ours, so
+      // it can only be carried — which works whenever the card round-trips
+      // the code unchanged, the ordinary case for a form that exists to edit
+      // the OTHER frontmatter fields. Reuse the token's own id too: minting a
+      // fresh one on every serialization would make a stable card produce an
+      // unstable stream.
+      const original = entry.tokens.find(
+        (token): token is SerializedUSFMTextNode =>
+          isSerializedUSFMTextNode(token) && token.tokenType === "bookCode",
+      );
+      const carried =
+        original?.text.trim() === code &&
+        original.bookCode !== undefined &&
+        original.bookCodeValid !== undefined
+          ? original
+          : undefined;
       tokens.push(
         createSerializedUSFMTextNode({
           text: ` ${code}`,
-          id: guidGenerator(),
+          id: carried?.id ?? guidGenerator(),
           sid: entry.sid,
           tokenType: "bookCode",
+          bookCode: carried?.bookCode,
+          bookCodeValid: carried?.bookCodeValid,
         }),
       );
     }

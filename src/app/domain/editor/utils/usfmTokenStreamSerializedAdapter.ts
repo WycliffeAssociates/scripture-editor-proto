@@ -373,6 +373,15 @@ export function lexicalToTokens(
       ...(node.attributeOffset === undefined
         ? {}
         : { attributeOffset: node.attributeOffset }),
+      // The `\id` token's payload, and the one field the editor cannot
+      // reconstruct: `bookCodeValid` is Onion's verdict on whether the code is
+      // a recognized USFM book identifier, so it can only be carried, never
+      // derived. Onion refuses a `bookCode` token that arrives without it —
+      // and refuses half of it, rather than defaulting the validity — so both
+      // travel together or neither does.
+      ...(node.bookCode === undefined || node.bookCodeValid === undefined
+        ? {}
+        : { bookCode: node.bookCode, bookCodeValid: node.bookCodeValid }),
     });
     if (sid) lastSid = sid;
   }
@@ -422,6 +431,8 @@ export function tokensToLexical(args: {
                   attributes: token.attributes,
                   attributeSource: token.attributeSource,
                   attributeOffset: token.attributeOffset,
+                  bookCode: token.bookCode,
+                  bookCodeValid: token.bookCodeValid,
                 }) as SerializedLexicalNode),
           ),
           args.direction,
