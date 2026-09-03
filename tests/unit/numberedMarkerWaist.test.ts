@@ -186,6 +186,22 @@ describe("tree→flat emission", () => {
     expect(tokens.every((t) => t.source.length > 0)).toBe(true);
   });
 
+  it("emits number content it cannot parse as the TEXT token the lexer would", async () => {
+    const { state } = await loadRegular(SIMPLE);
+    const [verse] = collectNumbered(
+      state.root.children as SerializedLexicalNode[],
+    ).filter((n) => n.marker === "v");
+    for (const text of [" ", "a ", "0 "]) {
+      verse.text = text;
+      const tokens = lexicalToTokens(state);
+      const vIndex = tokens.findIndex(
+        (t) => t.kind === "marker" && t.marker === "v",
+      );
+      expect(tokens[vIndex + 1]).toMatchObject({ kind: "text", source: text });
+      expect(tokens[vIndex + 1].numberInfo).toBeUndefined();
+    }
+  });
+
   it("preserves junk whitespace parked in the number content", async () => {
     const usfm = "\\id GEN x\n\\c 1\n\\p\n\\v    7 junk\n";
     const { state } = await loadRegular(usfm);

@@ -20,6 +20,7 @@ import {
   editorModeToShape,
   UsfmTokenTypes,
 } from "@/app/data/editor.ts";
+import { registerChapterNumberLock } from "@/app/domain/editor/listeners/chapterNumberLock.ts";
 import {
   moveToAdjacentNodesWhenSeemsAppropriate,
   normalizeSelectionAtHiddenMarkerBoundary,
@@ -103,6 +104,11 @@ export function useEditorInput(editor: LexicalEditor) {
     // selection is in a numbered node, which exists only in the regular shape.
     const numberedMarkerBehaviorsUnregister =
       registerNumberedMarkerBehaviors(editor);
+
+    // The chapter number is immutable: downstream state is keyed by its
+    // label. Runs at critical priority so it precedes every other handler
+    // (including the numbered-marker two-stage delete and USFM paste).
+    const chapterNumberLockUnregister = registerChapterNumberLock(editor);
 
     // Flat-shape (usfm/plain) twin: generic seam-selection makes both sides of
     // a verse/chapter-number boundary explicitly reachable + holdable. Regular
@@ -357,6 +363,7 @@ export function useEditorInput(editor: LexicalEditor) {
       unregisterTransformWhileTyping();
       redirectParaInsertionToLineBreakUnregister();
       numberedMarkerBehaviorsUnregister();
+      chapterNumberLockUnregister();
       numberProseDraftingUnregister?.();
       seamSelection?.unregister();
       normalizeSelectionAtHiddenMarkerBoundaryUnregister();

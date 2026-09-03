@@ -114,8 +114,17 @@ export function makeWebMirrorEngines(args: HostOptions): WebMirrorEngines {
    * NEXT patch advances it right past the gap. Without this, every read of
    * resident state looks current: `publishBraid` would happily serialize the
    * stale corpus, and a save would write bytes that predate the user's edits.
-   * Treating the mirror as behind makes analyze resync and makes save refuse,
-   * which is the difference between a loud failure and silent data loss.
+   * Treating the mirror as behind makes save refuse, which is the difference
+   * between a loud failure and silent data loss.
+   *
+   * Patches are fire-and-forget, so main never sees the throw; the failed
+   * patch itself asks for the repair by posting a `resyncRequest`. Main
+   * answers with a `fullSync` from current store state, which is the one
+   * patch that can clear this flag. While the buffer still holds the token
+   * Braid refused (an unparseable verse number, say), that re-seed fails the
+   * same way and is dropped as a duplicate by main's per-generation coalesce;
+   * the next commit carries a newer generation and asks again, so the mirror
+   * heals on the first commit after the user repairs the text.
    */
   let desynced = false;
 
@@ -124,6 +133,10 @@ export function makeWebMirrorEngines(args: HostOptions): WebMirrorEngines {
       applyPatchInner(patch);
     } catch (error) {
       desynced = true;
+      args.backgroundResult?.({
+        kind: "resyncRequest",
+        lastGeneration: patch.generation,
+      });
       throw error;
     }
     latestGeneration = Math.max(latestGeneration, patch.generation);

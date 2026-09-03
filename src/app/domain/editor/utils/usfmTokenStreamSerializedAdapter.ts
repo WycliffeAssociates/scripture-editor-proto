@@ -340,9 +340,16 @@ export function lexicalToTokens(
     const sid = node.sid ?? lastSid;
     const text = node.text ?? "";
     const marker = node.marker ?? undefined;
-    const kind = lexicalTokenTypeToOnionKind(node.tokenType);
+    const editorKind = lexicalTokenTypeToOnionKind(node.tokenType);
     const numberInfo =
-      kind === "number" ? parseNumberInfoFromSource(text) : undefined;
+      editorKind === "number" ? parseNumberInfoFromSource(text) : undefined;
+    // A Number token is only a Number when its payload parses. The lexer
+    // reads `\v a` or `\v  ` (whitespace only) as marker + TEXT, and Braid
+    // refuses a Number token that arrives without a payload, so number-typed
+    // content the editor cannot parse is emitted as the text token the lexer
+    // would produce (I2). Bytes are unchanged; only the kind demotes.
+    const kind =
+      editorKind === "number" && numberInfo === undefined ? "text" : editorKind;
     // Every optional field is spread in only when it has a value. An own
     // property holding `undefined` is NOT the same as an absent one at the
     // wasm boundary: the decoder reads each field with `Reflect.get`, so it

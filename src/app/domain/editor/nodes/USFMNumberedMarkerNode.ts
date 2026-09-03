@@ -452,6 +452,25 @@ const isNumberedSeam = (left: TextNode, right: TextNode): boolean =>
 export function registerNumberedMarkerBehaviors(editor: LexicalEditor) {
   const seam = registerSeamSelection(editor, isNumberedSeam);
 
+  // Whitespace-only content is the empty placeholder. The two-stage delete
+  // already lands on "" but range edits that bypass it (cut of the digits,
+  // drag-out, native replacement) leave the bare delimiter behind: invisible,
+  // and its end offset is the number→prose seam, so a retyped digit jumps to
+  // the prose and the number is stranded. Collapsing to "" keeps every
+  // affordance of the empty state (data-empty, retype-into-empty, stage 2).
+  const normalizeWhitespaceOnly = editor.registerNodeTransform(
+    USFMNumberedMarkerNode,
+    (node) => {
+      const text = node.getTextContent();
+      if (text === "" || text.trim() !== "") return;
+      node.setTextContent("");
+      const sel = $getSelection();
+      if ($isRangeSelection(sel) && sel.anchor.getNode().is(node)) {
+        node.select(0, 0);
+      }
+    },
+  );
+
   // Two-stage delete (backspace last digit → empty placeholder; backspace
   // again → remove the whole node), terminator-aware so the number's WS
   // delimiter is never orphaned (see registerDeletion).
@@ -494,6 +513,7 @@ export function registerNumberedMarkerBehaviors(editor: LexicalEditor) {
 
   return () => {
     seam.unregister();
+    normalizeWhitespaceOnly();
     del();
     typeEmpty();
     drafting();
